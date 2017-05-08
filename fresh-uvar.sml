@@ -26,8 +26,8 @@ fun get_base (* r gctx ctx *) on_UVarS s =
     exception OnSAppFailed
     fun on_SApp_UVarS s =
       let
-        val (x, args) = is_SApp_UVarS s !! (fn () => OnSAppFailed)
-        val info = get_uvar_info x (fn () => raise Impossible "check_sort()/unify_SApp_UVar(): x should be Fresh")
+        val (x, args) = is_SApp_UVarS s !! (fn () => raise OnSAppFailed)
+        val info = get_uvar_info x !! (fn () => raise Impossible "check_sort()/unify_SApp_UVar(): x should be Fresh")
       in
         on_UVarS (x, r, info, args)
       end
@@ -61,13 +61,22 @@ fun refine_UVarS_to_Basic (x, r, info, args) =
 
 fun V r n = VarI (NONE, (n, r))
 fun TV r n = MtVar (NONE, (n, r))
+
+fun fresh_uvar_i ctx bsort = ref (Fresh (inc (), ctx, bsort))
                
+fun fresh_i_with_bsorts ctx bsort r = 
+  let
+    val x = fresh_uvar_i ctx bsort
+    val i = UVarI (x, r)
+    val i = IApps i (map (V r) $ rev $ range (length ctx))
+  in
+    i
+  end
+
 fun fresh_i ctx bsort r = 
   let
     val ctx = map (mapSnd (get_base refine_UVarS_to_Basic)) ctx
-    val x = ref (Fresh (inc (), ctx, bsort))
-    val i = UVarI (x, r)
-    val i = IApps i (map (V r) $ rev $ range (length ctx))
+    val i = fresh_i_with_bsorts ctx bsort r
   in
     i
   end

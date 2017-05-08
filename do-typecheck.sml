@@ -11,6 +11,7 @@ open TypecheckUtil
 open UVar
 open Unify
 open FreshUVar
+open UVarForget
 
 infixr 0 $
 infix 0 !!
@@ -356,8 +357,8 @@ fun check_sort gctx (ctx, i : U.idx, s : sort) : idx =
     exception UnifySAppFailed
     fun unify_SApp_UVarS s =
       let
-        val (x, _) = is_SApp_UVarS s !! (fn () => UnifySAppFailed)
-        val (_, ctx) = get_uvar_info x (fn () => raise Impossible "check_sort()/unify_SApp_UVar(): x should be Fresh")
+        val (x, _) = is_SApp_UVarS s !! (fn () => raise UnifySAppFailed)
+        val (_, ctx) = get_uvar_info x !! (fn () => raise Impossible "check_sort()/unify_SApp_UVar(): x should be Fresh")
         val s = Basic (bs', r)
         val s = SAbsMany (ctx, s, r)
         val () = refine x s
@@ -896,8 +897,8 @@ fun smart_write_le gctx ctx (i1, i2, r) =
           UVarI (x, _) => is_fresh x
         | _ => false
   in
-    (* if is_fresh_i i1 orelse is_fresh_i i2 then unify_i r gctx ctx (i1, i2) *)
-    (* else *)
+    if is_fresh_i i1 orelse is_fresh_i i2 then unify_i r gctx ctx (i1, i2)
+    else
       write_le (i1, i2, r)
   end
 

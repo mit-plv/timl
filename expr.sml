@@ -326,6 +326,7 @@ fun combine_AddI_Time is = combine_AddI (T0 dummy) is
 fun combine_AddI_Nat is = combine_AddI (N0 dummy) is
 fun combine_AddI_nonempty i is = combine_AddI_Time (i :: is)
 fun combine_MultI is = foldl' (fn (i, acc) => acc %* i) (T1 dummy) is
+fun combine_IApp f is = foldl (fn (x, acc) => BinOpI (IApp, acc, x)) f is
                               
 fun collect_IAbs i =
   case i of
@@ -347,13 +348,15 @@ fun collect_BSArrow b =
         (a :: args, ret)
       end
     | UVarBS u => ([], b)
+
+fun combine_BSArrow (args, b) = foldr BSArrow b args
                     
 fun is_IApp_UVarI i =
   let
     val f :: args = collect_IApp i
   in
     case f of
-        UVarI (x, _) => SOME (x, args)
+        UVarI (x, r) => SOME ((x, r), args)
       | _ => NONE
   end
     

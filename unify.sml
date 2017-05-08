@@ -86,14 +86,14 @@ exception UnifyIAppFailed
 (* Try to see whether [i']'s variables are covered by the arguments applied to [x]. If so, then refine [x] with [i'], with the latter's variables replaced by the former's arguments. This may not be the most general instantiation, because [i']'s constants will be fixed for [x], although those constants may be arguments in a more instantiation. For example, unifying [x y 5] with [y+5] will refine [x] to be [fun y z => y+5], but a more general instantiation is [fun y z => y+z]. This less-general instantiation may cause later unifications to fail. *)
 fun unify_IApp r i i' =
   let
-    val (x, args) = is_IApp_UVarI i !! (fn () => UnifyIAppFailed)
+    val ((x, _), args) = is_IApp_UVarI i !! (fn () => raise UnifyIAppFailed)
     val args = map normalize_i args
     val i' = normalize_i i'
     val vars' = collect_var_i_i i'
-    val inj = find_injection eq_i (map VarI vars') (rev args) !! (fn () => UnifyIAppFailed)
+    val inj = find_injection eq_i (map VarI vars') (rev args) !! (fn () => raise UnifyIAppFailed)
     (* non-consuming substitution *)
     val i' = psubst_is_i vars' (map (V r) inj) i'
-    val (_, ctx, b) = get_uvar_info x (fn () => raise Impossible "unify_IApp(): shouldn't be [Refined]")
+    val (_, ctx, b) = get_uvar_info x !! (fn () => raise Impossible "unify_IApp(): shouldn't be [Refined]")
     val b = update_bs b
     (* val () = println $ str_bs b *)
     fun var_name n = "__x" ^ str_int n
@@ -214,13 +214,13 @@ fun is_sub_sort r gctxn ctxn (s, s') =
     exception UnifySAppFailed
     fun unify_SApp s s' =
       let
-        val (x, args) = is_SApp_UVarS s !! (fn () => UnifySAppFailed)
+        val (x, args) = is_SApp_UVarS s !! (fn () => raise UnifySAppFailed)
         val args = map normalize_i args
         val s' = normalize_s s'
         val vars' = collect_var_i_s s'
-        val inj = find_injection eq_i (map VarI vars') (rev args) !! (fn () => UnifySAppFailed)
+        val inj = find_injection eq_i (map VarI vars') (rev args) !! (fn () => raise UnifySAppFailed)
         val s' = psubst_is_s vars' (map (V r) inj) s'
-        val (_, ctx) = get_uvar_info x (fn () => raise Impossible "unify_s()/SApp: shouldn't be [Refined]")
+        val (_, ctx) = get_uvar_info x !! (fn () => raise Impossible "unify_s()/SApp: shouldn't be [Refined]")
         val s' = SAbsMany (ctx, s', r)
         val () = refine x s'
       in
@@ -491,18 +491,18 @@ fun unify_mt r gctx ctx (t, t') =
     exception UnifyMtAppFailed
     fun unify_MtApp t t' =
       let
-        val (x, i_args, t_args) = is_MtApp_UVar t !! (fn () => UnifyMtAppFailed)
+        val (x, i_args, t_args) = is_MtApp_UVar t !! (fn () => raise UnifyMtAppFailed)
         val i_args = map normalize_i i_args
         val t_args = map (normalize_mt gctx kctx) t_args
         val t' = normalize_mt gctx kctx t'
         val i_vars' = collect_var_i_mt t'
-        val i_inj = find_injection eq_i (map VarI i_vars') (rev i_args) !! (fn () => UnifyMtAppFailed)
+        val i_inj = find_injection eq_i (map VarI i_vars') (rev i_args) !! (fn () => raise UnifyMtAppFailed)
         val t_vars' = collect_var_t_mt t'
-        val t_inj = find_injection eq_mt (map MtVar t_vars') (rev t_args) !! (fn () => UnifyMtAppFailed)
+        val t_inj = find_injection eq_mt (map MtVar t_vars') (rev t_args) !! (fn () => raise UnifyMtAppFailed)
         val () = assert (fn () => length t_vars' = length t_inj) "length t_vars' = length t_inj"
         val t' = psubst_ts_mt t_vars' (map (TV r) t_inj) t'
         val t' = psubst_is_mt i_vars' (map (V r) i_inj) t'
-        val (_, (sctx, kctx)) = get_uvar_info x (fn () => raise Impossible "unify_t()/MtApp: shouldn't be [Refined]")
+        val (_, (sctx, kctx)) = get_uvar_info x !! (fn () => raise Impossible "unify_t()/MtApp: shouldn't be [Refined]")
         val () = if length i_args <= length sctx then () else raise Impossible "unify_MtApp(): #i_args <> #sctx"
         val () = if length t_args <= length kctx then () else raise Impossible "unify_MtApp(): #t_args shouldn't be larger than #kctx"
         (* #t_args could be < #kctx because of partial application *)

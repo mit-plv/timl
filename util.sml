@@ -40,7 +40,7 @@ fun isNone opt = not (isSome opt)
 fun SOME_or_fail opt err = 
   case opt of
       SOME a => a
-    | NONE => raise err ()
+    | NONE => err ()
 infix 0 !!
 fun opt !! err = SOME_or_fail opt err
 fun option2list a =

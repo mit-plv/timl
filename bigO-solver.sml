@@ -337,11 +337,11 @@ fun by_master_theorem (uvar, uvar_ctx, arity) (hs, p) =
         case p of
             BinPred (LeP, i1, BinOpI (IApp, g, n_i)) => (i1, g, n_i)
           | _ => raise Error "wrong pattern for by_master_theorem"
-    val (uvar', args') = is_IApp_UVarI g !! (fn () => Error "")
+    val ((uvar', _), args') = is_IApp_UVarI g !! (fn () => raise Error "")
     val () = if uvar = uvar' then () else raise Error "uvar <> uvar'"
     val (main_fun, args) = (g, args')
     (* [main_arg] is the main argument; [args] are the passive arguments *)
-    val args_v = map (fn i => is_VarI i !! (fn () => Error "")) args
+    val args_v = map (fn i => is_VarI i !! (fn () => raise Error "")) args
     val () = app (fn x => if contains main_arg x then raise Error "" else ()) args_v
     val n_ = to_real main_arg
     val is = collect_AddI lhs
@@ -547,9 +547,9 @@ fun solve_exists (vc as (hs, p), vcs) =
                   BinPred (BigO, f, spec) =>
                   (f, spec)
                 | _ => raise Error "wrong pattern"
-          val (uvar, args) = is_IApp_UVarI f !! (fn () => Error "not [uvar arg1 ...]")
+          val ((uvar, _), args) = is_IApp_UVarI f !! (fn () => raise Error "not [uvar arg1 ...]")
           val () = if null args then () else raise Error "args not null"
-          val (_, ctx, b) = get_uvar_info uvar (fn () => raise Error "not fresh uvar")
+          val (_, ctx, b) = get_uvar_info uvar !! (fn () => raise Error "not fresh uvar")
           val () = if null ctx then () else raise Error "ctx not null"
           val arity = is_time_fun (update_bs b) !! (fn () => raise Error $ sprintf "bsort $ not time fun" [str_raw_bs b])
           val () = if arity >= 0 then () else raise Error "not (arity >= 0)"
@@ -601,8 +601,8 @@ fun solve_exists (vc as (hs, p), vcs) =
                   BinPred (Le, lhs, rhs) => (lhs, rhs)
                 | _ => raise Error "wrong pattern"
           val () = println $ sprintf "try to unify $ and $" [str_i [] (hyps2ctx hs) lhs, str_i [] (hyps2ctx hs) rhs]
-          val (uvar, args) = is_IApp_UVarI rhs !! (fn () => Error "not [uvar arg1 ...]")
-          val (name, _, _) = get_uvar_info uvar (fn () => raise Error "uvar not fresh")
+          val ((uvar, _), args) = is_IApp_UVarI rhs !! (fn () => raise Error "not [uvar arg1 ...]")
+          val (name, _, _) = get_uvar_info uvar !! (fn () => raise Error "uvar not fresh")
           val () =  Unify.unify_IApp dummy rhs lhs
                     handle
                     Unify.UnifyIAppFailed => raise Error "unify_IApp() failed"

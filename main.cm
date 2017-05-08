@@ -24,6 +24,7 @@ Group is
       fresh-uvar.sml
       redundant-exhaust.sml
       collect-uvar.sml
+      uvar-forget.sml
       do-typecheck.sml
       post-typecheck.sml
       typecheck.sml
