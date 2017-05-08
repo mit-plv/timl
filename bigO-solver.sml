@@ -339,6 +339,7 @@ fun by_master_theorem (uvar, uvar_ctx, arity) (hs, p) =
       in
         loop p
       end
+    val p = normalize_p p
     val p = simp_p_with_plugin simp_p_max p
     val (lhs, g, main_arg) =
         case p of
@@ -351,25 +352,27 @@ fun by_master_theorem (uvar, uvar_ctx, arity) (hs, p) =
     val args_v = map (fn i => is_VarI i !! (fn () => Error "")) args
     val () = app (fn x => if contains main_arg x then raise Error "" else ()) args_v
     val n_ = to_real main_arg
-    fun decide_main_variable i =
-      case i of
-          VarI x => SOME x
-        | BinOpI (AddI, VarI x, ConstIN _) => SOME x
-        | BinOpI (AddI, ConstIN _, VarI x) => SOME x
-        | _ => NONE
-    val n = decide_main_variable main_arg
     val is = collect_AddI lhs
     fun get_class m k = default (0, 0) $ M.find (m, k)
-    fun var_name n =
+    fun time_fun_var_name n =
       if n = 0 then "n"
       else if n = 1 then "m"
       else "m" ^ str_int n
-    val ext_ctx = Range.map (fn n => (var_name n, Base Nat)) $ Range.zero_to arity
+    val ext_ctx = Range.map (fn n => (time_fun_var_name n, Base Nat)) $ Range.zero_to arity
     val uvar_ctx = ext_ctx @ uvar_ctx
     fun exp n i = combine_MultI (repeat n i)
     fun class2term (c, k) n =
       exp c n %* exp k (UnOpI (Log2, n, dummy))
     val summarize = summarize (fn s => raise Error s)
+    (* we check that all variables on the LHS that are not covered by the passive arguments on the RHS will be <= the main argument so can be soundly treated as the main argument *)
+    fun get_main_arg_class classes =
+      let
+        val uncovered = diff eq_long_id (get_domain classes) args_v
+        val () = app (fn x => if ask_smt (VarI x %<= main_arg) then () else raise Error "not_covered > main_arg") uncovered
+        val main_arg_class = mult_class_entries $ map (get_class classes) uncovered
+      in
+        main_arg_class
+      end
     val () = println "Start to try different cases"
     val () =
         let
@@ -433,12 +436,12 @@ fun by_master_theorem (uvar, uvar_ctx, arity) (hs, p) =
           val (a, b, others) = get_params is_sub_problem is
           val () = if b > 1 then () else raise Error "b > 1"
           val others = map use_bigO_hyp others
-          val classes = map summarize others
-          val classes = add_classes classes
-          val () = if subset eq_long_id (get_domain classes) (option2list n @ args_v) then () else raise Error ""
-          val cls_n = default (0, 0) $ Option.map (get_class classes) n
+          val classes_of_terms = map summarize others
+          val main_arg_classes = map get_main_arg_class classes_of_terms
+          val classes = add_classes classes_of_terms
+          val main_arg_class = add_class_entries main_arg_classes
           val classes = map (get_class classes) args_v
-          val i = master_theorem (rV 0) (a, b) cls_n
+          val i = master_theorem (rV 0) (a, b) main_arg_class
           val i = foldli (fn (n, cls, i) => class2term cls (rV (n + 1)) %* i) i $ rev classes
           val i = simp_i i
           val i = IAbsMany (uvar_ctx, i, dummy)
@@ -470,10 +473,10 @@ fun by_master_theorem (uvar, uvar_ctx, arity) (hs, p) =
           val N1 = ConstIN (1, dummy)
           val () = if ask_smt (n' %+ N1 %<= main_arg) then () else raise Error "n' %+ N1 %<= n_i"
           val others = map use_bigO_hyp others
-          val classes = map summarize others
-          val classes = add_classes classes
-          val () = if subset eq_long_id (get_domain classes) (option2list n @ args_v) then () else raise Error "variables in LHS is not covered by arguments in RHS"
-          val (c, k) = default (0, 0) $ Option.map (get_class classes) n
+          val classes_of_terms = map summarize others
+          val main_arg_classes = map get_main_arg_class classes_of_terms
+          val classes = add_classes classes_of_terms
+          val (c, k) = add_class_entries main_arg_classes
           val classes = map (get_class classes) args_v
           val i = class2term (c + 1, k) (rV 0)
           val i = foldli (fn (n, cls, i) => class2term cls (rV (n + 1)) %* i) i $ rev classes
@@ -488,12 +491,13 @@ fun by_master_theorem (uvar, uvar_ctx, arity) (hs, p) =
           val () = println "Trying [f n <= T n] case ..."
           val () = if not $ contains_uvar lhs uvar then () else raise Error ""
           val is = map use_bigO_hyp is
-          val classes = map summarize is
-          val classes = add_classes classes
-          val () = if subset eq_long_id (get_domain classes) (option2list n @ args_v) then () else raise Error ""
-          val cls_n = default (0, 0) $ Option.map (get_class classes) n
+          val classes_of_terms = map summarize is
+          val main_arg_classes = map get_main_arg_class classes_of_terms
+          val classes = add_classes classes_of_terms
+          val main_arg_classes = map get_main_arg_class classes_of_terms
+          val main_arg_class = add_class_entries main_arg_classes
           val classes = map (get_class classes) args_v
-          val i = class2term cls_n (rV 0)
+          val i = class2term main_arg_class (rV 0)
           val i = foldli (fn (n, cls, i) => class2term cls (rV (n + 1)) %* i) i $ rev classes
           val i = simp_i i
           val i = IAbsMany (uvar_ctx, i, dummy)
@@ -525,6 +529,7 @@ fun go_through f ls =
     | x :: xs =>
       let
         val (output, remain) = f (x, xs)
+        val remain = map normalize_vc remain
         val output2 = go_through f remain
       in
         output @ output2
@@ -553,6 +558,7 @@ fun solve_exists (vc as (hs, p), vcs) =
           val (uvar, args) = is_IApp_UVarI f !! (fn () => Error "not [uvar arg1 ...]")
           val () = if null args then () else raise Error "args not null"
           val (_, ctx, b) = get_uvar_info uvar (fn () => raise Error "not fresh uvar")
+          val () = if null ctx then () else raise Error "ctx not null"
           val arity = is_time_fun (update_bs b) !! (fn () => raise Error $ sprintf "bsort $ not time fun" [str_raw_bs b])
           val () = if arity >= 0 then () else raise Error "not (arity >= 0)"
           (* fun in_hyps p hs = *)
@@ -563,7 +569,25 @@ fun solve_exists (vc as (hs, p), vcs) =
               val () = println "by_master_theorem() failed on all remaining VCs. We accept this VC assuming that all big-O classes are inhabitted. But if there is a VC later constraining [f], it won't be proved."
             in                                                                                                     Succeeded ([], vcs)
             end
-          val (inferred, vcs) = partitionOptionFirst (by_master_theorem (uvar, ctx, arity)) vcs !! on_fail_all
+          val (many_inferred, vcs) = partitionOption (by_master_theorem (uvar, ctx, arity)) vcs
+          val (inferred, many_infered) =
+              case many_inferred of
+                  x :: xs => (x, xs)
+                | [] => raise on_fail_all () 
+          fun combine_fun (a, b) =
+            let
+              (* val (ctx1, _) = collect_IAbs a *)
+              (* val (ctx2, _) = collect_IAbs b *)
+              (* val () = if length ctx1 = length ctx2 then () else raise Error "combine_spec(): arities don't match" *)
+              (* val () = if length ctx1 = arity then () else raise Error "combine_spec(): wrong arity" *)
+              val ret = if timefun_le hs arity a b then b
+                        else if timefun_le hs arity a b then a
+                        else raise Error "combine_spec(): neither a <= b or b <= a"
+            in
+              ret
+            end
+          val inferred = foldl combine_fun inferred many_inferred
+          (*here*)
           val () = println $ sprintf "Inferred. Now check inferred complexity $ against specified complexity $" [str_i [] [] inferred, str_i [] [] spec]
           val () = 
               if timefun_le hs arity inferred spec then ()
@@ -584,10 +608,13 @@ fun solve_exists (vc as (hs, p), vcs) =
               case p of
                   BinPred (Le, lhs, rhs) => (lhs, rhs)
                 | _ => raise Error "wrong pattern"
+          val () = println $ sprintf "try to unify $ and $" [str_i [] (hyps2ctx hs) lhs, str_i [] (hyps2ctx hs) rhs]
+          val (uvar, args) = is_IApp_UVarI rhs !! (fn () => Error "not [uvar arg1 ...]")
+          val (name, _, _) = get_uvar_info uvar (fn () => raise Error "uvar not fresh")
           val () =  Unify.unify_IApp dummy rhs lhs
                     handle
                     Unify.UnifyIAppFailed => raise Error "unify_IApp() failed"
-          (* val (uvar, args) = is_IApp_UVarI rhs !! (fn () => Error "not [uvar arg1 ...]") *)
+          val () = println $ sprintf "?$ is instantiated to $" [str_int name, str_i [] [] (UVarI (uvar, dummy))]
         in
           raise Succeeded ([], vcs)
         end
@@ -663,15 +690,15 @@ fun solve_exists (vc as (hs, p), vcs) =
 end
 
 fun solve_bigO_compare (vc as (hs, p)) =
-  case p of
+  case normalize_p p of
       BinPred (BigO, i1, i2) =>
       let
-        (* val () = println "BigO-compare-solver to solve this: " *)
-        (* val () = app println $ str_vc false "" vc @ [""] *)
+        val () = println "BigO-compare-solver to solve this: "
+        val () = app println $ str_vc false "" vc @ [""]
         fun get_arity i = length $ fst $ collect_IAbs i
         val arity = get_arity i2
         val result = timefun_le hs arity i1 i2
-                                (* val () = println $ sprintf "bigO-compare result: $" [str_bool result] *)
+        val () = println $ sprintf "bigO-compare result: $" [str_bool result]
       in
         if result then
           []

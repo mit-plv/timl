@@ -337,16 +337,16 @@ fun collect_IAbs i =
       end
     | _ => ([], i)
 
-fun collect_BSArrow bs =
-  case bs of
-      Base _ => ([], bs)
+fun collect_BSArrow b =
+  case b of
+      Base _ => ([], b)
     | BSArrow (a, b) =>
       let
         val (args, ret) = collect_BSArrow b
       in
         (a :: args, ret)
       end
-    | UVarBS u => ([], bs)
+    | UVarBS u => ([], b)
                     
 fun is_IApp_UVarI i =
   let
