@@ -208,7 +208,7 @@ fun class_le (m1, m2) =
     M.foldli f true m1
   end
     
-fun timefun_le hs arity a b =
+fun timefun_le hs a b =
   let
     fun match_bigO () hyps hyp =
       case hyp of
@@ -217,14 +217,14 @@ fun timefun_le hs arity a b =
         | _ => NONE
     fun find_bigO_hyp f_i hyps =
       find_hyp id (fn (a, b) => (shift_i_i a, shift_i_i b)) match_bigO () hyps
-    fun use_bigO_hyp long_hyps i =
-      case find_bigO_hyp i long_hyps of
+    fun use_bigO_hyp hyps i =
+      case find_bigO_hyp i hyps of
           SOME ((VarI (_, (f', _)), g), _) =>
           let
             val g = simp_i g
             val i' = simp_i $ substx_i_i f' g i
-                            (* val ctx = hyps2ctx hs *)
-                            (* val () = println $ sprintf "timefun_le(): $ ~> $" [str_i [] ctx i, str_i [] ctx i'] *)
+            val ctx = hyps2ctx hs
+            val () = println $ sprintf "timefun_le(): $ ~> $" [str_i [] ctx i, str_i [] ctx i']
           in
             i'
           end
@@ -232,14 +232,19 @@ fun timefun_le hs arity a b =
     exception Error of string
     fun main () =
       let
+        val a = normalize_i a
+        val b = normalize_i b
+        val (names1, _) = collect_IAbs a
+        val (names2, _) = collect_IAbs b
+        val arity = length names1
+        val () = if arity = length names2 then () else raise Error "timefun_le: arity must equal"
         val a = if arity <= 2 then
                   use_bigO_hyp hs a
                 else
                   a
-        val (names1, i1) = collect_IAbs a
-        val (names2, i2) = collect_IAbs b
-        val () = if length names1 = length names2 then () else raise Error "timefun_le: arity must equal"
         val summarize = summarize (fn s => raise Error s)
+        val (_, i1) = collect_IAbs a
+        val (_, i2) = collect_IAbs b
         val cls1 = summarize i1
         val cls2 = summarize i2
                              (* val () = println $ sprintf "$ <=? $" [str_cls cls1, str_cls cls2] *)
@@ -257,20 +262,7 @@ fun timefun_le hs arity a b =
     end
   end
 
-fun timefun_eq hs arity a b = timefun_le hs arity a b andalso timefun_le hs arity b a
-
-fun isPrefix eq xs ys =
-  case (xs, ys) of
-      ([], _) => true
-    | (x :: xs, y :: ys) => eq (x, y) andalso isPrefix eq xs ys
-    | _ => false
-
-fun foldli f = foldlWithIdx (fn (x, acc, n) => f (n, x, acc))
-
-fun option2list a =
-  case a of
-      SOME a => [a]
-    | NONE => []
+fun timefun_eq hs a b = timefun_le hs a b andalso timefun_le hs b a
 
 fun is_VarI i =
   case i of
@@ -580,8 +572,8 @@ fun solve_exists (vc as (hs, p), vcs) =
               (* val (ctx2, _) = collect_IAbs b *)
               (* val () = if length ctx1 = length ctx2 then () else raise Error "combine_spec(): arities don't match" *)
               (* val () = if length ctx1 = arity then () else raise Error "combine_spec(): wrong arity" *)
-              val ret = if timefun_le hs arity a b then b
-                        else if timefun_le hs arity a b then a
+              val ret = if timefun_le hs a b then b
+                        else if timefun_le hs a b then a
                         else raise Error "combine_spec(): neither a <= b or b <= a"
             in
               ret
@@ -590,7 +582,7 @@ fun solve_exists (vc as (hs, p), vcs) =
           (*here*)
           val () = println $ sprintf "Inferred. Now check inferred complexity $ against specified complexity $" [str_i [] [] inferred, str_i [] [] spec]
           val () = 
-              if timefun_le hs arity inferred spec then ()
+              if timefun_le hs inferred spec then ()
               else Unify.unify_IApp dummy spec inferred
                    handle
                    Unify.UnifyIAppFailed => 
@@ -697,7 +689,7 @@ fun solve_bigO_compare (vc as (hs, p)) =
         val () = app println $ str_vc false "" vc @ [""]
         fun get_arity i = length $ fst $ collect_IAbs i
         val arity = get_arity i2
-        val result = timefun_le hs arity i1 i2
+        val result = timefun_le hs i1 i2
         val () = println $ sprintf "bigO-compare result: $" [str_bool result]
       in
         if result then

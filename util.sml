@@ -11,6 +11,19 @@ fun take n ls = if n < 0 then [] else if n > length ls then ls else List.take (l
 fun drop n ls = if n < 0 then ls else if n > length ls then [] else List.drop (ls, n)
 fun skip start len ls = take start ls @ drop (start + len) ls
 fun remove n ls = skip n 1 ls
+fun lastn n ls =
+  let
+    val len = length ls
+  in
+    if n >= len then ls
+    else
+      drop (len - n) ls
+  end
+fun isPrefix eq xs ys =
+  case (xs, ys) of
+      ([], _) => true
+    | (x :: xs, y :: ys) => eq (x, y) andalso isPrefix eq xs ys
+    | _ => false
 
 fun sprintf s ls =
     String.concat (interleave (String.fields (fn c => c = #"$") s) ls)
@@ -24,13 +37,17 @@ fun lazy_default v opt =
         SOME a => a
       | NONE => v ()
 fun isNone opt = not (isSome opt)
-
 fun SOME_or_fail opt err = 
   case opt of
       SOME a => a
     | NONE => raise err ()
 infix 0 !!
 fun opt !! err = SOME_or_fail opt err
+fun option2list a =
+  case a of
+      SOME a => [a]
+    | NONE => []
+
                                       
 val join = String.concatWith
 fun prefix fix s = fix ^ s
@@ -136,8 +153,10 @@ fun mapPartialWithIdx f xs =
     end
       
 fun foldlWithIdx f init xs = fst $ foldl (fn (x, (acc, n)) => (f (x, acc, n), n + 1)) (init, 0) xs
+fun foldli f = foldlWithIdx (fn (x, acc, n) => f (n, x, acc))
 fun foldrWithIdx start f init xs = fst $ foldl (fn (x, (acc, n)) => (f (x, acc, n), n + 1)) (init, start) xs
 fun mapWithIdx f ls = rev $ foldlWithIdx (fn (x, acc, n) => f (n, x) :: acc) [] ls
+val mapi = mapWithIdx
                                  
 (* fun find_idx (x : string) ctx = find_by_snd_eq op= x (add_idx ctx) *)
 fun is_eq_snd (x : string) (i, y) = if y = x then SOME i else NONE

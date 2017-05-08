@@ -97,7 +97,6 @@ fun unify_IApp r i i' =
     val b = update_bs b
     (* val () = println $ str_bs b *)
     fun var_name n = "__x" ^ str_int n
-    val mapi = mapWithIdx
     val (bsorts, _) = collect_BSArrow b
     val bsorts = rev bsorts
     (* val () = println $ str_ls str_bs bsorts *)
@@ -105,15 +104,7 @@ fun unify_IApp r i i' =
     val ctx = ext_ctx @ ctx
     val () = if length args <= length ctx then () else raise Impossible "unify_IApp(): #args shouldn't be larger than #ctx"
     (* #args could be < #ctx because of partial application *)
-    fun lastn ls n =
-      let
-        val len = length ls
-      in
-        if n >= len then ls
-        else
-          drop (len - n) ls
-      end
-    val ctx = lastn ctx (length args)
+    val ctx = lastn (length args) ctx
     fun IAbsMany (ctx, i, r) = foldl (fn ((name, b), i) => IAbs (b, Bind ((name, r), i), r)) i ctx
     val i' = IAbsMany (ctx, i', r)
     val () = refine x i'
@@ -512,6 +503,10 @@ fun unify_mt r gctx ctx (t, t') =
         val t' = psubst_ts_mt t_vars' (map (TV r) t_inj) t'
         val t' = psubst_is_mt i_vars' (map (V r) i_inj) t'
         val (_, (sctx, kctx)) = get_uvar_info x (fn () => raise Impossible "unify_t()/MtApp: shouldn't be [Refined]")
+        val () = if length i_args <= length sctx then () else raise Impossible "unify_MtApp(): #i_args <> #sctx"
+        val () = if length t_args <= length kctx then () else raise Impossible "unify_MtApp(): #t_args shouldn't be larger than #kctx"
+        (* #t_args could be < #kctx because of partial application *)
+        val kctx = lastn (length t_args) kctx
         val t' = MtAbsMany (kctx, t', r)
         val t' = MtAbsIMany (sctx, t', r)
         val () = refine x t'
