@@ -63,29 +63,50 @@ fun V r n = VarI (NONE, (n, r))
 fun TV r n = MtVar (NONE, (n, r))
 
 fun fresh_uvar_i ctx bsort = ref (Fresh (inc (), ctx, bsort))
-               
-fun fresh_i_with_bsorts ctx bsort r = 
+
+fun get_ctx_and_args sel make_arg on_snd gctx ctx_local r =
   let
+    val gctx = filter_module gctx
+    fun on_sgn (m, (mod_name, ctx : context)) =
+      let
+        val sctx = sel ctx
+        val sctx = map (mapFst $ prefix $ mod_name ^ "_") sctx
+        val sctx = map (mapSnd on_snd) sctx
+        val sctx = mapi (mapFst (fn x => make_arg (SOME (m, r), (x, r)))) sctx
+      in
+        sctx
+      end
+    val (args_global, ctx_global) = unzip $ List.concat $ mapi on_sgn $ gctx
+    val args_global = rev args_global
+    val ctx_local = map (mapSnd on_snd) ctx_local
+    val ctx_total = ctx_local @ ctx_global
+    val args_local = rev $ map (fn x => make_arg (NONE, (x, r))) $ range $ length ctx_local
+    val args_total = args_global @ args_local
+    val () = assert (fn () => length ctx_total = length args_total) "length ctx_total = length args_total"
+  in
+    (ctx_total, args_total)
+  end
+
+fun get_sctx_and_args x = get_ctx_and_args #1 VarI x
+fun get_kctx_and_args x = get_ctx_and_args #2 MtVar x
+    
+fun fresh_i gctx ctx bsort r = 
+  let
+    val get_base = get_base refine_UVarS_to_Basic
+    val (ctx, args) = get_sctx_and_args get_base gctx ctx r
     val x = fresh_uvar_i ctx bsort
     val i = UVarI (x, r)
-    val i = IApps i (map (V r) $ rev $ range (length ctx))
+    val i = IApps i args
   in
     i
   end
 
-fun fresh_i ctx bsort r = 
+fun fresh_sort gctx ctx r =
   let
-    val ctx = map (mapSnd (get_base refine_UVarS_to_Basic)) ctx
-    val i = fresh_i_with_bsorts ctx bsort r
-  in
-    i
-  end
-
-fun fresh_sort ctx r : sort =
-  let
+    val (ctx, args) = get_sctx_and_args id gctx ctx r
     val x = ref (Fresh (inc (), ctx))
     val s = UVarS (x, r)
-    val s = SApps s (map (V r) $ rev $ range (length ctx))
+    val s = SApps s args
   in
     s
   end
@@ -93,7 +114,7 @@ fun fresh_sort ctx r : sort =
 fun uvar_s_ignore_args (x, info, r) =
   let
     val (_, ctx) = info
-    val s = fresh_sort [] r
+    val s = fresh_sort [] [] r
     val s = SAbsMany (ctx, s, r)
     val () = refine x s
   in
@@ -103,7 +124,7 @@ fun uvar_s_ignore_args (x, info, r) =
 fun uvar_i_ignore_args (x, info, r) =
   let
     val (_, ctx, b) = info
-    val s = fresh_i [] b r
+    val s = fresh_i [] [] b r
     val s = IAbsMany (ctx, s, r)
     val () = assert (fn () => is_fresh x) "uvar_i_ignore_args(): fresh"
     val () = refine x s
@@ -111,12 +132,14 @@ fun uvar_i_ignore_args (x, info, r) =
     ()
   end
 
-fun fresh_mt (ctx as (sctx, kctx)) r : mtype =
+fun fresh_mt gctx (sctx, kctx) r : mtype =
   let
-    val x = ref (Fresh (inc (), mapSnd (map (mapSnd get_ke_kind)) ctx))
+    val (sctx, i_args) = get_sctx_and_args id gctx sctx r
+    val (kctx, t_args) = get_kctx_and_args get_ke_kind gctx kctx r
+    val x = ref (Fresh (inc (), (sctx, kctx)))
     val t = UVar (x, r)
-    val t = MtAppIs t (map (V r) $ rev $ range (length sctx))
-    val t = MtApps t (map (TV r) $ rev $ range (length kctx))
+    val t = MtAppIs t i_args
+    val t = MtApps t t_args
   in
     t
   end

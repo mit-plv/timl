@@ -161,7 +161,7 @@ fun unify_i r gctxn ctxn (i, i') =
       end
     val i = whnf_i i (* todo: whnf_i is enough *)
     val i' = whnf_i i'
-    val () = println $ sprintf "Unifying indices $ and $" [str_i gctxn ctxn i, str_i gctxn ctxn i']
+    (* val () = println $ sprintf "Unifying indices $ and $" [str_i gctxn ctxn i, str_i gctxn ctxn i'] *)
     val () =
         if eq_i i i' then ()
         else

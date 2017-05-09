@@ -94,7 +94,7 @@ fun get_sort_type gctx (ctx : scontext, s : U.sort) : sort * sort_type =
         end
       | U.UVarS ((), r) =>
         (* sort underscore will always mean a sort of type Sort *)
-        (fresh_sort ctx r, Sort)
+        (fresh_sort gctx ctx r, Sort)
       | U.SAbs (s1, Bind ((name, r1), s), r) =>
         let
           val s1 = is_wf_sort (ctx, s1)
@@ -322,7 +322,7 @@ and get_bsort (gctx : sigcontext) (ctx : scontext, i : U.idx) : idx * bsort =
             let
               val bs = fresh_bsort ()
             in
-              (fresh_i ctx bs r, bs)
+              (fresh_i gctx ctx bs r, bs)
             end
       val ret = main ()
                 handle
@@ -501,7 +501,7 @@ fun get_higher_kind gctx (ctx as (sctx : scontext, kctx : kcontext), c : U.mtype
 	| U.BaseType a => (BaseType a, HType)
         | U.UVar ((), r) =>
           (* type underscore will always mean a type of kind Type *)
-          (fresh_mt (sctx, kctx) r, HType)
+          (fresh_mt gctx (sctx, kctx) r, HType)
         | U.MtVar x =>
           (MtVar x, kind_to_higher_kind $ fetch_kind gctx (kctx, x))
         | U.MtAbs (k1, Bind ((name, r1), t), r) =>
@@ -853,8 +853,8 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
       | U.PairP (pn1, pn2) =>
         let 
           val r = U.get_region_pn pn
-          val t1 = fresh_mt (sctx, kctx) r
-          val t2 = fresh_mt (sctx, kctx) r
+          val t1 = fresh_mt gctx (sctx, kctx) r
+          val t2 = fresh_mt gctx (sctx, kctx) r
           (* val () = println $ sprintf "before: $ : $" [U.str_pn (sctxn, kctxn, names cctx) pn, str_mt skctxn t] *)
           val () = unify_mt r gctx (sctx, kctx) (t, Prod (t1, t2))
           (* val () = println "after" *)
@@ -1206,8 +1206,8 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	  let
             val (e2, t2, d2) = get_mtype (ctx, e2)
             val r = U.get_region_e e1
-            val d = fresh_i sctx (Base Time) r
-            val t = fresh_mt (sctx, kctx) r
+            val d = fresh_i gctx sctx (Base Time) r
+            val t = fresh_mt gctx (sctx, kctx) r
             val (e1, _, d1) = check_mtype (ctx, e1, Arrow (t2, d, t))
             val ret = (App (e1, e2), t, d1 %+ d2 %+ T1 dummy %+ d) 
           in
@@ -1216,7 +1216,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	| U.BinOp (New, e1, e2) =>
           let
             val r = U.get_region_e e_all
-            val i = fresh_i sctx (Base Time) r
+            val i = fresh_i gctx sctx (Base Time) r
             val (e1, _, d1) = check_mtype (ctx, e1, TyNat (i, r))
             val (e2, t, d2) = get_mtype (ctx, e2)
           in
@@ -1225,9 +1225,9 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	| U.BinOp (Read, e1, e2) =>
           let
             val r = U.get_region_e e_all
-            val t = fresh_mt (sctx, kctx) r
-            val i1 = fresh_i sctx (Base Time) r
-            val i2 = fresh_i sctx (Base Time) r
+            val t = fresh_mt gctx (sctx, kctx) r
+            val i1 = fresh_i gctx sctx (Base Time) r
+            val i2 = fresh_i gctx sctx (Base Time) r
             val (e1, _, d1) = check_mtype (ctx, e1, TyArray (t, i1))
             val (e2, _, d2) = check_mtype (ctx, e2, TyNat (i2, r))
             val () = write_le (i2, i1, r)
@@ -1237,9 +1237,9 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	| U.TriOp (Write, e1, e2, e3) =>
           let
             val r = U.get_region_e e_all
-            val t = fresh_mt (sctx, kctx) r
-            val i1 = fresh_i sctx (Base Time) r
-            val i2 = fresh_i sctx (Base Time) r
+            val t = fresh_mt gctx (sctx, kctx) r
+            val i1 = fresh_i gctx sctx (Base Time) r
+            val i2 = fresh_i gctx sctx (Base Time) r
             val (e1, _, d1) = check_mtype (ctx, e1, TyArray (t, i1))
             val (e2, _, d2) = check_mtype (ctx, e2, TyNat (i2, r))
             val () = write_le (i2, i1, r)
@@ -1250,7 +1250,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	| U.Abs (pn, e) => 
 	  let
             val r = U.get_region_pn pn
-            val t = fresh_mt (sctx, kctx) r
+            val t = fresh_mt gctx (sctx, kctx) r
             val skcctx = (sctx, kctx, cctx) 
             val (pn, cover, ctxd, nps (* number of premises *)) = match_ptrn gctx (skcctx, pn, t)
 	    val () = check_exhaustion gctx (skcctx, t, [cover], get_region_pn pn)
@@ -1295,9 +1295,9 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	| U.AppI (e, i) =>
 	  let 
             val r = U.get_region_e e
-            val s = fresh_sort sctx r
+            val s = fresh_sort gctx sctx r
             val arg_name = "_"
-            val t1 = fresh_mt (add_sorting (arg_name, s) sctx, kctx) r
+            val t1 = fresh_mt gctx (add_sorting (arg_name, s) sctx, kctx) r
             val t_e = UniI (s, Bind ((arg_name, r), t1), r)
             (* val () = println $ "t1 = " ^ str_mt gctxn (sctx_names sctx, names kctx) t1 *)
             (* val () = println $ "t1 = " ^ str_raw_mt t1 *)
@@ -1320,8 +1320,8 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	| U.Fst e => 
 	  let 
             val r = U.get_region_e e
-            val t1 = fresh_mt (sctx, kctx) r
-            val t2 = fresh_mt (sctx, kctx) r
+            val t1 = fresh_mt gctx (sctx, kctx) r
+            val t2 = fresh_mt gctx (sctx, kctx) r
             val (e, _, d) = check_mtype (ctx, e, Prod (t1, t2)) 
           in 
             (Fst e, t1, d)
@@ -1329,8 +1329,8 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	| U.Snd e => 
 	  let 
             val r = U.get_region_e e
-            val t1 = fresh_mt (sctx, kctx) r
-            val t2 = fresh_mt (sctx, kctx) r
+            val t1 = fresh_mt gctx (sctx, kctx) r
+            val t2 = fresh_mt gctx (sctx, kctx) r
             val (e, _, d) = check_mtype (ctx, e, Prod (t1, t2)) 
           in 
             (Snd e, t2, d)
@@ -1547,7 +1547,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
                     let
                       val ctx as (sctx, kctx, cctx, tctx) = add_ctx ctxd ctx
                       val r = U.get_region_pn pn
-                      val t = fresh_mt (sctx, kctx) r
+                      val t = fresh_mt gctx (sctx, kctx) r
                       val skcctx = (sctx, kctx, cctx) 
                       val (pn, cover, ctxd', nps') = match_ptrn gctx (skcctx, pn, t)
 	              val () = check_exhaustion gctx (skcctx, t, [cover], get_region_pn pn)

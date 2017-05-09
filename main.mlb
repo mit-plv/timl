@@ -7,6 +7,11 @@ cont-mlton.sml
 
 util.sml
 region.sml
+sexp/sexp.sml
+sexp/sexp.grm.sig
+sexp/sexp.grm.sml
+sexp/sexp.lex.sml
+sexp/parser.sml
 operators.sml
 parser/ast.sml
 parser/timl.grm.sig
@@ -20,18 +25,23 @@ uvar-expr.sml
 elaborate.sml
 name-resolve.sml
 nouvar-expr.sml
-vc.sml
-sexp/sexp.sml
-sexp/sexp.grm.sig
-sexp/sexp.grm.sml
-sexp/sexp.lex.sml
-sexp/parser.sml
-smt2-printer.sml
-smt-solver.sml
+package.sml
+typecheck-util.sml
+normalize.sml
+collect-var.sml
+collect-uvar.sml
+unify.sml
+fresh-uvar.sml
+redundant-exhaust.sml
+uvar-forget.sml
+do-typecheck.sml
 trivial-solver.sml
-bigO-solver.sml
-typecheck.sml
 post-typecheck.sml
+typecheck.sml
+smt2-printer.sml
+check-no-uvar.sml
+smt-solver.sml
+bigO-solver.sml
 main.sml
 
 mlton-main.sml

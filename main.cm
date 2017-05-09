@@ -3,10 +3,15 @@ Group is
 
       util.sml
       region.sml
+      sexp/sexp.sml
+      sexp/sexp.grm
+      sexp/sexp.lex
+      sexp/parser.sml
       operators.sml
       parser/ast.sml
-      parser/timl.grm
-      parser/timl.lex
+      parser/timl.grm.sig
+      parser/timl.grm.sml
+      parser/timl.lex.sml
       parser/parser.sml
       bind.sml
       var-uvar.sml
@@ -14,24 +19,20 @@ Group is
       uvar-expr.sml
       elaborate.sml
       name-resolve.sml
-      trivial-solver.sml
       nouvar-expr.sml
       package.sml
       typecheck-util.sml
       normalize.sml
       collect-var.sml
+      collect-uvar.sml
       unify.sml
       fresh-uvar.sml
       redundant-exhaust.sml
-      collect-uvar.sml
       uvar-forget.sml
       do-typecheck.sml
+      trivial-solver.sml
       post-typecheck.sml
       typecheck.sml
-      sexp/sexp.sml
-      sexp/sexp.grm
-      sexp/sexp.lex
-      sexp/parser.sml
       smt2-printer.sml
       check-no-uvar.sml
       smt-solver.sml
