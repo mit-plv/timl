@@ -25,8 +25,8 @@ struct
         
 open Basic
 open Compare
-open LogFacts
-open K
+(* open LogFacts *)
+(* open K *)
 
 type key = K.t
 

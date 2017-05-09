@@ -326,7 +326,6 @@ fun combine_AddI_Time is = combine_AddI (T0 dummy) is
 fun combine_AddI_Nat is = combine_AddI (N0 dummy) is
 fun combine_AddI_nonempty i is = combine_AddI_Time (i :: is)
 fun combine_MultI is = foldl' (fn (i, acc) => acc %* i) (T1 dummy) is
-fun combine_IApp f is = foldl (fn (x, acc) => BinOpI (IApp, acc, x)) f is
                               
 fun collect_IAbs i =
   case i of
@@ -744,7 +743,7 @@ fun str_raw_mt (t : mtype) : string =
     | MtAppI (t, i) => sprintf "MtAppI ($, $)" [str_raw_mt t, str_raw_i i]
     | MtAbsI (s, bind, _) => sprintf "MtAbsI ($, $)" ["<sort>", str_raw_bind str_raw_mt bind]
     | BaseType (bt, _) => sprintf "BaseType ($)" [str_bt bt]
-    | UVar (u, _) => "UVar"
+    | UVar (u, _) => sprintf "UVar ($)" [str_uvar_mt str_raw_mt u]
 
 fun str_raw_t (t : ty) : string =
   case t of

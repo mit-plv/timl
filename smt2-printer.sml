@@ -176,7 +176,7 @@ fun prelude get_ce = [
     if get_ce then "(set-option :produce-models true)" else "",
     (* "(set-option :produce-proofs true)", *)
 
-    (* "(declare-datatypes () ((Unit TT)))", *)
+    "(declare-datatypes () ((Unit TT)))",
 
     "(declare-fun exp_i_i (Int Int) Int)",
     (* "(declare-fun exp_i_i (Int) Int)", *)

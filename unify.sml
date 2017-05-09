@@ -124,9 +124,10 @@ fun unify_IApp r i i' =
                          
     val inj = find_injection eq_i (map VarI vars') (rev args) !! (fn () => raise UnifyIAppFailed)
     val i' = psubst_is_i vars' (map (V r) inj) i'
-    val (_, ctx, b) = get_uvar_info x !! (fn () => raise Impossible "unify_IApp(): shouldn't be [Refined]")
+    val (name, ctx, b) = get_uvar_info x !! (fn () => raise Impossible "unify_IApp(): shouldn't be [Refined]")
     val b = update_bs b
     (* val () = println $ str_bs b *)
+    val () = println $ sprintf "unifying ?$" [str_int name]
     fun var_name n = "__x" ^ str_int n
     val (bsorts, _) = collect_BSArrow b
     val bsorts = rev bsorts
@@ -160,7 +161,7 @@ fun unify_i r gctxn ctxn (i, i') =
       end
     val i = whnf_i i (* todo: whnf_i is enough *)
     val i' = whnf_i i'
-    (* val () = println $ sprintf "Unifying indices $ and $" [str_i gctxn ctxn i, str_i gctxn ctxn i'] *)
+    val () = println $ sprintf "Unifying indices $ and $" [str_i gctxn ctxn i, str_i gctxn ctxn i']
     val () =
         if eq_i i i' then ()
         else
@@ -518,7 +519,7 @@ fun unify_mt r gctx ctx (t, t') =
     val gctxn = gctx_names gctx
     val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
     fun error ctxn (t, t') = unify_error "type" r (str_mt gctxn ctxn t, str_mt gctxn ctxn t')
-    (* fun error ctxn (t, t') = unify_error "type" r (str_mt gctxn ctxn t, str_raw_mt t') *)
+    (* fun error ctxn (t, t') = unify_error "type" r (str_raw_mt t, str_raw_mt t') *)
     exception UnifyMtAppFailed
     fun unify_MtApp t t' =
       let

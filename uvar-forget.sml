@@ -39,7 +39,7 @@ fun forget_i_i x n b =
         val args = List.mapPartial is_inl results
         val () =
             if length args = length results then
-              raise AppUVarSucceeded $ combine_IApp (UVarI (uvar, r)) args
+              raise AppUVarSucceeded $ IApps (UVarI (uvar, r)) args
             else ()
         val locs = List.mapPartial is_inr results
         val () = assert (fn () => not (null locs)) "not (null locs)"
