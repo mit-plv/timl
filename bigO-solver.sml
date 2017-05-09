@@ -274,7 +274,7 @@ local
   exception Succeeded of idx
   exception Error of string
 in
-fun by_master_theorem (uvar, uvar_ctx, arity) (hs, p) =
+fun by_master_theorem uvar (hs, p) =
   let
     val () = println "Running bigO inference"
     fun ask_smt p = ask_smt_vc (hs, p)
@@ -337,6 +337,9 @@ fun by_master_theorem (uvar, uvar_ctx, arity) (hs, p) =
           | _ => raise Error "wrong pattern for by_master_theorem"
     val ((uvar', _), args') = is_IApp_UVarI g !! (fn () => raise Error "")
     val () = if uvar = uvar' then () else raise Error "uvar <> uvar'"
+    val (_, uvar_ctx, b) = get_uvar_info uvar !! (fn () => raise Error "not fresh uvar")
+    val b = update_bs b
+    val arity = is_time_fun b !! (fn () => raise Error $ sprintf "bsort $ not time fun" [str_raw_bs b])
     val () = println "  to solve this: "
     val () = app println $ str_vc false "" (hs, p)
     val (main_fun, args) = (g, args')
@@ -548,10 +551,11 @@ fun solve_exists (vc as (hs, p), vcs) =
                   (f, spec)
                 | _ => raise Error "wrong pattern"
           val ((uvar, _), args) = is_IApp_UVarI f !! (fn () => raise Error "not [uvar arg1 ...]")
-          val () = if null args then () else raise Error "args not null"
           val (_, ctx, b) = get_uvar_info uvar !! (fn () => raise Error "not fresh uvar")
+          val b = update_bs b
+          val arity = is_time_fun b !! (fn () => raise Error $ sprintf "bsort $ not time fun" [str_raw_bs b])
+          val () = if null args then () else raise Error "args not null"
           val () = if null ctx then () else raise Error "ctx not null"
-          val arity = is_time_fun (update_bs b) !! (fn () => raise Error $ sprintf "bsort $ not time fun" [str_raw_bs b])
           val () = if arity >= 0 then () else raise Error "not (arity >= 0)"
           (* fun in_hyps p hs = *)
           (* val () = if in_hyps p hs2 then () else raise Error *)
@@ -561,7 +565,7 @@ fun solve_exists (vc as (hs, p), vcs) =
               val () = println "by_master_theorem() failed on all remaining VCs. We accept this VC assuming that all big-O classes are inhabitted. But if there is a VC later constraining [f], it won't be proved."
             in                                                                                                     Succeeded ([], vcs)
             end
-          val (many_inferred, vcs) = partitionOption (by_master_theorem (uvar, ctx, arity)) vcs
+          val (many_inferred, vcs) = partitionOption (by_master_theorem uvar) vcs
           val (inferred, many_infered) =
               case many_inferred of
                   x :: xs => (x, xs)
@@ -762,7 +766,7 @@ fun solve_fun_compare (vc as (hs, p)) =
 
 fun solve_vcs (vcs : vc list) : vc list =
   let 
-    val () = println "solve_vcs()"
+    (* val () = println "solve_vcs()" *)
     open CollectUVar
     open FreshUVar
     val uvars = dedup (fn (a, b) => #1 a = #1 b) $ concatMap collect_uvar_i_vc vcs
