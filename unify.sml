@@ -105,6 +105,7 @@ fun unify_IApp r i i' =
     val () = if mem op= x (map #1 $ collect_uvar_i_i i') then raise UnifyIAppFailed else ()
     val vars' = dedup eq_long_id $ collect_var_i_i i'
 
+                      
     (* open CollectVar *)
     (* val uncovered = List.filter (fn var => not (List.exists (fn arg => eq_i (VarI var) arg) args)) vars' *)
     (* fun forget_nonconsuming (var as (m, (x, _))) b = *)
@@ -119,7 +120,8 @@ fun unify_IApp r i i' =
     (* val i' = foldl (fn (x, acc) => forget_nonconsuming x acc) i' uncovered *)
     (*           handle ForgetError _ => raise UnifyIAppFailed *)
     (* val i' = normalize_i i' *)
-                      
+
+                         
     val inj = find_injection eq_i (map VarI vars') (rev args) !! (fn () => raise UnifyIAppFailed)
     val i' = psubst_is_i vars' (map (V r) inj) i'
     val (_, ctx, b) = get_uvar_info x !! (fn () => raise Impossible "unify_IApp(): shouldn't be [Refined]")

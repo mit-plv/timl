@@ -7,8 +7,8 @@
 
 functor BraunTree (structure K : sig
                                type t
-                               idx m : Time
-                               val le : t * t -- m --> Basic.bool
+                               idx m : Nat
+                               val le : t * t -- $m --> Basic.bool
               end) =
 struct
 
@@ -24,8 +24,8 @@ fun min_max {m : Time} (le : t * t -- m --> bool) (x, y) =
         true => (x, y)
       | false => (y, x)
 
-absidx T_insert : BigO (fn n => log2 $n) with
-fun insert {size : Nat} (tr : braun_tree {size}) (x : t) return braun_tree {size + 1} using T_insert size =
+absidx T_insert : BigO (fn m n => $m * log2 $n) with
+fun insert {size : Nat} (tr : braun_tree {size}) (x : t) return braun_tree {size + 1} using T_insert m size =
     case tr of
         (* implicit-index-argument inference failed here, so we have to supply index arguments explicitly *)
         Leaf => @Node {0} (x, Leaf, Leaf)
@@ -52,8 +52,8 @@ fun peek_option {size : Nat} (tr : braun_tree {size}) return option t using T =
       | Node (x, _, _) => SOME x
 end
 
-absidx T_sift : BigO (fn n => log2 $n) with
-fun sift {size : Nat} (x, l : braun_tree {ceil ($size/2)}, r : braun_tree {floor ($size/2)}) return braun_tree {size+1} using T_sift size =
+absidx T_sift : BigO (fn m n => $m * log2 $n) with
+fun sift {size : Nat} (x, l : braun_tree {ceil ($size/2)}, r : braun_tree {floor ($size/2)}) return braun_tree {size+1} using T_sift m size =
     case (l, r) of
         (Leaf, Leaf) =>
         @Node {0} (x, Leaf, Leaf)
@@ -76,8 +76,8 @@ fun sift {size : Nat} (x, l : braun_tree {ceil ($size/2)}, r : braun_tree {floor
 end
 
 (* pop out the root element (minimal element) *)  
-absidx T_pop : BigO (fn n => log2 $n * log2 $n) with
-fun pop {size : Nat} (tr : braun_tree {size + 1}) return t * braun_tree {size} using T_pop size =
+absidx T_pop : BigO (fn m n => $m * log2 $n * log2 $n) with
+fun pop {size : Nat} (tr : braun_tree {size + 1}) return t * braun_tree {size} using T_pop m size =
     case tr of
         Node (x, l, r) =>
         (case (l, r) of

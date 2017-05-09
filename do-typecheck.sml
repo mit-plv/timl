@@ -892,10 +892,11 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
 fun smart_write_le gctx ctx (i1, i2, r) =
   let
     (* val () = println $ sprintf "Check Le : $ <= $" [str_i ctx i1, str_i ctx i2] *)
-    fun is_fresh_i i =
-      case i of
-          UVarI (x, _) => is_fresh x
-        | _ => false
+    (* fun is_fresh_i i = *)
+    (*   case i of *)
+    (*       UVarI (x, _) => is_fresh x *)
+    (*     | _ => false *)
+    fun is_fresh_i i = isSome $ is_IApp_UVarI i
   in
     if is_fresh_i i1 orelse is_fresh_i i2 then unify_i r gctx ctx (i1, i2)
     else

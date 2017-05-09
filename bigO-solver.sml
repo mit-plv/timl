@@ -224,7 +224,7 @@ fun timefun_le hs a b =
             val g = simp_i g
             val i' = simp_i $ substx_i_i f' g i
             val ctx = hyps2ctx hs
-            val () = println $ sprintf "timefun_le(): $ ~> $" [str_i [] ctx i, str_i [] ctx i']
+            (* val () = println $ sprintf "timefun_le(): $ ~> $" [str_i [] ctx i, str_i [] ctx i'] *)
           in
             i'
           end
@@ -277,8 +277,6 @@ in
 fun by_master_theorem (uvar, uvar_ctx, arity) (hs, p) =
   let
     val () = println "Running bigO inference"
-    val () = println "  to solve this: "
-    val () = app println $ str_vc false "" (hs, p)
     fun ask_smt p = ask_smt_vc (hs, p)
     fun V n = VarI (NONE, (n, dummy))
     fun to_real i = UnOpI (ToReal, i, dummy)
@@ -339,6 +337,8 @@ fun by_master_theorem (uvar, uvar_ctx, arity) (hs, p) =
           | _ => raise Error "wrong pattern for by_master_theorem"
     val ((uvar', _), args') = is_IApp_UVarI g !! (fn () => raise Error "")
     val () = if uvar = uvar' then () else raise Error "uvar <> uvar'"
+    val () = println "  to solve this: "
+    val () = app println $ str_vc false "" (hs, p)
     val (main_fun, args) = (g, args')
     (* [main_arg] is the main argument; [args] are the passive arguments *)
     val args_v = map (fn i => is_VarI i !! (fn () => raise Error "")) args
@@ -592,6 +592,43 @@ fun solve_exists (vc as (hs, p), vcs) =
           raise Succeeded ([], vcs)
         end
         handle Error msg => println $ "Case failed because: " ^ msg
+    fun unify (uvar_side, value_side) =
+      let
+        val () = println $ sprintf "try to unify $ with $" [str_i [] (hyps2ctx hs) uvar_side, str_i [] (hyps2ctx hs) value_side]
+        val ((x, _), args) = is_IApp_UVarI uvar_side !! (fn () => raise Error "not [uvar arg1 ...]")
+        val (name, _, _) = get_uvar_info x !! (fn () => raise Error "uvar not fresh")
+        val ctx = hyps2ctx hs
+
+                           
+        val args = map normalize_i args
+        val value_side = normalize_i value_side
+        open CollectVar
+        val vars = dedup eq_long_id $ collect_var_i_i value_side
+        val uncovered = List.filter (fn var => not (List.exists (fn arg => eq_i (VarI var) arg) args)) vars
+        fun forget_nonconsuming (var as (m, (x, _))) b =
+          let
+            val () = if isNone m then () else raise Error "can't forget decorated variable"
+            open UVarForget
+            val () = println $ sprintf "forgeting $ in $" [str_i [] ctx (VarI var), str_i [] ctx b]
+            val b = forget_i_i x 1 b
+            val b = shiftx_i_i x 1 b
+          in
+            b
+          end
+        val value_side = foldl (fn (x, acc) => forget_nonconsuming x acc) value_side uncovered
+                  handle ForgetError _ => raise Error "forgetting failed"
+        val value_side = normalize_i value_side
+        val uvar_side = normalize_i uvar_side
+
+                              
+        val () = println $ sprintf "Forgetting succeeded. Now try to unify $ with $" [str_i [] ctx uvar_side, str_i [] ctx value_side]
+        val () =  Unify.unify_IApp dummy uvar_side value_side
+                  handle
+                  Unify.UnifyIAppFailed => raise Error "unify_IApp() failed"
+        val () = println $ sprintf "?$ is instantiated to $" [str_int name, str_i [] [] (UVarI (x, dummy))]
+      in
+        ()
+      end
     val () =
         let
           val () = println "Try case [_ <= uvar arg1 ...] (just to infer a Time)"
@@ -599,34 +636,7 @@ fun solve_exists (vc as (hs, p), vcs) =
               case p of
                   BinPred (Le, lhs, rhs) => (lhs, rhs)
                 | _ => raise Error "wrong pattern"
-          val () = println $ sprintf "try to unify $ and $" [str_i [] (hyps2ctx hs) lhs, str_i [] (hyps2ctx hs) rhs]
-          val ((x, _), args) = is_IApp_UVarI rhs !! (fn () => raise Error "not [uvar arg1 ...]")
-          val (name, _, _) = get_uvar_info x !! (fn () => raise Error "uvar not fresh")
-          val args = map normalize_i args
-          val lhs = normalize_i lhs
-          open CollectVar
-          val vars = dedup eq_long_id $ collect_var_i_i lhs
-          val uncovered = List.filter (fn var => not (List.exists (fn arg => eq_i (VarI var) arg) args)) vars
-          val ctx = hyps2ctx hs
-          fun forget_nonconsuming (var as (m, (x, _))) b =
-            let
-              val () = if isNone m then () else raise Error "can't forget decorated variable"
-              open UVarForget
-              val () = println $ sprintf "forgeting $ in $" [str_i [] ctx (VarI var), str_i [] ctx b]
-              val b = forget_i_i x 1 b
-              val b = shiftx_i_i x 1 b
-            in
-              b
-            end
-          val lhs = foldl (fn (x, acc) => forget_nonconsuming x acc) lhs uncovered
-                    handle ForgetError _ => raise Error "forgetting failed"
-          val lhs = normalize_i lhs
-          val rhs = normalize_i rhs
-          val () = println $ sprintf "Forgetting succeeded. Now try to unify $ and $" [str_i [] ctx lhs, str_i [] ctx rhs]
-          val () =  Unify.unify_IApp dummy rhs lhs
-                    handle
-                    Unify.UnifyIAppFailed => raise Error "unify_IApp() failed"
-          val () = println $ sprintf "?$ is instantiated to $" [str_int name, str_i [] [] (UVarI (x, dummy))]
+          val () = unify (rhs, lhs)
         in
           raise Succeeded ([], vcs)
         end
