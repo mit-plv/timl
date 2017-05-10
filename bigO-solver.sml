@@ -49,19 +49,22 @@ fun find_bigO_hyp f_i hyps =
 
 (* if [i] is [f m_1 ... m_k n] where [f m_1 ... m_i]'s bigO spec is known (i <= k), replace [f m1 ... m_i] with its bigO spec *)
 fun use_bigO_hyp long_hyps i =
-  let
-    val (f, args) = collect_IApp i
-    fun iter (arg, f) =
+  case is_IApp_UVarI i of
+      SOME _ => i
+    | NONE =>
       let
-        val f = default f $ Option.map fst $ find_bigO_hyp f long_hyps
-        val f = simp_i (f %@ arg)
+        val (f, args) = collect_IApp i
+        fun iter (arg, f) =
+          let
+            val f = default f $ Option.map fst $ find_bigO_hyp f long_hyps
+            val f = simp_i (f %@ arg)
+          in
+            f
+          end
+        val f = foldl iter f args
       in
         f
       end
-    val f = foldl iter f args
-  in
-    f
-  end
 
 local
   open CollectVar
@@ -221,6 +224,7 @@ fun timefun_le is_outer hs a b =
         | _ => NONE
     fun find_bigO_hyp f_i hyps =
       find_hyp id (fn (a, b) => (shift_i_i a, shift_i_i b)) match_bigO () hyps
+    (* todo: change this use_bigO_hyp *)
     fun use_bigO_hyp hyps i =
       case find_bigO_hyp i hyps of
           SOME ((VarI (_, (f', _)), g), _) =>
@@ -316,6 +320,13 @@ fun by_master_theorem uvar (hs, p) =
                     else if ask_smt (i1 %<= remove_uvar i2) then
                       mark i2
                     else def ()
+                  | MultI =>
+                    let
+                      val i2s = collect_AddI i2
+                      val () = if length i2s >= 2 then set () else ()
+                    in
+                      combine_AddI_Time (*i2s won't be empty*) $ map (fn i2 => i1 %* i2) i2s
+                    end
                   | _ => def ()
               end
             | UnOpI (opr, i, r) => UnOpI (opr, loop i, r)
@@ -509,9 +520,12 @@ fun by_master_theorem uvar (hs, p) =
           val n' = combine_AddI_Nat n's
           val N1 = ConstIN (1, dummy)
           val () = if ask_smt (n' %+ N1 %<= main_arg) then () else raise Error $ sprintf "n' + 1 > n_i, n'=$, main_arg=$" [str_i [] hs_ctx n', str_i [] hs_ctx main_arg]
-          val others = map use_bigO_hyp others
+          val others = concatMap (collect_AddI o simp_i_with_plugin simp_i_max) $ map use_bigO_hyp others
           val classes_of_terms = map summarize others
+          val () = app (fn (i, cls) => (println (str_i [] hs_ctx i); println (str_cls cls))) $ zip (others, classes_of_terms)
           val main_arg_classes = map get_main_arg_class classes_of_terms
+          val () = println ""
+          val () = app (println o str_pair (str_int, str_int)) main_arg_classes
           val classes = add_classes classes_of_terms
           val (c, k) = add_class_entries main_arg_classes
           val classes = map (get_class_or_0 classes) args_v
@@ -527,7 +541,7 @@ fun by_master_theorem uvar (hs, p) =
         let
           val () = println "Trying [f n <= T n] case ..."
           val () = if not $ contains_uvar lhs uvar then () else raise Error "[lhs] contains [uvar]"
-          val is = map use_bigO_hyp is
+          val is = concatMap collect_AddI $ map use_bigO_hyp is
           val classes_of_terms = map summarize is
           val main_arg_classes = map get_main_arg_class classes_of_terms
           val classes = add_classes classes_of_terms

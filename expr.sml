@@ -2545,6 +2545,19 @@ local
     end
 in
 val simp_i = until_unchanged passi
+fun simp_i_with_plugin plugin i =
+  let
+    fun iter i =
+      let
+        val i = plugin set i
+        val i = passi i
+      in
+        i
+      end
+    val i = until_unchanged iter i
+  in
+    i      
+  end
 fun simp_p p =
   let
     (* val () = println $ "Before simp_p: " ^ str_p [] [] p *)
