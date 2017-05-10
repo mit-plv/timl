@@ -349,9 +349,9 @@ fun by_master_theorem uvar (hs, p) =
       end
     val hs_ctx = hyps2ctx hs
     val p = normalize_p p
-    val () = println $ "before simp_p_max: " ^ str_p [] hs_ctx p
+    (* val () = println $ "before simp_p_max: " ^ str_p [] hs_ctx p *)
     val p = simp_p_with_plugin simp_p_max p
-    val () = println $ "after simp_p_max: " ^ str_p [] hs_ctx p
+    (* val () = println $ "after simp_p_max: " ^ str_p [] hs_ctx p *)
     (* [main_arg] is the main argument; [args] are the passive arguments *)
     val (lhs, main_fun, main_arg) =
         case p of
@@ -454,7 +454,7 @@ fun by_master_theorem uvar (hs, p) =
                   | VarH _ => []
               val bs = infer_b_i n' @ concatMap infer_b_hyp hs
               fun good_b b =
-                (println (str_int b);
+                ((* println (str_int b); *)
                 if ask_smt (n' %<= UnOpI (Ceil, DivI (n_, (b, dummy)), dummy)) then
                   SOME b
                 else NONE)
@@ -466,7 +466,7 @@ fun by_master_theorem uvar (hs, p) =
             case i of
                 BinOpI (IApp, g, n') =>
                 if eq_i g main_fun then
-                  (println (str_i [] hs_ctx n'); infer_b n_ n')
+                  ((* println (str_i [] hs_ctx n');  *)infer_b n_ n')
                 else NONE
               | _ => NONE
             )

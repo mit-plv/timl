@@ -1,1 +1,1 @@
-make -C .. mlton && ../main stdlib.pkg test-suite.pkg
+make -C .. mlton && ../main -l stdlib.pkg test-suite.pkg

@@ -39,7 +39,9 @@ fun print_i ctx i =
     | UnOpI (opr, i, _) => 
       (case opr of
            ToReal => sprintf "(to_real $)" [print_i ctx i]
-         | Log2 => sprintf "(log2 $)" [print_i ctx i]
+         | Log2 =>
+           sprintf "(log2 $)" [print_i ctx i]
+           (* raise SMTError "can't handle log2" *)
          | Ceil => sprintf "(ceil $)" [print_i ctx i]
          | Floor => sprintf "(floor $)" [print_i ctx i]
          | B2n => sprintf "(b2i $)" [print_i ctx i]
