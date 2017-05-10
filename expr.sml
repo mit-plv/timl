@@ -740,13 +740,25 @@ fun str_raw_bs b =
 fun str_raw_i i =
   case i of
       VarI x => sprintf "VarI ($)" [str_raw_long_id x]
-    | _ => "<idx>"
+    | ConstIN (n, _) => sprintf "ConstIN $" [str_int n]
+    | ConstIT (x, _) => sprintf "ConstIT $" [x]
+    | UnOpI (opr, i, _) => sprintf "UnOpI ($, $)" [str_idx_un_op opr, str_raw_i i]
+    | DivI (i1, (n2, _)) => sprintf "DivI ($, $)" [str_raw_i i1, str_int n2]
+    | ExpI (i1, (n2, _)) => sprintf "ExpI ($, $)" [str_raw_i i1, n2]
+    | BinOpI (opr, i1, i2) => sprintf "BinOpI ($, $, $)" [str_idx_bin_op opr, str_raw_i i1, str_raw_i i2]
+    | Ite (i1, i2, i3, _) => sprintf "Ite ($, $, $)" [str_raw_i i1, str_raw_i i2, str_raw_i i3]
+    | TTI _ => "TTI"
+    | TrueI _ => "TrueI"
+    | FalseI _ => "FalseI"
+    | IAbs (b, bind, _) => sprintf "IAbs ($, $)" [str_bs b, str_raw_bind str_raw_i bind]
+    | AdmitI _ => "Admit" 
+    | UVarI (u, _) => str_uvar_i str_bs str_raw_i u
 
 fun str_raw_mt (t : mtype) : string =
   case t of
-      Arrow (t1, d, t2) => sprintf "Arrow ($, $, $)" [str_raw_mt t1, "<idx>", str_raw_mt t2]
-    | TyNat (i, _) => sprintf "TyNat ($))" ["<idx>"]
-    | TyArray (t, i) => sprintf "TyArray ($, $)" [str_raw_mt t, "<idx>"]
+      Arrow (t1, i, t2) => sprintf "Arrow ($, $, $)" [str_raw_mt t1, str_raw_i i, str_raw_mt t2]
+    | TyNat (i, _) => sprintf "TyNat ($))" [str_raw_i i]
+    | TyArray (t, i) => sprintf "TyArray ($, $)" [str_raw_mt t, str_raw_i i]
     | Unit _ => "Unit"
     | Prod (t1, t2) => sprintf "Prod ($, $)" [str_raw_mt t1, str_raw_mt t2]
     | UniI (s, bind, _) => sprintf "UniI ($, $)" ["<sort>", str_raw_bind str_raw_mt bind]

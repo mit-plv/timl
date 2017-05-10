@@ -13,7 +13,7 @@ functional-queue.timl
 array-bsearch.timl
 array-heap.timl
 array-msort.timl
-array-msort-inplace.timl
+(* array-msort-inplace.timl *)
 array-kmed.timl
 dlist.timl
 qsort.timl

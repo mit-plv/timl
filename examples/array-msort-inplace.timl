@@ -110,7 +110,7 @@ end
 
 absidx T_array_imsort_on_range : BigO (fn m n => $m * $n * log2 $n) with
 fun array_imsort_on_range ['a] {m len w left right : Nat} {right > 0} {w + left + right <= len} (le : 'a * 'a -- $m --> bool) (a : array 'a {len}, w : nat {w}, left : nat {left}, right : nat {right}) return unit using T_array_imsort_on_range m right =
-    case Nat.le (right, #1) of
+    case Nat.le (right, #1) (* return using T_array_imsort_on_range m right - 8.0 *) of
         Le => array_insert le (a, w, nat_2_natnum left)
       | Gt =>
         let

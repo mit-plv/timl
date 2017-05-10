@@ -134,7 +134,7 @@ val add_classes = foldl' add_class M.empty
 
 fun trim_class cls = M.filter (fn (c, k) => not (c = 0 andalso k = 0)) cls
                               
-(* fun str_cls cls = str_ls (fn (x, (c, k)) => sprintf "$=>($,$)" [str_int x, str_int c, str_int k]) $ M.listItemsi $ cls *)
+fun str_cls cls = str_ls (fn (x, (c, k)) => sprintf "$=>($,$)" [str_raw_long_id x, str_int c, str_int k]) $ M.listItemsi $ cls
                          
 (* summarize [i] in the form n_1^c_1 * (log n_1)^k_1 * ... * n_s^c_s * (log n_s)^k_s, and [n_1 => (c_1, k_1), ..., n_s => (c_s, k_s)] will be the [i]'s "asymptotic class". [n_1, ..., n_s] are the variable. *)
 (* variables satisfy [is_outer] is considered constants from the outer environment *)
@@ -251,7 +251,7 @@ fun timefun_le is_outer hs a b =
         val (_, i2) = collect_IAbs b
         val cls1 = summarize i1
         val cls2 = summarize i2
-                             (* val () = println $ sprintf "$ <=? $" [str_cls cls1, str_cls cls2] *)
+        val () = println $ sprintf "$ <=? $" [str_cls cls1, str_cls cls2]
       in
         class_le (cls1, cls2)
       end
@@ -284,7 +284,8 @@ local
 in
 fun by_master_theorem uvar (hs, p) =
   let
-    val () = println "Running bigO inference"
+    val (uvar_name, uvar_ctx, b) = get_uvar_info uvar !! (fn () => raise Error "not fresh uvar")
+    val () = println $ sprintf "Running bigO inference for ?$" [str_int uvar_name]
     fun ask_smt p = ask_smt_vc (hs, p)
     fun V n = VarI (NONE, (n, dummy))
     fun to_real i = UnOpI (ToReal, i, dummy)
@@ -298,12 +299,21 @@ fun by_master_theorem uvar (hs, p) =
               BinOpI (opr, i1, i2) =>
               let
                 fun def () = BinOpI (opr, loop i1, loop i2)
+                fun remove_uvar i =
+                  let
+                    val is = collect_AddI $ simp_i i
+                    val is = List.filter (isNone o is_IApp_UVarI) is
+                  in
+                    case is of
+                        i :: is => combine_AddI_nonempty i is
+                      | [] => i
+                  end
               in
                 case opr of
                     MaxI =>
-                    if ask_smt (i1 %>= i2) then
+                    if ask_smt (remove_uvar i1 %>= i2) then
                       mark i1
-                    else if ask_smt (i1 %<= i2) then
+                    else if ask_smt (i1 %<= remove_uvar i2) then
                       mark i2
                     else def ()
                   | _ => def ()
@@ -339,7 +349,9 @@ fun by_master_theorem uvar (hs, p) =
       end
     val hs_ctx = hyps2ctx hs
     val p = normalize_p p
+    val () = println $ "before simp_p_max: " ^ str_p [] hs_ctx p
     val p = simp_p_with_plugin simp_p_max p
+    val () = println $ "after simp_p_max: " ^ str_p [] hs_ctx p
     (* [main_arg] is the main argument; [args] are the passive arguments *)
     val (lhs, main_fun, main_arg) =
         case p of
@@ -347,7 +359,6 @@ fun by_master_theorem uvar (hs, p) =
           | _ => raise Error "wrong pattern for by_master_theorem"
     val ((uvar', _), args) = is_IApp_UVarI main_fun !! (fn () => raise Error "RHS not [uvar arg1 ...]")
     val () = if uvar = uvar' then () else raise Error "uvar <> uvar'"
-    val (_, uvar_ctx, b) = get_uvar_info uvar !! (fn () => raise Error "not fresh uvar")
     val b = update_bs b
     val arity = is_time_fun b !! (fn () => raise Error $ sprintf "bsort $ not time fun" [str_raw_bs b])
     fun time_fun_var_name n =
@@ -443,19 +454,22 @@ fun by_master_theorem uvar (hs, p) =
                   | VarH _ => []
               val bs = infer_b_i n' @ concatMap infer_b_hyp hs
               fun good_b b =
+                (println (str_int b);
                 if ask_smt (n' %<= UnOpI (Ceil, DivI (n_, (b, dummy)), dummy)) then
                   SOME b
-                else NONE
+                else NONE)
             in
               firstSuccess good_b bs
             end
           fun is_sub_problem i =
+            ((* println (str_raw_i i); *)
             case i of
                 BinOpI (IApp, g, n') =>
                 if eq_i g main_fun then
-                  infer_b n_ n'
+                  (println (str_i [] hs_ctx n'); infer_b n_ n')
                 else NONE
               | _ => NONE
+            )
           val (a, b, others) = get_params is_sub_problem is
           val () = if b > 1 then () else raise Error "b > 1"
           val others = map use_bigO_hyp others
@@ -512,7 +526,7 @@ fun by_master_theorem uvar (hs, p) =
     val () =
         let
           val () = println "Trying [f n <= T n] case ..."
-          val () = if not $ contains_uvar lhs uvar then () else raise Error ""
+          val () = if not $ contains_uvar lhs uvar then () else raise Error "[lhs] contains [uvar]"
           val is = map use_bigO_hyp is
           val classes_of_terms = map summarize is
           val main_arg_classes = map get_main_arg_class classes_of_terms
@@ -534,7 +548,8 @@ fun by_master_theorem uvar (hs, p) =
   end
   handle Succeeded i =>
          let
-           val () = println $ sprintf "Inferred this big-O class: $\n" [str_i [] [] i]
+           val (uvar_name, _, _) = get_uvar_info uvar !! (fn () => raise Impossible "not fresh uvar")
+           val () = println $ sprintf "Inferred this big-O class for ?$: $\n" [str_int uvar_name, str_i [] [] i]
          in
            SOME i
          end
@@ -602,6 +617,7 @@ fun solve_exists (vc as (hs, p), vcs) =
               case many_inferred of
                   x :: xs => (x, xs)
                 | [] => raise on_fail_all ()
+          val () = println $ "arity=" ^ str_int arity
           fun is_outer x = outside_arity arity x
           fun combine_fun (a, b) =
             let
@@ -610,8 +626,8 @@ fun solve_exists (vc as (hs, p), vcs) =
               (* val () = if length ctx1 = length ctx2 then () else raise Error "combine_fun(): arities don't match" *)
               (* val () = if length ctx1 = arity then () else raise Error "combine_fun(): wrong arity" *)
               val ret = if timefun_le is_outer hs a b then b
-                        else if timefun_le is_outer hs a b then a
-                        else raise Error "combine_fun(): neither a <= b nor b <= a"
+                        else if timefun_le is_outer hs b a then a
+                        else raise Error(* Impossible *) $ sprintf "combine_fun(): neither a <= b nor b <= a\n  a=$\n  b=$" [str_i [] hs_ctx a, str_i [] hs_ctx b]
             in
               ret
             end
