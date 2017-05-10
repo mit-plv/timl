@@ -130,6 +130,7 @@ fun process_top_bind show_result filename gctx bind =
                  (* concatMap (fn vc => str_vc true filename vc @ [""]) $ map fst vcs *)
                  concatMap (print_unsat true filename) vcs
                )
+      val gctxd = normalize_gctx old_gctx gctxd
       val () = if show_result then
                  app println $ print_result false filename (gctx_names old_gctx) gctxd
                else ()
@@ -297,8 +298,11 @@ fun parse_arguments args =
     in
       (!annoless, !libraries, rev (!positionals))
     end
-                   
-fun main (prog_name, args : string list) : int = 
+
+val success = OS.Process.success
+val failure = OS.Process.failure
+                
+fun main (prog_name, args : string list) = 
     let
       val (opt, libraries, filenames) = parse_arguments args
       val () = if null filenames then
@@ -308,14 +312,14 @@ fun main (prog_name, args : string list) : int =
       val () = TypeCheck.anno_less := opt
       val _ = TiML.main libraries filenames
     in	
-      0
+      success
     end
     handle
-    TiML.Error msg => (println msg; 1)
-    | IO.Io e => (println (sprintf "IO Error doing $ on $" [#function e, #name e]); 1)
-    | Impossible msg => (println ("Impossible: " ^ msg); 1)
-    | ParseArgsError msg => (println msg; usage (); 1)
-                               (* | _ => (println ("Internal error"); 1) *)
+    TiML.Error msg => (println msg; failure)
+    | IO.Io e => (println (sprintf "IO Error doing $ on $" [#function e, #name e]); failure)
+    | Impossible msg => (println ("Impossible: " ^ msg); failure)
+    | ParseArgsError msg => (println msg; usage (); failure)
+                               (* | _ => (println ("Internal error"); failure) *)
 
 end
 

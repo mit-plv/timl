@@ -312,7 +312,11 @@ fun collect_BinConn opr i =
       else [i]
     | _ => [i]
              
-val collect_IApp = collect_BinOpI_left IApp
+fun collect_IApp i =
+  case collect_BinOpI_left IApp i of
+      f :: args => (f, args)
+    | [] => raise Impossible "collect_IApp(): null"
+                  
 val collect_AddI_left = collect_BinOpI_left AddI
                                             
 val collect_AddI = collect_BinOpI AddI
@@ -352,7 +356,7 @@ fun combine_BSArrow (args, b) = foldr BSArrow b args
                     
 fun is_IApp_UVarI i =
   let
-    val f :: args = collect_IApp i
+    val (f, args) = collect_IApp i
   in
     case f of
         UVarI (x, r) => SOME ((x, r), args)
@@ -537,6 +541,9 @@ fun str_i gctx ctx (i : idx) : string =
   let
     val str_i = str_i gctx
   in
+    (* case is_IApp_UVarI i of *)
+    (*     SOME ((x, _), args) => sprintf "($ ...)" [str_uvar_i str_bs (str_i []) x] *)
+    (*   | NONE => *)
     case i of
         VarI x => str_long_id #1 gctx ctx x
       | ConstIN (n, _) => str_int n
@@ -546,9 +553,10 @@ fun str_i gctx ctx (i : idx) : string =
       | ExpI (i1, (n2, _)) => sprintf "($ ^ $)" [str_i ctx i1, n2]
       | BinOpI (IApp, i1, i2) =>
         let
-          val is = collect_IApp i
+          val (f, is) = collect_IApp i
+          val is = f :: is
         in
-          sprintf "($)" [join " " $ map (str_i ctx) is]
+          sprintf "($)" [join " " $ map (str_i ctx) $ is]
         end
       | BinOpI (AddI, i1, i2) =>
         let
@@ -591,6 +599,9 @@ fun str_s gctx ctx (s : sort) : string =
   let
     val str_s = str_s gctx
   in
+    case is_SApp_UVarS s of
+        SOME (x, args) => sprintf "($ ...)" [str_uvar_s (str_s []) x]
+      | NONE =>
     case s of
         Basic (bs, _) => str_bs bs
       | Subset ((bs, _), Bind ((name, _), p), _) =>
@@ -605,8 +616,7 @@ fun str_s gctx ctx (s : sort) : string =
                 default ()
             | _ => default ()
         end
-      | UVarS (u, _) =>
-        str_uvar_s (str_s []) u
+      | UVarS (u, _) => str_uvar_s (str_s []) u
       | SortBigO ((b, _), i, _) =>
         let
           fun default () = sprintf "(BigO $ $)" [str_bs b, str_i gctx ctx i]
@@ -668,6 +678,9 @@ fun str_mt gctx (ctx as (sctx, kctx)) (t : mtype) : string =
   let
     val str_mt = str_mt gctx
   in
+    case is_MtApp_UVar t of
+        SOME (x, i_args, t_args) => sprintf "($ ...)" [str_uvar_mt (str_mt ([], [])) x]
+      | NONE =>
     case t of
         Arrow (t1, d, t2) =>
         if eq_i d (T0 dummy) then
@@ -2185,9 +2198,9 @@ local
                        end
                   )
               | IApp =>
-                (case i1 of
+                (case (* passi *) i1 of
                      IAbs (_, Bind (_, body), _) =>
-                     mark $ subst_i_i (passi i2) body
+                     (* passi $ *) mark $ subst_i_i (passi i2) body
 		   | _ => def ()
                 )
               | EqI =>
@@ -2556,7 +2569,15 @@ fun simp_s s =
     | UVarS u => UVarS u
     | SortBigO (b, i, r) => SortBigO (b, simp_i i, r)
     | SAbs (s, bind, r) => SAbs (simp_s s, simp_bind simp_s bind, r)
-    | SApp (s, i) => SApp (simp_s s, simp_i i)
+    | SApp (s, i) =>
+      let
+        val s = simp_s s
+        val i = simp_i i
+      in
+        case s of
+            SAbs (_, Bind (_, s), _) => simp_s (Subst.subst_i_s i s)
+          | _ => SApp (s, i)
+      end
 
 fun simp_k k = mapSnd (map simp_s) k
 
@@ -2574,7 +2595,15 @@ fun simp_mt t =
     | MtAbs (k, bind, r) => MtAbs (simp_k k, simp_bind simp_mt bind, r)
     | MtApp (t1, t2) => MtApp (simp_mt t1, simp_mt t2)
     | MtAbsI (s, bind, r) => MtAbsI (simp_s s, simp_bind simp_mt bind, r)
-    | MtAppI (t, i) => MtAppI (simp_mt t, simp_i i)
+    | MtAppI (t, i) =>
+      let
+        val t = simp_mt t
+        val i = simp_i i
+      in
+        case t of
+            MtAbsI (_, Bind (_, t), _) => simp_mt (Subst.subst_i_mt i t)
+          | _ => MtAppI (t, i)
+      end
 
 fun simp_t t =
   case t of

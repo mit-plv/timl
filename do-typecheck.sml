@@ -1439,8 +1439,8 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
     handle
     Error (r, msg) => raise Error (r, msg @ extra_msg ())
     | Impossible msg => raise Impossible $ join_lines $ msg :: extra_msg ()
-    val t = simp_mt $ update_mt t
-    val d = simp_i $ update_i d
+    val t = simp_mt $ normalize_mt gctx kctx t
+    val d = simp_i $ normalize_i d
                    (* val () = println $ str_ls id $ #4 ctxn *)
                    (* val () = print (sprintf " Typed $: \n        $\n" [str_e gctxn ctxn e, str_mt gctxn skctxn t]) *)
                    (* val () = print (sprintf "   Time : $: \n" [str_i sctxn d]) *)

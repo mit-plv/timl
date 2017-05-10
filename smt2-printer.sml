@@ -70,7 +70,9 @@ fun print_i ctx i =
            end
          | IApp =>
            let
-               val is = collect_IApp i1 @ [i2]
+             val (f, is) = collect_IApp i1 
+             val is = f :: is
+             val is = is @ [i2]
            in
                (* sprintf "(app_$$)" [str_int (length is - 1), join_prefix " " $ map (print_i ctx) is] *)
                sprintf "($)" [join " " $ map (print_i ctx) is]

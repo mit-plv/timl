@@ -1,2 +1,4 @@
 (* for mlton *)
-val _ = Main.main (CommandLine.name (), CommandLine.arguments ())
+val ret = Main.main (CommandLine.name (), CommandLine.arguments ())
+
+val () = OS.Process.exit ret

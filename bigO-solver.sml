@@ -50,7 +50,7 @@ fun find_bigO_hyp f_i hyps =
 (* if [i] is [f m_1 ... m_k n] where [f m_1 ... m_i]'s bigO spec is known (i <= k), replace [f m1 ... m_i] with its bigO spec *)
 fun use_bigO_hyp long_hyps i =
   let
-    val f :: args = collect_IApp i
+    val (f, args) = collect_IApp i
     fun iter (arg, f) =
       let
         val f = default f $ Option.map fst $ find_bigO_hyp f long_hyps
