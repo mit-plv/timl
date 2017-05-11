@@ -384,6 +384,8 @@ fun firstSuccess f xs = foldl (fn (x, acc) => case acc of SOME _ => acc | NONE =
                               
 fun b2o b = if b then SOME () else NONE
                                      
+fun b2i b = if b then 1 else 0
+                                     
 fun assert p msg = if p () then () else raise Impossible $ "Assert failed: " ^ msg
   
 end

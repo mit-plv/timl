@@ -40,6 +40,8 @@ fun idx_un_op_type opr =
     | Floor => (Time, Nat)
     | B2n => (BoolSort, Nat)
     | Neg => (BoolSort, BoolSort)
+    | IUDiv _ => raise Impossible "idx_un_op_type ()"
+    | IUExp _ => raise Impossible "idx_un_op_type ()"
 
 fun idx_bin_op_type opr =
   case opr of
@@ -137,8 +139,7 @@ and is_wf_prop gctx (ctx : scontext, p : U.prop) : prop =
       val check_bsort = check_bsort gctx
     in
       case p of
-	  U.True r => True r
-        | U.False r => False r
+	  U.PTrueFalse (b, r) => PTrueFalse (b, r)
         | U.Not (p, r) => 
           Not (is_wf_prop (ctx, p), r)
         | U.BinConn (opr, p1, p2) =>
@@ -207,29 +208,48 @@ and get_bsort (gctx : sigcontext) (ctx : scontext, i : U.idx) : idx * bsort =
             in
               (VarI x, get_base (fn _ => raise error (U.get_region_i i) (gctx_names gctx) (sctx_names ctx) ()) s)
             end
+          | U.IConst (c, r) =>
+            (case c of
+	         ICBool _ => 
+                 (IConst (c, r), Base BoolSort)
+	       | ICTT => 
+                 (TTI r, Base UnitSort)
+	       | ICTime x => 
+	         (ConstIT (x, r), Base Time)
+	       | ICNat n => 
+	         if n >= 0 then
+	           (ConstIN (n, r), Base Nat)
+	         else
+	           raise Error (r, ["Natural number constant must be non-negative"])
+	       | ICAdmit => 
+                 (AdmitI r, Base UnitSort)
+            )
           | U.UnOpI (opr, i, r) =>
-            let
-              val (atype, rettype) = idx_un_op_type opr
-            in
-              (UnOpI (opr,
-                      check_bsort (ctx, i, Base atype),
-                      r),
-               Base rettype)
-            end
-          | U.DivI (i1, (n2, r2)) =>
-            let 
-              val i1 = check_bsort (ctx, i1, Base Time)
-	      val () = if n2 > 0 then ()
-	               else raise Error (r2, ["Can only divide by positive integer"])
-            in
-              (DivI (i1, (n2, r2)), Base Time)
-            end
-          | U.ExpI (i1, (n2, r2)) =>
-            let 
-              val i1 = check_bsort (ctx, i1, Base Time)
-            in
-              (ExpI (i1, (n2, r2)), Base Time)
-            end
+            (case opr of
+                 IUDiv n =>
+                 let 
+                   val i = check_bsort (ctx, i, Base Time)
+	           val () = if n > 0 then ()
+	                    else raise Error (r, ["Can only divide by positive integer"])
+                 in
+                   (DivI (i, (n, r)), Base Time)
+                 end
+               | IUExp n =>
+                 let 
+                   val i = check_bsort (ctx, i, Base Time)
+                 in
+                   (ExpI (i, (n, r)), Base Time)
+                 end
+               | _ =>
+                 let
+                   val (atype, rettype) = idx_un_op_type opr
+                 in
+                   (UnOpI (opr,
+                           check_bsort (ctx, i, Base atype),
+                           r),
+                    Base rettype)
+                 end
+            )
 	  | U.BinOpI (opr, i1, i2) =>
             let
               (* overloaded binary operations *)
@@ -292,19 +312,6 @@ and get_bsort (gctx : sigcontext) (ctx : scontext, i : U.idx) : idx * bsort =
             in
               (Ite (i, i1, i2, r), bs1)
             end
-	  | U.ConstIT (x, r) => 
-	    (ConstIT (x, r), Base Time)
-	  | U.ConstIN (n, r) => 
-	    if n >= 0 then
-	      (ConstIN (n, r), Base Nat)
-	    else
-	      raise Error (r, ["Natural number constant must be non-negative"])
-	  | U.TrueI r => 
-            (TrueI r, Base BoolSort)
-	  | U.FalseI r => 
-            (FalseI r, Base BoolSort)
-	  | U.TTI r => 
-            (TTI r, Base UnitSort)
           | U.IAbs (bs1, Bind ((name, r1), i), r) =>
             let
               val bs1 = is_wf_bsort bs1
@@ -316,8 +323,6 @@ and get_bsort (gctx : sigcontext) (ctx : scontext, i : U.idx) : idx * bsort =
                 (*     (IAbs ((name, r1), i, r), Base (TimeFun (arity + 1))) *)
                 (*   | _ => raise Error (get_region_i i, "Sort of time funtion body should be time function" :: indent ["want: time function", "got: " ^ str_bs bs]) *)
             end
-	  | U.AdmitI r => 
-            (AdmitI r, Base UnitSort)
           | U.UVarI ((), r) =>
             let
               val bs = fresh_bsort ()
@@ -373,7 +378,7 @@ fun check_sort gctx (ctx, i : U.idx, s : sort) : idx =
             val r = get_region_i i
             val (i, is_admit) =
                 case i of
-                    AdmitI r => (TTI r, true)
+                    IConst (ICAdmit, r) => (TTI r, true)
                   | _ => (i, false)
             val p = subst_i_p i p
             (* val () = println $ sprintf "Writing prop $ $" [str_p (sctx_names ctx) p, str_region "" "" r] *)
@@ -1377,7 +1382,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	    (* constructor application doesn't incur count *)
             val d =
                 case d of
-                    ConstIT (_, r) => 
+                    IConst (ICTime _, r) => 
                     if eq_i d (T1 r) then T0 r 
                     else raise wrong_d
                   | (BinOpI (AddI, d1, d2)) => 
@@ -2061,7 +2066,7 @@ fun check_top_bind gctx bind =
     gctxd
   end
     
-and check_prog gctx binds =
+fun check_prog gctx binds =
     let
       (* val () = println "Begin check_prog()" *)
       fun open_gctx gctx =

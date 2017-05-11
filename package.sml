@@ -29,18 +29,11 @@ local
   fun f x v b =
     case b of
 	VarI y => VarI $ package_long_id x v y
-      | ConstIN n => ConstIN n
-      | ConstIT x => ConstIT x
+      | IConst _ => b
       | UnOpI (opr, i, r) => UnOpI (opr, f x v i, r)
-      | DivI (i1, n2) => DivI (f x v i1, n2)
-      | ExpI (i1, n2) => ExpI (f x v i1, n2)
       | BinOpI (opr, d1, d2) => BinOpI (opr, f x v d1, f x v d2)
       | Ite (i1, i2, i3, r) => Ite (f x v i1, f x v i2, f x v i3, r)
-      | TrueI r => TrueI r
-      | FalseI r => FalseI r
-      | TTI r => TTI r
       | IAbs (b, bind, r) => IAbs (b, package_i_ibind f x v bind, r)
-      | AdmitI r => AdmitI r
       | UVarI a => b
 in
 fun package_i_i x v (b : idx) : idx = f x v b
@@ -50,8 +43,7 @@ fun package0_i v = package_i_i 0 v
 local
   fun f x v b =
     case b of
-	True r => True r
-      | False r => False r
+	PTrueFalse _ => b
       | Not (p, r) => Not (f x v p, r)
       | BinConn (opr,p1, p2) => BinConn (opr, f x v p1, f x v p2)
       | BinPred (opr, d1, d2) => BinPred (opr, package_i_i x v d1, package_i_i x v d2)

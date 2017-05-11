@@ -84,18 +84,11 @@ fun forget_i_i x n b =
       in
         case b of
 	    VarI y => VarI $ on_v_long_id on_v x n y
-	  | ConstIN n => ConstIN n
-	  | ConstIT x => ConstIT x
+          | IConst _ => b
           | UnOpI (opr, i, r) => UnOpI (opr, f x n i, r)
-          | DivI (i1, n2) => DivI (f x n i1, n2)
-          | ExpI (i1, n2) => ExpI (f x n i1, n2)
 	  | BinOpI (opr, i1, i2) => BinOpI (opr, f x n i1, f x n i2)
           | Ite (i1, i2, i3, r) => Ite (f x n i1, f x n i2, f x n i3, r)
-	  | TTI r => TTI r
-	  | TrueI r => TrueI r
-	  | FalseI r => FalseI r
           | IAbs (b, bind, r) => IAbs (b, on_i_ibind f x n bind, r)
-          | AdmitI r => AdmitI r
           | UVarI a => b (* uvars are closed, so no need to deal with *)
       end
     val ret =

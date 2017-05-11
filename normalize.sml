@@ -37,18 +37,11 @@ fun load_uvar' on_refined origin x = load_uvar on_refined (const origin) (x, dum
 fun update_i i =
   case i of
       UVarI (x, r) => load_uvar' update_i i x
+    | IConst _ => i
     | UnOpI (opr, i, r) => UnOpI (opr, update_i i, r)
-    | DivI (i1, n2) => DivI (update_i i1, n2)
-    | ExpI (i1, n2) => ExpI (update_i i1, n2)
     | BinOpI (opr, i1, i2) => BinOpI (opr, update_i i1, update_i i2)
     | Ite (i1, i2, i3, r) => Ite (update_i i1, update_i i2, update_i i3, r)
     | VarI _ => i
-    | ConstIN _ => i
-    | ConstIT _ => i
-    | TTI _ => i
-    | TrueI _ => i
-    | FalseI _ => i
-    | AdmitI _ => i
     | IAbs (b, Bind (name, i), r) => IAbs (update_bs b, Bind (name, update_i i), r)
 
 fun update_p p =
@@ -57,8 +50,7 @@ fun update_p p =
     | BinConn (opr, p1, p2) => BinConn (opr, update_p p1, update_p p2)
     | BinPred (opr, i1, i2) => BinPred (opr, update_i i1, update_i i2)
     | Not (p, r) => Not (update_p p, r)
-    | True _ => p
-    | False _ => p
+    | PTrueFalse _ => p
 
 fun update_s s =
   case s of
@@ -146,8 +138,7 @@ fun whnf_i i =
         val i3 = whnf_i i3
       in
         case i1 of
-            TrueI _ => i2
-          | FalseI _ => i3
+            IConst (ICBool b, _) => if b then i2 else i3
           | _ => Ite (i1, i2, i3, r)
       end
     | _ => i
@@ -159,9 +150,8 @@ val normalize_bs = update_bs
 fun normalize_i i =
   case i of
       UVarI (x, r) => load_uvar' normalize_i i x
+    | IConst _ => i
     | UnOpI (opr, i, r) => UnOpI (opr, normalize_i i, r)
-    | DivI (i1, n2) => DivI (normalize_i i1, n2)
-    | ExpI (i1, n2) => ExpI (normalize_i i1, n2)
     | BinOpI (opr, i1, i2) =>
       let
         val i1 = normalize_i i1
@@ -178,17 +168,10 @@ fun normalize_i i =
         val i3 = normalize_i i3
       in
         case i1 of
-            TrueI _ => i2
-          | FalseI _ => i3
+            IConst (ICBool b, _) => if b then i2 else i3
           | _ => Ite (i1, i2, i3, r)
       end
     | VarI _ => i
-    | ConstIN _ => i
-    | ConstIT _ => i
-    | TTI _ => i
-    | TrueI _ => i
-    | FalseI _ => i
-    | AdmitI _ => i
     | IAbs (b, Bind (name, i), r) => IAbs (normalize_bs b, Bind (name, normalize_i i), r)
 
 fun normalize_p p =
@@ -197,8 +180,7 @@ fun normalize_p p =
     | BinConn (opr, p1, p2) => BinConn (opr, normalize_p p1, normalize_p p2)
     | BinPred (opr, i1, i2) => BinPred (opr, normalize_i i1, normalize_i i2)
     | Not (p, r) => Not (normalize_p p, r)
-    | True _ => p
-    | False _ => p
+    | PTrueFalse _ => p
                    
 fun whnf_s s =
   case s of

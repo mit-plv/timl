@@ -1,4 +1,13 @@
 structure Operators = struct
+open Util
+
+datatype idx_const =
+         ICBool of bool
+	 | ICTT
+         | ICAdmit
+         | ICNat of int
+         | ICTime of string
+
 
 datatype idx_un_op =
          ToReal
@@ -7,11 +16,12 @@ datatype idx_un_op =
          | Floor
          | B2n
          | Neg
+         | IUDiv of int
+         | IUExp of string
                
 datatype idx_bin_op =
 	 AddI
 	 | MultI
-         (* | DivI *)
 	 | MaxI
 	 | MinI
          | IApp 
@@ -51,6 +61,14 @@ datatype 'a quan =
          Forall
          | Exists of 'a
 
+fun str_idx_const c =
+  case c of
+      ICBool b => str_bool b
+    | ICTT => "()"
+    | ICAdmit => "admit"
+    | ICNat n => str_int n
+    | ICTime s => s
+
 fun str_idx_un_op opr =
   case opr of
       ToReal => "$"
@@ -59,6 +77,8 @@ fun str_idx_un_op opr =
     | Floor => "floor"
     | B2n => "b2n"
     | Neg => "not"
+    | IUDiv d => sprintf "(/ $)" [str_int d]
+    | IUExp s => sprintf "(^ $)" [s]
 
 fun str_idx_bin_op opr =
   case opr of

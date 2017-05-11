@@ -16,11 +16,8 @@ local
   fun f d(*depth*) acc b =
     case b of
 	VarI x => collect_var_long_id d x @ acc
-      | ConstIN n => acc
-      | ConstIT x => acc
+      | IConst _ => acc
       | UnOpI (opr, i, r) => f d acc i
-      | DivI (i, n) => f d acc i
-      | ExpI (i, n) => f d acc i
       | BinOpI (opr, i1, i2) => 
         let
           val acc = f d acc i1
@@ -36,12 +33,8 @@ local
         in
           acc
         end
-      | TrueI r => acc
-      | FalseI r => acc
-      | TTI r => acc
       | IAbs (b, bind, r) =>
         collect_var_aux_i_ibind f d acc bind
-      | AdmitI r => acc
       | UVarI a => acc
 in
 val collect_var_aux_i_i = f
@@ -51,8 +44,7 @@ end
 local
   fun f d acc b =
     case b of
-	True r => acc
-      | False r => acc
+	PTrueFalse _ => acc
       | Not (p, r) => f d acc p
       | BinConn (opr,p1, p2) =>
         let

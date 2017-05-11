@@ -7,18 +7,11 @@ open Expr
 fun collect_uvar_i_i i =
   case i of
       VarI _ => []
-    | ConstIT _ => []
-    | ConstIN _ => []
+    | IConst _ => []
     | UnOpI (_, i, _) => collect_uvar_i_i i
-    | DivI (i, _) => collect_uvar_i_i i
-    | ExpI (i, _) => collect_uvar_i_i i
     | BinOpI (_, i1, i2) => collect_uvar_i_i i1 @ collect_uvar_i_i i2
     | Ite (i1, i2, i3, _) => collect_uvar_i_i i1 @ collect_uvar_i_i i2 @ collect_uvar_i_i i3
-    | TrueI _ => []
-    | FalseI _ => []
-    | TTI _ => []
     | IAbs (_, Bind (_, i), _) => collect_uvar_i_i i
-    | AdmitI _ => []
     | UVarI (x, r) =>
       case !x of
           Refined a => collect_uvar_i_i a
@@ -26,8 +19,7 @@ fun collect_uvar_i_i i =
                                 
 fun collect_uvar_i_p p =
   case p of
-      True _ => []
-    | False _ => []
+      PTrueFalse _ => []
     | BinConn (_, p1, p2) => collect_uvar_i_p p1 @ collect_uvar_i_p p2
     | Not (p, _) => collect_uvar_i_p p
     | BinPred (_, i1, i2) => collect_uvar_i_i i1 @ collect_uvar_i_i i2

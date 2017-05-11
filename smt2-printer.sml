@@ -32,10 +32,14 @@ fun print_i ctx i =
   case i of
       VarI (_, (n, _)) =>
       (List.nth (ctx, n) handle Subscript => raise SMTError $ "Unbound variable " ^ str_int n)
-    | ConstIN (n, _) => str_int n
-    | ConstIT (x, _) => x
-    | DivI (i1, (n2, _)) => sprintf "(/ $ $)" [print_i ctx i1, str_int n2]
-    | ExpI (i1, (n2, _)) => sprintf "(^ $ $)" [print_i ctx i1, n2]
+    | IConst (c, _) =>
+      (case c of
+           ICNat n => str_int n
+         | ICTime x => x
+         | ICBool b => str_bool b
+         | ICTT => "TT"
+         | ICAdmit => "TT"
+      )
     | UnOpI (opr, i, _) => 
       (case opr of
            ToReal => sprintf "(to_real $)" [print_i ctx i]
@@ -46,6 +50,8 @@ fun print_i ctx i =
          | Floor => sprintf "(floor $)" [print_i ctx i]
          | B2n => sprintf "(b2i $)" [print_i ctx i]
          | Neg => sprintf "(not $)" [print_i ctx i]
+         | IUDiv n => sprintf "(/ $ $)" [print_i ctx i, str_int n]
+         | IUExp s => sprintf "(^ $ $)" [print_i ctx i, s]
       )
     | BinOpI (opr, i1, i2) => 
       (case opr of
@@ -84,11 +90,7 @@ fun print_i ctx i =
            sprintf "($ $ $)" [print_idx_bin_op opr, print_i ctx i1, print_i ctx i2]
       )
     | Ite (i1, i2, i3, _) => sprintf "(ite $ $ $)" [print_i ctx i1, print_i ctx i2, print_i ctx i3]
-    | TrueI _ => "true"
-    | FalseI _ => "false"
-    | TTI _ => "TT"
     | IAbs _ => raise SMTError "can't handle abstraction"
-    | AdmitI _ => "TT"
     | UVarI (x, _) =>
       case !x of
           Refined i => print_i ctx i
@@ -130,8 +132,7 @@ fun print_p ctx p =
           | BigO => raise SMTError "can't handle big-O"
       fun f p =
         case p of
-            True _ => "true"
-          | False _ => "false"
+            PTrueFalse (b, _) => str_bool b
           | Not (p, _) => negate (f p)
           | BinConn (opr, p1, p2) => sprintf "($ $ $)" [str_conn opr, f p1, f p2]
           (* | BinPred (BigO, i1, i2) => sprintf "(bigO $ $)" [print_i ctx i1, print_i ctx i2] *)
@@ -265,8 +266,7 @@ fun conv_p p =
       | Not (p, r) => Not (conv_p p, r)
       | BinConn (opr, p1, p2) => BinConn (opr, conv_p p1, conv_p p2)
       | BinPred _ => p
-      | True _ => p
-      | False _ => p
+      | PTrueFalse _ => p
 
 fun conv_hyp h =
     case h of

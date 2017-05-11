@@ -85,18 +85,11 @@ fun on_idx (gctx : sigcontext) ctx i =
     in
       case i of
 	  E.VarI x => VarI (on_long_id gctx #1 ctx x)
-	| E.ConstIN n => ConstIN n
-	| E.ConstIT c => ConstIT c
+        | E.IConst c => IConst c
         | E.UnOpI (opr, i, r) => UnOpI (opr, on_idx ctx i, r)
-        | E.DivI (i1, n2) => DivI (on_idx ctx i1, n2)
-        | E.ExpI (i1, n2) => ExpI (on_idx ctx i1, n2)
 	| E.BinOpI (opr, i1, i2) => BinOpI (opr, on_idx ctx i1, on_idx ctx i2)
         | E.Ite (i1, i2, i3, r) => Ite (on_idx ctx i1, on_idx ctx i2, on_idx ctx i3, r)
-	| E.TrueI r => TrueI r
-	| E.FalseI r => FalseI r
-	| E.TTI r => TTI r
         | E.IAbs (bs, bind, r) => IAbs (on_bsort bs, on_ibind on_idx ctx bind, r)
-        | E.AdmitI r => AdmitI r
         | E.UVarI u => UVarI u
     end
       
@@ -110,8 +103,7 @@ fun on_prop gctx ctx p =
       val on_prop = on_prop gctx
     in
       case p of
-	  E.True r => True r
-	| E.False r => False r
+	  E.PTrueFalse b => PTrueFalse b
         | E.Not (p, r) => Not (on_prop ctx p, r)
 	| E.BinConn (opr, p1, p2) => BinConn (opr, on_prop ctx p1, on_prop ctx p2)
 	| E.BinPred (opr, i1, i2) => BinPred (opr, on_idx gctx ctx i1, on_idx gctx ctx i2)

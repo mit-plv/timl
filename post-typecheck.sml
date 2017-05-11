@@ -218,18 +218,11 @@ fun remove_m_i n i =
            else
              VarI (SOME (m - 1, mr), (x, r))
       )
+    | IConst _ => i
     | UnOpI (opr, i, r) => UnOpI (opr, remove_m_i n i, r)
-    | DivI (i, b) => DivI (remove_m_i n i, b)
-    | ExpI (i, b) => ExpI (remove_m_i n i, b)
     | BinOpI (opr, i1, i2) => BinOpI (opr, remove_m_i n i1, remove_m_i n i2)
     | Ite (i1, i2, i3, r) => Ite (remove_m_i n i1, remove_m_i n i2, remove_m_i n i3, r)
     | IAbs (bs, bind, r) => IAbs (bs, remove_m_ibind remove_m_i n bind, r)
-    | ConstIT _ => i
-    | ConstIN _ => i
-    | TrueI _ => i
-    | FalseI _ => i
-    | TTI _ => i
-    | AdmitI _ => i
     | UVarI _ => i (* forall-module must all be on the outermost *)
                    
 fun remove_m_p n p =
@@ -238,8 +231,7 @@ fun remove_m_p n p =
     | Not (p, r) => Not (remove_m_p n p, r)
     | BinPred (opr, i1, i2) => BinPred (opr, remove_m_i n i1, remove_m_i n i2)
     | Quan (q, bs, bind, r) => Quan (q, bs, remove_m_ibind remove_m_p n bind, r)
-    | True _ => p
-    | False _ => p
+    | PTrueFalse _ => p
                    
 fun remove_m_f n f =
   case f of

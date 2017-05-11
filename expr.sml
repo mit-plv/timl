@@ -18,11 +18,12 @@ end
 structure BaseTypes = struct
 datatype base_type =
          Int
-fun eq_base_type (t : base_type, t') =
-  case t of
-      Int =>
-      (case t' of 
-           Int => true)
+fun eq_base_type (t : base_type, t') = t = t'
+(* fun eq_base_type (t : base_type, t') = *)
+(*   case t of *)
+(*       Int => *)
+(*       (case t' of  *)
+(*            Int => true) *)
         
 end
                         
@@ -63,23 +64,23 @@ type ('classifier, 'name, 'inner) tbinds = (type_namespace, 'classifier, 'name, 
                                                                                         
 datatype idx =
 	 VarI of long_id
-	 | ConstIT of string * region
-	 | ConstIN of int * region
+	 (* | ConstIT of string * region *)
+	 (* | ConstIN of int * region *)
+         | IConst of idx_const * region
          | UnOpI of idx_un_op * idx * region
-         | DivI of idx * (int * region)
-         | ExpI of idx * (string * region)
+         (* | DivI of idx * (int * region) *)
+         (* | ExpI of idx * (string * region) *)
          | BinOpI of idx_bin_op * idx * idx
          | Ite of idx * idx * idx * region
-	 | TrueI of region
-	 | FalseI of region
-	 | TTI of region
+	 (* | TrueI of region *)
+	 (* | FalseI of region *)
+	 (* | TTI of region *)
          | IAbs of bsort * (name * idx) ibind * region
-         | AdmitI of region
+         (* | AdmitI of region *)
          | UVarI of (bsort, idx) uvar_i * region
 
 datatype prop =
-	 True of region
-	 | False of region
+	 PTrueFalse of bool * region
          | BinConn of bin_conn * prop * prop
          | Not of prop * region
 	 | BinPred of bin_pred * idx * idx
@@ -104,7 +105,6 @@ datatype mtype =
          | TyNat of idx * region
          | TyArray of mtype * idx
 	 | BaseType of base_type * region
-         | UVar of (sort, kind, mtype) uvar_mt * region
          | Unit of region
 	 | Prod of mtype * mtype
 	 | UniI of sort * (name * mtype) ibind * region
@@ -114,6 +114,7 @@ datatype mtype =
          | MtApp of mtype * mtype
          | MtAbsI of sort * (name * mtype) ibind  * region
          | MtAppI of mtype * idx
+         | UVar of (sort, kind, mtype) uvar_mt * region
 
 datatype ty = 
 	 Mono of mtype
@@ -213,12 +214,22 @@ datatype top_bind =
 type prog = top_bind list
 
 (* some shorthands *)
-                     
+
+fun ConstIT (s, r) = IConst (ICTime s, r)
+fun ConstIN (d, r) = IConst (ICNat d, r)
 fun T0 r = ConstIT ("0.0", r)
 fun T1 r = ConstIT ("1.0", r)
 fun N0 r = ConstIN (0, r)
 fun N1 r = ConstIN (1, r)
-
+fun DivI (i, (n, r)) = UnOpI (IUDiv n, i, r)
+fun ExpI (i, (s, r)) = UnOpI (IUExp s, i, r)
+fun TrueI r = IConst (ICBool true, r)
+fun FalseI r = IConst (ICBool false, r)
+fun TTI r = IConst (ICTT, r)
+fun AdmitI r = IConst (ICAdmit, r)
+fun True r = PTrueFalse (true, r)
+fun False r = PTrueFalse (false, r)
+         
 val STime = Basic (Base Time, dummy)
 val SBool = Basic (Base BoolSort, dummy)
 val SUnit = Basic (Base UnitSort, dummy)
@@ -323,7 +334,7 @@ val collect_AddI = collect_BinOpI AddI
 val collect_MultI = collect_BinOpI MultI
                                    
 val collect_And = collect_BinConn And
-                                  
+
 fun combine_And ps = foldl' (fn (p, acc) => acc /\ p) (True dummy) ps
 fun combine_AddI zero is = foldl' (fn (i, acc) => acc %+ i) zero is
 fun combine_AddI_Time is = combine_AddI (T0 dummy) is
@@ -476,19 +487,12 @@ fun eq_i i i' =
     fun loop i i' =
       case i of
           VarI x => (case i' of VarI x' => eq_long_id (x, x') | _ => false)
-        | ConstIN (n, _) => (case i' of ConstIN (n', _) => n = n' | _ => false)
-        | ConstIT (x, _) => (case i' of ConstIT (x', _) => x = x' | _ => false)
+        | IConst (c, _) => (case i' of IConst (c', _) => c = c' | _ => false)
         | UnOpI (opr, i, _) => (case i' of UnOpI (opr', i', _) => opr = opr' andalso loop i i' | _ => false)
-        | DivI (i1, (n2, _)) => (case i' of DivI (i1', (n2', _)) => loop i1 i1' andalso n2 = n2' | _ => false)
-        | ExpI (i1, (n2, _)) => (case i' of ExpI (i1', (n2', _)) => loop i1 i1' andalso n2 = n2' | _ => false)
         | BinOpI (opr, i1, i2) => (case i' of BinOpI (opr', i1', i2') => opr = opr' andalso loop i1 i1' andalso loop i2 i2' | _ => false)
         | Ite (i1, i2, i3, _) => (case i' of Ite (i1', i2', i3', _) => loop i1 i1' andalso loop i2 i2' andalso loop i3 i3' | _ => false)
-        | TrueI _ => (case i' of TrueI _ => true | _ => false)
-        | FalseI _ => (case i' of FalseI _ => true | _ => false)
-        | TTI _ => (case i' of TTI _ => true | _ => false)
         | IAbs (b, Bind (_, i), _) => (case i' of IAbs (b', Bind (_, i'), _) => eq_bs b b' andalso loop i i'
                                                 | _ => false)
-        | AdmitI _ => (case i' of AdmitI _ => true | _ => false)
         | UVarI (u, _) => (case i' of UVarI (u', _) => eq_uvar_i (u, u') | _ => false)
   in
     loop i i'
@@ -501,8 +505,7 @@ fun eq_quan q q' =
                     
 fun eq_p p p' =
   case p of
-      True _ => (case p' of True _ => true | _ => false)
-    | False _ => (case p' of False _ => true | _ => false)
+      PTrueFalse (b, _) => (case p' of PTrueFalse (b', _) => b = b' | _ => false)
     | BinConn (opr, p1, p2) => (case p' of BinConn (opr', p1', p2') => opr = opr' andalso eq_p p1 p1' andalso eq_p p2 p2' | _ => false)
     | BinPred (opr, i1, i2) => (case p' of BinPred (opr', i1', i2') => opr = opr' andalso eq_i i1 i1' andalso eq_i i2 i2' | _ => false)
     | Not (p, _) => (case p' of Not (p', _) => eq_p p p' | _ => false)
@@ -546,29 +549,31 @@ fun str_i gctx ctx (i : idx) : string =
     (*   | NONE => *)
     case i of
         VarI x => str_long_id #1 gctx ctx x
-      | ConstIN (n, _) => str_int n
-      | ConstIT (x, _) => x
-      | UnOpI (opr, i, _) => sprintf "($ $)" [str_idx_un_op opr, str_i ctx i]
-      | DivI (i1, (n2, _)) => sprintf "($ / $)" [str_i ctx i1, str_int n2]
-      | ExpI (i1, (n2, _)) => sprintf "($ ^ $)" [str_i ctx i1, n2]
-      | BinOpI (IApp, i1, i2) =>
-        let
-          val (f, is) = collect_IApp i
-          val is = f :: is
-        in
-          sprintf "($)" [join " " $ map (str_i ctx) $ is]
-        end
-      | BinOpI (AddI, i1, i2) =>
-        let
-          val is = collect_AddI_left i
-        in
-          sprintf "($)" [join " + " $ map (str_i ctx) is]
-        end
-      | BinOpI (opr, i1, i2) => sprintf "($ $ $)" [str_i ctx i1, str_idx_bin_op opr, str_i ctx i2]
+      | IConst (c, _) => str_idx_const c
+      | UnOpI (opr, i, _) =>
+        (case opr of
+             IUDiv n => sprintf "($ / $)" [str_i ctx i, str_int n]
+           | IUExp s => sprintf "($ ^ $)" [str_i ctx i, s]
+           | _ => sprintf "($ $)" [str_idx_un_op opr, str_i ctx i]
+        )
+      | BinOpI (opr, i1, i2) =>
+        (case opr of
+             IApp =>
+             let
+               val (f, is) = collect_IApp i
+               val is = f :: is
+             in
+               sprintf "($)" [join " " $ map (str_i ctx) $ is]
+             end
+           | AddI =>
+             let
+               val is = collect_AddI_left i
+             in
+               sprintf "($)" [join " + " $ map (str_i ctx) is]
+             end
+           | _ => sprintf "($ $ $)" [str_i ctx i1, str_idx_bin_op opr, str_i ctx i2]
+        )
       | Ite (i1, i2, i3, _) => sprintf "(ite $ $ $)" [str_i ctx i1, str_i ctx i2, str_i ctx i3]
-      | TTI _ => "()"
-      | TrueI _ => "true"
-      | FalseI _ => "false"
       | IAbs _ =>
         let
           val (bs_names, i) = collect_IAbs i
@@ -577,7 +582,6 @@ fun str_i gctx ctx (i : idx) : string =
           sprintf "(fn $ => $)" [join " " $ map (fn (b, name) => sprintf "($ : $)" [name, str_bs b]) bs_names, str_i (rev names @ ctx) i]
         end
       (* | IAbs ((name, _), i, _) => sprintf "(fn $ => $)" [name, str_i (name :: ctx) i] *)
-      | AdmitI _ => "admit" 
       | UVarI (u, _) => str_uvar_i str_bs (str_i []) u
   end
 
@@ -586,8 +590,7 @@ fun str_p gctx ctx p =
     val str_p = str_p gctx
   in
     case p of
-        True _ => "True"
-      | False _ => "False"
+        PTrueFalse (b, _) => str_bool b
       | Not (p, _) => sprintf "(~ $)" [str_p ctx p]
       | BinConn (opr, p1, p2) => sprintf "($ $ $)" [str_p ctx p1, str_bin_conn opr, str_p ctx p2]
       (* | BinPred (BigO, i1, i2) => sprintf "($ $ $)" [str_bin_pred BigO, str_i ctx i1, str_i ctx i2] *)
@@ -740,18 +743,11 @@ fun str_raw_bs b =
 fun str_raw_i i =
   case i of
       VarI x => sprintf "VarI ($)" [str_raw_long_id x]
-    | ConstIN (n, _) => sprintf "ConstIN $" [str_int n]
-    | ConstIT (x, _) => sprintf "ConstIT $" [x]
+    | IConst (c, _) => str_idx_const c
     | UnOpI (opr, i, _) => sprintf "UnOpI ($, $)" [str_idx_un_op opr, str_raw_i i]
-    | DivI (i1, (n2, _)) => sprintf "DivI ($, $)" [str_raw_i i1, str_int n2]
-    | ExpI (i1, (n2, _)) => sprintf "ExpI ($, $)" [str_raw_i i1, n2]
     | BinOpI (opr, i1, i2) => sprintf "BinOpI ($, $, $)" [str_idx_bin_op opr, str_raw_i i1, str_raw_i i2]
     | Ite (i1, i2, i3, _) => sprintf "Ite ($, $, $)" [str_raw_i i1, str_raw_i i2, str_raw_i i3]
-    | TTI _ => "TTI"
-    | TrueI _ => "TrueI"
-    | FalseI _ => "FalseI"
     | IAbs (b, bind, _) => sprintf "IAbs ($, $)" [str_bs b, str_raw_bind str_raw_i bind]
-    | AdmitI _ => "Admit" 
     | UVarI (u, _) => str_uvar_i str_bs str_raw_i u
 
 fun str_raw_mt (t : mtype) : string =
@@ -994,41 +990,26 @@ fun set_region_long_id (m, (x, _)) r = (Option.map (fn (m, _) => (m, r)) m, (x, 
 fun get_region_i i =
   case i of
       VarI x => get_region_long_id x
-    | ConstIN (_, r) => r
-    | ConstIT (_, r) => r
+    | IConst (_, r) => r
     | UnOpI (_, _, r) => r
-    | DivI (i1, (_, r2)) => combine_region (get_region_i i1) r2
-    | ExpI (i1, (_, r2)) => combine_region (get_region_i i1) r2
     | BinOpI (_, i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
     | Ite (_, _, _, r) => r
-    | TrueI r => r
-    | FalseI r => r
-    | TTI r => r
     | IAbs (_, _, r) => r
-    | AdmitI r => r
     | UVarI (_, r) => r
 
 fun set_region_i i r =
   case i of
       VarI x => VarI $ set_region_long_id x r
-    | ConstIN (a, _) => ConstIN (a, r)
-    | ConstIT (a, _) => ConstIT (a, r)
+    | IConst (a, _) => IConst (a, r)
     | UnOpI (opr, i, _) => UnOpI (opr, i, r)
-    | DivI (i1, (n2, _)) => DivI (set_region_i i1 r, (n2, r))
-    | ExpI (i1, (n2, _)) => ExpI (set_region_i i1 r, (n2, r))
     | BinOpI (opr, i1, i2) => BinOpI (opr, set_region_i i1 r, set_region_i i2 r)
     | Ite (i1, i2, i3, _) => Ite (i1, i2, i3, r)
-    | TrueI _ => TrueI r
-    | FalseI _ => FalseI r
-    | TTI _ => TTI r
     | IAbs (name, i, _) => IAbs (name, i, r)
-    | AdmitI _ => AdmitI r
     | UVarI (a, _) => UVarI (a, r)
 
 fun get_region_p p = 
   case p of
-      True r => r
-    | False r => r
+      PTrueFalse (_, r) => r
     | Not (_, r) => r
     | BinConn (_, p1, p2) => combine_region (get_region_p p1) (get_region_p p2)
     | BinPred (_, i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
@@ -1036,8 +1017,7 @@ fun get_region_p p =
 
 fun set_region_p p r = 
   case p of
-      True _ => True r
-    | False _ => False r
+      PTrueFalse (b, _) => PTrueFalse (b, r)
     | Not (p, _) => Not (p, r)
     | BinConn (opr, p1, p2) => BinConn (opr, set_region_p p1 r, set_region_p p2 r)
     | BinPred (opr, i1, i2) => BinPred (opr, set_region_i i1 r, set_region_i i2 r)
@@ -1443,18 +1423,11 @@ fun on_i_i on_v x n b =
     fun f x n b =
       case b of
 	  VarI y => VarI $ on_v_long_id on_v x n y
-	| ConstIN n => ConstIN n
-	| ConstIT x => ConstIT x
+        | IConst c => IConst c
         | UnOpI (opr, i, r) => UnOpI (opr, f x n i, r)
-        | DivI (i1, n2) => DivI (f x n i1, n2)
-        | ExpI (i1, n2) => ExpI (f x n i1, n2)
 	| BinOpI (opr, i1, i2) => BinOpI (opr, f x n i1, f x n i2)
         | Ite (i1, i2, i3, r) => Ite (f x n i1, f x n i2, f x n i3, r)
-	| TTI r => TTI r
-	| TrueI r => TrueI r
-	| FalseI r => FalseI r
         | IAbs (b, bind, r) => IAbs (b, on_i_ibind f x n bind, r)
-        | AdmitI r => AdmitI r
         | UVarI a => b (* uvars are closed, so no need to deal with *)
   in
     f x n b
@@ -1464,8 +1437,7 @@ fun on_i_p on_i_i x n b =
   let
     fun f x n b =
       case b of
-	  True r => True r
-	| False r => False r
+	  PTrueFalse b => PTrueFalse b
         | Not (p, r) => Not (f x n p, r)
 	| BinConn (opr, p1, p2) => BinConn (opr, f x n p1, f x n p2)
 	| BinPred (opr, d1, d2) => BinPred (opr, on_i_i x n d1, on_i_i x n d2)
@@ -1590,18 +1562,11 @@ fun on_m_i on_v x n b =
     fun f x n b =
       case b of
 	  VarI y => VarI $ on_m_long_id on_v x n y
-	| ConstIN n => ConstIN n
-	| ConstIT x => ConstIT x
+	| IConst c => IConst c
         | UnOpI (opr, i, r) => UnOpI (opr, f x n i, r)
-        | DivI (i1, n2) => DivI (f x n i1, n2)
-        | ExpI (i1, n2) => ExpI (f x n i1, n2)
 	| BinOpI (opr, i1, i2) => BinOpI (opr, f x n i1, f x n i2)
         | Ite (i1, i2, i3, r) => Ite (f x n i1, f x n i2, f x n i3, r)
-	| TTI r => TTI r
-	| TrueI r => TrueI r
-	| FalseI r => FalseI r
         | IAbs (b, bind, r) => IAbs (b, on_m_ibind f x n bind, r)
-        | AdmitI r => AdmitI r
         | UVarI a => b
   in
     f x n b
@@ -1611,8 +1576,7 @@ fun on_m_p on_m_i x n b =
   let
     fun f x n b =
       case b of
-	  True r => True r
-	| False r => False r
+	  PTrueFalse b => PTrueFalse b
         | Not (p, r) => Not (f x n p, r)
 	| BinConn (opr, p1, p2) => BinConn (opr, f x n p1, f x n p2)
 	| BinPred (opr, d1, d2) => BinPred (opr, on_m_i x n d1, on_m_i x n d2)
@@ -1912,18 +1876,11 @@ local
   fun f x v b =
     case b of
 	VarI y => substx_long_id VarI x (const v) y
-      | ConstIN n => ConstIN n
-      | ConstIT x => ConstIT x
+      | IConst c => IConst c
       | UnOpI (opr, i, r) => UnOpI (opr, f x v i, r)
-      | DivI (i1, n2) => DivI (f x v i1, n2)
-      | ExpI (i1, n2) => ExpI (f x v i1, n2)
       | BinOpI (opr, d1, d2) => BinOpI (opr, f x v d1, f x v d2)
       | Ite (i1, i2, i3, r) => Ite (f x v i1, f x v i2, f x v i3, r)
-      | TrueI r => TrueI r
-      | FalseI r => FalseI r
-      | TTI r => TTI r
       | IAbs (b, bind, r) => IAbs (b, substx_i_ibind f x idx_shiftable v bind, r)
-      | AdmitI r => AdmitI r
       | UVarI a => b
 in
 fun substx_i_i x (v : idx) (b : idx) : idx = f x v b
@@ -1934,8 +1891,7 @@ end
 local
   fun f x v b =
     case b of
-	True r => True r
-      | False r => False r
+	PTrueFalse b => PTrueFalse b
       | Not (p, r) => Not (f x v p, r)
       | BinConn (opr,p1, p2) => BinConn (opr, f x v p1, f x v p2)
       | BinPred (opr, d1, d2) => BinPred (opr, substx_i_i x v d1, substx_i_i x v d2)
@@ -2115,9 +2071,7 @@ local
       fun r () = get_region_i i
     in
       case i of
-          DivI (i1, n2) => DivI (passi i1, n2)
-        | ExpI (i1, n2) => ExpI (passi i1, n2)
-	| BinOpI (opr, i1, i2) =>
+	  BinOpI (opr, i1, i2) =>
           let
             fun def () = BinOpI (opr, passi i1, passi i2)
           in
@@ -2181,14 +2135,14 @@ local
                   mark i1
 	        else
                   (case (i1, i2) of
-                       (ConstIN (n1, _), ConstIN (n2, _)) =>
+                       (IConst (ICNat n1, _), IConst (ICNat n2, _)) =>
                        mark $ ConstIN (n1 * n2, r ())
                      | _ =>
                        let
                          val i2s = collect_AddI i2
                          fun pred i =
                            case i of
-                               ConstIN _ => SOME i
+                               IConst (ICNat _, _) => SOME i
                              | UnOpI (B2n, _, _) => SOME i
                              | _ => NONE
                        in
@@ -2240,14 +2194,14 @@ local
                       N1 r
                 in
                   case i2 of
-                      ConstIN (n, _) => exp i1 n
+                      IConst (ICNat n, _) => exp i1 n
                     | UnOpI (B2n, i, _) => Ite (i, i1, N1 r, r)
                     | _ =>
                       let
                         val i2s = collect_AddI i2
                         fun pred i =
                           case i of
-                              ConstIN _ => SOME i
+                              IConst (ICNat _, _) => SOME i
                             | UnOpI (B2n, _, _) => SOME i
                             | _ => NONE
                       in
@@ -2270,29 +2224,37 @@ local
             mark i2
           else
             Ite (passi i, passi i1, passi i2, r)
-        | UnOpI (ToReal, BinOpI (AddI, i1, i2), r) =>
-          mark $ BinOpI (AddI, UnOpI (ToReal, i1, r), UnOpI (ToReal, i2, r))
-        | UnOpI (ToReal, BinOpI (MultI, i1, i2), r) =>
-          mark $ BinOpI (MultI, UnOpI (ToReal, i1, r), UnOpI (ToReal, i2, r))
-        | UnOpI (Neg, TrueI _, r) =>
-          mark $ FalseI r
-        | UnOpI (Neg, FalseI _, r) =>
-          mark $ TrueI r
-        | UnOpI (B2n, TrueI _, r) =>
-          mark $ N1 r
-        | UnOpI (B2n, FalseI _, r) =>
-          mark $ N0 r
         | UnOpI (opr, i, r) =>
-          UnOpI (opr, passi i, r)
+          let
+            fun default () = UnOpI (opr, passi i, r)
+          in
+            case opr of
+                IUDiv n => DivI (passi i, (n, r))
+              | IUExp s => ExpI (passi i, (s, r))
+              | ToReal =>
+                (case i of
+                     BinOpI (AddI, i1, i2) =>
+                     mark $ BinOpI (AddI, UnOpI (ToReal, i1, r), UnOpI (ToReal, i2, r))
+                   | BinOpI (MultI, i1, i2) =>
+                     mark $ BinOpI (MultI, UnOpI (ToReal, i1, r), UnOpI (ToReal, i2, r))
+                   | _ => default ()
+                )
+              | Neg =>
+                (case i of
+                     IConst (ICBool b, r) => mark $ IConst (ICBool (not b), r)
+                   | _ => default ()
+                )
+              | B2n =>
+                (case i of
+                     IConst (ICBool b, r) => mark $ IConst (ICNat (b2i b), r)
+                   | _ => default ()
+                )
+              | _ => default ()
+          end
+        | IConst _ => i
         | IAbs (b, Bind (name, i), r) =>
           IAbs (b, Bind (name, passi i), r)
-	| TrueI _ => i
-	| FalseI _ => i
-	| TTI _ => i
-        | ConstIN _ => i
-        | ConstIT _ => i
         | VarI _ => i
-        | AdmitI _ => i
         | UVarI _ => i
     end
       
@@ -2525,8 +2487,7 @@ local
                       end
                 end
           end
-	| True _ => p
-	| False _ => p
+	| PTrueFalse _ => p
     end
       
   fun until_unchanged f a = 
@@ -2670,8 +2631,7 @@ fun uniquefy ctx p =
       | Not (p, r) => Not (uniquefy ctx p, r)
       | BinConn (opr, p1, p2) => BinConn (opr, uniquefy ctx p1, uniquefy ctx p2)
       | BinPred _ => p
-      | True _ => p
-      | False _ => p
+      | PTrueFalse _ => p
 end
 
 type vc = (string * bsort, prop) hyp list * prop

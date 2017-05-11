@@ -24,18 +24,11 @@ fun no_uvar_i i =
     fun f i =
       case i of
           VarI x => N.VarI x
-        | ConstIT c => N.ConstIT c
-        | ConstIN c => N.ConstIN c
+        | IConst c => N.IConst c
         | UnOpI (opr, i, r) => N.UnOpI (opr, f i, r)
-        | DivI (i1, n2) => N.DivI (f i1, n2)
-        | ExpI (i1, n2) => N.ExpI (f i1, n2)
         | BinOpI (opr, i1, i2) => N.BinOpI (opr, f i1, f i2)
         | Ite (i1, i2, i3, r) => N.Ite (f i1, f i2, f i3, r)
-        | TrueI r => N.TrueI r
-        | FalseI r => N.FalseI r
-        | TTI r => N.TTI r
         | IAbs (bs, Bind (name, i), r) => N.IAbs (no_uvar_bsort bs, Bind (name, f i), r)
-        | AdmitI r => N.AdmitI r
         | UVarI (x, r) =>
           case !x of
               Refined a => no_uvar_i a
@@ -55,20 +48,13 @@ fun no_uvar_quan q =
       let
         fun f i =
           case i of
-                 N.VarI x => VarI x
-             | N.ConstIT c => ConstIT c
-             | N.ConstIN c => ConstIN c
-             | N.UnOpI (opr, i, r) => UnOpI (opr, f i, r)
-             | N.DivI (i1, n2) => DivI (f i1, n2)
-             | N.ExpI (i1, n2) => ExpI (f i1, n2)
-             | N.BinOpI (opr, i1, i2) => BinOpI (opr, f i1, f i2)
-             | N.Ite (i1, i2, i3, r) => Ite (f i1, f i2, f i3, r)
-             | N.TrueI r => TrueI r
-             | N.FalseI r => FalseI r
-             | N.TTI r => TTI r
-             | N.IAbs (bs, Bind (name, i), r) => IAbs (nouvar2uvar_bs bs, Bind (name, f i), r)
-             | N.AdmitI r => AdmitI r
-             | N.UVarI (u, _) => exfalso u
+              N.VarI x => VarI x
+            | N.IConst c => IConst c
+            | N.UnOpI (opr, i, r) => UnOpI (opr, f i, r)
+            | N.BinOpI (opr, i1, i2) => BinOpI (opr, f i1, f i2)
+            | N.Ite (i1, i2, i3, r) => Ite (f i1, f i2, f i3, r)
+            | N.IAbs (bs, Bind (name, i), r) => IAbs (nouvar2uvar_bs bs, Bind (name, f i), r)
+            | N.UVarI (u, _) => exfalso u
       in
         f i
       end
@@ -77,27 +63,26 @@ fun no_uvar_quan q =
         Forall => Forall
       | Exists ins => Exists (Option.map (fn ins => fn i => ins $ nouvar2uvar_i i) ins)
   end
-                           
+    
 fun no_uvar_p p =
   case p of
-      True r => N.True r
-    | False r => N.False r
+      PTrueFalse b => N.PTrueFalse b
     | BinConn (opr, p1, p2) => N.BinConn (opr, no_uvar_p p1, no_uvar_p p2)
     | BinPred (opr, i1, i2) => N.BinPred (opr, no_uvar_i i1, no_uvar_i i2)
     | Not (p, r) => N.Not (no_uvar_p p, r)
     | Quan (q, bs, Bind (name, p), r) => N.Quan (no_uvar_quan q, no_uvar_bsort bs, Bind (name, no_uvar_p p), r)
 
 fun no_uvar_hyp h =
-    case h of
-        VarH (name, b) => N.VarH (name, no_uvar_bsort b)
-      | PropH p => N.PropH (no_uvar_p p)
+  case h of
+      VarH (name, b) => N.VarH (name, no_uvar_bsort b)
+    | PropH p => N.PropH (no_uvar_p p)
 
 fun no_uvar_vc ((hyps, p) : vc) : N.VC.vc =
-    let
-      val hyps = map no_uvar_hyp hyps
-      val p = no_uvar_p p
-    in
-      (hyps, p)
-    end
+  let
+    val hyps = map no_uvar_hyp hyps
+    val p = no_uvar_p p
+  in
+    (hyps, p)
+  end
 
 end

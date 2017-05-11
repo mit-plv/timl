@@ -143,11 +143,12 @@ fun str_cls cls = str_ls (fn (x, (c, k)) => sprintf "$=>($,$)" [str_raw_long_id 
 (* variables satisfy [is_outer] is considered constants from the outer environment *)
 fun summarize (is_outer, on_error) i =
   let
+    fun err i = on_error $ "summarize fails with " ^ str_i [] [] i
     fun loop i = 
       case i of
-          ConstIT _ =>
+          IConst (ICTime _, _) =>
           M.empty
-        | ConstIN _ =>
+        | IConst (ICNat _, _) =>
           M.empty
         | VarI x =>
           if is_outer x then
@@ -162,7 +163,7 @@ fun summarize (is_outer, on_error) i =
           loop i
         | UnOpI (Floor, i, _) =>
           loop i
-        | DivI (i, _) =>
+        | UnOpI (IUDiv _, i, _) =>
           loop i
         | UnOpI (Log2, i, _) =>
           let
@@ -189,7 +190,7 @@ fun summarize (is_outer, on_error) i =
           loop a
         | BinOpI (MaxI, a, b) =>
           add_class (loop a, loop b)
-        | _ => on_error $ "summarize fails with " ^ str_i [] [] i
+        | _ => err i
   in
     loop i
   end
@@ -330,17 +331,10 @@ fun by_master_theorem uvar (hs, p) =
                   | _ => def ()
               end
             | UnOpI (opr, i, r) => UnOpI (opr, loop i, r)
-            | DivI (i, b) => DivI (loop i, b)
-            | ExpI (i, e) => ExpI (loop i, e)
+            | IConst _ => i
             | Ite (i1, i2, i3, r) => Ite (loop i1, loop i2, loop i3, r)
             | IAbs _ => i
-	    | TrueI _ => i
-	    | FalseI _ => i
-	    | TTI _ => i
-            | ConstIN _ => i
-            | ConstIT _ => i
             | VarI _ => i
-            | AdmitI _ => i
             | UVarI _ => i
       in
         loop i
@@ -352,8 +346,7 @@ fun by_master_theorem uvar (hs, p) =
               BinPred (opr, i1, i2) => BinPred (opr, simp_i_max set i1, simp_i_max set i2)
             | BinConn (opr, p1, p2) => BinConn (opr, loop p1, loop p2)
             | Not (p, r) => Not (loop p, r)
-            | True _ => p
-            | False _ => p
+            | PTrueFalse _ => p
             | Quan _ => p
       in
         loop p
@@ -452,8 +445,12 @@ fun by_master_theorem uvar (hs, p) =
             let
               fun infer_b_i i =
                 case i of
-                    UnOpI (_, i, _) => infer_b_i i 
-                  | DivI (_, (b, _)) => [b]
+                    UnOpI (opr, i, _) =>
+                    (case opr of
+                         IUDiv b => [b]
+                       | IUExp _ => []
+                       | _ => infer_b_i i
+                    )
                   | _ => []
               fun infer_b_p p =
                 case p of
