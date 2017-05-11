@@ -387,6 +387,17 @@ fun b2o b = if b then SOME () else NONE
 fun b2i b = if b then 1 else 0
                                      
 fun assert p msg = if p () then () else raise Impossible $ "Assert failed: " ^ msg
-  
+
+fun find_unique ls name =
+  if not (mem op= name ls) then
+    name
+  else
+    let fun loop n =
+	  let val name' = name ^ (* "_x" ^  *)str_int n in
+	    if not (mem op= name' ls) then name' else loop (n + 1)
+	  end in
+      loop 2
+    end
+      
 end
 

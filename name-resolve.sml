@@ -20,7 +20,14 @@ type context = scontext * kcontext * ccontext * tcontext
 datatype sgntr =
          Sig of (* sigcontext *  *)context
          | FunctorBind of (string * context) (* list *) * context
-type sigcontext = (string * sgntr) list
+                                                            
+fun is_FunctorBind s =
+  case s of
+      FunctorBind a => SOME a
+    | _ => NONE
+
+open Gctx
+type sigcontext = sgntr Gctx.map
                                    
 fun runError m _ =
     OK (m ())
@@ -34,9 +41,9 @@ fun on_id ctx (x, r) =
 
 fun filter_module gctx =
     List.mapPartial (fn (name, sg) => case sg of Sig sg => SOME (name, sg) | _ => NONE) gctx
-                   
+
 fun lookup_module gctx m =
-    find_idx_value m $ filter_module gctx
+    nth_error2 (filter_module gctx) m
 
 fun names ctx = map fst ctx
 
@@ -597,28 +604,14 @@ fun on_top_bind gctx bind =
         end
       | E.TopFunctorApp ((name, r), (f, f_r), m) =>
         let
-          fun lookup_functor (gctx : sigcontext) name =
-              let
-                fun iter ((name', sg), (nsig, nfunc)) =
-                    case sg of
-                        Sig _ => Continue (nsig + 1, nfunc)
-                      | FunctorBind a =>
-                        if name' = name then
-                          ShortCircuit (nsig, nfunc, a)
-                        else
-                          Continue (nsig, nfunc + 1)
-              in
-                case is_ShortCircuit $ foldlM_Error iter (0, 0) gctx of
-                    SOME (nsig, nfunc, (arg, body : context)) => SOME (nfunc, (arg, body))
-                  | NONE => NONE
-              end
+          fun lookup_functor (gctx : sigcontext) m =
+            opt_bind (find (gctx, m)) is_FunctorBind
           fun fetch_functor gctx (m, r) =
               case lookup_functor gctx m of
                   SOME a => a
                 | NONE => raise Error (r, "Unbound functor " ^ m)
-          val (f, ((_, formal_arg), body)) = fetch_functor gctx (f, f_r)
-          val m = on_id (names $ filter_module gctx) m
-          val formal_arg_name = "__formal_mod_arg"
+          val ((formal_arg_name, formal_arg), body) = fetch_functor gctx (f, f_r)
+          val formal_arg_name = find_unique (domain gctx) $ "__" ^ formal_arg_name
           val gctxd = [(formal_arg_name, Sig formal_arg)]
         in
           (TopFunctorApp ((name, r), (f, f_r), m), (name, Sig body) :: gctxd)

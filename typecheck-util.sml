@@ -40,11 +40,6 @@ type ccontext = (string * constr) list
 type tcontext = (string * ty) list
 type context = scontext * kcontext * ccontext * tcontext
 
-(* structure StringOrdKey = struct *)
-(* type ord_key = string *)
-(* val compare = String.compare *)
-(* end *)
-(* structure StringBinaryMap = BinaryMapFn (structure Key = StringOrdKey) *)
 (* structure M = StringBinaryMap *)
                                                   
 (* another representation of signature, as contexts *)
@@ -58,7 +53,13 @@ datatype sgntr =
 (* withtype sigcontext = (string * sgntr) list *)
 (* withtype sigcontext = unit *)
 
-type sigcontext = (string * sgntr) list
+fun is_FunctorBind s =
+  case s of
+      FunctorBind a => SOME a
+    | _ => NONE
+
+(* type sigcontext = (string * sgntr) list *)
+type sigcontext = sgntr Gctx.map
                                    
 fun names ctx = map fst ctx
 
@@ -66,8 +67,6 @@ fun shiftx_i_ke x n (dt, k, t) = (dt, shiftx_i_k x n k, Option.map (shiftx_i_mt 
                                   
 fun shiftx_t_ke x n (dt, k, t) = (dt, k, Option.map (shiftx_t_mt x n) t)
                                   
-fun shiftx_m_ke x n (dt, k, t) = (dt, shiftx_m_k x n k, Option.map (shiftx_m_mt x n) t)
-
 fun shiftx_i_ps n ps = 
   map (shiftx_i_p 0 n) ps
 fun shiftx_i_kctx n ctx = 
@@ -85,16 +84,6 @@ fun shiftx_t_ts n ctx =
 fun shiftx_snd f x n (a, b) = (a, f x n b)
 fun shiftx_list_snd f x n ls = map (mapSnd (f x n)) ls
                                    
-fun shiftx_m_ctx x n (sctx, kctx, cctx, tctx) : context =
-  (shiftx_list_snd shiftx_m_s x n sctx,
-   shiftx_list_snd shiftx_m_ke x n kctx,
-   shiftx_list_snd shiftx_m_c x n cctx,
-   shiftx_list_snd shiftx_m_t x n tctx
-  )
-
-fun shiftx_m_sigs x n sigs =
-  foldrWithIdx x (fn (sg, acc, x) => shiftx_snd shiftx_m_ctx x n sg :: acc) [] sigs
-
 fun add_sorting (name, s) pairs = (name, s) :: pairs
 fun add_sorting_sk pair (sctx, kctx) = 
   (add_sorting pair sctx, 
@@ -191,7 +180,16 @@ fun add_typings_skct pairs (sctx, kctx, cctx, tctx) =
    cctx,
    pairs @ tctx)
 
-fun add_sigging (name, s) pairs = (name, Sig s) :: pairs
+open Gctx
+       
+fun add_sgn (name, s) gctx =
+  let
+    (* val () = assert (fn () => isNone $ find (gctx, name)) "isNone $ find (gctx, name)" *)
+  in
+    insert' ((name, s), gctx)
+  end
+    
+fun add_sigging (name, s) pairs = add_sgn (name, Sig s) pairs
                                                      
 fun ctx_names (sctx, kctx, cctx, tctx) =
   (sctx_names sctx, names kctx, names cctx, names tctx) 
@@ -296,16 +294,18 @@ fun gctx_names (gctx : sigcontext) =
   in
     gctx
   end
-    
+
+open Gctx
+       
 fun lookup_module gctx m =
-  Option.map snd $ nth_error (filter_module gctx) m
+  Option.map snd $ nth_error2 (filter_module gctx) m
 
 fun fetch_module gctx (m, r) =
   case lookup_module gctx m of
       SOME sg => sg
     | NONE => raise Error (r, ["Unbounded module"])
                     
-fun fetch_from_module (params as (shift, package, do_fetch)) (* sigs *) gctx ((m, mr), x) =
+fun fetch_from_module (params as (package, do_fetch)) (* sigs *) gctx ((m, mr) : mod_projectible, x) =
   let
     (* val fetch_from_module = fetch_from_module params (* sigs *) *)
     (* fun fetch_from_module_or_ctx gctx ctx (m, x) = *)
@@ -317,7 +317,6 @@ fun fetch_from_module (params as (shift, package, do_fetch)) (* sigs *) gctx ((m
     (* val v = fetch_from_module_or_ctx gctx ctx x *)
     val v = do_fetch (ctx, x)
     (* val v = package 0 (length gctx) v *)
-    val v = shift 0 (m + 1) v
     val v = package (m, mr) v
   in
     v
@@ -326,17 +325,17 @@ fun fetch_from_module (params as (shift, package, do_fetch)) (* sigs *) gctx ((m
 fun add_error_msg (r, old_msg) new_msg =
   (r, new_msg @ ["Cause:"] @ indent old_msg)
     
-fun generic_fetch shift package do_fetch sel (ggctx as ((* sigs,  *)gctx : sigcontext)) (fctx, (m, x)) =
+fun generic_fetch package do_fetch sel (ggctx as ((* sigs,  *)gctx : sigcontext)) (fctx, (m, x)) =
   case m of
       NONE => do_fetch (fctx, x)
-    | SOME m => fetch_from_module (shift, package, do_fetch o mapFst sel) (* sigs *) gctx (m, x)
+    | SOME m => fetch_from_module (package, do_fetch o mapFst sel) (* sigs *) gctx (m, x)
 
 fun do_fetch_sort (ctx, (x, r)) =
   case lookup_sort x ctx of
       SOME s => s
     | NONE => raise Error (r, ["Unbound index variable: " ^ str_v (sctx_names ctx) x])
 
-fun fetch_sort a = generic_fetch shiftx_m_s package0_s do_fetch_sort #1 a
+fun fetch_sort a = generic_fetch package0_s do_fetch_sort #1 a
                                  
 fun do_fetch_sort_by_name (ctx, (name, r)) =
   case lookup_sort_by_name ctx name of
@@ -348,7 +347,7 @@ fun package0_list f m ls = map (f m) ls
                                
 fun fetch_sort_by_name gctx ctx (m, name) =
   let
-    val (x, s) = generic_fetch (shiftx_snd shiftx_m_s) (package0_snd package0_s) do_fetch_sort_by_name #1 gctx (ctx, (m, name))
+    val (x, s) = generic_fetch (package0_snd package0_s) do_fetch_sort_by_name #1 gctx (ctx, (m, name))
   in
     ((m, x), s)
   end
@@ -359,7 +358,7 @@ fun do_fetch_kindext (kctx, (a, r)) =
     | NONE => raise Error (r, [sprintf "Unbound type variable $ in context $" [str_v (names kctx) a, str_ls id $ names kctx]])
 
 fun fetch_kindext gctx (kctx, x) =
-  generic_fetch shiftx_m_ke package0_ke do_fetch_kindext #2 gctx (kctx, x)
+  generic_fetch package0_ke do_fetch_kindext #2 gctx (kctx, x)
   handle Error e => raise Error $ add_error_msg e [sprintf "Unbound name '$' in type context $ and module context $" [str_long_id #2 (gctx_names gctx) (names kctx) x, str_ls fst kctx, str_ls fst gctx ]]
 
 (* fun do_fetch_kind (kctx, (a, r)) = *)
@@ -391,7 +390,7 @@ fun do_fetch_kindext_by_name (kctx, (name, r)) =
 
 fun fetch_kindext_by_name gctx ctx (m, name) =
   let
-    val (x, k) = generic_fetch (shiftx_snd shiftx_m_ke) (package0_snd package0_ke) do_fetch_kindext_by_name #2 gctx (ctx, (m, name))
+    val (x, k) = generic_fetch (package0_snd package0_ke) do_fetch_kindext_by_name #2 gctx (ctx, (m, name))
   in
     ((m, x), k)
   end
@@ -401,7 +400,7 @@ fun do_fetch_constr (ctx, (x, r)) =
       SOME c => c
     | NONE => raise Error (r, [sprintf "Unbound constructor $ in context $" [str_v (names ctx) x, str_ls fst ctx]])
 
-fun fetch_constr a = generic_fetch shiftx_m_c package0_c do_fetch_constr #3 a
+fun fetch_constr a = generic_fetch package0_c do_fetch_constr #3 a
                                    
 fun fetch_constr_type gctx (ctx : ccontext, x) =
   constr_type VarT shiftx_long_id $ fetch_constr gctx (ctx, x)
@@ -413,7 +412,7 @@ fun do_fetch_constr_by_name (ctx, (name, r)) =
 
 fun fetch_constr_by_name gctx ctx (m, name) =
   let
-    val (x, c) = generic_fetch (shiftx_snd shiftx_m_c) (package0_snd package0_c) do_fetch_constr_by_name #3 gctx (ctx, (m, name))
+    val (x, c) = generic_fetch (package0_snd package0_c) do_fetch_constr_by_name #3 gctx (ctx, (m, name))
   in
     ((m, x), c)
   end
@@ -426,7 +425,7 @@ fun do_fetch_type (tctx, (x, r)) =
       SOME t => t
     | NONE => raise Error (r, ["Unbound variable: " ^ str_v (names tctx) x])
 
-fun fetch_type a = generic_fetch shiftx_m_t package0_t do_fetch_type #4 a
+fun fetch_type a = generic_fetch package0_t do_fetch_type #4 a
 
 fun do_fetch_type_by_name (ctx, (name, r)) =
   case find_idx_value name ctx of
@@ -435,7 +434,7 @@ fun do_fetch_type_by_name (ctx, (name, r)) =
 
 fun fetch_type_by_name gctx ctx (m, name) =
   let
-    val (x, t) = generic_fetch (shiftx_snd shiftx_m_t) (package0_snd package0_t) do_fetch_type_by_name #4 gctx (ctx, (m, name))
+    val (x, t) = generic_fetch (package0_snd package0_t) do_fetch_type_by_name #4 gctx (ctx, (m, name))
   in
     ((m, x), t)
   end

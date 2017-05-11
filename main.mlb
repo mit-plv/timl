@@ -41,6 +41,7 @@ typecheck.sml
 smt2-printer.sml
 check-no-uvar.sml
 smt-solver.sml
+long-id-map.sml
 bigO-solver.sml
 main.sml
 

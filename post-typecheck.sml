@@ -207,41 +207,53 @@ and fs_to_f2 fs =
 fun remove_m_ibind f n (Bind (name, b)) =
   Bind (name, f (n + 1) b)
 
-fun remove_m_i n i =
-  case i of
-      VarI (m, (x, r)) =>
-      (case m of
-           NONE => i (* forall-module must all be on the outermost *)
-         | SOME (m, mr) =>
-           if m = 0 then
-             VarI (NONE, (x + n, r))
-           else
-             VarI (SOME (m - 1, mr), (x, r))
-      )
-    | IConst _ => i
-    | UnOpI (opr, i, r) => UnOpI (opr, remove_m_i n i, r)
-    | BinOpI (opr, i1, i2) => BinOpI (opr, remove_m_i n i1, remove_m_i n i2)
-    | Ite (i1, i2, i3, r) => Ite (remove_m_i n i1, remove_m_i n i2, remove_m_i n i3, r)
-    | IAbs (bs, bind, r) => IAbs (bs, remove_m_ibind remove_m_i n bind, r)
-    | UVarI _ => i (* forall-module must all be on the outermost *)
+fun remove_m_i m n i =
+  let
+    val remove_m_i = remove_m_i m
+  in
+    case i of
+        VarI (m', (x, r)) =>
+        (case m' of
+             NONE => i (* forall-module must all be on the outermost *)
+           | SOME (m', mr) =>
+             if m' = m then
+               VarI (NONE, (x + n, r))
+             else
+               VarI (SOME (m', mr), (x, r))
+        )
+      | IConst _ => i
+      | UnOpI (opr, i, r) => UnOpI (opr, remove_m_i n i, r)
+      | BinOpI (opr, i1, i2) => BinOpI (opr, remove_m_i n i1, remove_m_i n i2)
+      | Ite (i1, i2, i3, r) => Ite (remove_m_i n i1, remove_m_i n i2, remove_m_i n i3, r)
+      | IAbs (bs, bind, r) => IAbs (bs, remove_m_ibind remove_m_i n bind, r)
+      | UVarI _ => i (* forall-module must all be on the outermost *)
+  end
                    
-fun remove_m_p n p =
-  case p of
-      BinConn (opr, p1, p2) => BinConn (opr, remove_m_p n p1, remove_m_p n p2)
-    | Not (p, r) => Not (remove_m_p n p, r)
-    | BinPred (opr, i1, i2) => BinPred (opr, remove_m_i n i1, remove_m_i n i2)
-    | Quan (q, bs, bind, r) => Quan (q, bs, remove_m_ibind remove_m_p n bind, r)
-    | PTrueFalse _ => p
+fun remove_m_p m n p =
+  let
+    val remove_m_p = remove_m_p m
+  in
+    case p of
+        BinConn (opr, p1, p2) => BinConn (opr, remove_m_p n p1, remove_m_p n p2)
+      | Not (p, r) => Not (remove_m_p n p, r)
+      | BinPred (opr, i1, i2) => BinPred (opr, remove_m_i m n i1, remove_m_i m n i2)
+      | Quan (q, bs, bind, r) => Quan (q, bs, remove_m_ibind remove_m_p n bind, r)
+      | PTrueFalse _ => p
+  end
                    
-fun remove_m_f n f =
-  case f of
-      ForallF2 (name, ft, f) =>
-      (case ft of
-           FtModule _ => raise Impossible "remove_m(): FtModule"
-         | FtSorting bs => ForallF2 (name, ft, remove_m_f (n + 1) f)
-      )
-    | BinConnF2 (opr, f1, f2) => BinConnF2 (opr, remove_m_f n f1, remove_m_f n f2)
-    | PropF2 (p, r) => PropF2 (remove_m_p n p, r)
+fun remove_m_f m n f =
+  let
+    val remove_m_f = remove_m_f m
+  in
+    case f of
+        ForallF2 (name, ft, f) =>
+        (case ft of
+             FtModule _ => raise Impossible "remove_m(): FtModule"
+           | FtSorting bs => ForallF2 (name, ft, remove_m_f (n + 1) f)
+        )
+      | BinConnF2 (opr, f1, f2) => BinConnF2 (opr, remove_m_f n f1, remove_m_f n f2)
+      | PropF2 (p, r) => PropF2 (remove_m_p m n p, r)
+  end
                               
 fun unpackage_f2 f =
   case f of
@@ -253,7 +265,7 @@ fun unpackage_f2 f =
             FtModule m =>
             let
               val mod_name = name
-              val f = remove_m_f 0 f
+              val f = remove_m_f mod_name 0 f
               fun iter ((name, s), f) =
                 let
                   val (b, p) = get_base_and_refinement s

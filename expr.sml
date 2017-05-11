@@ -50,7 +50,7 @@ datatype bsort =
 (* datatype mod_projectible = *)
 (*          ModVar of id *)
 (* | ModSel of mod_projectible * id *)
-type mod_projectible = id
+type mod_projectible = name
                          
 type long_id = mod_projectible option * id
 
@@ -209,7 +209,7 @@ datatype top_bind =
          (* | TopSigBind of name * sgn *)
          (* | TopModSpec of name * sgn *)
          | TopFunctorBind of name * (name * sgn) (* list *) * mod
-         | TopFunctorApp of name * id * id (* list *)
+         | TopFunctorApp of name * name * name (* list *)
 
 type prog = top_bind list
 
@@ -467,9 +467,11 @@ fun eq_option eq (a, a') =
 
 fun eq_id ((x, _), (x', _)) =
   eq_v (x, x')
-       
-fun eq_long_id ((m, x), (m', x')) =
-  eq_option eq_id (m, m') andalso eq_id (x, x')
+
+fun eq_name ((s, _) : name, (s', _)) = s = s'
+  
+fun eq_long_id ((m, x) : long_id, (m', x')) =
+  eq_option eq_name (m, m') andalso eq_id (x, x')
                                         
 fun eq_bs bs bs' =
   case bs of
@@ -730,7 +732,9 @@ fun str_raw_option f a = case a of SOME a => sprintf "SOME ($)" [f a] | NONE => 
 
 fun str_raw_id (x, _) = str_raw_v x
 
-fun str_raw_long_id (m, x) = sprintf "($, $)" [str_raw_option str_raw_id m, str_raw_id x]
+fun str_raw_name (s, _) = s
+
+fun str_raw_long_id (m, x) = sprintf "($, $)" [str_raw_option str_raw_name m, str_raw_id x]
                        
 fun str_raw_bind f (Bind (_, a)) = sprintf "Bind ($)" [f a]
 
@@ -1546,99 +1550,6 @@ fun on_t_t on_t_mt x n b =
     f x n b
   end
 
-fun on_m_long_id on_v x n (m, y) =
-  (Option.map (fn (m, r) => (on_v x n m, r)) m, y)
-    
-fun on_m_ibind f x n (bind : ('a * 'b) ibind) =
-  case bind of
-      Bind (name, inner) => Bind (name, f x n inner)
-
-fun on_m_tbind f x n (bind : ('a * 'b) tbind) =
-  case bind of
-      Bind (name, inner) => Bind (name, f x n inner)
-
-fun on_m_i on_v x n b =
-  let
-    fun f x n b =
-      case b of
-	  VarI y => VarI $ on_m_long_id on_v x n y
-	| IConst c => IConst c
-        | UnOpI (opr, i, r) => UnOpI (opr, f x n i, r)
-	| BinOpI (opr, i1, i2) => BinOpI (opr, f x n i1, f x n i2)
-        | Ite (i1, i2, i3, r) => Ite (f x n i1, f x n i2, f x n i3, r)
-        | IAbs (b, bind, r) => IAbs (b, on_m_ibind f x n bind, r)
-        | UVarI a => b
-  in
-    f x n b
-  end
-
-fun on_m_p on_m_i x n b =
-  let
-    fun f x n b =
-      case b of
-	  PTrueFalse b => PTrueFalse b
-        | Not (p, r) => Not (f x n p, r)
-	| BinConn (opr, p1, p2) => BinConn (opr, f x n p1, f x n p2)
-	| BinPred (opr, d1, d2) => BinPred (opr, on_m_i x n d1, on_m_i x n d2)
-        | Quan (q, bs, bind, r) => Quan (q, bs, on_m_ibind f x n bind, r)
-  in
-    f x n b
-  end
-
-fun on_m_s on_m_i on_m_p x n b =
-  let
-    fun f x n b =
-      case b of
-	  Basic s => Basic s
-	| Subset (b, bind, r) => Subset (b, on_m_ibind on_m_p x n bind, r)
-        | UVarS a => b
-        | SortBigO (b, i, r) => SortBigO (b, on_m_i x n i, r)
-        | SAbs (s, bind, r) => SAbs (f x n s, on_m_ibind f x n bind, r)
-        | SApp (s, i) => SApp (f x n s, on_m_i x n i)
-  in
-    f x n b
-  end
-
-fun on_m_mt on_v on_m_i on_m_s on_m_k x n b =
-  let
-    fun f x n b =
-      case b of
-	  Arrow (t1, d, t2) => Arrow (f x n t1, on_m_i x n d, f x n t2)
-        | TyNat (i, r) => TyNat (on_m_i x n i, r)
-        | TyArray (t, i) => TyArray (f x n t, on_m_i x n i)
-        | Unit r => Unit r
-	| Prod (t1, t2) => Prod (f x n t1, f x n t2)
-	| UniI (s, bind, r) => UniI (on_m_s x n s, on_m_ibind f x n bind, r)
-        | MtVar y => MtVar $ on_m_long_id on_v x n y
-        | MtApp (t1, t2) => MtApp (f x n t1, f x n t2)
-        | MtAbs (k, bind, r) => MtAbs (on_m_k x n k, on_m_tbind f x n bind, r)
-        | MtAppI (t, i) => MtAppI (f x n t, on_m_i x n i)
-        | MtAbsI (s, bind, r) => MtAbsI (on_m_s x n s, on_m_ibind f x n bind, r)
-	| BaseType a => BaseType a
-        | UVar a => b
-  in
-    f x n b
-  end
-
-fun on_m_t on_m_mt x n b =
-  let
-    fun f x n b =
-      case b of
-	  Mono t => Mono (on_m_mt x n t)
-	| Uni (bind, r) => Uni (on_m_tbind f x n bind, r)
-  in
-    f x n b
-  end
-
-fun on_m_k on_m_s x n b = mapSnd (map (on_m_s x n)) b
-                                               
-fun on_m_ibinds on_anno on_inner x n (ibinds : ('a, 'b, 'c) ibinds) =
-  case ibinds of
-      BindNil inner => 
-      BindNil (on_inner x n inner)
-    | BindCons (anno, bind) =>
-      BindCons (on_anno x n anno, on_m_ibind (on_m_ibinds on_anno on_inner) x n bind)
-
 fun on_e_e on_v =
   let
     fun f x n b =
@@ -1757,24 +1668,6 @@ fun shift_i_t b = shiftx_i_t 0 1 b
 fun shiftx_t_t x n b = on_t_t shiftx_t_mt x n b
 fun shift_t_t b = shiftx_t_t 0 1 b
 
-fun shiftx_m_i x n b = on_m_i shiftx_v x n b
-fun shift_m_i b = shiftx_m_i 0 1 b
-
-fun shiftx_m_p x n b = on_m_p shiftx_m_i x n b
-fun shift_m_p b = shiftx_m_p 0 1 b
-
-fun shiftx_m_s x n b = on_m_s shiftx_m_i shiftx_m_p x n b
-fun shift_m_s b = shiftx_m_s 0 1 b
-
-fun shiftx_m_k x n b = on_m_k shiftx_m_s x n b
-fun shift_m_k b = shiftx_m_k 0 1 b
-
-fun shiftx_m_mt x n b = on_m_mt shiftx_v shiftx_m_i shiftx_m_s shiftx_m_k x n b
-fun shift_m_mt b = shiftx_m_mt 0 1 b
-                               
-fun shiftx_m_t x n b = on_m_t shiftx_m_mt x n b
-fun shift_m_t b = shiftx_m_t 0 1 b
-
 fun shiftx_pair (f, g) x n (a, b) = (f x n a, g x n b)
 fun shiftx_list f x n ls = map (f x n) ls
 
@@ -1795,12 +1688,6 @@ fun shiftx_t_c x n (((m, family), tnames, ibinds) : constr) : constr =
    on_t_ibinds shiftx_noop (shiftx_pair (shiftx_t_mt, shiftx_noop)) (x + length tnames) n ibinds)
 fun shift_t_c b = shiftx_t_c 0 1 b
 
-fun shiftx_m_c x n ((family, tnames, ibinds) : constr) : constr =
-  (on_m_long_id shiftx_v x n family,
-   tnames, 
-   on_m_ibinds shiftx_m_s (shiftx_pair (shiftx_m_mt, shiftx_list shiftx_m_i)) (x + length tnames) n ibinds)
-fun shift_m_c b = shiftx_m_c 0 1 b
-
 (* shift_e_e *)
 fun shiftx_e_e x n b = on_e_e shiftx_v x n b
 fun shift_e_e b = shiftx_e_e 0 1 b
@@ -1820,13 +1707,6 @@ fun forget_i_mt x n b = on_i_mt forget_i_i forget_i_s forget_i_k x n b
 fun forget_t_mt x n b = on_t_mt forget_v x n b
 fun forget_i_t x n b = on_i_t forget_i_mt x n b
 fun forget_t_t x n b = on_t_t forget_t_mt x n b
-
-fun forget_m_i x n b = on_m_i forget_v x n b
-fun forget_m_p x n b = on_m_p forget_m_i x n b
-fun forget_m_s x n b = on_m_s forget_m_i forget_m_p x n b
-fun forget_m_k x n b = on_m_k forget_m_s x n b
-fun forget_m_mt x n b = on_m_mt forget_v forget_m_i forget_m_s forget_m_k x n b
-fun forget_m_t x n b = on_m_t forget_m_mt x n b
 
 fun forget_e_e x n b = on_e_e forget_v x n b
                               
@@ -2607,19 +2487,8 @@ open Simp
 infixr 1 -->
 infixr 0 $
          
-local
-    fun find_unique ls name =
-        if not (mem op= name ls) then
-	    name
-        else
-	    let fun loop n =
-		    let val name' = name ^ (* "_x" ^  *)str_int n in
-		        if not (mem op= name' ls) then name' else loop (n + 1)
-		    end in
-	        loop 2
-	    end
-in
 fun uniquefy_ls names = foldr (fn (name, acc) => find_unique acc name :: acc) [] names
+                              
 fun uniquefy ctx p =
     case p of
         Quan (q, bs, Bind ((name, r), p), r_all) =>
@@ -2632,7 +2501,6 @@ fun uniquefy ctx p =
       | BinConn (opr, p1, p2) => BinConn (opr, uniquefy ctx p1, uniquefy ctx p2)
       | BinPred _ => p
       | PTrueFalse _ => p
-end
 
 type vc = (string * bsort, prop) hyp list * prop
 
@@ -2703,6 +2571,9 @@ end
 structure StringVar = struct
 open Util
 type var = string
+type name_context = string list * string list * string list * string list
+type global_name_context = name_context Gctx.map
+                                        
 fun str_v ctx x : string = x
 fun str_raw_v x = x
       
@@ -2728,7 +2599,11 @@ end
 
 structure IntVar = struct
 open Util
+open Gctx
 type var = int
+type name_context = string list * string list * string list * string list
+type global_name_context = name_context Gctx.map
+                                        
 fun str_v ctx x : string =
   (* sprintf "%$" [str_int x] *)
   case nth_error ctx x of
@@ -2741,9 +2616,9 @@ fun str_id ctx (x, _) =
   str_v ctx x
         
 fun lookup_module gctx m =
-  case nth_error gctx m of
+  case nth_error2 gctx m of
       SOME (name, ctx) => (name, ctx)
-    | NONE => ("unbound_module_" ^ str_int m, ([], [], [], []))
+    | NONE => ("unbound_module_" ^ m, ([], [], [], []))
                 
 fun str_long_id sel gctx ctx (m, x) =
   let

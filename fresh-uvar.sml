@@ -67,16 +67,16 @@ fun fresh_uvar_i ctx bsort = ref (Fresh (inc (), ctx, bsort))
 fun get_ctx_and_args sel make_arg on_snd gctx ctx_local r =
   let
     val gctx = filter_module gctx
-    fun on_sgn (m, (mod_name, ctx : context)) =
+    fun on_sgn (mod_name, ctx : context) =
       let
         val sctx = sel ctx
         val sctx = map (mapFst $ prefix $ mod_name ^ "_") sctx
         val sctx = map (mapSnd on_snd) sctx
-        val sctx = mapi (mapFst (fn x => make_arg (SOME (m, r), (x, r)))) sctx
+        val sctx = mapi (mapFst (fn x => make_arg (SOME (mod_name, r), (x, r)))) sctx
       in
         sctx
       end
-    val (args_global, ctx_global) = unzip $ List.concat $ mapi on_sgn $ gctx
+    val (args_global, ctx_global) = unzip $ List.concat $ map on_sgn $ gctx
     val args_global = rev args_global
     val ctx_local = map (mapSnd on_snd) ctx_local
     val ctx_total = ctx_local @ ctx_global

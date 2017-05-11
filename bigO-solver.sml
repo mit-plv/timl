@@ -90,42 +90,9 @@ val mult_class_entries = foldl' mult_class_entry (0, 0)
                                 
 val add_class_entries = foldl' add_class_entry (0, 0)
 
-fun compare_option cmp (a, a') =
-  case a of
-      NONE =>
-      (case a' of
-           NONE => EQUAL
-         | SOME _ => LESS
-      )
-    | SOME a =>
-      (case a' of
-           NONE => GREATER
-         | SOME a' => cmp (a, a')
-      )
+structure M = LongIdMap.LongIdBinaryMap
 
-fun compare_pair (cmp1, cmp2) ((a, b), (a', b')) =
-  case cmp1 (a, a') of
-      EQUAL => cmp2 (b, b')
-    | ret => ret
-      
-
-fun compare_int (n, n') =
-  if n < n' then LESS
-  else if n = n' then EQUAL
-  else GREATER
-         
-fun compare_id (x, x') = compare_int (fst x, fst x')
-                                     
-structure LongIdOrdKey = struct
-type ord_key = long_id
-fun compare (a : long_id * long_id) = compare_pair (compare_option compare_id, compare_id) a
-end
-
-structure LongIdBinaryMap = BinaryMapFn (LongIdOrdKey)
-
-structure M = LongIdBinaryMap
-
-fun get_domain m = map fst $ M.listItemsi m                
+fun domain m = map fst $ M.listItemsi m                
                 
 val mult_class = M.unionWith mult_class_entry
                              
@@ -406,7 +373,7 @@ fun by_master_theorem uvar (hs, p) =
     (* we check that all variables on the LHS that are not covered by the passive arguments on the RHS will be <= the main argument so can be soundly treated as the main argument *)
     fun get_main_arg_class classes =
       let
-        val uncovered = diff eq_long_id (get_domain classes) $ somes args_v
+        val uncovered = diff eq_long_id (domain classes) $ somes args_v
         val () = app (fn x => if ask_smt (VarI x %<= main_arg) then () else raise Error $ sprintf "not_covered > main_arg, not_covered=$, main_arg=$, is_outer(not_covered)=$" [str_i [] hs_ctx (VarI x), str_i [] hs_ctx main_arg, str_bool (is_outer x)]) uncovered
         val main_arg_class = mult_class_entries $ map (get_class classes) uncovered
       in

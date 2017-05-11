@@ -1,10 +1,39 @@
+structure StringOrdKey = struct
+type ord_key = string
+val compare = String.compare
+end
+structure StringBinaryMap = BinaryMapFn (StringOrdKey)
+structure StringListMap = ListMapFn (StringOrdKey)
+
+structure ListPairMap = struct
+open Util
+infixr 0 $
+       
+type key = string
+type 'a map = (key * 'a) list
+fun find (m : 'a map, k) = Option.map snd $ List.find (fn (k', v) => k' = k) m
+fun insert' (kv, m : 'a map) = kv :: m
+val listItemsi = id
+end
+                          
+structure Gctx = struct
+(* structure Map = StringBinaryMap *)
+(* structure Map = StringListMap *)
+structure Map = ListPairMap
+open Map
+fun domain m = map fst (listItemsi m)
+fun nth_error2 m k = Option.map (fn v => (k, v)) (Util.curry find m k)
+end
+
 (* variables *)
 signature VAR = sig
   type var
+  type name_context = string list * string list * string list * string list
+  type global_name_context = name_context Gctx.map
   val str_v : string list -> var -> string
   val str_raw_v : var -> string
-  val lookup_module : (string * (string list * string list * string list * string list)) list -> var -> string * (string list * string list * string list * string list)
-  val str_long_id : (string list * string list * string list * string list -> string list) -> (string * (string list * string list * string list * string list)) list -> string list -> ((var * Region.region) option * (var * Region.region)) -> string
+  val lookup_module : global_name_context -> string -> string * name_context
+  val str_long_id : (name_context -> string list) -> global_name_context -> string list -> ((string * Region.region) option * (var * Region.region)) -> string
   val eq_v : var * var -> bool
                             
   val shiftx_v : int -> int -> var -> var

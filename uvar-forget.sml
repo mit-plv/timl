@@ -108,13 +108,6 @@ fun forget_t_mt x n b = on_t_mt forget_v x n b
 fun forget_i_t x n b = on_i_t forget_i_mt x n b
 fun forget_t_t x n b = on_t_t forget_t_mt x n b
 
-fun forget_m_i x n b = on_m_i forget_v x n b
-fun forget_m_p x n b = on_m_p forget_m_i x n b
-fun forget_m_s x n b = on_m_s forget_m_i forget_m_p x n b
-fun forget_m_k x n b = on_m_k forget_m_s x n b
-fun forget_m_mt x n b = on_m_mt forget_v forget_m_i forget_m_s forget_m_k x n b
-fun forget_m_t x n b = on_m_t forget_m_mt x n b
-
 fun forget_e_e x n b = on_e_e forget_v x n b
                               
 end

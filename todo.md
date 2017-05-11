@@ -72,8 +72,8 @@
 - [ ] Infer type according to pattern.
 - [ ] Wrongly inferred `T_insert_delete_seq_0` to be (fn n => $n) without the `2.0 + 48.0 * $n` annotation. The source of the problem: unsoundness in bigO-solver.sml/solve_exists(). 
 - [ ] Have some Nat/Time inference.
-- [ ] Unify `UnOpI`, `DivI` and `ExpI`.
-- [ ] Unify `True` and `False`.
+- [x] Unify `UnOpI`, `DivI` and `ExpI`.
+- [x] Unify `True` and `False`.
 - [x] Change `unify_s` to `is_sub_sort`.
 - [x] Should apply solvers and check no-uvar after every module, not every file (unless we enforce one-module-per-file policy). 
 - [ ] Move VC openings from `check_decl` to `check_decls`.

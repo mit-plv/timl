@@ -1663,7 +1663,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
                 end
               fun clone_module gctx (m, r) =
                 let
-                  val ctx = shiftx_m_ctx 0 (m + 1) $ fetch_module gctx (m, r)
+                  val ctx = fetch_module gctx (m, r)
                   (* val ctxd = package_ctx (m, r) ctxd  *)
                   val ctx = link_module (m, r) ctx
                 in
@@ -1915,10 +1915,10 @@ fun link_sig r gctx m (ctx' as (sctx', kctx', cctx', tctx') : context) =
 
 fun is_sub_sig r gctx ctx ctx' =
   let
-    val mod_name = "__link_sig_module" 
+    val mod_name = find_unique (domain gctx) "__link_sig_module" 
     val gctx = add_sigging (mod_name, ctx) gctx
     val () = open_module (mod_name, ctx)
-    val _ = link_sig r gctx (0, r) ctx'
+    val _ = link_sig r gctx (mod_name, r) ctx'
     val () = close_n 1
   in
     ()
@@ -2034,28 +2034,14 @@ fun check_top_bind gctx bind =
           | U.TopFunctorApp ((name, _), f, m) =>
             let
               fun lookup_functor gctx m =
-                let
-                  fun iter ((name, sg), (nsig, target)) =
-                    case sg of
-                        Sig _ => Continue (nsig + 1, target)
-                      | FunctorBind a =>
-                        if target <= 0 then
-                          ShortCircuit (nsig, name, a)
-                        else
-                          Continue (nsig, target - 1)
-                  fun find_first m = is_ShortCircuit $ foldlM_Error iter (0, m) gctx
-                in
-                  case find_first m of
-                      SOME (n, name, (arg, body : context)) => SOME (name, (shiftx_snd shiftx_m_ctx 0 n arg, shiftx_m_ctx 1 n body))
-                    | NONE => NONE
-                end
-              fun fetch_functor gctx (m, r) =
+                opt_bind (find (gctx, m)) is_FunctorBind
+              fun fetch_functor gctx ((m, r) : mod_projectible) =
                 case lookup_functor gctx m of
                     SOME a => a
-                  | NONE => raise Error (r, ["Unbound functor " ^ str_v [] m])
-              val (_, ((_, formal_arg), body)) = fetch_functor gctx f
+                  | NONE => raise Error (r, ["Unbound functor " ^ m])
+              val ((formal_arg_name, formal_arg), body) = fetch_functor gctx f
               val formal_arg = link_sig (snd m) gctx m formal_arg
-              val formal_arg_name = "__mod_arg"
+              val formal_arg_name = find_unique (domain gctx) $ "__" ^ formal_arg_name
               val gctxd = [(formal_arg_name, Sig formal_arg)]
             in
               (name, Sig body) :: gctxd

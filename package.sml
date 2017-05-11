@@ -8,7 +8,7 @@ open Subst
 
 infixr 0 $
 
-fun package_long_id x m (long_id as (m', (y, r))) =
+fun package_long_id x m (long_id as (m', (y, r)) : long_id) =
   case m' of
       NONE =>
       if y >= x then

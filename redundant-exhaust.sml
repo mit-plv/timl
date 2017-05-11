@@ -87,7 +87,7 @@ fun cover_neg gctx (ctx as (sctx, kctx, cctx)) (t : mtype) c =
                    val family = get_family $ fetch_constr gctx (cctx, cx)
                    fun do_fetch_family (cctx, (_, r)) =
                      rev $ map snd $ mapPartialWithIdx (fn (n, (_, c)) => if eq_long_id (get_family c, family) then SOME (NONE, (n, r)) else NONE) cctx
-                   fun fetch_family a = generic_fetch (shiftx_list shiftx_long_id) (package0_list (package_long_id 0)) do_fetch_family #3 a
+                   fun fetch_family a = generic_fetch (package0_list (package_long_id 0)) do_fetch_family #3 a
                  in
                    fetch_family gctx (cctx, cx)
                  end
@@ -227,7 +227,7 @@ fun find_hab deep gctx (ctx as (sctx, kctx, cctx)) (t : mtype) cs =
 	                  let
                             fun do_fetch_constrs (cctx, family) =
                               rev $ map snd $ mapPartialWithIdx (fn (n, (_, c)) => if eq_long_id (get_family c, (NONE, family)) then SOME (NONE, (n, snd family)) else NONE) cctx
-                            fun fetch_constrs a = generic_fetch (shiftx_list shiftx_long_id) (package0_list (package_long_id 0)) do_fetch_constrs #3 a
+                            fun fetch_constrs a = generic_fetch (package0_list (package_long_id 0)) do_fetch_constrs #3 a
                             val all = fetch_constrs gctx (cctx, family)
                                                     (* val () = println $ sprintf "Constructors of $: $" [str_long_id #2 (gctx_names gctx) (names kctx) family, str_ls (str_long_id #3 (gctx_names gctx) (names cctx)) all] *)
                           in
