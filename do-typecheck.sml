@@ -924,7 +924,7 @@ fun expand_rules gctx (ctx as (sctx, kctx, cctx), rules, t, r) =
         (* val () = println "after check_redundancy()" *)
         val (pcovers, new_rules) =
             case (pn, e) of
-                (VarP _, U.Never (U.UVar ((), _), _)) =>
+                (VarP _, U.ET (ETNever, U.UVar ((), _), _)) =>
                 let
                   fun hab_to_ptrn cctx (* cutoff *) t hab =
                     let
@@ -1207,38 +1207,86 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
           in
             (Var info, t, T0 dummy)
           end
-	| U.App (e1, e2) =>
-	  let
-            val (e2, t2, d2) = get_mtype (ctx, e2)
-            val r = U.get_region_e e1
-            val d = fresh_i gctx sctx (Base Time) r
-            val t = fresh_mt gctx (sctx, kctx) r
-            val (e1, _, d1) = check_mtype (ctx, e1, Arrow (t2, d, t))
-            val ret = (App (e1, e2), t, d1 %+ d2 %+ T1 dummy %+ d) 
-          in
-            ret
-	  end
-	| U.BinOp (New, e1, e2) =>
-          let
-            val r = U.get_region_e e_all
-            val i = fresh_i gctx sctx (Base Time) r
-            val (e1, _, d1) = check_mtype (ctx, e1, TyNat (i, r))
-            val (e2, t, d2) = get_mtype (ctx, e2)
-          in
-            (BinOp (New, e1, e2), TyArray (t, i), d1 %+ d2)
-          end
-	| U.BinOp (Read, e1, e2) =>
-          let
-            val r = U.get_region_e e_all
-            val t = fresh_mt gctx (sctx, kctx) r
-            val i1 = fresh_i gctx sctx (Base Time) r
-            val i2 = fresh_i gctx sctx (Base Time) r
-            val (e1, _, d1) = check_mtype (ctx, e1, TyArray (t, i1))
-            val (e2, _, d2) = check_mtype (ctx, e2, TyNat (i2, r))
-            val () = write_le (i2, i1, r)
-          in
-            (BinOp (Read, e1, e2), t, d1 %+ d2)
-          end
+        | U.EConst (c, r) =>
+          (case c of
+	       ECTT => 
+               (TT r, Unit dummy, T0 dummy)
+	     | ECInt n => 
+	       (ConstInt (n, r), BaseType (Int, dummy), T0 dummy)
+	     | ECNat n => 
+	       if n >= 0 then
+	         (ConstNat (n, r), TyNat (ConstIN (n, r), r), T0 r)
+	       else
+	         raise Error (r, ["Natural number constant must be non-negative"])
+          )
+        | U.EUnOp (opr, e, r) =>
+          (case opr of
+	       EUFst => 
+	       let 
+                 val r = U.get_region_e e
+                 val t1 = fresh_mt gctx (sctx, kctx) r
+                 val t2 = fresh_mt gctx (sctx, kctx) r
+                 val (e, _, d) = check_mtype (ctx, e, Prod (t1, t2)) 
+               in 
+                 (Fst (e, r), t1, d)
+	       end
+	     | EUSnd => 
+	       let 
+                 val r = U.get_region_e e
+                 val t1 = fresh_mt gctx (sctx, kctx) r
+                 val t2 = fresh_mt gctx (sctx, kctx) r
+                 val (e, _, d) = check_mtype (ctx, e, Prod (t1, t2)) 
+               in 
+                 (Snd (e, r), t2, d)
+	       end
+          )
+	| U.BinOp (opr, e1, e2) =>
+          (case opr of
+	       EBPair => 
+	       let 
+                 val (e1, t1, d1) = get_mtype (ctx, e1) 
+	         val (e2, t2, d2) = get_mtype (ctx, e2) 
+               in
+	         (Pair (e1, e2), Prod (t1, t2), d1 %+ d2)
+	       end
+	     | EBApp =>
+	       let
+                 val (e2, t2, d2) = get_mtype (ctx, e2)
+                 val r = U.get_region_e e1
+                 val d = fresh_i gctx sctx (Base Time) r
+                 val t = fresh_mt gctx (sctx, kctx) r
+                 val (e1, _, d1) = check_mtype (ctx, e1, Arrow (t2, d, t))
+                 val ret = (App (e1, e2), t, d1 %+ d2 %+ T1 dummy %+ d) 
+               in
+                 ret
+	       end
+	     | New =>
+               let
+                 val r = U.get_region_e e_all
+                 val i = fresh_i gctx sctx (Base Time) r
+                 val (e1, _, d1) = check_mtype (ctx, e1, TyNat (i, r))
+                 val (e2, t, d2) = get_mtype (ctx, e2)
+               in
+                 (BinOp (New, e1, e2), TyArray (t, i), d1 %+ d2)
+               end
+	     | Read =>
+               let
+                 val r = U.get_region_e e_all
+                 val t = fresh_mt gctx (sctx, kctx) r
+                 val i1 = fresh_i gctx sctx (Base Time) r
+                 val i2 = fresh_i gctx sctx (Base Time) r
+                 val (e1, _, d1) = check_mtype (ctx, e1, TyArray (t, i1))
+                 val (e2, _, d2) = check_mtype (ctx, e2, TyNat (i2, r))
+                 val () = write_le (i2, i1, r)
+               in
+                 (BinOp (Read, e1, e2), t, d1 %+ d2)
+               end
+	     | Add =>
+	       let val (e1, _, d1) = check_mtype (ctx, e1, BaseType (Int, dummy))
+	           val (e2, _, d2) = check_mtype (ctx, e2, BaseType (Int, dummy)) in
+	         (BinOp (Add, e1, e2), BaseType (Int, dummy), d1 %+ d2 %+ T1 dummy)
+	       end
+          )
 	| U.TriOp (Write, e1, e2, e3) =>
           let
             val r = U.get_region_e e_all
@@ -1252,6 +1300,49 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
           in
             (TriOp (Write, e1, e2, e3), Unit r, d1 %+ d2 %+ d3)
           end
+	| U.EEI (opr, e, i) =>
+          (case opr of
+	       EEIAppI =>
+	       let 
+                 val r = U.get_region_e e
+                 val s = fresh_sort gctx sctx r
+                 val arg_name = "_"
+                 val t1 = fresh_mt gctx (add_sorting (arg_name, s) sctx, kctx) r
+                 val t_e = UniI (s, Bind ((arg_name, r), t1), r)
+                 (* val () = println $ "t1 = " ^ str_mt gctxn (sctx_names sctx, names kctx) t1 *)
+                 (* val () = println $ "t1 = " ^ str_raw_mt t1 *)
+                 (* val () = println "before" *)
+                 val (e, t, d) = check_mtype (ctx, e, t_e) 
+                 (* val () = println "after" *)
+                 val i = check_sort gctx (sctx, i, s) 
+               in
+	         (AppI (e, i), subst_i_mt i t1, d)
+	       end
+	     | EEIAscriptionTime => 
+	       let val i = check_bsort gctx (sctx, i, Base Time)
+	           val (e, t) = check_time (ctx, e, i)
+               in
+	         (AscriptionTime (e, i), t, i)
+	       end
+          )
+	| U.ET (opr, t, r) =>
+          (case opr of
+	       ETNever => 
+               let
+	         val t = check_kind_Type gctx (skctx, t)
+	         val () = write_prop (False dummy, U.get_region_e e_all)
+               in
+	         (Never (t, r), t, T0 r)
+               end
+	     | ETBuiltin => 
+               let
+	         val t = check_kind_Type gctx (skctx, t)
+	         val () = if !is_builtin_enabled then ()
+                          else raise Error (r, ["builtin keyword is only available in standard library"])
+               in
+	         (Builtin (t, r), t, T0 r)
+               end
+          )
 	| U.Abs (pn, e) => 
 	  let
             val r = U.get_region_pn pn
@@ -1284,7 +1375,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
           in
 	    (Let (return, decls, e, r), t, d)
 	  end
-	| U.AbsI (s, (name, r), e, r_all) => 
+	| U.AbsI (s, Bind ((name, r), e), r_all) => 
 	  let 
 	    val () = if U.is_value e then ()
 		     else raise Error (U.get_region_e e, ["The body of a universal abstraction must be a value"])
@@ -1295,75 +1386,14 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	    val (e, t, _) = get_mtype (ctx, e) 
             val () = close_ctx ctxd
           in
-	    (AbsI (s, (name, r), e, r_all), UniI (s, Bind ((name, r), t), r_all), T0 r_all)
+	    (AbsI (s, Bind ((name, r), e), r_all), UniI (s, Bind ((name, r), t), r_all), T0 r_all)
 	  end 
-	| U.AppI (e, i) =>
-	  let 
-            val r = U.get_region_e e
-            val s = fresh_sort gctx sctx r
-            val arg_name = "_"
-            val t1 = fresh_mt gctx (add_sorting (arg_name, s) sctx, kctx) r
-            val t_e = UniI (s, Bind ((arg_name, r), t1), r)
-            (* val () = println $ "t1 = " ^ str_mt gctxn (sctx_names sctx, names kctx) t1 *)
-            (* val () = println $ "t1 = " ^ str_raw_mt t1 *)
-            (* val () = println "before" *)
-            val (e, t, d) = check_mtype (ctx, e, t_e) 
-            (* val () = println "after" *)
-            val i = check_sort gctx (sctx, i, s) 
-          in
-	    (AppI (e, i), subst_i_mt i t1, d)
-	  end
-	| U.TT r => 
-          (TT r, Unit dummy, T0 dummy)
-	| U.Pair (e1, e2) => 
-	  let 
-            val (e1, t1, d1) = get_mtype (ctx, e1) 
-	    val (e2, t2, d2) = get_mtype (ctx, e2) 
-          in
-	    (Pair (e1, e2), Prod (t1, t2), d1 %+ d2)
-	  end
-	| U.Fst e => 
-	  let 
-            val r = U.get_region_e e
-            val t1 = fresh_mt gctx (sctx, kctx) r
-            val t2 = fresh_mt gctx (sctx, kctx) r
-            val (e, _, d) = check_mtype (ctx, e, Prod (t1, t2)) 
-          in 
-            (Fst e, t1, d)
-	  end
-	| U.Snd e => 
-	  let 
-            val r = U.get_region_e e
-            val t1 = fresh_mt gctx (sctx, kctx) r
-            val t2 = fresh_mt gctx (sctx, kctx) r
-            val (e, _, d) = check_mtype (ctx, e, Prod (t1, t2)) 
-          in 
-            (Snd e, t2, d)
-	  end
 	| U.Ascription (e, t) => 
 	  let val t = check_kind_Type gctx (skctx, t)
 	      val (e, _, d) = check_mtype (ctx, e, t)
           in
 	    (Ascription (e, t), t, d)
 	  end
-	| U.AscriptionTime (e, d) => 
-	  let val d = check_bsort gctx (sctx, d, Base Time)
-	      val (e, t) = check_time (ctx, e, d)
-          in
-	    (AscriptionTime (e, d), t, d)
-	  end
-	| U.BinOp (Add, e1, e2) =>
-	  let val (e1, _, d1) = check_mtype (ctx, e1, BaseType (Int, dummy))
-	      val (e2, _, d2) = check_mtype (ctx, e2, BaseType (Int, dummy)) in
-	    (BinOp (Add, e1, e2), BaseType (Int, dummy), d1 %+ d2 %+ T1 dummy)
-	  end
-	| U.ConstInt (n, r) => 
-	  (ConstInt (n, r), BaseType (Int, dummy), T0 dummy)
-	| U.ConstNat (n, r) => 
-	  if n >= 0 then
-	    (ConstNat (n, r), TyNat (ConstIN (n, r), r), T0 r)
-	  else
-	    raise Error (r, ["Natural number constant must be non-negative"])
 	| U.AppConstr ((x, eia), is, e) => 
 	  let 
             val tc = fetch_constr_type gctx (cctx, x)
@@ -1392,7 +1422,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                   | _ => raise wrong_d
             val (is, e) =
                 case e of
-                    App (f, e) =>
+                    BinOp (EBApp, f, e) =>
                     let
                       val (_, is) = collect_AppI f
                     in
@@ -1423,21 +1453,6 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	    val ret = (Case (e, return, rules, r), t, d1 %+ d)
           in
             ret
-          end
-	| U.Never (t, r) => 
-          let
-	    val t = check_kind_Type gctx (skctx, t)
-	    val () = write_prop (False dummy, U.get_region_e e_all)
-          in
-	    (Never (t, r), t, T0 r)
-          end
-	| U.Builtin (t, r) => 
-          let
-	    val t = check_kind_Type gctx (skctx, t)
-	    val () = if !is_builtin_enabled then ()
-                     else raise Error (r, ["builtin keyword is only available in standard library"])
-          in
-	    (Builtin (t, r), t, T0 r)
           end
     fun extra_msg () = ["when type-checking"] @ indent [U.str_e gctxn ctxn e_all]
     val (e, t, d) = main ()

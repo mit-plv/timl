@@ -250,7 +250,7 @@ fun copy_anno gctx (anno as (t, d)) e =
             fun is_tuple_value e =
                 case e of
                     Var _ => true
-                  | Pair (e1, e2) => is_tuple_value e1 andalso is_tuple_value e2
+                  | BinOp (EBPair, e1, e2) => is_tuple_value e1 andalso is_tuple_value e2
                   | _ => false
             (* if e is tuple value, we are sure it doesn't cost time, so we can copy time annotation *)
             val d = if is_tuple_value e then d else NONE
@@ -279,14 +279,14 @@ fun copy_anno gctx (anno as (t, d)) e =
           in
             Ascription (e, t')
           end
-        | AscriptionTime (e, d') =>
+        | EEI (EEIAscriptionTime, e, d') =>
           let
             val d = SOME d'
             val e = copy_anno (t, d) e
           in
             AscriptionTime (e, d')
           end
-        | Never _ => e
+        | ET (ETNever, _, _) => e
         | _ =>
           case t of
               SOME t => Ascription (e, t)
@@ -322,6 +322,53 @@ fun on_expr gctx (ctx as (sctx, kctx, cctx, tctx)) e =
 	       SOME (x, _) => AppConstr ((x, b), [], TT $ get_region_long_id x)
 	     | NONE => Var ((on_long_id gctx #4 tctx x), b)
           )
+        | E.EConst c => EConst c
+	| E.EUnOp (opr, e, r) => EUnOp (opr, on_expr ctx e, r)
+	| E.BinOp (opr, e1, e2) =>
+          (case opr of
+	       EBApp => 
+	       let
+                 val e2 = on_expr ctx e2
+	         fun default () = 
+                   App (on_expr ctx e1, e2)
+	         val (e1, is) = E.collect_AppI e1 
+	       in
+	         case e1 of
+		     E.Var (x, b) =>
+		     (case find_constr gctx cctx x of
+		          SOME (x, _) => AppConstr ((x, b), map (on_idx gctx sctx) is, e2)
+		        | NONE => default ())
+	           | _ => default ()
+	       end
+	     | _ => BinOp (opr, on_expr ctx e1, on_expr ctx e2)
+          )
+	| E.TriOp (opr, e1, e2, e3) => TriOp (opr, on_expr ctx e1, on_expr ctx e2, on_expr ctx e3)
+	| E.EEI (opr, e, i) =>
+          (case opr of
+	       EEIAppI => 
+	       let
+                 fun default () = 
+                   AppI (on_expr ctx e, on_idx gctx sctx i)
+	         val (e, is) = E.collect_AppI e
+                 val is = is @ [i]
+	       in
+	         case e of
+		     E.Var (x, b) =>
+		     (case find_constr gctx cctx x of
+		          SOME (x, _) => AppConstr ((x, b), map (on_idx gctx sctx) is, TT (E.get_region_i i))
+		        | NONE => default ())
+	           | _ => default ()
+	       end
+	     | EEIAscriptionTime =>
+               let
+                 val i = on_idx gctx sctx i
+                 val e = on_expr ctx e
+                 val e = copy_anno (gctx_names gctx) (NONE, SOME i) e
+               in
+                 AscriptionTime (e, i)
+               end
+          )
+	| E.ET (opr, t, r) => ET (opr, on_mtype gctx skctx t, r)
 	| E.Abs (pn, e) => 
           let 
             val pn = on_ptrn gctx (sctx, kctx, cctx) pn
@@ -331,39 +378,7 @@ fun on_expr gctx (ctx as (sctx, kctx, cctx, tctx)) e =
           in
             Abs (pn, e)
           end
-	| E.App (e1, e2) => 
-	  let
-            val e2 = on_expr ctx e2
-	    fun default () = 
-                App (on_expr ctx e1, e2)
-	    val (e1, is) = E.collect_AppI e1 
-	  in
-	    case e1 of
-		E.Var (x, b) =>
-		(case find_constr gctx cctx x of
-		     SOME (x, _) => AppConstr ((x, b), map (on_idx gctx sctx) is, e2)
-		   | NONE => default ())
-	      | _ => default ()
-	  end
-	| E.TT r => TT r
-	| E.Pair (e1, e2) => Pair (on_expr ctx e1, on_expr ctx e2)
-	| E.Fst e => Fst (on_expr ctx e)
-	| E.Snd e => Snd (on_expr ctx e)
-	| E.AbsI (s, (name, r), e, r_all) => AbsI (on_sort gctx sctx s, (name, r), on_expr (add_sorting_skct name ctx) e, r_all)
-	| E.AppI (e, i) => 
-	  let
-            fun default () = 
-                AppI (on_expr ctx e, on_idx gctx sctx i)
-	    val (e, is) = E.collect_AppI e
-            val is = is @ [i]
-	  in
-	    case e of
-		E.Var (x, b) =>
-		(case find_constr gctx cctx x of
-		     SOME (x, _) => AppConstr ((x, b), map (on_idx gctx sctx) is, TT (E.get_region_i i))
-		   | NONE => default ())
-	      | _ => default ()
-	  end
+	| E.AbsI (s, Bind ((name, r), e), r_all) => AbsI (on_sort gctx sctx s, Bind ((name, r), on_expr (add_sorting_skct name ctx) e), r_all)
 	| E.Let (return, decls, e, r) =>
           let 
             val return = on_return gctx skctx return
@@ -379,18 +394,6 @@ fun on_expr gctx (ctx as (sctx, kctx, cctx, tctx)) e =
           in
             Ascription (e, t)
           end
-	| E.AscriptionTime (e, d) =>
-          let
-            val d = on_idx gctx sctx d
-            val e = on_expr ctx e
-            val e = copy_anno (gctx_names gctx) (NONE, SOME d) e
-          in
-            AscriptionTime (e, d)
-          end
-	| E.ConstInt n => ConstInt n
-	| E.ConstNat n => ConstNat n
-	| E.BinOp (opr, e1, e2) => BinOp (opr, on_expr ctx e1, on_expr ctx e2)
-	| E.TriOp (opr, e1, e2, e3) => TriOp (opr, on_expr ctx e1, on_expr ctx e2, on_expr ctx e3)
 	| E.AppConstr ((x, b), is, e) => AppConstr ((on_long_id gctx (map fst o #3) (map fst cctx) x, b), map (on_idx gctx sctx) is, on_expr ctx e)
 	| E.Case (e, return, rules, r) =>
           let
@@ -400,8 +403,6 @@ fun on_expr gctx (ctx as (sctx, kctx, cctx, tctx)) e =
           in
             Case (on_expr ctx e, return, rules, r)
           end
-	| E.Never (t, r) => Never (on_mtype gctx skctx t, r)
-	| E.Builtin (t, r) => Builtin (on_mtype gctx skctx t, r)
     end
 
 and on_decls gctx (ctx as (sctx, kctx, cctx, tctx)) decls =

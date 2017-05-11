@@ -48,10 +48,19 @@ fun process_top_bind show_result filename gctx bind =
             | FunctorBind ((name, arg), body) => NR.FunctorBind ((name, TCctx2NRctx arg), TCctx2NRctx body)
       (* typechecking global context to name-resolving global context *)      
       fun TCgctx2NRgctx gctx = map (mapSnd TCsgntr2NRsgntr) gctx
+      fun trim_gctx prog gctx =
+        let
+          open CollectMod
+          (* val ms = dedup op= $ collect_mod_prog prog *)
+          (* val ms = trans_closure gctx ms *)
+          (* val gctx = restrict ms gctx *)
+        in
+          gctx
+        end
       val old_gctx = gctx
       val prog = [bind]
       val (prog, _, _) = resolve_prog (TCgctx2NRgctx gctx) prog
-      val result as ((gctxd, (* gctx *)_), (vcs, admits)) = typecheck_prog gctx prog
+      val result as ((gctxd, (* gctx *)_), (vcs, admits)) = typecheck_prog (trim_gctx prog gctx) prog
       (* val () = write_file (filename ^ ".smt2", to_smt2 vcs) *)
       (* val () = app println $ print_result false filename (gctx_names old_gctx) gctxd *)
       val () = println $ sprintf "Typechecker generated $ proof obligations." [str_int $ length vcs]

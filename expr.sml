@@ -26,7 +26,7 @@ fun eq_base_type (t : base_type, t') = t = t'
 (*            Int => true) *)
         
 end
-                        
+
 functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 open Var
 open BaseSorts
@@ -141,29 +141,30 @@ datatype stbind =
 
 datatype expr =
 	 Var of long_id * bool(*eia*)
-	 | App of expr * expr
-	 | Abs of ptrn * expr
-         (* unit type *)
-	 | TT of region
-	 (* product type *)
-	 | Pair of expr * expr
-	 | Fst of expr
-	 | Snd of expr
-	 (* universal index *)
-	 | AbsI of sort * name * expr * region
-	 | AppI of expr * idx
-         (* other *)
-	 | BinOp of bin_op * expr * expr
+         | EConst of expr_const * region
+	 (* | TT of region *)
+	 (* | ConstNat of int * region *)
+	 (* | ConstInt of int * region *)
+         | EUnOp of expr_un_op * expr * region
+	 (* | Fst of expr *)
+	 (* | Snd of expr *)
+         | BinOp of bin_op * expr * expr
+	 (* | App of expr * expr *)
+	 (* | Pair of expr * expr *)
+	 (* | BinOp of bin_op * expr * expr *)
 	 | TriOp of tri_op * expr * expr * expr
-	 | ConstNat of int * region
-	 | ConstInt of int * region
+         | EEI of expr_EI * expr * idx
+	 (* | AppI of expr * idx *)
+	 (* | AscriptionTime of expr * idx *)
+         | ET of expr_T * mtype * region
+	 (* | Never of mtype * region *)
+	 (* | Builtin of mtype * region *)
+	 | Abs of ptrn * expr
+	 | AbsI of sort * (name * expr) ibind * region
 	 | AppConstr of (long_id * bool) * idx list * expr
 	 | Case of expr * return * (ptrn * expr) list * region
 	 | Let of return * decl list * expr * region
 	 | Ascription of expr * mtype
-	 | AscriptionTime of expr * idx
-	 | Never of mtype * region
-	 | Builtin of mtype * region
 
 
      and decl =
@@ -229,7 +230,19 @@ fun TTI r = IConst (ICTT, r)
 fun AdmitI r = IConst (ICAdmit, r)
 fun True r = PTrueFalse (true, r)
 fun False r = PTrueFalse (false, r)
-         
+
+fun TT r = EConst (ECTT, r)
+fun ConstInt (n, r) = EConst (ECInt n, r)
+fun ConstNat (n, r) = EConst (ECNat n, r)
+fun Fst (e, r) = EUnOp (EUFst, e, r)
+fun Snd (e, r) = EUnOp (EUSnd, e, r)
+fun App (e1, e2) = BinOp (EBApp, e1, e2)
+fun Pair (e1, e2) = BinOp (EBPair, e1, e2)
+fun AppI (e, i) = EEI (EEIAppI, e, i)
+fun AscriptionTime (e, i) = EEI (EEIAscriptionTime, e, i)
+fun Never (t, r) = ET (ETNever, t, r)
+fun Builtin (t, r) = ET (ETBuiltin, t, r)
+  
 val STime = Basic (Base Time, dummy)
 val SBool = Basic (Base BoolSort, dummy)
 val SUnit = Basic (Base UnitSort, dummy)
@@ -285,7 +298,7 @@ fun collect_Uni t =
 
 fun collect_AppI e =
   case e of
-      AppI (e, i) =>
+      EEI (EBAppI, e, i) =>
       let 
         val (e, is) = collect_AppI e
       in
@@ -303,7 +316,7 @@ fun collect_BinOpI_left opr i =
              
 fun collect_Pair e =
   case e of
-      Pair (e1, e2) =>
+      BinOp (EBPair, e1, e2) =>
       collect_Pair e1 @ [e2]
     | _ => [e]
              
@@ -841,6 +854,41 @@ fun str_e gctx (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
   in
     case e of
 	Var (x, b) => decorate_var b $ str_long_id #4 gctx tctx x
+      | EConst (c, _) =>
+        (case c of
+             ECTT => "()"
+           | ECInt n => str_int n
+           | ECNat n => sprintf "#$" [str_int n]
+        )
+      | EUnOp (opr, e, _) =>
+        (case opr of
+             EUFst => sprintf "(fst $)" [str_e ctx e]
+           | EUSnd => sprintf "(snd $)" [str_e ctx e]
+        )
+      | BinOp (opr, e1, e2) =>
+        (case opr of
+             EBApp => sprintf "($ $)" [str_e ctx e1, str_e ctx e2]
+           | EBPair =>
+             let
+               val es = collect_Pair e
+             in
+               sprintf "($)" [join ", " $ map (str_e ctx) es]
+             end
+           | New => sprintf "(new $ $)" [str_e ctx e1, str_e ctx e2]
+           | Read => sprintf "(read $ $)" [str_e ctx e1, str_e ctx e2]
+           | Add => sprintf "($ $ $)" [str_e ctx e1, str_bin_op opr, str_e ctx e2]
+        )
+      | TriOp (Write, e1, e2, e3) => sprintf "(write $ $ $)" [str_e ctx e1, str_e ctx e2, str_e ctx e3]
+      | EEI (opr, e, i) =>
+        (case opr of
+           EEIAppI => sprintf "($ {$})" [str_e ctx e, str_i gctx sctx i]
+          | EEIAscriptionTime => sprintf "($ |> $)" [str_e ctx e, str_i gctx sctx i]
+        )
+      | ET (opr, t, _) =>
+        (case opr of
+             ETNever => sprintf "(never [$])" [str_mt gctx skctx t]
+           | ETBuiltin => sprintf "(builtin [$])" [str_mt gctx skctx t]
+        )
       | Abs (pn, e) => 
         let 
           val (inames, enames) = ptrn_names pn
@@ -850,18 +898,7 @@ fun str_e gctx (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
         in
           sprintf "(fn $ => $)" [pn, e]
         end
-      | App (e1, e2) => sprintf "($ $)" [str_e ctx e1, str_e ctx e2]
-      | TT _ => "()"
-      | Pair _ =>
-        let
-          val es = collect_Pair e
-        in
-          sprintf "($)" [join ", " $ map (str_e ctx) es]
-        end
-      | Fst e => sprintf "(fst $)" [str_e ctx e]
-      | Snd e => sprintf "(snd $)" [str_e ctx e]
-      | AbsI (s, (name, _), e, _) => sprintf "(fn {$ : $} => $)" [name, str_s gctx sctx s, str_e (name :: sctx, kctx, cctx, tctx) e]
-      | AppI (e, i) => sprintf "($ {$})" [str_e ctx e, str_i gctx sctx i]
+      | AbsI (s, Bind ((name, _), e), _) => sprintf "(fn {$ : $} => $)" [name, str_s gctx sctx s, str_e (name :: sctx, kctx, cctx, tctx) e]
       | Let (return, decls, e, _) => 
         let
           val return = str_return gctx (sctx, kctx) return
@@ -870,17 +907,8 @@ fun str_e gctx (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
           sprintf "let $$ in $ end" [return, join_prefix " " decls, str_e ctx e]
         end
       | Ascription (e, t) => sprintf "($ : $)" [str_e ctx e, str_mt gctx skctx t]
-      | AscriptionTime (e, d) => sprintf "($ |> $)" [str_e ctx e, str_i gctx sctx d]
-      | BinOp (New, e1, e2) => sprintf "(new $ $)" [str_e ctx e1, str_e ctx e2]
-      | BinOp (Read, e1, e2) => sprintf "(read $ $)" [str_e ctx e1, str_e ctx e2]
-      | BinOp (opr, e1, e2) => sprintf "($ $ $)" [str_e ctx e1, str_bin_op opr, str_e ctx e2]
-      | TriOp (Write, e1, e2, e3) => sprintf "(write $ $ $)" [str_e ctx e1, str_e ctx e2, str_e ctx e3]
-      | ConstInt (n, _) => str_int n
-      | ConstNat (n, _) => sprintf "#$" [str_int n]
       | AppConstr ((x, b), is, e) => sprintf "($$ $)" [decorate_var b $ str_long_id #3 gctx cctx x, (join "" o map (prefix " ") o map (fn i => sprintf "{$}" [str_i gctx sctx i])) is, str_e ctx e]
       | Case (e, return, rules, _) => sprintf "(case $ $of $)" [str_e ctx e, str_return gctx skctx return, join " | " (map (str_rule gctx ctx) rules)]
-      | Never (t, _) => sprintf "(never [$])" [str_mt gctx skctx t]
-      | Builtin (t, _) => sprintf "(builtin [$])" [str_mt gctx skctx t]
   end
 
 and str_decls gctx (ctx as (sctx, kctx, cctx, tctx)) decls =
@@ -1069,25 +1097,18 @@ fun get_region_pn pn =
 fun get_region_e e = 
   case e of
       Var (x, _) => get_region_long_id x
-    | Abs (pn, e) => combine_region (get_region_pn pn) (get_region_e e)
-    | App (e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
-    | TT r => r
-    | Pair (e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
-    | Fst e => get_region_e e
-    | Snd e => get_region_e e
-    | AbsI (_, _, _, r) => r
-    | AppI (e, i) => combine_region (get_region_e e) (get_region_i i)
+    | EConst (_, r) => r
+    | EUnOp (_, _, r) => r
     | BinOp (_, e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
     | TriOp (_, e1, _, e3) => combine_region (get_region_e e1) (get_region_e e3)
-    | ConstInt (_, r) => r
-    | ConstNat (_, r) => r
+    | EEI (_, e, i) => combine_region (get_region_e e) (get_region_i i)
+    | ET (_, _, r) => r
+    | Abs (pn, e) => combine_region (get_region_pn pn) (get_region_e e)
+    | AbsI (_, _, r) => r
     | AppConstr ((x, _), _, e) => combine_region (get_region_long_id x) (get_region_e e)
     | Case (_, _, _, r) => r
-    | Never (_, r) => r
-    | Builtin (_, r) => r
     | Let (_, _, _, r) => r
     | Ascription (e, t) => combine_region (get_region_e e) (get_region_mt t)
-    | AscriptionTime (e, i) => combine_region (get_region_e e) (get_region_i i)
                                               
 fun get_region_rule (pn, e) = combine_region (get_region_pn pn) (get_region_e e)
 
@@ -1115,25 +1136,42 @@ fun get_region_m m =
 fun is_value (e : expr) : bool =
   case e of
       Var _ => true
-    | App _ => false
+    | EConst (c, _) =>
+      (case c of
+           ECTT => true
+         | ECNat _ => true
+         | ECInt _ => true
+      )
+    | EUnOp (opr, e, _) =>
+      (case opr of
+           EUFst => false
+         | EUSnd => false
+      )
+    | BinOp (opr, e1, e2) =>
+      (case opr of
+           EBApp => false
+         | EBPair => is_value e1 andalso is_value e2
+         | New => false
+         | Read => false
+         | Add => false
+      )
+    | TriOp _ => false
+    | EEI (opr, e, i) =>
+      (case opr of
+           EEIAppI => false
+         | EEIAscriptionTime => false
+      )
+    | ET (opr, t, _) =>
+      (case opr of
+           ETNever => true
+         | ETBuiltin => true
+      )
     | Abs _ => true
-    | TT _ => true
-    | Pair (e1, e2) => is_value e1 andalso is_value e2
-    | Fst _ => false
-    | Snd _ => false
     | AbsI _ => true
-    | AppI _ => false
     | Let _ => false
     | Ascription _ => false
-    | AscriptionTime _ => false
-    | BinOp _ => false
-    | TriOp _ => false
-    | ConstInt _ => true
-    | ConstNat _ => true
     | AppConstr (_, _, e) => is_value e
     | Case _ => false
-    | Never _ => true
-    | Builtin _ => true
 
 datatype ('var, 'prop) hyp = 
          VarH of 'var
@@ -1550,20 +1588,22 @@ fun on_t_t on_t_mt x n b =
     f x n b
   end
 
+fun on_e_ibind f x n (Bind (name, b) : ('a * 'b) ibind) = Bind (name, f x n b)
+                                                               
 fun on_e_e on_v =
   let
     fun f x n b =
       case b of
 	  Var (y, b) => Var (on_v_long_id on_v x n y, b)
+        | EConst _ => b
+	| EUnOp (opr, e, r) => EUnOp (opr, f x n e, r)
+	| BinOp (opr, e1, e2) => BinOp (opr, f x n e1, f x n e2)
+	| TriOp (opr, e1, e2, e3) => TriOp (opr, f x n e1, f x n e2, f x n e3)
+	| EEI (opr, e, i) => EEI (opr, f x n e, i)
+	| ET (opr, t, r) => ET (opr, t, r)
 	| Abs (pn, e) =>
           Abs (pn, f (x + (length $ snd $ ptrn_names pn)) n e)
-	| App (e1, e2) => App (f x n e1, f x n e2)
-	| TT r => TT r
-	| Pair (e1, e2) => Pair (f x n e1, f x n e2)
-	| Fst e => Fst (f x n e)
-	| Snd e => Snd (f x n e)
-	| AbsI (s, name, e, r) => AbsI (s, name, f x n e, r)
-	| AppI (e, i) => AppI (f x n e, i)
+	| AbsI (s, bind, r) => AbsI (s, on_e_ibind f x n bind, r)
 	| Let (return, decs, e, r) =>
 	  let 
 	    val (decs, m) = f_decls x n decs
@@ -1571,15 +1611,8 @@ fun on_e_e on_v =
 	    Let (return, decs, f (x + m) n e, r)
 	  end
 	| Ascription (e, t) => Ascription (f x n e, t)
-	| AscriptionTime (e, d) => AscriptionTime (f x n e, d)
-	| ConstInt n => ConstInt n
-	| ConstNat n => ConstNat n
-	| BinOp (opr, e1, e2) => BinOp (opr, f x n e1, f x n e2)
-	| TriOp (opr, e1, e2, e3) => TriOp (opr, f x n e1, f x n e2, f x n e3)
 	| AppConstr (cx, is, e) => AppConstr (cx, is, f x n e)
 	| Case (e, return, rules, r) => Case (f x n e, return, map (f_rule x n) rules, r)
-	| Never t => Never t
-	| Builtin t => Builtin t
 
     and f_decls x n decs =
 	let 

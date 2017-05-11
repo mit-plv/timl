@@ -48,19 +48,38 @@ datatype bin_pred =
          | GtP
          | BigO
                
+(* existential quantifier might carry other information such as a unification variable to update when this existential quantifier gets instantiated *)
+datatype 'a quan =
+         Forall
+         | Exists of 'a
+
+datatype expr_const =
+         ECTT
+         | ECNat of int
+         | ECInt of int
+
+datatype expr_un_op =
+         EUFst
+         | EUSnd
+
 datatype bin_op =
-         Add
+         EBApp
+         | EBPair
+         | Add
          | New
          | Read
 
 datatype tri_op =
          Write
 
-(* existential quantifier might carry other information such as a unification variable to update when this existential quantifier gets instantiated *)
-datatype 'a quan =
-         Forall
-         | Exists of 'a
+datatype expr_EI =
+         EEIAppI
+         | EEIAscriptionTime
 
+datatype expr_T =
+         ETNever
+         | ETBuiltin
+             
 fun str_idx_const c =
   case c of
       ICBool b => str_bool b
@@ -110,15 +129,17 @@ fun str_bin_pred opr =
     | GtP => ">"
     | BigO => "<=="
 
-fun str_bin_op opr =
-  case opr of
-      Add => "+"
-    | New => "new"
-    | Read => "read"
-
 fun str_quan q =
     case q of
         Forall => "forall"
       | Exists _ => "exists"
+
+fun str_bin_op opr =
+  case opr of
+      EBApp => "$"
+    | EBPair => "pair"
+    | Add => "+"
+    | New => "new"
+    | Read => "read"
 
 end

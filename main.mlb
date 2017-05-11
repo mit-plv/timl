@@ -43,6 +43,7 @@ check-no-uvar.sml
 smt-solver.sml
 long-id-map.sml
 bigO-solver.sml
+collect-mod.sml
 main.sml
 
 mlton-main.sml

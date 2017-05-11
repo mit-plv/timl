@@ -280,14 +280,14 @@ local
             fun f (b, e) =
 		case b of
 		    Typing pn => Abs (elab_pn pn, e)
-		  | TBind (Sorting (x, s, _)) => AbsI (elab_s s, x, e, r)
+		  | TBind (Sorting (name, s, _)) => AbsI (elab_s s, Bind (name, e), r)
             val e = elab e
             val e = case d of SOME d => AscriptionTime (e, elab_i d) | _ => e
             val e = case t of SOME t => Ascription (e, elab_mt t) | _ => e
 	  in
 	    foldr f e binds
 	  end
-	| S.App (e1, e2, _) =>
+	| S.App (e1, e2, r) =>
 	  let 
 	    fun default () = App (elab e1, elab e2)
 	  in
@@ -295,8 +295,8 @@ local
 		S.Var ((m, (x, _)), false) =>
                 (case m of
                      NONE =>
-		     if x = "fst" then Fst (elab e2)
-		     else if x = "snd" then Snd (elab e2)
+		     if x = "fst" then Fst (elab e2, r)
+		     else if x = "snd" then Snd (elab e2, r)
 		     else default ()
                    | SOME _ => default ()
                 )
