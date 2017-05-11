@@ -46,9 +46,9 @@ fun match_bigO f hyps hyp =
              
 fun find_bigO_hyp f_i hyps =
   find_hyp (forget_i_i 0 1) shift_i_i match_bigO f_i hyps
-
+           
 (* if [i] is [f m_1 ... m_k n] where [f m_1 ... m_i]'s bigO spec is known (i <= k), replace [f m1 ... m_i] with its bigO spec *)
-fun use_bigO_hyp long_hyps i =
+fun use_bigO_hyp hs i =
   case is_IApp_UVarI i of
       SOME _ => i
     | NONE =>
@@ -56,7 +56,7 @@ fun use_bigO_hyp long_hyps i =
         val (f, args) = collect_IApp i
         fun iter (arg, f) =
           let
-            val f = default f $ Option.map fst $ find_bigO_hyp f long_hyps
+            val f = default f $ Option.map fst $ find_bigO_hyp f hs
             val f = simp_i (f %@ arg)
           in
             f
@@ -218,6 +218,7 @@ fun class_le (m1, m2) =
     
 fun timefun_le is_outer hs a b =
   let
+    (* another version of [use_bigO_hyp] that substitute with all big-O premises *)
     fun match_bigO () hyps hyp =
       case hyp of
           PropH (BinPred (BigO, f', g)) =>
@@ -225,15 +226,14 @@ fun timefun_le is_outer hs a b =
         | _ => NONE
     fun find_bigO_hyp f_i hyps =
       find_hyp id (fn (a, b) => (shift_i_i a, shift_i_i b)) match_bigO () hyps
-    (* todo: change this use_bigO_hyp *)
     fun use_bigO_hyp hyps i =
       case find_bigO_hyp i hyps of
-          SOME ((VarI (_, (f', _)), g), _) =>
+          SOME ((VarI (NONE, (f', _)), g), _) =>
           let
             val g = simp_i g
             val i' = simp_i $ substx_i_i f' g i
             val hs_ctx = hyps2ctx hs
-            (* val () = println $ sprintf "timefun_le(): $ ~> $" [str_i [] ctx i, str_i [] ctx i'] *)
+                                  (* val () = println $ sprintf "timefun_le(): $ ~> $" [str_i [] ctx i, str_i [] ctx i'] *)
           in
             i'
           end
@@ -247,10 +247,11 @@ fun timefun_le is_outer hs a b =
         val (names2, _) = collect_IAbs b
         val arity = length names1
         val () = if arity = length names2 then () else raise Error "timefun_le: arity must equal"
-        val a = if arity <= 2 then
-                  use_bigO_hyp hs a
-                else
-                  a
+        val a =
+            (* if arity <= 2 then *)
+              use_bigO_hyp hs a
+            (* else *)
+            (*   a *)
         val summarize = summarize (is_outer, fn s => raise Error s)
         val (_, i1) = collect_IAbs a
         val (_, i2) = collect_IAbs b
