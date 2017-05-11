@@ -611,7 +611,6 @@ fun on_top_bind gctx bind =
                   SOME a => a
                 | NONE => raise Error (r, "Unbound functor " ^ m)
           val ((formal_arg_name, formal_arg), body) = fetch_functor gctx (f, f_r)
-          val formal_arg_name = find_unique (domain gctx) $ "__" ^ formal_arg_name
           val gctxd = [(formal_arg_name, Sig formal_arg)]
         in
           (TopFunctorApp ((name, r), (f, f_r), m), (name, Sig body) :: gctxd)

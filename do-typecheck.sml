@@ -2041,7 +2041,6 @@ fun check_top_bind gctx bind =
                   | NONE => raise Error (r, ["Unbound functor " ^ m])
               val ((formal_arg_name, formal_arg), body) = fetch_functor gctx f
               val formal_arg = link_sig (snd m) gctx m formal_arg
-              val formal_arg_name = find_unique (domain gctx) $ "__" ^ formal_arg_name
               val gctxd = [(formal_arg_name, Sig formal_arg)]
             in
               (name, Sig body) :: gctxd

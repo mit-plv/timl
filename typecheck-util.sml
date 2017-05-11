@@ -184,7 +184,8 @@ open Gctx
        
 fun add_sgn (name, s) gctx =
   let
-    (* val () = assert (fn () => isNone $ find (gctx, name)) "isNone $ find (gctx, name)" *)
+    val () = if isNone $ find (gctx, name) then ()
+             else raise Error (dummy, [sprintf "module name $ already exists in module context $" [name, str_ls id $ domain gctx]])
   in
     insert' ((name, s), gctx)
   end
