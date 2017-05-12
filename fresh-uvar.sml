@@ -90,12 +90,12 @@ fun get_ctx_and_args sel make_arg on_snd package gctx ctx_local r =
 fun get_sctx_and_args x = get_ctx_and_args #1 VarI x
 fun get_kctx_and_args x = get_ctx_and_args #2 MtVar x
 
-fun no_package _ a = a
+fun package_noop _ a = a
                           
 fun fresh_i gctx ctx bsort r = 
   let
     val get_base = get_base refine_UVarS_to_Basic
-    val (ctx, args) = get_sctx_and_args get_base no_package gctx ctx r
+    val (ctx, args) = get_sctx_and_args get_base package_noop gctx ctx r
     val x = fresh_uvar_i ctx bsort
     val i = UVarI (x, r)
     val i = IApps i args

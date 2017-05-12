@@ -38,7 +38,7 @@
 - [x] Put `Unit` back to mtype from `base_type` because `Unit` is not a base type like `Int` but a structural building block.
 - [ ] Have a good error message when insertion_sort.timl/`insert` does not have the needed return-annotation on `case`.
 - [x] Be able to infer for `insertion_sort`.
-- [ ] `unify`'s `(UVar, UVar)` case could be dangerous: shift_invis may not be transactional, and there is no circularity check.
+- [ ] \(Solved by new unification framework) `unify`'s `(UVar, UVar)` case could be dangerous: shift_invis may not be transactional, and there is no circularity check.
 - [x] Have a standard library.
 - [x] Automatically generate premises in `(VarP, Never)` case of `match_ptrn`, from complement cover of previous rules.
 - [x] `case` should also copy `fun`'s `return` clause even without `using`.
@@ -50,7 +50,7 @@
 - [x] Maximally insertion of index arguments.
 - [x] Maximally insertion of index arguments in patterns.
 - [x] nouvar-expr/passp/Imply/_ is not sound, possibly losing information.
-- [ ] `subst_invis_no_throw` should be implemented in a safe way where uvars that can see the target variable are unified with a new shifted uvars that cannot see it, and `bring_forward_anchor` needs to be more sophisticated to only put new anchor when there is no shift (and the notifier in `Exists` needs to do some shift) because now not every uvar has an anchor.
+- [ ] \(Solved by new unification framework) `subst_invis_no_throw` should be implemented in a safe way where uvars that can see the target variable are unified with a new shifted uvars that cannot see it, and `bring_forward_anchor` needs to be more sophisticated to only put new anchor when there is no shift (and the notifier in `Exists` needs to do some shift) because now not every uvar has an anchor.
 - [x] Braun tree extraction.
 - [x] rename "peel_" to "collect_".
 - [x] Register admitted things.
@@ -77,14 +77,14 @@
 - [x] Change `unify_s` to `is_sub_sort`.
 - [x] Should apply solvers and check no-uvar after every module, not every file (unless we enforce one-module-per-file policy). 
 - [ ] Move VC openings from `check_decl` to `check_decls`.
-- [ ] `subst` should do lazy shifting, not eager.
+- [x] `subst` should do lazy shifting, not eager.
 - [x] The last two examples in bigO-evolve.timl about using `idx` instead of `absidx` does not work now.
 - [x] Simplify unused `forall` in `prop`. The unused foralls are Big-O premises.
 - [ ] `BigOEvolveSealed` in bigO-evolve.timl does not work yet.
 - [x] if-then-else and list syntax.
 - [ ] Restore the version of `link_sig` in revision 00ba072, because a module may have uvars before sealing, and uvars cannot be retrieved from a module.
 - [ ] Big-O solver should heuristically distinguish "defining" side of `TimeFun` uvars from the "using" side, by the rule-of-thumb that only `_ <= f x` is a defining constraint of `f`.
-- [ ] Do a module dependent analysis of each module and only bring the needed modules into `gctx` VC context.
+- [x] Do a module dependent analysis of each module and only bring the needed modules into `gctx` VC context.
 - [x] Have double-linked lists.
 - [x] rbt6.timl:  absidx sort `Time` inference error in `IntKey`.
 - [x] Currently `absidx ... with ... end` is "scoped abstract index". We should have "unscoped" or "module-scoped" abstract index `absidx id = ...` so within the module `id`'s definition is visible but outside the module it is not.

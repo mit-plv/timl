@@ -36,6 +36,7 @@ typecheck-util.sml
 normalize.sml
 collect-var.sml
 collect-uvar.sml
+parallel-subst.sml
 unify.sml
 fresh-uvar.sml
 redundant-exhaust.sml

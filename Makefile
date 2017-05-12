@@ -37,10 +37,11 @@ package.sml \
 typecheck-util.sml \
 normalize.sml \
 collect-var.sml \
+collect-uvar.sml \
+parallel-subst.sml \
 unify.sml \
 fresh-uvar.sml \
 redundant-exhaust.sml \
-collect-uvar.sml \
 uvar-forget.sml \
 do-typecheck.sml \
 post-typecheck.sml \

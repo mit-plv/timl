@@ -1206,238 +1206,6 @@ structure Subst = struct
 open Util
        
 infixr 0 $
-(*
-        structure Visit = struct
-
-        fun on_i visitor q b =
-            let
-              fun f q b =
-	          case b of
-	              VarI y => VarI $ #on_long_id visitor q y
-	            | ConstIN n => ConstIN n
-	            | ConstIT x => ConstIT x
-                    | UnOpI (opr, i, r) => UnOpI (opr, f q i, r)
-                    | DivI (i1, n2) => DivI (f q i1, n2)
-                    | ExpI (i1, n2) => ExpI (f q i1, n2)
-	            | BinOpI (opr, i1, i2) => BinOpI (opr, f q i1, f q i2)
-                    | Ite (i1, i2, i3, r) => Ite (f q i1, f q i2, f q i3, r)
-	            | TTI r => TTI r
-	            | TrueI r => TrueI r
-	            | FalseI r => FalseI r
-                    | IAbs (name, i, r) => IAbs (name, f (inc_i q) i, r)
-                    | AdmitI r => AdmitI r
-                    | UVarI a => #on_UVarI visitor UVarI f q a
-            in
-              f q b
-            end
-
-        fun on_ibind f q bind =
-            case bind of
-                Bind (name, inner) => Bind (name, f (inc_i q) inner)
-
-        fun on_i_tbind f q bind =
-            case bind of
-                Bind (name, inner) => Bind (name, f (inc_i q) inner)
-
-        fun on_p visitor q b =
-            let
-              val on_i = on_i visitor
-              fun f q b =
-                  case b of
-	              True r => True r
-	            | False r => False r
-                    | Not (p, r) => Not (f q p, r)
-	            | BinConn (opr, p1, p2) => BinConn (opr, f q p1, f q p2)
-	            | BinPred (opr, d1, d2) => BinPred (opr, on_i q d1, on_i q d2)
-                    | Quan (q, bs, bind, r) => Quan (q, bs, on_ibind f q bind, r)
-            in
-              f q b
-            end
-
-        fun on_s visitor q b =
-            let
-              val on_p = on_p visitor
-              fun f q b =
-	          case b of
-	              Basic s => Basic s
-	            | Subset (s, bind, r) => Subset (s, on_ibind on_p q bind, r)
-                    | UVarS a => #on_UVarS UVarS f q a
-            in
-              f q b
-            end
-
-        fun on_mt visitor q b =
-            let
-              val on_i = on_i visitor
-              val on_s = on_s visitor
-              fun f q b =
-	          case b of
-	              Arrow (t1, i, t2) => Arrow (f q t1, on_i q i, f q t2)
-                    | Unit r => Unit r
-	            | Prod (t1, t2) => Prod (f q t1, f q t2)
-	            | UniI (s, bind, r) => UniI (on_s q s, on_ibind f q bind, r)
-                    (* | MtVar y => MtVar y *)
-                    (* | MtApp (t1, t2) => MtApp (f x n t1, f x n t2) *)
-                    (* | MtAbs (bind, r) => MtAbs (on_i_tbind f x n bind, r) *)
-                    (* | MtAppI (t, i) => MtAppI (f x n t, on_i_i x n i) *)
-                    (* | MtAbsI (s, bind, r) => MtAbsI (on_i_s x n s, on_i_ibind f x n bind, r) *)
-	            | AppV (y, ts, is, r) => AppV (#on_long_id visitor q y, map (f q) ts, map (on_i q) is, r)
-	            | BaseType a => BaseType a
-                    | UVar a => #on_i_UVar visitor UVar f q a
-            in
-              f x n b
-            end
-
-        fun on_t visitor q b =
-            let
-              fun f q b =
-	          case b of
-	              Mono t => Mono (on_mt q t)
-	            | Uni (bind, r) => Uni (on_tbind f q bind, r)
-            in
-              f q b
-            end
-
-        fun on_kind visitor q b =
-            let
-              val on_s = on_s visitor
-            in
-	      case b of
-	          ArrowK (is_dt, n, sorts) => ArrowK (is_dt, n, map (on_s (add_t n $ add_i (length sorts) q)) sorts)
-            end
-              
-        fun on_ibinds on_anno on_inner q ibinds =
-            case ibinds of
-                BindNil inner => 
-                BindNil (on_inner q inner)
-              | BindCons (anno, bind) =>
-                BindCons (on_anno q anno, on_ibind (on_ibinds on_anno on_inner) q bind)
-
-        and on_pn q pn =
-            let
-              val (inames, enames) = ptrn_names pn
-              val q = add_i (length inames) $ add_e (length enames) q
-            in
-              Abs (pn, f q e)
-            end
-              
-        fun on_e visitor q b =
-            let
-              fun f q b =
-	          case b of
-	              Var (y, b) => Var (#on_v_long_id visitor q y, b)
-	            | Abs (pn, e) =>
-                      let
-                        val (pn, q) = on_pn q pn
-                      in
-                        Abs (pn, f q e)
-                      end
-	            | App (e1, e2) => App (f q e1, f q e2)
-	            | TT r => TT r
-	            | Pair (e1, e2) => Pair (f q e1, f q e2)
-	            | Fst e => Fst (f q e)
-	            | Snd e => Snd (f q e)
-	            | AbsI (s, name, e, r) => AbsI (on_s q s, name, f (inc_i q) e, r)
-	            | AppI (e, i) => AppI (f q e, on_i q i)
-	            | Let (return, decs, e, r) =>
-	              let
-                        val return = on_return q return
-		        val (decs, q) = on_decls q decs
-                        val e = f q e
-	              in
-		        Let (return, decs, e, r)
-	              end
-	            | Ascription (e, t) => Ascription (f q e, on_mt q t)
-	            | AscriptionTime (e, i) => AscriptionTime (f q e, on_i q i)
-	            | ConstInt n => ConstInt n
-	            | BinOp (opr, e1, e2) => BinOp (opr, f q e1, f q e2)
-	            | AppConstr (cx, is, e) => AppConstr (#on_long_id visitor q cx, map (on_i q) is, f q e)
-	            | Case (e, return, rules, r) =>
-                      let
-                        val e = f q e
-                        val return = on_return q return
-                        val rules = map (f_rule x n) rules
-                      in
-                        Case (e, return, rules, r)
-                      end
-	            | Never t => Never $ on_mt q t
-
-              and on_decls visitor q decls =
-	          let 
-                    fun g (decl, (acc, m)) =
-		        let
-		          val (decl, q) = on_decl q decl
-		        in
-		          (decl :: acc, q)
-		        end
-	            val (decls, q) = foldl g ([], q) decls
-	            val decls = rev decls
-	          in
-                    (decls, q)
-                  end
-
-              and on_decl visitor decl =
-	          case decl of
-	              Val (tnames, pn, e, r) => 
-	              let
-                        val e = f (add_t (length tnames) q) e
-                        val (pn, q) = on_pn q pn 
-	              in
-                        (Val (tnames, pn, e, r), q)
-                      end
-                    | Rec (tnames, name, (binds, ((t, d), e)), r) => 
-                      let
-                        val q = inc_e q
-                        val q_ret = q
-                        val q = add_t (length tnames) q
-                        fun iter (bind, q) =
-                            case bind of
-                                SortingST (name, s) =>
-                                let
-                                  val s = on_s q s
-                                  val q = inc_i q
-                                in
-                                  (SortingST (name, s), a)
-                                end
-                              | TypingST pn =>
-	                        let 
-                                  val (pn, q) = on_pn q pn 
-	                        in
-                                  (TypingST pn, q)
-                                end
-                        val (binds, q) = foldl iter ([], q) binds
-                        val binds = rev binds
-                        val t = on_mt q t
-                        val d = on_i q d
-                        val e = f q e
-                      in
-                        (Rec (tnames, name, (binds, ((t, d), e)), r), q_ret)
-                      end
-                    | Datatype a => (Datatype a, 0)
-                    | IdxDef a => (IdxDef a, 0)
-                    | AbsIdx2 a => (AbsIdx2 a, 0)
-                    | AbsIdx (a, decls, r) => 
-                      let
-                        val (decls, m) = f_decls x n decls
-                      in
-                        (AbsIdx (a, decls, r), m)
-                      end
-                    | TypeDef (name, t) => (TypeDef (name, t), 0)
-                    | Open m => (Open m, 0)
-
-              and f_rule x n (pn, e) =
-	          let 
-                    val (_, enames) = ptrn_names pn 
-	          in
-	            (pn, f (x + length enames) n e)
-	          end
-
-            in
-              f
-            end
-              
-        end
-*)
 (* generic traversers for both 'shift' and 'forget' *)
 
 (* if it has module reference, don't shift/forget *)
@@ -1767,136 +1535,136 @@ type 'a shiftable = {
 
 fun shift_noop n v = v
 
-val idx_shiftable : idx shiftable = {
-  shift_i = shiftx_i_i 0,
-  shift_t = shift_noop
-}
+(* val idx_shiftable : idx shiftable = { *)
+(*   shift_i = shiftx_i_i 0, *)
+(*   shift_t = shift_noop *)
+(* } *)
 
-fun substx_i_ibind f x (s : 'a shiftable) v (Bind (name, inner) : ('name * 'b) ibind) =
-  Bind (name, f (x + 1) (#shift_i s 1 v) inner)
-
-fun substx_t_ibind f x (s : 'a shiftable) v (Bind (name, inner) : ('name * 'b) ibind) =
-  Bind (name, f x (#shift_i s 1 v) inner)
-
-fun substx_i_tbind f x (s : 'a shiftable) v (Bind (name, inner) : ('name * 'b) tbind) =
-  Bind (name, f x (#shift_t s 1 v) inner)
-
-fun substx_t_tbind f x (s : 'a shiftable) v (Bind (name, inner) : ('name * 'b) tbind) =
-  Bind (name, f (x + 1) (#shift_t s 1 v) inner)
-
+fun substx_i_ibind f d x v (Bind (name, inner) : ('name * 'b) ibind) =
+  Bind (name, f (d + 1) (x + 1) v inner)
+       
+(* depth [d] is used for shifting value [v] *)
 local
-  fun f x v b =
+  fun f d(*depth*) x v b =
     case b of
-	VarI y => substx_long_id VarI x (const v) y
+	VarI y => substx_long_id VarI x (fn () => shiftx_i_i 0 d v) y
       | IConst c => IConst c
-      | UnOpI (opr, i, r) => UnOpI (opr, f x v i, r)
-      | BinOpI (opr, d1, d2) => BinOpI (opr, f x v d1, f x v d2)
-      | Ite (i1, i2, i3, r) => Ite (f x v i1, f x v i2, f x v i3, r)
-      | IAbs (b, bind, r) => IAbs (b, substx_i_ibind f x idx_shiftable v bind, r)
+      | UnOpI (opr, i, r) => UnOpI (opr, f d x v i, r)
+      | BinOpI (opr, d1, d2) => BinOpI (opr, f d x v d1, f d x v d2)
+      | Ite (i1, i2, i3, r) => Ite (f d x v i1, f d x v i2, f d x v i3, r)
+      | IAbs (b, bind, r) => IAbs (b, substx_i_ibind f d x v bind, r)
       | UVarI a => b
 in
-fun substx_i_i x (v : idx) (b : idx) : idx = f x v b
-fun subst_i_i v b = substx_i_i 0 v b
+val substx_i_i = f
+fun subst_i_i v b = substx_i_i 0 0 v b
 end
-(* todo: change to lazy shifting *)
 
 local
-  fun f x v b =
+  fun f d x v b =
     case b of
 	PTrueFalse b => PTrueFalse b
-      | Not (p, r) => Not (f x v p, r)
-      | BinConn (opr,p1, p2) => BinConn (opr, f x v p1, f x v p2)
-      | BinPred (opr, d1, d2) => BinPred (opr, substx_i_i x v d1, substx_i_i x v d2)
-      | Quan (q, bs, bind, r) => Quan (q, bs, substx_i_ibind f x idx_shiftable v bind, r)
+      | Not (p, r) => Not (f d x v p, r)
+      | BinConn (opr,p1, p2) => BinConn (opr, f d x v p1, f d x v p2)
+      | BinPred (opr, d1, d2) => BinPred (opr, substx_i_i d x v d1, substx_i_i d x v d2)
+      | Quan (q, bs, bind, r) => Quan (q, bs, substx_i_ibind f d x v bind, r)
 in
-fun substx_i_p x (v : idx) b = f x v b
-fun subst_i_p (v : idx) (b : prop) : prop = substx_i_p 0 v b
+val substx_i_p = f
+fun subst_i_p (v : idx) (b : prop) : prop = substx_i_p 0 0 v b
 end
 
 local
-  fun f x v b =
+  fun f d x v b =
     case b of
 	Basic s => Basic s
-      | Subset (b, bind, r) => Subset (b, substx_i_ibind substx_i_p x idx_shiftable v bind, r)
+      | Subset (b, bind, r) => Subset (b, substx_i_ibind substx_i_p d x v bind, r)
       | UVarS a => b
-      | SortBigO (b, i, r) => SortBigO (b, substx_i_i x v i, r)
-      | SAbs (s, bind, r) => SAbs (f x v s, substx_i_ibind f x idx_shiftable v bind, r)
-      | SApp (s, i) => SApp (f x v s, substx_i_i x v i)
+      | SortBigO (b, i, r) => SortBigO (b, substx_i_i d x v i, r)
+      | SAbs (s, bind, r) => SAbs (f d x v s, substx_i_ibind f d x v bind, r)
+      | SApp (s, i) => SApp (f d x v s, substx_i_i d x v i)
 in
-fun substx_i_s x (v : idx) (b : sort) : sort = f x v b
-fun subst_i_s (v : idx) (b : sort) : sort = substx_i_s 0 v b
+val substx_i_s = f
+fun subst_i_s (v : idx) (b : sort) : sort = substx_i_s 0 0 v b
 end
 
-fun substx_i_k x v b = mapSnd (map (substx_i_s x v)) b
+fun substx_i_k d x v b = mapSnd (map (substx_i_s d x v)) b
+
+fun substx_i_tbind f d x v (Bind (name, inner) : ('name * 'b) tbind) =
+  Bind (name, f d x v inner)
 
 local
-  fun f x v b =
+  fun f d x v b =
     case b of
-	Arrow (t1, d, t2) => Arrow (f x v t1, substx_i_i x v d, f x v t2)
-      | TyNat (i, r) => TyNat (substx_i_i x v i, r)
-      | TyArray (t, i) => TyArray (f x v t, substx_i_i x v i)
+	Arrow (t1, i, t2) => Arrow (f d x v t1, substx_i_i d x v i, f d x v t2)
+      | TyNat (i, r) => TyNat (substx_i_i d x v i, r)
+      | TyArray (t, i) => TyArray (f d x v t, substx_i_i d x v i)
       | Unit r => Unit r
-      | Prod (t1, t2) => Prod (f x v t1, f x v t2)
-      | UniI (s, bind, r) => UniI (substx_i_s x v s, substx_i_ibind f x idx_shiftable v bind, r)
+      | Prod (t1, t2) => Prod (f d x v t1, f d x v t2)
+      | UniI (s, bind, r) => UniI (substx_i_s d x v s, substx_i_ibind f d x v bind, r)
       | MtVar y => MtVar y
-      | MtApp (t1, t2) => MtApp (f x v t1, f x v t2)
-      | MtAbs (k, bind, r) => MtAbs (substx_i_k x v k, substx_i_tbind f x idx_shiftable v bind, r)
-      | MtAppI (t, i) => MtAppI (f x v t, substx_i_i x v i)
-      | MtAbsI (s, bind, r) => MtAbsI (substx_i_s x v s, substx_i_ibind f x idx_shiftable v bind, r)
+      | MtApp (t1, t2) => MtApp (f d x v t1, f d x v t2)
+      | MtAbs (k, bind, r) => MtAbs (substx_i_k d x v k, substx_i_tbind f d x v bind, r)
+      | MtAppI (t, i) => MtAppI (f d x v t, substx_i_i d x v i)
+      | MtAbsI (s, bind, r) => MtAbsI (substx_i_s d x v s, substx_i_ibind f d x v bind, r)
       | BaseType a => BaseType a
       | UVar a => b
 in
-fun substx_i_mt x (v : idx) (b : mtype) : mtype = f x v b
-fun subst_i_mt (v : idx) (b : mtype) : mtype = substx_i_mt 0 v b
+val substx_i_mt = f
+fun subst_i_mt (v : idx) (b : mtype) : mtype = substx_i_mt 0 0 v b
 end
 
 local
-  fun f x v b =
+  fun f d x v b =
     case b of
-	Mono t => Mono (substx_i_mt x v t)
-      | Uni (bind, r) => Uni (substx_i_tbind f x idx_shiftable v bind, r)
+	Mono t => Mono (substx_i_mt d x v t)
+      | Uni (bind, r) => Uni (substx_i_tbind f d x v bind, r)
 in
-fun substx_i_t x (v : idx) (b : ty) : ty = f x v b
-fun subst_i_t (v : idx) (b : ty) : ty = substx_i_t 0 v b
+val substx_i_t = f
+fun subst_i_t (v : idx) (b : ty) : ty = substx_i_t 0 0 v b
 end
 
-val mtype_shiftable : mtype shiftable = {
-  shift_i = shiftx_i_mt 0,
-  shift_t = shiftx_t_mt 0
-}
+(* val mtype_shiftable : mtype shiftable = { *)
+(*   shift_i = shiftx_i_mt 0, *)
+(*   shift_t = shiftx_t_mt 0 *)
+(* } *)
+
+fun substx_t_ibind f (di, dt) x v (Bind (name, inner) : ('name * 'b) ibind) =
+  Bind (name, f (di + 1, dt) x v inner)
+
+fun substx_t_tbind f (di, dt) x v (Bind (name, inner) : ('name * 'b) tbind) =
+  Bind (name, f (di, dt + 1) (x + 1) v inner)
 
 local
-  fun f x v (b : mtype) : mtype =
+  fun f d x v (b : mtype) : mtype =
     case b of
-	Arrow (t1, d, t2) => Arrow (f x v t1, d, f x v t2)
+	Arrow (t1, i, t2) => Arrow (f d x v t1, i, f d x v t2)
       | TyNat (i, r) => TyNat (i, r)
-      | TyArray (t, i) => TyArray (f x v t, i)
+      | TyArray (t, i) => TyArray (f d x v t, i)
       | Unit r => Unit r
-      | Prod (t1, t2) => Prod (f x v t1, f x v t2)
-      | UniI (s, bind, r) => UniI (s, substx_t_ibind f x mtype_shiftable v bind, r)
+      | Prod (t1, t2) => Prod (f d x v t1, f d x v t2)
+      | UniI (s, bind, r) => UniI (s, substx_t_ibind f d x v bind, r)
       | MtVar y =>
-        substx_long_id MtVar x (const v) y
-      | MtAbs (k, bind, r) => MtAbs (k, substx_t_tbind f x mtype_shiftable v bind, r)
-      | MtApp (t1, t2) => MtApp (f x v t1, f x v t2)
-      | MtAbsI (s, bind, r) => MtAbsI (s, substx_t_ibind f x mtype_shiftable v bind, r)
-      | MtAppI (t, i) => MtAppI (f x v t, i)
+        substx_long_id MtVar x (fn () => shiftx_i_mt 0 (fst d) $ shiftx_t_mt 0 (snd d) v) y
+      | MtAbs (k, bind, r) => MtAbs (k, substx_t_tbind f d x v bind, r)
+      | MtApp (t1, t2) => MtApp (f d x v t1, f d x v t2)
+      | MtAbsI (s, bind, r) => MtAbsI (s, substx_t_ibind f d x v bind, r)
+      | MtAppI (t, i) => MtAppI (f d x v t, i)
       | BaseType a => BaseType a
       | UVar a => b
 in
-fun substx_t_mt x (v : mtype) (b : mtype) : mtype = f x v b
-fun subst_t_mt (v : mtype) (b : mtype) : mtype = substx_t_mt 0 v b
+val substx_t_mt = f
+fun subst_t_mt (v : mtype) (b : mtype) : mtype = substx_t_mt (0, 0) 0 v b
 fun subst_is_mt is t =
-  fst (foldl (fn (i, (t, x)) => (substx_i_mt x (shiftx_i_i 0 x i) t, x - 1)) (t, length is - 1) is)
+  fst (foldl (fn (i, (t, x)) => (substx_i_mt x x i t, x - 1)) (t, length is - 1) is)
 fun subst_ts_mt vs b =
-  fst (foldl (fn (v, (b, x)) => (substx_t_mt x (shiftx_t_mt 0 x v) b, x - 1)) (b, length vs - 1) vs)
+  fst (foldl (fn (v, (b, x)) => (substx_t_mt (0, x) x v b, x - 1)) (b, length vs - 1) vs)
 end
 
-fun substx_t_t x (v : mtype) (b : ty) : ty =
+fun substx_t_t d x (v : mtype) (b : ty) : ty =
   case b of
-      Mono t => Mono (substx_t_mt x v t)
-    | Uni (bind, r) => Uni (substx_t_tbind substx_t_t x mtype_shiftable v bind, r)
+      Mono t => Mono (substx_t_mt d x v t)
+    | Uni (bind, r) => Uni (substx_t_tbind substx_t_t d x v bind, r)
 fun subst_t_t v b =
-  substx_t_t 0 v b
+  substx_t_t (0, 0) 0 v b
 
 fun SortBigO_to_Subset (bs, i, r) =
   Subset (bs, Bind (("__f", r), BinPred (BigO, VarI (NONE, (int2var 0, r)), shift_i_i i)), r)
@@ -2308,7 +2076,7 @@ local
                              val ctxn = map fst $ hyps2ctx hyps
                              (* val () = println $ sprintf "Substing for $ with $" [str_v (ctxn @ [fst name]) x, str_i ctxn i] *)
                              (* val () = app println $ str_hyps_conclu (hyps @ [VarH (name, (bs, r_all))], conclu) @ [""]  *)
-                             val conclu = substx_i_p x i conclu
+                             val conclu = substx_i_p 0 x i conclu
                              fun subst_hyp n p =
                                let
                                  val x = var2int $ forget_v 0 n (int2var x)
@@ -2318,7 +2086,7 @@ local
                                          let
                                            val i = forget_i_i 0 n i
                                          in
-                                           substx_i_p x i p
+                                           substx_i_p 0 x i p
                                          end
                                        | SOME p => p
                                in

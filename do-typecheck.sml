@@ -691,14 +691,14 @@ fun substx_i_i_nonconsuming x v b =
   let
     val v = forget_i_i x 1 v
   in
-    shiftx_i_i x 1 $ substx_i_i x v b
+    shiftx_i_i x 1 $ substx_i_i 0 x v b
   end
     
 fun substx_i_p_nonconsuming x v b =
   let
     val v = forget_i_i x 1 v
   in
-    shiftx_i_p x 1 $ substx_i_p x v b
+    shiftx_i_p x 1 $ substx_i_p 0 x v b
   end
     
 fun forget_ctx_d r gctx (sctx, _, _, _) (sctxd, _, _, _) d =

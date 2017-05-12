@@ -198,7 +198,7 @@ fun timefun_le is_outer hs a b =
           SOME ((VarI (NONE, (f', _)), g), _) =>
           let
             val g = simp_i g
-            val i' = simp_i $ substx_i_i f' g i
+            val i' = simp_i $ ParaSubst.psubst_is_i [(NONE, (f', dummy))] [g] i
             val hs_ctx = hyps2ctx hs
                                   (* val () = println $ sprintf "timefun_le(): $ ~> $" [str_i [] ctx i, str_i [] ctx i'] *)
           in
