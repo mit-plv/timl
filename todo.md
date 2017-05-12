@@ -83,7 +83,7 @@
 - [ ] `BigOEvolveSealed` in bigO-evolve.timl does not work yet.
 - [x] if-then-else and list syntax.
 - [ ] Restore the version of `link_sig` in revision 00ba072, because a module may have uvars before sealing, and uvars cannot be retrieved from a module.
-- [ ] Big-O solver should heuristically distinguish "defining" side of `TimeFun` uvars from the "using" side, by the rule-of-thumb that only `_ <= f x` is a defining constraint of `f`.
+- [x] Big-O solver should heuristically distinguish "defining" side of `TimeFun` uvars from the "using" side, by the rule-of-thumb that only `_ <= f x` is a defining constraint of `f`.
 - [x] Do a module dependent analysis of each module and only bring the needed modules into `gctx` VC context.
 - [x] Have double-linked lists.
 - [x] rbt6.timl:  absidx sort `Time` inference error in `IntKey`.
@@ -92,11 +92,11 @@
 - [ ] Generate typing derivations.
 - [x] Remove annotations on `case` (at least in a mode).
 - [x] `datatype` can introduce index variable names at the first line for every constructor.
-- [ ] `find_hab` is too slow on array-msort.timl on array-msort-inplace.timl
-- [ ] A new unification framework ("skolemized unification"): every unification variable denotes a *closed* entity, which could be a lambda abstraction. For example, when we see type annotation [a : _] in the sorting context [x:Nat, y:Time], we introduce a uvar ?1 of kind [Nat => Time => Type], and replace the "_" with [AppV ?1 [x,y]]. When we try to unify [AppV ?1 [x,y]] with [int], in principle we can't conclude that [?1 = int]. But exploiting specific knowledge in this language, we can. When we can have such a definitive conclusion, we refine ?1 to be [int]; but when we can't have a definitive conclusion when doing unification, we should record it as a VC. For example, when we try to unify [AppV ?1 [x,y]] with [AppV ?2 [x,y]], we should put [AppV ?1 [x,y] = AppV ?2 [x,y]] in VC, instead of conclude that [?1 = ?2] (unless we want to do incomplete, over-aggressive unification).
+- [ ] `find_hab` is too slow on array-msort.timl and array-msort-inplace.timl
+- [x] A new unification framework ("skolemized unification"): every unification variable denotes a *closed* entity, which could be a lambda abstraction. For example, when we see type annotation [a : _] in the sorting context [x:Nat, y:Time], we introduce a uvar ?1 of kind [Nat => Time => Type], and replace the "_" with [AppV ?1 [x,y]]. When we try to unify [AppV ?1 [x,y]] with [int], in principle we can't conclude that [?1 = int]. But exploiting specific knowledge in this language, we can. When we can have such a definitive conclusion, we refine ?1 to be [int]; but when we can't have a definitive conclusion when doing unification, we should record it as a VC. For example, when we try to unify [AppV ?1 [x,y]] with [AppV ?2 [x,y]], we should put [AppV ?1 [x,y] = AppV ?2 [x,y]] in VC, instead of conclude that [?1 = ?2] (unless we want to do incomplete, over-aggressive unification).
 - [ ] SML supports datatypes instantiated with different type arguments within a constructor, such as [datatype 'a ls = Nil | Cons of 'a * ('a * 'a) ls]. TiML's typechecker also supports this. So TiML's proof should also support this. It has usage in for example Okasaki's implicit queue (thesis Chapter 8).
-- [ ] Change minus from a binop to an unop where the second operand can only be constant
-- [ ] Investigate array-msort-in-place
+- [ ] \(Abondoned. Need to support minus of `nat` type) Change minus from a binop to an unop where the second operand can only be constant.
+- [ ] Investigate array-msort-in-place.
 
 # To-do Examples:
 
