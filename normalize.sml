@@ -331,8 +331,19 @@ fun normalize_sgntr gctx sg =
         FunctorBind ((arg_name, arg), normalize_ctx (add_sigging (arg_name, arg) gctx) body)
       end
 
+fun normalize_sgntr_list gctx0 gctx =
+  let
+    val gctx0 = Gctx.addList (gctx0, gctx)
+  in
+    map (mapSnd (normalize_sgntr gctx0)) gctx
+  end
+
 fun normalize_gctx gctx0 gctx =
-  fst $ foldr (fn ((name, sg), (acc, gctx)) => let val p = (name, normalize_sgntr gctx sg) in (p :: acc, p :: gctx) end) ([], gctx0) gctx
+  let
+    val gctx0 = Gctx.union (gctx0, gctx)
+  in
+    Gctx.map (normalize_sgntr gctx0) gctx
+  end
 
 open VC
        

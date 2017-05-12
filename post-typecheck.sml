@@ -42,7 +42,7 @@ fun str_f gctx ctx f =
         val (gctx, ctx) =
             case ft of
                 FtSorting _ => (gctx, name :: ctx)
-              | FtModule sctx => ((name, (sctx_names sctx, [], [], [])) :: gctx, ctx)
+              | FtModule sctx => (curry insert' (name, (sctx_names sctx, [], [], [])) gctx, ctx)
       in
         sprintf "(forall ($ : $) ($))" [name, str_ft ft, str_fs gctx ctx fs]
       end
@@ -50,7 +50,7 @@ fun str_f gctx ctx f =
       sprintf "($ => ($))" [str_p gctx ctx p, str_fs gctx ctx fs]
     | AndF fs =>
       sprintf "($)" [str_fs gctx ctx fs]
-    | PropF (p, _) => str_p [] ctx p
+    | PropF (p, _) => str_p empty ctx p
     | AdmitF (p, _) => sprintf "(admit $)" [str_p gctx ctx p]
 
 and str_fs gctx ctx fs = (join " " o map (str_f gctx ctx)) fs
@@ -68,7 +68,7 @@ fun get_bsort_UVarS s =
         UVarS (a, r) =>
         let
           val def = Base UnitSort
-          val () = is_eqv_sort dummy [] [] (s, Basic (def, r))
+          val () = is_eqv_sort dummy empty [] (s, Basic (def, r))
         in
           def
         end
@@ -181,7 +181,7 @@ fun str_f2 gctx ctx f =
         val (gctx, ctx) =
             case ft of
                 FtSorting _ => (gctx, name :: ctx)
-              | FtModule sctx => ((name, (sctx_names sctx, [], [], [])) :: gctx, ctx)
+              | FtModule sctx => (Gctx.add (name, (sctx_names sctx, [], [], [])) gctx, ctx)
       in
         sprintf "(forall ($ : $) ($))" [name, str_ft ft, str_f2 gctx ctx f]
       end

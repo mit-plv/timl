@@ -91,8 +91,8 @@ val mult_class_entries = foldl' mult_class_entry (0, 0)
 val add_class_entries = foldl' add_class_entry (0, 0)
 
 structure M = LongIdMap.LongIdBinaryMap
-
-fun domain m = map fst $ M.listItemsi m                
+structure MU = MapUtilFn (M)
+open MU
                 
 val mult_class = M.unionWith mult_class_entry
                              
@@ -110,7 +110,7 @@ fun str_cls cls = str_ls (fn (x, (c, k)) => sprintf "$=>($,$)" [str_raw_long_id 
 (* variables satisfy [is_outer] is considered constants from the outer environment *)
 fun summarize (is_outer, on_error) i =
   let
-    fun err i = on_error $ "summarize fails with " ^ str_i [] [] i
+    fun err i = on_error $ "summarize fails with " ^ str_i empty [] i
     fun loop i = 
       case i of
           IConst (ICTime _, _) =>
@@ -374,7 +374,7 @@ fun by_master_theorem uvar (hs, p) =
     fun get_main_arg_class classes =
       let
         val uncovered = diff eq_long_id (domain classes) $ somes args_v
-        val () = app (fn x => if ask_smt (VarI x %<= main_arg) then () else raise Error $ sprintf "not_covered > main_arg, not_covered=$, main_arg=$, is_outer(not_covered)=$" [str_i [] hs_ctx (VarI x), str_i [] hs_ctx main_arg, str_bool (is_outer x)]) uncovered
+        val () = app (fn x => if ask_smt (VarI x %<= main_arg) then () else raise Error $ sprintf "not_covered > main_arg, not_covered=$, main_arg=$, is_outer(not_covered)=$" [str_i empty hs_ctx (VarI x), str_i empty hs_ctx main_arg, str_bool (is_outer x)]) uncovered
         val main_arg_class = mult_class_entries $ map (get_class classes) uncovered
       in
         main_arg_class
@@ -484,10 +484,10 @@ fun by_master_theorem uvar (hs, p) =
           (* val () = println $ sprintf "length n's = $" [str_int $ length n's] *)
           val n' = combine_AddI_Nat n's
           val N1 = ConstIN (1, dummy)
-          val () = if ask_smt (n' %+ N1 %<= main_arg) then () else raise Error $ sprintf "n' + 1 > n_i, n'=$, main_arg=$" [str_i [] hs_ctx n', str_i [] hs_ctx main_arg]
+          val () = if ask_smt (n' %+ N1 %<= main_arg) then () else raise Error $ sprintf "n' + 1 > n_i, n'=$, main_arg=$" [str_i empty hs_ctx n', str_i empty hs_ctx main_arg]
           val others = concatMap (collect_AddI o simp_i_with_plugin simp_i_max) $ map use_bigO_hyp others
           val classes_of_terms = map summarize others
-          val () = app (fn (i, cls) => (println (str_i [] hs_ctx i); println (str_cls cls))) $ zip (others, classes_of_terms)
+          val () = app (fn (i, cls) => (println (str_i empty hs_ctx i); println (str_cls cls))) $ zip (others, classes_of_terms)
           val main_arg_classes = map get_main_arg_class classes_of_terms
           val () = println ""
           val () = app (println o str_pair (str_int, str_int)) main_arg_classes
@@ -528,7 +528,7 @@ fun by_master_theorem uvar (hs, p) =
   handle Succeeded i =>
          let
            val (uvar_name, _, _) = get_uvar_info uvar !! (fn () => raise Impossible "not fresh uvar")
-           val () = println $ sprintf "Inferred this big-O class for ?$: $\n" [str_int uvar_name, str_i [] [] i]
+           val () = println $ sprintf "Inferred this big-O class for ?$: $\n" [str_int uvar_name, str_i empty [] i]
          in
            SOME i
          end
@@ -606,20 +606,20 @@ fun solve_exists (vc as (hs, p), vcs) =
               (* val () = if length ctx1 = arity then () else raise Error "combine_fun(): wrong arity" *)
               val ret = if timefun_le is_outer hs a b then b
                         else if timefun_le is_outer hs b a then a
-                        else raise Error(* Impossible *) $ sprintf "combine_fun(): neither a <= b nor b <= a\n  a=$\n  b=$" [str_i [] hs_ctx a, str_i [] hs_ctx b]
+                        else raise Error(* Impossible *) $ sprintf "combine_fun(): neither a <= b nor b <= a\n  a=$\n  b=$" [str_i empty hs_ctx a, str_i empty hs_ctx b]
             in
               ret
             end
           val inferred = foldl combine_fun inferred many_inferred
           val inferred = IApps inferred args
           val inferred = normalize_i inferred
-          val () = println $ sprintf "Inferred. Now check inferred complexity $ against specified complexity $" [str_i [] [] inferred, str_i [] [] spec]
+          val () = println $ sprintf "Inferred. Now check inferred complexity $ against specified complexity $" [str_i empty [] inferred, str_i empty [] spec]
           val () = 
               if timefun_le is_outer hs inferred spec then ()
               else Unify.unify_IApp dummy spec inferred
                    handle
                    Unify.UnifyIAppFailed => 
-                   raise curry MasterTheoremCheckFail (get_region_i spec) $ [sprintf "Can't prove that the inferred big-O class $ is bounded by the given big-O class $" [str_i [] hs_ctx inferred, str_i [] hs_ctx spec]]
+                   raise curry MasterTheoremCheckFail (get_region_i spec) $ [sprintf "Can't prove that the inferred big-O class $ is bounded by the given big-O class $" [str_i empty hs_ctx inferred, str_i empty hs_ctx spec]]
           val () = println "Complexity check OK!"
         in
           raise Succeeded ([], vcs)
@@ -627,7 +627,7 @@ fun solve_exists (vc as (hs, p), vcs) =
         handle Error msg => println $ "Case failed because: " ^ msg
     fun unify (uvar_side, value_side) =
       let
-        val () = println $ sprintf "try to unify $ with $" [str_i [] hs_ctx uvar_side, str_i [] hs_ctx value_side]
+        val () = println $ sprintf "try to unify $ with $" [str_i empty hs_ctx uvar_side, str_i empty hs_ctx value_side]
         val ((x, _), args) = is_IApp_UVarI uvar_side !! (fn () => raise Error "not [uvar arg1 ...]")
         val (name, _, _) = get_uvar_info x !! (fn () => raise Error "uvar not fresh")
         val value_side = normalize_i value_side
@@ -642,7 +642,7 @@ fun solve_exists (vc as (hs, p), vcs) =
           let
             val () = if isNone m then () else raise Error "can't forget decorated variable"
             open UVarForget
-            val () = println $ sprintf "forgeting $ in $" [str_i [] hs_ctx (VarI var), str_i [] hs_ctx b]
+            val () = println $ sprintf "forgeting $ in $" [str_i empty hs_ctx (VarI var), str_i empty hs_ctx b]
             val b = forget_i_i x 1 b
             val b = shiftx_i_i x 1 b
           in
@@ -654,11 +654,11 @@ fun solve_exists (vc as (hs, p), vcs) =
         val uvar_side = normalize_i uvar_side
 
                               
-        val () = println $ sprintf "Forgetting succeeded. Now try to unify $ with $" [str_i [] hs_ctx uvar_side, str_i [] hs_ctx value_side]
+        val () = println $ sprintf "Forgetting succeeded. Now try to unify $ with $" [str_i empty hs_ctx uvar_side, str_i empty hs_ctx value_side]
         val () =  Unify.unify_IApp dummy uvar_side value_side
                   handle
                   Unify.UnifyIAppFailed => raise Error "unify_IApp() failed"
-        val () = println $ sprintf "?$ is instantiated to $" [str_int name, str_i [] [] (UVarI (x, dummy))]
+        val () = println $ sprintf "?$ is instantiated to $" [str_int name, str_i empty [] (UVarI (x, dummy))]
       in
         ()
       end
@@ -703,7 +703,7 @@ fun solve_exists (vc as (hs, p), vcs) =
             end
           val (i, ret) = infer_exists hs (name, arity) p !! fn () => Error
           val () = println "Inferred by infer_exists():"
-          val () = println $ sprintf "$ = $" [name, str_i [] [] i]
+          val () = println $ sprintf "$ = $" [name, str_i empty [] i]
           val () = case ins of
                        SOME ins => ins i
                      | NONE => ()
@@ -724,7 +724,7 @@ fun solve_exists (vc as (hs, p), vcs) =
                            (* val () = app println $ (str_vc false "" vc @ [""]) *)
           val (i, vcs1) = infer_exists hs (name, arity) p1 !! fn () => Error
           val () = println "Inferred by infer_exists():"
-          val () = println $ sprintf "$ = $" [name, str_i [] [] i]
+          val () = println $ sprintf "$ = $" [name, str_i empty [] i]
           val () = case ins of
                        SOME ins => ins i
                      | NONE => ()
@@ -871,7 +871,7 @@ fun infer_numbers vcs0 =
     val succeeded = enumerate_until maximum_number (length uvars) try
     (* val succeeded = enumerate_until 5 3 (fn vals => (println (str_ls str_int vals); vals = [1,3,1])) *)
     (* val () = println $ str_bool succeeded *)
-    val () = if succeeded then println $ "Numbers inferred:\n" ^ (join_lines $ map (fn ((x, (name, _, _), r), _) => sprintf "?$ := $" [str_int name, str_i [] [] (UVarI (x, r))]) uvars)
+    val () = if succeeded then println $ "Numbers inferred:\n" ^ (join_lines $ map (fn ((x, (name, _, _), r), _) => sprintf "?$ := $" [str_int name, str_i empty [] (UVarI (x, r))]) uvars)
              else () 
     val ret = if succeeded then []
               else (restore uvars; vcs0)

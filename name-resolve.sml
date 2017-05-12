@@ -1,8 +1,10 @@
 structure NameResolve = struct
 structure E = NamefulExpr
 open UnderscoredExpr
-
 open Region
+open Gctx
+open List
+       
 exception Error of region * string
 
 infixr 0 $
@@ -26,7 +28,6 @@ fun is_FunctorBind s =
       FunctorBind a => SOME a
     | _ => NONE
 
-open Gctx
 type sigcontext = sgntr Gctx.map
                                    
 fun runError m _ =
@@ -40,20 +41,20 @@ fun on_id ctx (x, r) =
       | NONE => raise Error (r, sprintf "Unbound variable $ in context: $" [x, str_ls id ctx])
 
 fun filter_module gctx =
-    List.mapPartial (fn (name, sg) => case sg of Sig sg => SOME (name, sg) | _ => NONE) gctx
+    Gctx.mapPartial (fn sg => case sg of Sig sg => SOME sg | _ => NONE) gctx
 
 fun lookup_module gctx m =
     nth_error2 (filter_module gctx) m
 
 fun names ctx = map fst ctx
 
-fun ctx_names (sctx, kctx, cctx, tctx) =
+fun ctx_names ((sctx, kctx, cctx, tctx) : context) =
     (sctx, kctx, names cctx, tctx) 
 
 fun gctx_names (gctx : sigcontext) =
     let
       val gctx = filter_module gctx
-      val gctx = map (mapSnd ctx_names) gctx
+      val gctx = Gctx.map ctx_names gctx
     in
       gctx
     end
@@ -72,7 +73,7 @@ fun find_long_id gctx sel eq ctx (m, (x, xr)) =
 fun on_long_id gctx sel ctx x =
     case find_long_id gctx sel is_eq_snd ctx x of
         SOME x => x
-      | NONE => raise Error (E.get_region_long_id x, sprintf "Unbound (long) variable '$' in context: $ $" [E.str_long_id #1 [] [] x, str_ls id ctx, str_ls fst gctx])
+      | NONE => raise Error (E.get_region_long_id x, sprintf "Unbound (long) variable '$' in context: $ $" [E.str_long_id #1 empty [] x, str_ls id ctx, str_ls id $ domain gctx])
                       
 fun find_constr (gctx : sigcontext) ctx x =
     flip Option.map (find_long_id gctx #3 is_eq_fst_snd ctx x)
@@ -197,7 +198,7 @@ fun on_ptrn gctx (ctx as (sctx, kctx, cctx)) pn =
                (case (fst x, eia, inames, pn) of
                     (NONE, false, [], NONE) => VarP $ snd x
                   | _ =>
-                    raise Error (E.get_region_long_id x, "Unknown constructor " ^ E.str_long_id #1 [] [] x)
+                    raise Error (E.get_region_long_id x, "Unknown constructor " ^ E.str_long_id #1 empty [] x)
                )
           )
         | E.VarP name =>
@@ -596,7 +597,7 @@ fun on_top_bind gctx (name, bind) =
       | E.TopFunctorBind (((arg_name, r2), arg), m) =>
         let
           val (arg, arg_ctx) = on_sig gctx arg
-          val gctx = (arg_name, Sig arg_ctx) :: gctx
+          val gctx = add (arg_name, Sig arg_ctx) gctx
           val (m, body_ctx) = on_module gctx m
         in
           (TopFunctorBind (((arg_name, r2), arg), m), [(name, FunctorBind ((arg_name, arg_ctx), body_ctx))])
@@ -604,7 +605,7 @@ fun on_top_bind gctx (name, bind) =
       | E.TopFunctorApp ((f, f_r), m) =>
         let
           fun lookup_functor (gctx : sigcontext) m =
-            opt_bind (find (gctx, m)) is_FunctorBind
+            opt_bind (Gctx.find (gctx, m)) is_FunctorBind
           fun fetch_functor gctx (m, r) =
               case lookup_functor gctx m of
                   SOME a => a
@@ -621,7 +622,7 @@ and on_prog gctx binds =
           let
             val (bind, gctxd) = on_top_bind gctx (name, bind)
           in
-            (((name, r), bind) :: binds, gctxd @ acc, gctxd @ gctx)
+            (((name, r), bind) :: binds, gctxd @ acc, addList (gctx, gctxd))
           end
       val (binds, gctxd, gctx) = foldl iter ([], [], gctx) binds
       val binds = rev binds

@@ -18,16 +18,16 @@ end
 structure BaseTypes = struct
 datatype base_type =
          Int
-fun eq_base_type (t : base_type, t') = t = t'
-(* fun eq_base_type (t : base_type, t') = *)
-(*   case t of *)
-(*       Int => *)
-(*       (case t' of  *)
-(*            Int => true) *)
+(* fun eq_base_type (t : base_type, t') = t = t' *)
+fun eq_base_type (t : base_type, t') =
+  case t of
+      Int =>
+      (case t' of
+           Int => true)
         
 end
 
-functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
+functor ExprFn (structure Var : VAR structure UVar : UVAR) = struct
 open Var
 open BaseSorts
 open BaseTypes
@@ -2511,6 +2511,8 @@ fun simp_t t =
 end
 
 structure VC = struct
+open Gctx
+open List
 open Util
 open Region
 open Subst
@@ -2544,10 +2546,10 @@ fun str_vc show_region filename ((hyps, p) : vc) =
         fun g (h, (hyps, ctx)) =
             case h of
                 VarH (name, bs) => (sprintf "$ : $" [name, str_bs bs] :: hyps, name :: ctx)
-              | PropH p => (str_p [] ctx p :: hyps, ctx)
+              | PropH p => (str_p empty ctx p :: hyps, ctx)
         val (hyps, ctx) = foldr g ([], []) hyps
         val hyps = rev hyps
-        val p = str_p [] ctx p
+        val p = str_p empty ctx p
     in
         region @
         (self_compose 2 indent) (hyps @
@@ -2816,17 +2818,19 @@ fun on_pair (f, g) acc (a, b) =
   
 val on_return = on_pair (on_option on_mt, on_option on_i)
                       
+fun on_constr_core acc ibinds =
+  let
+    val (ns, (t, is)) = unfold_binds ibinds
+    val acc = on_list on_s acc $ map snd ns
+    val acc = on_mt acc t
+    val acc = on_list on_i acc is
+  in
+    acc
+  end
+fun collect_mod_constr_core b = on_constr_core [] b
+    
 fun on_datatype acc (name, tnames, sorts, constr_decls, r) =
   let
-    fun on_constr_core acc ibinds =
-      let
-        val (ns, (t, is)) = unfold_binds ibinds
-        val acc = on_list on_s acc $ map snd ns
-        val acc = on_mt acc t
-        val acc = on_list on_i acc is
-      in
-        acc
-      end
     fun on_constr_decl acc (name, core, r) = on_constr_core acc core
     val acc = on_list on_s acc sorts
     val acc = on_list on_constr_decl acc constr_decls
@@ -3034,7 +3038,8 @@ fun on_prog acc b =
   end
 
 fun collect_mod_prog b = on_prog [] b
-                                                                       
+
+fun collect_mod_constr (family, tnames, core) = collect_mod_constr_core core
 end
                          
 end
@@ -3151,5 +3156,5 @@ fun eq_uvar_i (_, _) = false
 fun eq_uvar_bs (_, _) = false
 end
 
-structure NamefulExpr = ExprFun (structure Var = StringVar structure UVar = Underscore)
-structure UnderscoredExpr = ExprFun (structure Var = IntVar structure UVar = Underscore)
+structure NamefulExpr = ExprFn (structure Var = StringVar structure UVar = Underscore)
+structure UnderscoredExpr = ExprFn (structure Var = IntVar structure UVar = Underscore)

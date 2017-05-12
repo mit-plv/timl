@@ -1,12 +1,14 @@
 (* common utilities for typechecking *)
 
 structure TypecheckUtil = struct
+open Gctx
 open Region
 open Util
 open Expr
 open Subst
 open Package
-
+open List
+       
 infixr 0 $
 
 infix 9 %@
@@ -180,11 +182,9 @@ fun add_typings_skct pairs (sctx, kctx, cctx, tctx) =
    cctx,
    pairs @ tctx)
 
-open Gctx
-       
 fun add_sgn (name, s) gctx =
   let
-    val () = if isNone $ find (gctx, name) then ()
+    val () = if isNone $ Gctx.find (gctx, name) then ()
              else raise Error (dummy, [sprintf "module name $ already exists in module context $" [name, str_ls id $ domain gctx]])
   in
     insert' ((name, s), gctx)
@@ -236,12 +236,18 @@ fun pacakge_is_mt vs b =
   fst (foldl (fn (v, (b, x)) => (package_i_mt x v b, x - 1)) (b, length vs - 1) vs)
 fun package_ts_mt vs b =
   fst (foldl (fn (v, (b, x)) => (package_t_mt x v b, x - 1)) (b, length vs - 1) vs)
-      
+
+fun package0_sctx m sctx =
+  foldrWithIdx 0 (fn ((name, s), acc, x) => (name, package_i_s x m s) :: acc) [] sctx
+
+fun package0_kctx m sctx_len kctx =
+  foldrWithIdx 0 (fn ((name, k), acc, x) => (name, package_i_ke sctx_len m $ package_t_ke x m k) :: acc) [] kctx
+               
 fun package0_ctx m (sctx, kctx, cctx, tctx) =
   let
-    val sctx = foldrWithIdx 0 (fn ((name, s), acc, x) => (name, package_i_s x m s) :: acc) [] sctx
+    val sctx = package0_sctx m sctx
     val sctx_len = length sctx
-    val kctx = foldrWithIdx 0 (fn ((name, k), acc, x) => (name, package_i_ke sctx_len m $ package_t_ke x m k) :: acc) [] kctx
+    val kctx = package0_kctx m sctx_len kctx
     val kctx_len = length kctx
     val cctx = map (fn (name, c) => (name, package_t_c kctx_len m $ package_i_c sctx_len m c)) cctx
     val tctx = map (fn (name, t) => (name, package_t_t kctx_len m $ package_i_t sctx_len m t)) tctx
@@ -286,18 +292,16 @@ val lookup_type = lookup_snd
 
 val get_outmost_module = id
 
-fun filter_module gctx = List.mapPartial (fn (name, sg) => case sg of Sig sg => SOME (name, sg) | _ => NONE) gctx
+fun filter_module gctx = Gctx.mapPartial (fn sg => case sg of Sig sg => SOME sg | _ => NONE) gctx
                                          
 fun gctx_names (gctx : sigcontext) =
   let
     val gctx = filter_module gctx
-    val gctx = map (mapSnd ctx_names) gctx
+    val gctx = Gctx.map ctx_names gctx
   in
     gctx
   end
 
-open Gctx
-       
 fun lookup_module gctx m =
   Option.map snd $ nth_error2 (filter_module gctx) m
 
@@ -360,7 +364,7 @@ fun do_fetch_kindext (kctx, (a, r)) =
 
 fun fetch_kindext gctx (kctx, x) =
   generic_fetch package0_ke do_fetch_kindext #2 gctx (kctx, x)
-  handle Error e => raise Error $ add_error_msg e [sprintf "Unbound name '$' in type context $ and module context $" [str_long_id #2 (gctx_names gctx) (names kctx) x, str_ls fst kctx, str_ls fst gctx ]]
+  handle Error e => raise Error $ add_error_msg e [sprintf "Unbound name '$' in type context $ and module context $" [str_long_id #2 (gctx_names gctx) (names kctx) x, str_ls fst kctx, str_ls id $ domain gctx]]
 
 (* fun do_fetch_kind (kctx, (a, r)) = *)
 (*     case lookup_kind a kctx of *)

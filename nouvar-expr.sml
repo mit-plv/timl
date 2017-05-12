@@ -14,4 +14,4 @@ fun eq_uvar_i (u : ('bsort, 'idx) uvar_i, u' : ('bsort, 'idx) uvar_i) = exfalso 
 
 end
 
-structure NoUVarExpr = ExprFun (structure Var = IntVar structure UVar = NoUVar)
+structure NoUVarExpr = ExprFn (structure Var = IntVar structure UVar = NoUVar)

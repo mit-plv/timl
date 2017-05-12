@@ -20,7 +20,7 @@ fun no_uvar_bsort bs =
 
 fun no_uvar_i i =
   let
-    fun message i' = sprintf "\n$\nno_uvar_i (): $ shouldn't be UVarI in $" [str_region "" "" (get_region_i i'), str_i [] [] i', str_i [] [] i]
+    fun message i' = sprintf "\n$\nno_uvar_i (): $ shouldn't be UVarI in $" [str_region "" "" (get_region_i i'), str_i empty [] i', str_i empty [] i]
     fun f i =
       case i of
           VarI x => N.VarI x

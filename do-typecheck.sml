@@ -12,6 +12,7 @@ open UVar
 open Unify
 open FreshUVar
 open UVarForget
+open Util
 
 infixr 0 $
 infix 0 !!
@@ -1110,27 +1111,21 @@ fun str_sig gctxn ctx =
   ["sig"] @
   indent (str_typing_info gctxn ([], []) (ctx, [])) @
   ["end"]
-    
-fun str_gctx old_gctxn gctx =
-  let 
-    fun str_sigging ((name, sg), (acc, gctxn)) =
-      let
-        val (ls, gctxnd) =
-            case sg of
-                Sig ctx =>
-                ([sprintf "structure $ : " [name] ] @
-                 indent (str_sig gctxn ctx),
-                 [(name, ctx_names ctx)])
-              | FunctorBind ((arg_name, arg), body) =>
-                ([sprintf "functor $ (structure $ : " [name, arg_name] ] @
-                 indent (str_sig gctxn arg) @
-                 [") : "] @
-                 indent (str_sig ((arg_name, ctx_names arg) :: gctxn) body),
-                 [])
-      in
-        (ls :: acc, gctxnd @ gctxn)
-      end
-    val typing_lines = List.concat $ rev $ fst $ foldr str_sigging ([], old_gctxn) gctx
+
+fun str_gctx gctxn gctx =
+  let
+    val gctxn = union (gctxn, gctx_names $ to_map gctx)
+    fun str_sigging (name, sg) =
+      case sg of
+          Sig ctx =>
+          [sprintf "structure $ : " [name] ] @
+          indent (str_sig gctxn ctx)
+        | FunctorBind ((arg_name, arg), body) =>
+          [sprintf "functor $ (structure $ : " [name, arg_name] ] @
+          indent (str_sig gctxn arg) @
+          [") : "] @
+          indent (str_sig (curry Gctx.insert' (arg_name, ctx_names arg) gctxn) body)
+    val typing_lines = concatMap str_sigging gctx
     val lines = 
         typing_lines @
         [""]
@@ -2047,7 +2042,7 @@ fun check_top_bind gctx (name, bind) =
           | U.TopFunctorApp (f, m) =>
             let
               fun lookup_functor gctx m =
-                opt_bind (find (gctx, m)) is_FunctorBind
+                opt_bind (Gctx.find (gctx, m)) is_FunctorBind
               fun fetch_functor gctx ((m, r) : mod_projectible) =
                 case lookup_functor gctx m of
                     SOME a => a
@@ -2068,16 +2063,16 @@ fun check_prog gctx (binds : U.prog) =
     let
       (* val () = println "Begin check_prog()" *)
       fun open_gctx gctx =
-        app open_module $ rev $ filter_module gctx
+        Gctx.appi open_module $ filter_module gctx
       fun close_gctx gctx =
-        close_n $ length $ filter_module gctx
+        close_n $ Gctx.length $ filter_module gctx
       fun iter (((name, r), bind), (acc, gctx)) =
         let
           val () = open_gctx gctx
           val gctxd = check_top_bind gctx (name, bind)
           val () = close_gctx gctx
         in
-          (gctxd @ acc, gctxd @ gctx)
+          (gctxd @ acc, addList (gctx, gctxd))
         end
       val ret as (gctxd, gctx) = foldl iter ([], gctx) binds
                                        (* val () = println "End check_prog()" *)

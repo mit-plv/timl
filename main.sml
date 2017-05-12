@@ -8,8 +8,11 @@ structure NR = NameResolve
 open NR
 structure TC = TypeCheck
 open TC
+structure SU = SetUtilFn (StringBinarySet)
+structure MU = MapUtilFn (Gctx.Map)
 
 infixr 0 $
+infix 0 !!
 
 exception Error of string
                      
@@ -47,13 +50,15 @@ fun process_top_bind show_result filename gctx bind =
               Sig ctx => NR.Sig $ TCctx2NRctx ctx
             | FunctorBind ((name, arg), body) => NR.FunctorBind ((name, TCctx2NRctx arg), TCctx2NRctx body)
       (* typechecking global context to name-resolving global context *)      
-      fun TCgctx2NRgctx gctx = map (mapSnd TCsgntr2NRsgntr) gctx
+      fun TCgctx2NRgctx gctx = Gctx.map TCsgntr2NRsgntr gctx
       fun trim_gctx prog gctx =
         let
-          val ms = str_dedup $ UnderscoredExpr.CollectMod.collect_mod_prog prog
           open CollectMod
+          open SU.Set
+          open SU
+          open List
           fun collect_mod_ke (dt, k, t) = collect_mod_k k @ default [] (Option.map collect_mod_mt t)
-          fun collect_mod_ctx (sctx, kctx, cctx, tctx) =
+          fun collect_mod_ctx ((sctx, kctx, cctx, tctx) : context) =
             let
               val acc = []
               val acc = (concatMap collect_mod_s $ map snd sctx) @ acc
@@ -77,19 +82,24 @@ fun process_top_bind show_result filename gctx bind =
                       loop (working, done)
                     else
                       let
-                        val sg = find (gctx, m) !! (fn () => raise Impossible "trim_gctx(): find = NONE")
-                        val ms = str_dedup $ collect_mod_sgntr sg
-                        val done = m :: done
+                        val sg = Gctx.find (gctx, m) !! (fn () => raise Impossible "trim_gctx(): find = NONE")
+                        val ms = dedup $ collect_mod_sgntr sg
+                        val working = dedup $ working @ ms
+                        val done = add (done, m)
                       in
-                        (working, done)
+                        loop (working, done)
                       end
-              val ms = loop (ms, [])
-              val ms = str_dedup ms
+              val ms = loop (ms, empty)
+              val ms = to_list ms
             in
               ms
             end
+              
+          val ms = dedup $ UnderscoredExpr.CollectMod.collect_mod_prog prog
           val ms = trans_closure gctx ms
-          (* val gctx = restrict ms gctx *)
+          val () = println $ "before restrict: " ^ str_int (Gctx.length gctx)
+          val gctx = MU.restrict ms gctx
+          val () = println $ "after restrict: " ^ str_int (Gctx.length gctx)
         in
           gctx
         end
@@ -175,7 +185,7 @@ fun process_top_bind show_result filename gctx bind =
                  (* concatMap (fn vc => str_vc true filename vc @ [""]) $ map fst vcs *)
                  concatMap (print_unsat true filename) vcs
                )
-      val gctxd = normalize_gctx old_gctx gctxd
+      val gctxd = normalize_sgntr_list old_gctx gctxd
       val () = if show_result then
                  app println $ print_result false filename (gctx_names old_gctx) gctxd
                else ()
@@ -194,16 +204,16 @@ fun typecheck_file show_result gctx filename =
       (* val () = (app println o map (suffix "\n") o fst o E.str_decls ctxn) decls *)
       (* val () = (app println o map (suffix "\n") o fst o UnderscoredExpr.str_decls ctxn) decls *)
       (* apply solvers after each top bind *)
-      fun iter (bind, (prog, gctx, acc)) =
+      fun iter (bind, (prog, gctx, admits_acc)) =
           let
             (* val mod_names = mod_names_top_bind bind *)
             (* val (gctx', mapping) = select_modules gctx mod_names *)
             val gctx' = gctx
             val (progd, gctxd, admits) = process_top_bind show_result filename gctx' bind
             (* val gctxd = remap_modules gctxd mapping *)
-            val gctx = gctxd @ gctx
+            val gctx = addList (gctx, gctxd)
           in
-            (progd @ prog, gctx, acc @ admits)
+            (progd @ prog, gctx, admits_acc @ admits)
           end
       val (prog, gctx, admits) = foldl iter ([], gctx, []) prog
     in
@@ -218,7 +228,8 @@ fun typecheck_file show_result gctx filename =
     | SMTError msg => raise Error $ "SMT error: " ^ msg
     | IO.Io e => raise Error $ sprintf "IO error in function $ on file $" [#function e, #name e]
     | OS.SysErr (msg, err) => raise Error $ sprintf "System error$: $" [(default "" o Option.map (prefix " " o OS.errorName)) err, msg]
-                                    
+    | Gctx.KeyAlreadyExists (name, gctx) => raise Error $ sprintf "module name '$' already exists in module context $" [name, str_ls id gctx]
+
 fun process_file is_library filename gctx =
     let
       open OS.Path
@@ -273,7 +284,7 @@ and process_files is_library gctx filenames =
 fun main libraries filenames =
     let
       (* val () = app println $ ["Input file(s):"] @ indent filenames *)
-      val (_, gctx, _) = process_files true [] libraries
+      val (_, gctx, _) = process_files true empty libraries
       val (prog, gctx, admits) = process_files false gctx filenames
       fun str_admit show_region (filename, p) =
           let
@@ -286,7 +297,7 @@ fun main libraries filenames =
                                else []
           in
             region_lines @ 
-            [str_p [] [] p] @ [""]
+            [str_p empty [] p] @ [""]
           end
       val () =
           if null admits then

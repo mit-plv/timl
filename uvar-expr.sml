@@ -73,4 +73,4 @@ fun get_uvar_info x =
                        
 end
                        
-structure Expr = ExprFun (structure Var = IntVar structure UVar = UVar)
+structure Expr = ExprFn (structure Var = IntVar structure UVar = UVar)

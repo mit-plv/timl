@@ -9,6 +9,11 @@ mlton: main
 FILES = \
 cont-mlton.sml \
 util.sml \
+string-key.sml \
+list-pair-map.sml \
+set-util.sml \
+map-util.sml \
+unique-map.sml \
 region.sml \
 sexp/sexp.sml \
 sexp/sexp.grm \
@@ -20,7 +25,7 @@ parser/timl.grm \
 parser/timl.lex \
 parser/parser.sml \
 bind.sml \
-var-uvar.sml \
+module-context.sml \
 var-uvar.sml \
 expr.sml \
 uvar-expr.sml \

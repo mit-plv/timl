@@ -6,7 +6,9 @@ open Expr
 open Subst
 open Normalize
 open FreshUVar
-open SetUtil
+
+structure SU = SetUtilFn (IntBinarySet)
+open SU
 
 infixr 0 $
 infix 0 !!

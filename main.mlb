@@ -6,6 +6,11 @@ $(SML_LIB)/basis/build/sources.mlb
 cont-mlton.sml
 
 util.sml
+string-key.sml
+list-pair-map.sml
+set-util.sml
+map-util.sml
+unique-map.sml
 region.sml
 sexp/sexp.sml
 sexp/sexp.grm.sig
@@ -19,6 +24,7 @@ parser/timl.grm.sml
 parser/timl.lex.sml
 parser/parser.sml
 bind.sml
+module-context.sml
 var-uvar.sml
 expr.sml
 uvar-expr.sml
@@ -43,7 +49,6 @@ check-no-uvar.sml
 smt-solver.sml
 long-id-map.sml
 bigO-solver.sml
-collect-mod.sml
 main.sml
 
 mlton-main.sml

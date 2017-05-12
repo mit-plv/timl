@@ -398,6 +398,8 @@ fun find_unique ls name =
 	  end in
       loop 2
     end
-      
+
+fun isEqual r = r = EQUAL
+                      
 end
 

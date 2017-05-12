@@ -1,6 +1,6 @@
 (* Braun tree with invariant for balancedness and sortedness *)
 
-structure BraunTree = struct
+structure BraunTreeSortedness = struct
 
 open Basic
 open Nat
