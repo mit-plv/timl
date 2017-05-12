@@ -513,50 +513,48 @@ and on_rule gctx (ctx as (sctx, kctx, cctx, tctx)) (pn, e) =
       (pn, on_expr gctx ctx' e)
     end
 
-fun on_sig gctx sg =
-    case sg of
-        E.SigComponents (comps, r) =>
-        let
-          fun on_spec (ctx as (sctx, kctx, _, _)) spec =
-              case spec of
-                  E.SpecVal ((name, r), t) =>
-                  let
-                    val t = on_type gctx (sctx, kctx) t
-                  in
-                    (SpecVal ((name, r), t), add_typing_skct name ctx)
-                  end
-                | E.SpecIdx ((name, r), s) =>
-                  let
-                    val s = on_sort gctx sctx s
-                  in
-                    (SpecIdx ((name, r), s), add_sorting_skct name ctx)
-                  end
-                | E.SpecType ((name, r), k) =>
-                  let
-                    val k = on_kind gctx sctx k
-                  in
-                    (SpecType ((name, r), k), add_kinding_skct name ctx)
-                  end
-                | E.SpecTypeDef ((name, r), t) =>
-                  let
-                    val t = on_mtype gctx (sctx, kctx) t
-                  in
-                    (SpecTypeDef ((name, r), t), add_kinding_skct name ctx)
-                  end
-                | E.SpecDatatype a =>
-                  mapFst SpecDatatype $ on_datatype gctx ctx a
-          fun iter (spec, (specs, ctx)) =
-              let
-                val (spec, ctx) = on_spec ctx spec
-              in
-                (spec :: specs, ctx)
-              end
-          val (comps, ctx) = foldl iter ([], empty_ctx) comps
-          val comps = rev comps
-        in
-          (SigComponents (comps, r), ctx)
-        end
-          
+fun on_sig gctx (comps, r) =
+  let
+    fun on_spec (ctx as (sctx, kctx, _, _)) spec =
+      case spec of
+          E.SpecVal ((name, r), t) =>
+          let
+            val t = on_type gctx (sctx, kctx) t
+          in
+            (SpecVal ((name, r), t), add_typing_skct name ctx)
+          end
+        | E.SpecIdx ((name, r), s) =>
+          let
+            val s = on_sort gctx sctx s
+          in
+            (SpecIdx ((name, r), s), add_sorting_skct name ctx)
+          end
+        | E.SpecType ((name, r), k) =>
+          let
+            val k = on_kind gctx sctx k
+          in
+            (SpecType ((name, r), k), add_kinding_skct name ctx)
+          end
+        | E.SpecTypeDef ((name, r), t) =>
+          let
+            val t = on_mtype gctx (sctx, kctx) t
+          in
+            (SpecTypeDef ((name, r), t), add_kinding_skct name ctx)
+          end
+        | E.SpecDatatype a =>
+          mapFst SpecDatatype $ on_datatype gctx ctx a
+    fun iter (spec, (specs, ctx)) =
+      let
+        val (spec, ctx) = on_spec ctx spec
+      in
+        (spec :: specs, ctx)
+      end
+    val (comps, ctx) = foldl iter ([], empty_ctx) comps
+    val comps = rev comps
+  in
+    ((comps, r), ctx)
+  end
+    
 fun on_module gctx m =
     case m of
         E.ModComponents (comps, r) =>
@@ -580,13 +578,13 @@ fun on_module gctx m =
           (ModTransparentAscription (m, sg), ctx)
         end
 
-fun on_top_bind gctx bind = 
+fun on_top_bind gctx (name, bind) = 
     case bind of
-        E.TopModBind ((name, r), m) =>
+        E.TopModBind m =>
         let
           val (m, ctx) = on_module gctx m
         in
-          (TopModBind ((name, r), m), [(name, Sig ctx)])
+          (TopModBind m, [(name, Sig ctx)])
         end
       (* | E.TopModSpec ((name, r), sg) => *)
       (*   let *)
@@ -595,15 +593,15 @@ fun on_top_bind gctx bind =
       (*   in *)
       (*     [(name, Sig sg)] *)
       (*   end *)
-      | E.TopFunctorBind ((name, r1), ((arg_name, r2), arg), m) =>
+      | E.TopFunctorBind (((arg_name, r2), arg), m) =>
         let
           val (arg, arg_ctx) = on_sig gctx arg
           val gctx = (arg_name, Sig arg_ctx) :: gctx
           val (m, body_ctx) = on_module gctx m
         in
-          (TopFunctorBind ((name, r1), ((arg_name, r2), arg), m), [(name, FunctorBind ((arg_name, arg_ctx), body_ctx))])
+          (TopFunctorBind (((arg_name, r2), arg), m), [(name, FunctorBind ((arg_name, arg_ctx), body_ctx))])
         end
-      | E.TopFunctorApp ((name, r), (f, f_r), m) =>
+      | E.TopFunctorApp ((f, f_r), m) =>
         let
           fun lookup_functor (gctx : sigcontext) m =
             opt_bind (find (gctx, m)) is_FunctorBind
@@ -614,16 +612,16 @@ fun on_top_bind gctx bind =
           val ((formal_arg_name, formal_arg), body) = fetch_functor gctx (f, f_r)
           val gctxd = [(formal_arg_name, Sig formal_arg)]
         in
-          (TopFunctorApp ((name, r), (f, f_r), m), (name, Sig body) :: gctxd)
+          (TopFunctorApp ((f, f_r), m), (name, Sig body) :: gctxd)
         end
           
 and on_prog gctx binds =
     let
-      fun iter (bind, (binds, acc, gctx)) =
+      fun iter (((name, r), bind), (binds, acc, gctx)) =
           let
-            val (bind, gctxd) = on_top_bind gctx bind
+            val (bind, gctxd) = on_top_bind gctx (name, bind)
           in
-            (bind :: binds, gctxd @ acc, gctxd @ gctx)
+            (((name, r), bind) :: binds, gctxd @ acc, gctxd @ gctx)
           end
       val (binds, gctxd, gctx) = foldl iter ([], [], gctx) binds
       val binds = rev binds

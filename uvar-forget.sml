@@ -6,14 +6,11 @@ open Expr
 open Subst
 open Normalize
 open FreshUVar
+open SetUtil
 
 infixr 0 $
 infix 0 !!
 
-structure S = IntBinarySet
-fun to_set ls = S.addList (S.empty, ls)
-fun member x s = S.member (s, x)
-        
 fun forget_i_i x n b =
   let
     (* val () = println $ sprintf "Start forgetting $ in $" [str_int x, str_i [] [] b] *)

@@ -38,7 +38,6 @@ Group is
       smt-solver.sml
       long-id-map.sml
       bigO-solver.sml
-      collect-mod.sml
       main.sml
 
       $/basis.cm

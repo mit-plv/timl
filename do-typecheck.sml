@@ -1939,53 +1939,51 @@ fun is_sub_sig r gctx ctx ctx' =
     ()
   end
     
-fun is_wf_sig gctx sg =
-  case sg of
-      U.SigComponents (comps, r) =>
-      let
-        fun is_wf_spec (ctx as (sctx, kctx, _, _)) spec =
-          case spec of
-              U.SpecVal ((name, r), t) =>
-              let
-                val t = is_wf_type gctx ((sctx, kctx), t)
-              in
-                (SpecVal ((name, r), t), add_typing_skct (name, t) ctx)
-              end
-            | U.SpecIdx ((name, r), s) =>
-              let
-                val s = is_wf_sort gctx (sctx, s)
-              in
-                (SpecIdx ((name, r), s), open_and add_sorting_skct (name, s) ctx)
-              end
-            | U.SpecType ((name, r), k) =>
-              let
-                val k = is_wf_kind gctx (sctx, k)
-              in
-                (SpecType ((name, r), k), add_kinding_skct (name, k) ctx)
-              end
-            | U.SpecTypeDef ((name, r), t) =>
-              let
-                val (t, k) = get_kind gctx ((sctx, kctx), t)
-              in
-                (SpecTypeDef ((name, r), t), add_type_eq_skct (name, (k, t)) ctx)
-              end
-            | U.SpecDatatype a =>
-              let
-                val (a, ctxd) = is_wf_datatype gctx ctx a
-              in
-                (SpecDatatype a, add_ctx ctxd ctx)
-              end
-        fun iter (spec, (specs, ctx)) =
+fun is_wf_sig gctx (comps, r) =
+  let
+    fun is_wf_spec (ctx as (sctx, kctx, _, _)) spec =
+      case spec of
+          U.SpecVal ((name, r), t) =>
           let
-            val (spec, ctx) = is_wf_spec ctx spec
+            val t = is_wf_type gctx ((sctx, kctx), t)
           in
-            (spec :: specs, ctx)
+            (SpecVal ((name, r), t), add_typing_skct (name, t) ctx)
           end
-        val ctxd = snd $ foldl iter ([], empty_ctx) comps
-        val () = close_ctx ctxd
+        | U.SpecIdx ((name, r), s) =>
+          let
+            val s = is_wf_sort gctx (sctx, s)
+          in
+            (SpecIdx ((name, r), s), open_and add_sorting_skct (name, s) ctx)
+          end
+        | U.SpecType ((name, r), k) =>
+          let
+            val k = is_wf_kind gctx (sctx, k)
+          in
+            (SpecType ((name, r), k), add_kinding_skct (name, k) ctx)
+          end
+        | U.SpecTypeDef ((name, r), t) =>
+          let
+            val (t, k) = get_kind gctx ((sctx, kctx), t)
+          in
+            (SpecTypeDef ((name, r), t), add_type_eq_skct (name, (k, t)) ctx)
+          end
+        | U.SpecDatatype a =>
+          let
+            val (a, ctxd) = is_wf_datatype gctx ctx a
+          in
+            (SpecDatatype a, add_ctx ctxd ctx)
+          end
+    fun iter (spec, (specs, ctx)) =
+      let
+        val (spec, ctx) = is_wf_spec ctx spec
       in
-        ctxd
+        (spec :: specs, ctx)
       end
+    val ctxd = snd $ foldl iter ([], empty_ctx) comps
+    val () = close_ctx ctxd
+  in
+    ctxd
+  end
 (* | U.SigVar (x, r) => *)
 (*   (case lookup_sig gctx x of *)
 (*        SOME sg => sg *)
@@ -2025,17 +2023,17 @@ fun get_sig gctx m : context =
         sg'
       end
 
-fun check_top_bind gctx bind =
+fun check_top_bind gctx (name, bind) =
   let
     val gctxd = 
         case bind of
-            U.TopModBind ((name, _), m) =>
+            U.TopModBind m =>
             let
               val sg = get_sig gctx m
             in
               [(name, Sig sg)]
             end
-          | U.TopFunctorBind ((name, _), ((arg_name, _), arg), m) =>
+          | U.TopFunctorBind (((arg_name, _), arg), m) =>
             (* functor applications will be implemented fiberedly instead of parametrizedly *)
             let
               val arg = is_wf_sig gctx arg
@@ -2046,7 +2044,7 @@ fun check_top_bind gctx bind =
             in
               [(name, FunctorBind ((arg_name, arg), sg))]
             end
-          | U.TopFunctorApp ((name, _), f, m) =>
+          | U.TopFunctorApp (f, m) =>
             let
               fun lookup_functor gctx m =
                 opt_bind (find (gctx, m)) is_FunctorBind
@@ -2066,17 +2064,17 @@ fun check_top_bind gctx bind =
     gctxd
   end
     
-fun check_prog gctx binds =
+fun check_prog gctx (binds : U.prog) =
     let
       (* val () = println "Begin check_prog()" *)
       fun open_gctx gctx =
         app open_module $ rev $ filter_module gctx
       fun close_gctx gctx =
         close_n $ length $ filter_module gctx
-      fun iter (bind, (acc, gctx)) =
+      fun iter (((name, r), bind), (acc, gctx)) =
         let
           val () = open_gctx gctx
-          val gctxd = check_top_bind gctx bind
+          val gctxd = check_top_bind gctx (name, bind)
           val () = close_gctx gctx
         in
           (gctxd @ acc, gctxd @ gctx)

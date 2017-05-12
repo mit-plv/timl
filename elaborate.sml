@@ -379,7 +379,7 @@ local
 
   fun elab_sig sg =
       case sg of
-          S.SigComponents (specs, r) => SigComponents (map elab_spec specs, r)
+          S.SigComponents (specs, r) => (map elab_spec specs, r)
 
   fun elab_mod m =
       case m of
@@ -389,9 +389,9 @@ local
                                                                          
   fun elab_top_bind bind =
       case bind of
-          S.TopModBind (name, m) => TopModBind (name, elab_mod m)
-        | S.TopFunctorBind (name, (arg_name, arg), body) => TopFunctorBind (name, (arg_name, elab_sig arg), elab_mod body)
-        | S.TopFunctorApp (name, f, arg) => TopFunctorApp (name, f, arg)
+          S.TopModBind (name, m) => (name, TopModBind (elab_mod m))
+        | S.TopFunctorBind (name, (arg_name, arg), body) => (name, TopFunctorBind ((arg_name, elab_sig arg), elab_mod body))
+        | S.TopFunctorApp (name, f, arg) => (name, TopFunctorApp (f, arg))
                                                           
   fun elab_prog prog = map elab_top_bind prog
                            

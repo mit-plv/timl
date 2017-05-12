@@ -50,9 +50,45 @@ fun process_top_bind show_result filename gctx bind =
       fun TCgctx2NRgctx gctx = map (mapSnd TCsgntr2NRsgntr) gctx
       fun trim_gctx prog gctx =
         let
+          val ms = str_dedup $ UnderscoredExpr.CollectMod.collect_mod_prog prog
           open CollectMod
-          (* val ms = dedup op= $ collect_mod_prog prog *)
-          (* val ms = trans_closure gctx ms *)
+          fun collect_mod_ke (dt, k, t) = collect_mod_k k @ default [] (Option.map collect_mod_mt t)
+          fun collect_mod_ctx (sctx, kctx, cctx, tctx) =
+            let
+              val acc = []
+              val acc = (concatMap collect_mod_s $ map snd sctx) @ acc
+              val acc = (concatMap collect_mod_ke $ map snd kctx) @ acc
+              val acc = (concatMap collect_mod_constr $ map snd cctx) @ acc
+              val acc = (concatMap collect_mod_t $ map snd tctx) @ acc
+            in
+              acc
+            end
+          fun collect_mod_sgntr b =
+            case b of
+                Sig ctx => collect_mod_ctx ctx
+              | FunctorBind ((name, arg), ctx) => diff op = (collect_mod_ctx ctx) [name]
+          fun trans_closure gctx ms =
+            let
+              fun loop (working, done) =
+                case working of
+                    [] => done
+                  | m :: working =>
+                    if member m done then
+                      loop (working, done)
+                    else
+                      let
+                        val sg = find (gctx, m) !! (fn () => raise Impossible "trim_gctx(): find = NONE")
+                        val ms = str_dedup $ collect_mod_sgntr sg
+                        val done = m :: done
+                      in
+                        (working, done)
+                      end
+              val ms = loop (ms, [])
+              val ms = str_dedup ms
+            in
+              ms
+            end
+          val ms = trans_closure gctx ms
           (* val gctx = restrict ms gctx *)
         in
           gctx
