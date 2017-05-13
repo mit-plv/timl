@@ -143,7 +143,7 @@ fun process_prog show_result filename gctx prog =
             in
               vcs
             end
-      fun smt_solver vcs =
+      fun smt_solver use_batch vcs =
           if length vcs = 0 then
             (* vcs *)
             map (fn vc => (vc, NONE)) vcs
@@ -152,7 +152,10 @@ fun process_prog show_result filename gctx prog =
               val () = println "-------------------------------------------"
               val () = println "Applying SMT solver ..."
               val unsats = map (fn vc => (vc, NONE)) vcs
-              (* val unsats = List.mapPartial id $ SMTSolver.smt_solver filename true (SOME Z3) $ map fst unsats *)
+              val unsats =
+                  if use_batch then
+                    List.mapPartial id $ SMTSolver.smt_solver filename true (SOME Z3) $ map fst unsats
+                  else unsats
               (* re-check individually to get counter-example *)
               (* ToDo: don't need this when SMT batch response parser is made smarter *)
               val unsats = List.mapPartial id $ map (SMTSolver.smt_solver_single filename true (SOME Z3)) $ map fst $ unsats
@@ -171,11 +174,11 @@ fun process_prog show_result filename gctx prog =
             end
       val vcs = map Normalize.normalize_vc vcs
       val vcs = concatMap VC.simp_vc_vcs vcs
-      val vcs = map fst $ smt_solver vcs
+      val vcs = map fst $ smt_solver false vcs
       val vcs = bigO_solver vcs
       val vcs = map Normalize.normalize_vc vcs
       val vcs = concatMap VC.simp_vc_vcs vcs
-      val vcs = smt_solver vcs
+      val vcs = smt_solver true vcs
       val vcs = map (mapFst Normalize.normalize_vc) vcs
       val vcs = map (mapFst VC.simp_vc) vcs
       (* val vcs = BigOSolver.infer_numbers vcs *)
@@ -235,16 +238,7 @@ fun typecheck_file show_result gctx filename =
 
 fun process_file is_library filename gctx =
     let
-      open OS.Path
-      fun splitDirFileExt filename =
-          let
-            val dir_file = splitDirFile filename
-            val base_ext = splitBaseExt (#file dir_file)
-          in
-            (#dir dir_file, #base base_ext, #ext base_ext)
-          end
-      fun joinDirFileCurried dir file = joinDirFile {dir = dir, file = file}
-      val (dir, base, ext) = splitDirFileExt filename
+      val (dir, base, ext) = split_dir_file_ext filename
       val gctx =
           if ext = SOME "pkg" then
             let
@@ -259,7 +253,7 @@ fun process_file is_library filename gctx =
               val filenames = List.filter (fn s => not (String.isPrefix "(*" s andalso String.isSuffix "*)" s)) filenames
               (* val () = app println filenames *)
               val filenames = List.filter (fn s => s <> "") filenames
-              val filenames = map (joinDirFileCurried dir) filenames
+              val filenames = map (curry join_dir_file dir) filenames
               val gctx = process_files is_library gctx filenames
               val () = TypeCheck.turn_off_builtin ()
             in

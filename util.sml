@@ -397,6 +397,32 @@ fun find_unique ls name =
     end
 
 fun isEqual r = r = EQUAL
+
+fun split_dir_file filename =
+  let
+    val dir_file = OS.Path.splitDirFile filename
+  in
+    (#dir dir_file, #file dir_file)
+  end
+
+fun join_dir_file (dir, file) = OS.Path.joinDirFile {dir = dir, file = file}
+
+fun split_base_ext file =
+  let
+    val base_ext = OS.Path.splitBaseExt file
+  in
+    (#base base_ext, #ext base_ext)
+  end
+
+fun join_base_ext (base, ext) = OS.Path.joinBaseExt {base = base, ext = ext}
                       
+fun split_dir_file_ext filename =
+  let
+    val (dir, file) = split_dir_file filename
+    val (base, ext) = split_base_ext file
+  in
+    (dir, base, ext)
+  end
+    
 end
 

@@ -55,8 +55,11 @@ fun smt_solver filename get_ce(*get counterexample?*) solver vcs =
       val get_ce = if length vcs = 1 then get_ce else false
       val smt2 = to_smt2 get_ce vcs
       (* val () = println smt2 *)
-      val smt2_filename = filename ^ ".smt2"
-      val resp_filename = filename ^ ".lisp"
+      val (dir, file) = split_dir_file filename
+      val smt2_filename = curry join_dir_file dir $ "." ^ file ^ ".smt2"
+      val resp_filename = curry join_dir_file dir $ "." ^ file ^ ".lisp"
+      (* val smt2_filename = filename ^ ".smt2" *)
+      (* val resp_filename = filename ^ ".lisp" *)
       val () = write_file (smt2_filename, smt2)
       (* val solver = default CVC4 solver *)
       val solver = default Z3 solver
