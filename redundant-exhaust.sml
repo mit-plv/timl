@@ -85,13 +85,22 @@ fun cover_neg gctx (ctx as (sctx, kctx, cctx)) (t : mtype) c =
                fun get_family_siblings gctx cctx cx =
                  let
                    val family = get_family $ fetch_constr gctx (cctx, cx)
+                   (* val () = println $ sprintf "family: $" [str_mt (gctx_names gctx) (sctx_names sctx, names kctx) (MtVar family)] *)
                    fun do_fetch_family (cctx, (_, r)) =
-                     rev $ map snd $ mapPartialWithIdx (fn (n, (_, c)) => if eq_long_id (get_family c, family) then SOME (NONE, (n, r)) else NONE) cctx
+                     let
+                       fun iter (n, (_, c)) =
+                         ((* println (str_mt (gctx_names gctx) (sctx_names sctx, names kctx) (MtVar (get_family c)));  *)
+                          (* println (str_raw_long_id $ get_family c);  *)
+                          if eq_id (snd $ get_family c, snd family) then SOME (NONE, (n, r)) else NONE)
+                     in
+                       rev $ map snd $ mapPartialWithIdx iter cctx
+                     end
                    fun fetch_family a = generic_fetch (package0_list (package_long_id 0)) do_fetch_family #3 a
                  in
                    fetch_family gctx (cctx, cx)
                  end
                val all = get_family_siblings gctx cctx x
+               (* val () = println $ sprintf "Family of $: $" [str_long_id #3 (gctx_names gctx) (names cctx) x, str_ls (str_long_id #3 (gctx_names gctx) (names cctx)) all] *)
 	       val others = diff eq_long_id all [x]
                (* val () = println $ sprintf "Family siblings of $: $" [str_long_id #3 (gctx_names gctx) (names cctx) x, str_ls (str_long_id #3 (gctx_names gctx) (names cctx)) others] *)
                val (_, _, ibinds) = fetch_constr gctx (cctx, x)
@@ -229,7 +238,7 @@ fun find_hab deep gctx (ctx as (sctx, kctx, cctx)) (t : mtype) cs =
                               rev $ map snd $ mapPartialWithIdx (fn (n, (_, c)) => if eq_long_id (get_family c, (NONE, family)) then SOME (NONE, (n, snd family)) else NONE) cctx
                             fun fetch_constrs a = generic_fetch (package0_list (package_long_id 0)) do_fetch_constrs #3 a
                             val all = fetch_constrs gctx (cctx, family)
-                                                    (* val () = println $ sprintf "Constructors of $: $" [str_long_id #2 (gctx_names gctx) (names kctx) family, str_ls (str_long_id #3 (gctx_names gctx) (names cctx)) all] *)
+                            (* val () = println $ sprintf "Constructors of $: $" [str_long_id #2 (gctx_names gctx) (names kctx) family, str_ls (str_long_id #3 (gctx_names gctx) (names cctx)) all] *)
                           in
                             case all of x :: _ => ConstrH (x, TrueH) | [] => raise Incon "empty datatype"
                           end
@@ -246,8 +255,8 @@ fun find_hab deep gctx (ctx as (sctx, kctx, cctx)) (t : mtype) cs =
               end
           | c :: cs =>
             let
-              (* val () = Debug.println (sprintf "try to satisfy $" [(join ", " o map (str_cover (names cctx))) (c :: cs)]) *)
-              (* val () = println $ sprintf "try to satisfy $" [str_cover (names cctx) c] *)
+              (* val () = println $ sprintf "try to satisfy $" [(join ", " o map (str_cover (gctx_names gctx) (names cctx))) (c :: cs)] *)
+              (* val () = println $ sprintf "try to satisfy $" [str_cover (gctx_names gctx) (names cctx) c] *)
               fun conflict_half a b =
                 case (a, b) of
                     (PairC _, ConstrC _) => true

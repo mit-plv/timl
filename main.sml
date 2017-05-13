@@ -97,9 +97,9 @@ fun process_top_bind show_result filename gctx bind =
               
           val ms = dedup $ UnderscoredExpr.CollectMod.collect_mod_prog prog
           val ms = trans_closure gctx ms
-          val () = println $ "before restrict: " ^ str_int (Gctx.length gctx)
+          (* val () = println $ "before restrict: " ^ str_int (Gctx.length gctx) *)
           val gctx = MU.restrict ms gctx
-          val () = println $ "after restrict: " ^ str_int (Gctx.length gctx)
+          (* val () = println $ "after restrict: " ^ str_int (Gctx.length gctx) *)
         in
           gctx
         end
@@ -151,7 +151,8 @@ fun process_top_bind show_result filename gctx bind =
             let
               val () = println "-------------------------------------------"
               val () = println "Applying SMT solver ..."
-              val unsats = List.mapPartial id $ SMTSolver.smt_solver filename true (SOME Z3) vcs
+              val unsats = map (fn vc => (vc, NONE)) vcs
+              (* val unsats = List.mapPartial id $ SMTSolver.smt_solver filename true (SOME Z3) $ map fst unsats *)
               (* re-check individually to get counter-example *)
               (* ToDo: don't need this when SMT batch response parser is made smarter *)
               val unsats = List.mapPartial id $ map (SMTSolver.smt_solver_single filename true (SOME Z3)) $ map fst $ unsats
@@ -314,9 +315,11 @@ end
 structure Main = struct
 open Util
 open OS.Process
-open String
 open List
 
+infixr 0 $
+infix 0 !!
+        
 exception ParseArgsError of string
             
 fun usage () =
@@ -325,34 +328,50 @@ fun usage () =
       val () = println "  --help: print this message"
       val () = println "  -l <library1:library2:...>: paths to libraries, separated by ':'"
       val () = println "  --annoless: less annotations on case-of"
+      val () = println "  --repeat n: repeat the whole thing for [n] times (for profiling purpose)"
     in
       ()
     end
-            
-fun parse_arguments args =
+
+type options =
+     {
+       AnnoLess : bool ref,
+       Repeat : int ref,
+       Libraries : string list ref
+     }
+
+fun parse_arguments (opts : options, args) =
     let
-      val annoless = ref false
       val positionals = ref []
-      val libraries = ref []
-      fun parse_libraries arg = libraries := tokens (curry op= #":") arg
+      fun parse_libraries arg =
+        String.tokens (curry op= #":") arg
       (* fun do_A arg = print ("Argument of -A is " ^ arg ^ "\n") *)
       (* fun do_B ()  = if !switch then print "switch is on\n" else print "switch is off\n" *)
+      fun parse_repeat s =
+        let
+          val n = Int.fromString s !! (fn () => raise ParseArgsError $ sprintf "$ is not a number" [s])
+          val () = if n < 0 then raise ParseArgsError $ sprintf "$ is negative" [str_int n]
+                   else ()
+        in
+          n
+        end
       fun parseArgs args =
           case args of
               [] => ()
 	    | "--help" :: ts => (usage (); parseArgs ts)
-	    | "--annoless" :: ts => (annoless := true; parseArgs ts)
-	    | "-l" :: arg :: ts => (parse_libraries arg; parseArgs ts)
+	    | "--annoless" :: ts => (#AnnoLess opts := true; parseArgs ts)
+	    | "--repeat" :: arg :: ts => (#Repeat opts := parse_repeat arg; parseArgs ts)
+	    | "-l" :: arg :: ts => (app (push_ref (#Libraries opts)) $ parse_libraries arg; parseArgs ts)
 	    (* | parseArgs ("-A" :: arg :: ts) = (do_A arg;       parseArgs ts) *)
 	    (* | parseArgs ("-B"        :: ts) = (do_B();         parseArgs ts) *)
 	    | s :: ts =>
-              if isPrefix "-" s then
+              if String.isPrefix "-" s then
 	        raise ParseArgsError ("Unrecognized option: " ^ s)
               else
                 (push_ref positionals s; parseArgs ts)
       val () = parseArgs args
     in
-      (!annoless, !libraries, rev (!positionals))
+      (rev (!positionals))
     end
 
 val success = OS.Process.success
@@ -360,13 +379,20 @@ val failure = OS.Process.failure
                 
 fun main (prog_name, args : string list) = 
     let
-      val (opt, libraries, filenames) = parse_arguments args
+      val opts : options =
+          {
+            AnnoLess = ref false,
+            Repeat = ref 1,
+            Libraries = ref []
+          }
+      val filenames = rev $ parse_arguments (opts, args)
+      val libraries = rev $ !(#Libraries opts)
       val () = if null filenames then
                  (usage ();
                   exit failure)
                else ()
-      val () = TypeCheck.anno_less := opt
-      val _ = TiML.main libraries filenames
+      val () = TypeCheck.anno_less := !(#AnnoLess opts)
+      val _ = repeat_app (fn () => TiML.main libraries filenames) (!(#Repeat opts))
     in	
       success
     end

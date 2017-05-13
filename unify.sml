@@ -91,7 +91,7 @@ fun unify_IApp r i i' =
     val (name, ctx, b) = get_uvar_info x !! (fn () => raise Impossible "unify_IApp(): shouldn't be [Refined]")
     val b = update_bs b
     (* val () = println $ str_bs b *)
-    val () = println $ sprintf "unifying ?$" [str_int name]
+    (* val () = println $ sprintf "unifying ?$" [str_int name] *)
     fun var_name n = "__x" ^ str_int n
     val (bsorts, _) = collect_BSArrow b
     val bsorts = rev bsorts

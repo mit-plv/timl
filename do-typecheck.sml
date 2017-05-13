@@ -784,6 +784,7 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
     val match_ptrn = match_ptrn gctx
     val gctxn = gctx_names gctx
     val skctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
+  (*   val () = println $ sprintf "Checking pattern $" [U.str_pn gctxn (sctxn, kctxn, names cctx) pn] *)
   in
     case pn of
 	U.ConstrP ((cx, eia), inames, opn, r) =>
@@ -850,12 +851,16 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
            | NONE => raise Error (r, [sprintf "Pattern $ doesn't match type $" [U.str_pn gctxn (sctx_names sctx, names kctx, names cctx) pn, str_mt gctxn skctxn t]])
         )
       | U.VarP (name, r) =>
-        (* let *)
-        (*   val pcover = combine_covers pcovers *)
-        (*   val cover = cover_neg cctx t pcover *)
-        (* in *)
-        (* end *)
-        (VarP (name, r), TrueC, ctx_from_typing (name, Mono t), 0)
+        let
+          (* val pcover = combine_covers pcovers *)
+          (* val cover = cover_neg cctx t pcover *)
+          fun is_first_capital s =
+            String.size s >= 1 andalso Char.isUpper (String.sub (s, 0))
+          val () = if is_first_capital name then println $ sprintf "Warning: pattern $ is treated as a wildcard (did you misspell a constructor name?)" [name]
+                   else ()
+        in
+          (VarP (name, r), TrueC, ctx_from_typing (name, Mono t), 0)
+        end
       | U.PairP (pn1, pn2) =>
         let 
           val r = U.get_region_pn pn

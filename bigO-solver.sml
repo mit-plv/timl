@@ -224,7 +224,7 @@ fun timefun_le is_outer hs a b =
         val (_, i2) = collect_IAbs b
         val cls1 = summarize i1
         val cls2 = summarize i2
-        val () = println $ sprintf "$ <=? $" [str_cls cls1, str_cls cls2]
+        (* val () = println $ sprintf "$ <=? $" [str_cls cls1, str_cls cls2] *)
       in
         class_le (cls1, cls2)
       end
@@ -487,10 +487,10 @@ fun by_master_theorem uvar (hs, p) =
           val () = if ask_smt (n' %+ N1 %<= main_arg) then () else raise Error $ sprintf "n' + 1 > n_i, n'=$, main_arg=$" [str_i empty hs_ctx n', str_i empty hs_ctx main_arg]
           val others = concatMap (collect_AddI o simp_i_with_plugin simp_i_max) $ map use_bigO_hyp others
           val classes_of_terms = map summarize others
-          val () = app (fn (i, cls) => (println (str_i empty hs_ctx i); println (str_cls cls))) $ zip (others, classes_of_terms)
+          (* val () = app (fn (i, cls) => (println (str_i empty hs_ctx i); println (str_cls cls))) $ zip (others, classes_of_terms) *)
           val main_arg_classes = map get_main_arg_class classes_of_terms
-          val () = println ""
-          val () = app (println o str_pair (str_int, str_int)) main_arg_classes
+          (* val () = println "" *)
+          (* val () = app (println o str_pair (str_int, str_int)) main_arg_classes *)
           val classes = add_classes classes_of_terms
           val (c, k) = add_class_entries main_arg_classes
           val classes = map (get_class_or_0 classes) args_v
@@ -596,7 +596,7 @@ fun solve_exists (vc as (hs, p), vcs) =
               case many_inferred of
                   x :: xs => (x, xs)
                 | [] => raise on_fail_all ()
-          val () = println $ "arity=" ^ str_int arity
+          (* val () = println $ "arity=" ^ str_int arity *)
           fun is_outer x = outside_arity arity x
           fun combine_fun (a, b) =
             let

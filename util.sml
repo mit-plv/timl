@@ -76,10 +76,7 @@ fun range n = List.tabulate (n, id)
 fun repeat n a = List.tabulate (n, const a)
                                
 fun nth_error ls n =
-    if n < 0 orelse n >= length ls then
-      NONE
-    else
-      SOME (List.nth (ls, n))
+  SOME (List.nth (ls, n)) handle Subscript => NONE
 
 fun fst (a, b) = a
 fun snd (a, b) = b
