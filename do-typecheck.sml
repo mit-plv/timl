@@ -1187,7 +1187,8 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
       in
         ()
       end
-    (* val () = print $ sprintf "Typing $\n" [U.str_e gctxn ctxn e_all] *)
+    val () = print $ sprintf "Typing $\n" [U.str_e gctxn ctxn e_all]
+    val () = print $ sprintf "  Typing $\n" [U.str_raw_e e_all]
     (* val () = print_ctx gctx ctx *)
     fun main () =
       case e_all of
@@ -1489,7 +1490,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
     val t = simp_mt $ normalize_mt gctx kctx t
     val d = simp_i $ normalize_i d
                    (* val () = println $ str_ls id $ #4 ctxn *)
-                   (* val () = print (sprintf " Typed $: \n        $\n" [str_e gctxn ctxn e, str_mt gctxn skctxn t]) *)
+    val () = print (sprintf " Typed $: \n        $\n" [str_e gctxn ctxn e, str_mt gctxn skctxn t])
                    (* val () = print (sprintf "   Time : $: \n" [str_i sctxn d]) *)
                    (* val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_mt skctxn t, str_e ctxn e, str_i sctxn d]) *)
   in

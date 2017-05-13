@@ -39,16 +39,17 @@ fun str_uvar n = "?" ^ str_int n
 fun str_uinfo_bs n = str_uvar n
 fun str_uinfo_i str_bs (n, ctx, b) = str_uvar n
 fun str_uinfo_s (n, ctx) = str_uvar n
-fun str_uinfo_mt (n, ctx) = str_uvar n
+(* fun str_uinfo_mt (n, ctx) = str_uvar n *)
                                          
 (* fun str_uinfo_i str_bs (n, ctx, b) = sprintf "$[$$]" [str_uvar n, join_suffix " => " $ map (str_bs o snd) $ rev ctx, str_bs b] *)
+fun str_uinfo_mt (str_s, str_k) (n, (sctx, kctx)) = sprintf "$[$$$]" [str_uvar n, join_suffix " => " $ map (str_s o snd) $ rev sctx, join_suffix " => " $ map (str_k o snd) $ rev kctx, "*"]
                                          
 fun str_uvar_bs str_bs (u : 'bsort uvar_bs) =
   case !u of
       Refined bs => str_bs bs
     | Fresh info => str_uinfo_bs info
                                  
-fun str_uvar_i str_bs str_i (u : ('bsort, 'idx) uvar_i) =
+fun str_uvar_i (str_bs, str_i) (u : ('bsort, 'idx) uvar_i) =
   case !u of
       Refined i => str_i i
     | Fresh info => str_uinfo_i str_bs info
@@ -58,10 +59,10 @@ fun str_uvar_s str_s (u : 'sort uvar_s) =
       Refined s => str_s s
     | Fresh info => str_uinfo_s info
 
-fun str_uvar_mt str_mt (u : ('sort, 'kind, 'mtype) uvar_mt) =
+fun str_uvar_mt (str_s, str_k, str_mt) (u : ('sort, 'kind, 'mtype) uvar_mt) =
   case !u of
       Refined t => str_mt t
-    | Fresh info => str_uinfo_mt info
+    | Fresh info => str_uinfo_mt (str_s, str_k) info
                             
 val eq_uvar_bs = op=
 val eq_uvar_i = op=

@@ -618,7 +618,7 @@ fun solve_exists (vc as (hs, p), vcs) =
               if timefun_le is_outer hs inferred spec then ()
               else Unify.unify_IApp dummy spec inferred
                    handle
-                   Unify.UnifyIAppFailed => 
+                   Unify.UnifyAppUVarFailed => 
                    raise curry MasterTheoremCheckFail (get_region_i spec) $ [sprintf "Can't prove that the inferred big-O class $ is bounded by the given big-O class $" [str_i empty hs_ctx inferred, str_i empty hs_ctx spec]]
           val () = println "Complexity check OK!"
         in
@@ -657,7 +657,7 @@ fun solve_exists (vc as (hs, p), vcs) =
         val () = println $ sprintf "Forgetting succeeded. Now try to unify $ with $" [str_i empty hs_ctx uvar_side, str_i empty hs_ctx value_side]
         val () =  Unify.unify_IApp dummy uvar_side value_side
                   handle
-                  Unify.UnifyIAppFailed => raise Error "unify_IApp() failed"
+                  Unify.UnifyAppUVarFailed => raise Error "unify_IApp() failed"
         val () = println $ sprintf "?$ is instantiated to $" [str_int name, str_i empty [] (UVarI (x, dummy))]
       in
         ()

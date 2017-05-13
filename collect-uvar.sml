@@ -23,7 +23,19 @@ fun collect_uvar_i_p p =
     | BinConn (_, p1, p2) => collect_uvar_i_p p1 @ collect_uvar_i_p p2
     | Not (p, _) => collect_uvar_i_p p
     | BinPred (_, i1, i2) => collect_uvar_i_i i1 @ collect_uvar_i_i i2
-    | Quan (_, _, Bind (_, p), _) => collect_uvar_i_p p 
+    | Quan (_, _, Bind (_, p), _) => collect_uvar_i_p p
+
+fun collect_uvar_s_s s =
+  case s of 
+      Basic s => []
+    | Subset (b, Bind (_, p), r) => []
+    | SortBigO (b, i, r) => []
+    | SAbs (s1, Bind (_, s), r) => collect_uvar_s_s s1 @ collect_uvar_s_s s
+    | SApp (s, i) => collect_uvar_s_s s
+    | UVarS (x, r) =>
+      case !x of
+          Refined a => collect_uvar_s_s a
+        | Fresh info => [(x, info, r)]
                                           
 fun collect_uvar_t_mt t =
     case t of

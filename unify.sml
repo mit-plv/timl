@@ -58,15 +58,15 @@ fun find_injection (eq : 'a -> 'a -> bool) (xs : 'a list) (ys : 'a list) : int l
     handle Error => NONE
   end
 
-exception UnifyIAppFailed
+exception UnifyAppUVarFailed
 (* Try to see whether [i']'s variables are covered by the arguments applied to [x]. If so, then refine [x] with [i'], with the latter's variables replaced by the former's arguments. This may not be the most general instantiation, because [i']'s constants will be fixed for [x], although those constants may be arguments in a more instantiation. For example, unifying [x y 5] with [y+5] will refine [x] to be [fun y z => y+5], but a more general instantiation is [fun y z => y+z]. This less-general instantiation may cause later unifications to fail. *)
 fun unify_IApp r i i' =
   let
     val i = normalize_i i
-    val ((x, _), args) = is_IApp_UVarI i !! (fn () => raise UnifyIAppFailed)
+    val ((x, _), args) = is_IApp_UVarI i !! (fn () => raise UnifyAppUVarFailed)
     val i' = normalize_i i'
     open CollectUVar
-    val () = if mem op= x (map #1 $ collect_uvar_i_i i') then raise UnifyIAppFailed else ()
+    val () = if mem op= x (map #1 $ collect_uvar_i_i i') then raise UnifyAppUVarFailed else ()
     val vars' = dedup eq_long_id $ collect_var_i_i i'
 
                       
@@ -74,7 +74,7 @@ fun unify_IApp r i i' =
     (* val uncovered = List.filter (fn var => not (List.exists (fn arg => eq_i (VarI var) arg) args)) vars' *)
     (* fun forget_nonconsuming (var as (m, (x, _))) b = *)
     (*   let *)
-    (*     val () = if isNone m then () else raise UnifyIAppFailed *)
+    (*     val () = if isNone m then () else raise UnifyAppUVarFailed *)
     (*     open UVarForget *)
     (*     val b = forget_i_i x 1 b *)
     (*     val b = shiftx_i_i x 1 b *)
@@ -82,11 +82,11 @@ fun unify_IApp r i i' =
     (*     b *)
     (*   end *)
     (* val i' = foldl (fn (x, acc) => forget_nonconsuming x acc) i' uncovered *)
-    (*           handle ForgetError _ => raise UnifyIAppFailed *)
+    (*           handle ForgetError _ => raise UnifyAppUVarFailed *)
     (* val i' = normalize_i i' *)
 
                          
-    val inj = find_injection eq_i (map VarI vars') (rev args) !! (fn () => raise UnifyIAppFailed)
+    val inj = find_injection eq_i (map VarI vars') (rev args) !! (fn () => raise UnifyAppUVarFailed)
     val i' = psubst_is_i vars' (map (V r) inj) i'
     val (name, ctx, b) = get_uvar_info x !! (fn () => raise Impossible "unify_IApp(): shouldn't be [Refined]")
     val b = update_bs b
@@ -117,6 +117,10 @@ fun unify_i r gctxn ctxn (i, i') =
           if eq_i i i' then ()
           else write_prop (BinPred (EqP, i, i'), r)
       in
+        (* if one-side is not in a normal form because of uvar, we can't do structural comparison *)
+        if isSome (is_IApp_UVarI i) orelse isSome (is_IApp_UVarI i') then
+          default ()
+        else
         case (i, i') of
             (* ToReal is injective *)
             (UnOpI (ToReal, i, _), UnOpI (ToReal, i', _)) =>
@@ -132,10 +136,10 @@ fun unify_i r gctxn ctxn (i, i') =
           (* first try unifying applications of uvars with the other index; if unsuccessful in both directions, then try ordinary structural unification *)
           unify_IApp r i i'
           handle
-          UnifyIAppFailed =>
+          UnifyAppUVarFailed =>
           (unify_IApp r i' i
            handle
-           UnifyIAppFailed =>
+           UnifyAppUVarFailed =>
            structural_compare (i, i'))
     (* val () = println "unify_i () ended" *)
   in
@@ -146,16 +150,20 @@ fun is_sub_sort r gctxn ctxn (s, s') =
   let
     val is_sub_sort = is_sub_sort r gctxn
     val is_eqv_sort = is_eqv_sort r gctxn
-    exception UnifySAppFailed
     fun unify_SApp s s' =
       let
-        val (x, args) = is_SApp_UVarS s !! (fn () => raise UnifySAppFailed)
+        val (x, args) = is_SApp_UVarS s !! (fn () => raise UnifyAppUVarFailed)
         val args = map normalize_i args
         val s' = normalize_s s'
+        open CollectUVar
+        val () = if mem op= x (map #1 $ collect_uvar_s_s s') then raise UnifyAppUVarFailed else ()
         val vars' = collect_var_i_s s'
-        val inj = find_injection eq_i (map VarI vars') (rev args) !! (fn () => raise UnifySAppFailed)
+        val inj = find_injection eq_i (map VarI vars') (rev args) !! (fn () => raise UnifyAppUVarFailed)
         val s' = psubst_is_s vars' (map (V r) inj) s'
         val (_, ctx) = get_uvar_info x !! (fn () => raise Impossible "unify_s()/SApp: shouldn't be [Refined]")
+        val () = if length args <= length ctx then () else raise Impossible "unify_SApp(): #args shouldn't be larger than #ctx"
+        (* #args could be < #ctx because of partial application *)
+        val ctx = lastn (length args) ctx
         val s' = SAbsMany (ctx, s', r)
         val () = refine x s'
       in
@@ -165,6 +173,10 @@ fun is_sub_sort r gctxn ctxn (s, s') =
       let
         fun default () = raise Error (r, ["Sort"] @ indent [str_s gctxn ctxn s] @ ["is not a subsort of"] @ indent [str_s gctxn ctxn s'])
       in
+        (* if one-side is not in a normal form because of uvar, we can't do structural comparison *)
+        if isSome (is_SApp_UVarS s) orelse isSome (is_SApp_UVarS s') then
+          default ()
+        else
         case (s, s') of
             (Basic (bs, _), Basic (bs', _)) =>
             unify_bs r (bs, bs')
@@ -225,10 +237,10 @@ fun is_sub_sort r gctxn ctxn (s, s') =
     else
       unify_SApp s s'
       handle
-      UnifySAppFailed =>
+      UnifyAppUVarFailed =>
       (unify_SApp s' s
        handle
-       UnifySAppFailed =>
+       UnifyAppUVarFailed =>
        structural_compare (s, s'))
   end
 
@@ -300,33 +312,59 @@ fun unify_mt r gctx ctx (t, t') =
     val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
     fun error ctxn (t, t') = unify_error "type" r (str_mt gctxn ctxn t, str_mt gctxn ctxn t')
     (* fun error ctxn (t, t') = unify_error "type" r (str_raw_mt t, str_raw_mt t') *)
-    exception UnifyMtAppFailed
     fun unify_MtApp t t' =
       let
-        val (x, i_args, t_args) = is_MtApp_UVar t !! (fn () => raise UnifyMtAppFailed)
+        val (x, i_args, t_args) = is_MtApp_UVar t !! (fn () => raise UnifyAppUVarFailed)
         val i_args = map normalize_i i_args
         val t_args = map (normalize_mt gctx kctx) t_args
         val t' = normalize_mt gctx kctx t'
+        open CollectUVar
+        val () = if mem op= x (map #1 $ collect_uvar_t_mt t') then raise UnifyAppUVarFailed else ()
         val i_vars' = collect_var_i_mt t'
-        val i_inj = find_injection eq_i (map VarI i_vars') (rev i_args) !! (fn () => raise UnifyMtAppFailed)
         val t_vars' = collect_var_t_mt t'
-        val t_inj = find_injection eq_mt (map MtVar t_vars') (rev t_args) !! (fn () => raise UnifyMtAppFailed)
+                                       
+                                       
+        open CollectVar
+        val uncovered = List.filter (fn var => not (List.exists (fn arg => eq_i (VarI var) arg) i_args)) i_vars'
+        fun forget_nonconsuming (var as (m, (x, _))) b =
+          let
+            val () = if isNone m then () else raise UnifyAppUVarFailed
+            open UVarForget
+            val b = forget_i_mt x 1 b
+            val b = shiftx_i_mt x 1 b
+          in
+            b
+          end
+        val t' = foldl (fn (x, acc) => forget_nonconsuming x acc) t' uncovered
+                 handle ForgetError _ => raise UnifyAppUVarFailed
+        val t' = normalize_mt gctx kctx t'
+
+                         
+        val i_inj = find_injection eq_i (map VarI i_vars') (rev i_args) !! (fn () => raise UnifyAppUVarFailed)
+        val t_inj = find_injection eq_mt (map MtVar t_vars') (rev t_args) !! (fn () => raise UnifyAppUVarFailed)
         val () = assert (fn () => length t_vars' = length t_inj) "length t_vars' = length t_inj"
         val t' = psubst_ts_mt t_vars' (map (TV r) t_inj) t'
         val t' = psubst_is_mt i_vars' (map (V r) i_inj) t'
-        val (_, (sctx, kctx)) = get_uvar_info x !! (fn () => raise Impossible "unify_t()/MtApp: shouldn't be [Refined]")
+        val (uvar_name, (sctx, kctx)) = get_uvar_info x !! (fn () => raise Impossible "unify_t()/MtApp: shouldn't be [Refined]")
         val () = if length i_args <= length sctx then () else raise Impossible "unify_MtApp(): #i_args <> #sctx"
+        (* #i_args could be < #sctx because of partial application *)
         val () = if length t_args <= length kctx then () else raise Impossible "unify_MtApp(): #t_args shouldn't be larger than #kctx"
         (* #t_args could be < #kctx because of partial application *)
+        val sctx = lastn (length i_args) sctx
         val kctx = lastn (length t_args) kctx
         val t' = MtAbsMany (kctx, t', r)
         val t' = MtAbsIMany (sctx, t', r)
+        val () = println $ sprintf "refine ?$ to be $" [str_int uvar_name, str_mt gctxn ctxn t']
         val () = refine x t'
         (* val () = println "unify_MtApp() succeeded" *)
       in
         ()
       end
     fun structural_compare (t, t') =
+      (* if one-side is not in a normal form because of uvar, we can't do structural comparison *)
+      if isSome (is_MtApp_UVar t) orelse isSome (is_MtApp_UVar t') then
+        raise error ctxn (t, t')
+      else
       case (t, t') of
           (Arrow (t1, d, t2), Arrow (t1', d', t2')) =>
           (unify_mt ctx (t1, t1');
@@ -381,16 +419,16 @@ fun unify_mt r gctx ctx (t, t') =
 	| _ => raise error ctxn (t, t')
     val t = whnf_mt gctx kctx t
     val t' = whnf_mt gctx kctx t'
-    (* val () = println $ sprintf "Unifying types\n\t$\n  and\n\t$" [str_mt gctxn ctxn t, str_mt gctxn ctxn t'] *)
+    val () = println $ sprintf "Unifying types\n\t$\n  and\n\t$" [str_mt gctxn ctxn t, str_mt gctxn ctxn t']
     val () = 
         if eq_mt t t' then ()
         else
           unify_MtApp t t'
           handle
-          UnifyMtAppFailed =>
+          UnifyAppUVarFailed =>
           ((* println "(unify_MtApp t t') failed";  *)unify_MtApp t' t
            handle
-           UnifyMtAppFailed =>
+           UnifyAppUVarFailed =>
            structural_compare (t, t'))
     (* val () = println "unify_mt () ended" *)
   in

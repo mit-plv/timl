@@ -25,6 +25,10 @@ fun eq_base_type (t : base_type, t') =
       (case t' of
            Int => true)
         
+fun str_bt bt =
+  case bt of
+      Int => "int"
+
 end
 
 functor ExprFn (structure Var : VAR structure UVar : UVAR) = struct
@@ -662,6 +666,63 @@ fun str_bs (s : bsort) =
       end
     | UVarBS u => str_uvar_bs str_bs u
 
+fun str_raw_option f a = case a of SOME a => sprintf "SOME ($)" [f a] | NONE => "NONE"
+
+fun str_raw_id (x, _) = str_raw_v x
+
+fun str_raw_name (s, _) = s
+
+fun str_raw_long_id (m, x) = sprintf "($, $)" [str_raw_option str_raw_name m, str_raw_id x]
+                       
+fun str_raw_bind f (Bind (_, a)) = sprintf "Bind ($)" [f a]
+
+fun str_raw_bs b =
+  case b of
+      Base s => sprintf "Base ($)" [str_b s]
+    | BSArrow (s1, s2) => sprintf "BSArrow ($, $)" [str_raw_bs s1, str_raw_bs s2]
+    | UVarBS u => "UVarBS"
+
+fun str_raw_i i =
+  case i of
+      VarI x => sprintf "VarI ($)" [str_raw_long_id x]
+    | IConst (c, _) => str_idx_const c
+    | UnOpI (opr, i, _) => sprintf "UnOpI ($, $)" [str_idx_un_op opr, str_raw_i i]
+    | BinOpI (opr, i1, i2) => sprintf "BinOpI ($, $, $)" [str_idx_bin_op opr, str_raw_i i1, str_raw_i i2]
+    | Ite (i1, i2, i3, _) => sprintf "Ite ($, $, $)" [str_raw_i i1, str_raw_i i2, str_raw_i i3]
+    | IAbs (b, bind, _) => sprintf "IAbs ($, $)" [str_bs b, str_raw_bind str_raw_i bind]
+    | UVarI (u, _) => str_uvar_i (str_bs, str_raw_i) u
+
+fun str_raw_s s = "<sort>"
+                    
+fun str_raw_k k = "<kind>"
+
+fun str_raw_mt (t : mtype) : string =
+  case t of
+      Arrow (t1, i, t2) => sprintf "Arrow ($, $, $)" [str_raw_mt t1, str_raw_i i, str_raw_mt t2]
+    | TyNat (i, _) => sprintf "TyNat ($))" [str_raw_i i]
+    | TyArray (t, i) => sprintf "TyArray ($, $)" [str_raw_mt t, str_raw_i i]
+    | Unit _ => "Unit"
+    | Prod (t1, t2) => sprintf "Prod ($, $)" [str_raw_mt t1, str_raw_mt t2]
+    | UniI (s, bind, _) => sprintf "UniI ($, $)" ["<sort>", str_raw_bind str_raw_mt bind]
+    | MtVar x => sprintf "MtVar ($)" [str_raw_long_id x]
+    | MtApp (t1, t2) => sprintf "MtApp ($, $)" [str_raw_mt t1, str_raw_mt t2]
+    | MtAbs (k, bind, _) => sprintf "MtAbs ($, $)" ["<kind>", str_raw_bind str_raw_mt bind]
+    | MtAppI (t, i) => sprintf "MtAppI ($, $)" [str_raw_mt t, str_raw_i i]
+    | MtAbsI (s, bind, _) => sprintf "MtAbsI ($, $)" ["<sort>", str_raw_bind str_raw_mt bind]
+    | BaseType (bt, _) => sprintf "BaseType ($)" [str_bt bt]
+    | UVar (u, _) => sprintf "UVar ($)" [str_uvar_mt (str_raw_s, str_raw_k, str_raw_mt) u]
+
+fun str_raw_t (t : ty) : string =
+  case t of
+      Mono t => str_raw_mt t
+    | Uni (t, _) => sprintf "Uni ($)" [str_raw_bind str_raw_t t]
+
+fun str_raw_e e =
+  case e of
+      AppConstr _ => "AppConstr (...)"
+    | BinOp _ => "BinOp (...)"
+    | _ => "<exp>"
+
 fun str_i gctx ctx (i : idx) : string =
   let
     val str_i = str_i gctx
@@ -704,7 +765,7 @@ fun str_i gctx ctx (i : idx) : string =
           sprintf "(fn $ => $)" [join " " $ map (fn (b, name) => sprintf "($ : $)" [name, str_bs b]) bs_names, str_i (rev names @ ctx) i]
         end
       (* | IAbs ((name, _), i, _) => sprintf "(fn $ => $)" [name, str_i (name :: ctx) i] *)
-      | UVarI (u, _) => str_uvar_i str_bs (str_i []) u
+      | UVarI (u, _) => str_uvar_i (str_bs, str_i []) u
   end
 
 fun str_p gctx ctx p =
@@ -724,9 +785,9 @@ fun str_s gctx ctx (s : sort) : string =
   let
     val str_s = str_s gctx
   in
-    case is_SApp_UVarS s of
-        SOME (x, args) => sprintf "($ ...)" [str_uvar_s (str_s []) x]
-      | NONE =>
+    (* case is_SApp_UVarS s of *)
+    (*     SOME (x, args) => sprintf "($ ...)" [str_uvar_s (str_s []) x] *)
+    (*   | NONE => *)
     case s of
         Basic (bs, _) => str_bs bs
       | Subset ((bs, _), Bind ((name, _), p), _) =>
@@ -788,10 +849,6 @@ fun str_sortings gctx ctx binds =
     (binds, fst ctx)
   end
 
-fun str_bt bt =
-  case bt of
-      Int => "int"
-
 val str_Type = "*"
                  
 fun str_k gctx ctx ((n, sorts) : kind) : string =
@@ -802,10 +859,35 @@ fun str_k gctx ctx ((n, sorts) : kind) : string =
 fun str_mt gctx (ctx as (sctx, kctx)) (t : mtype) : string =
   let
     val str_mt = str_mt gctx
+    fun collect_MtAppI_or_MtApp t =
+      case t of
+          MtAppI (t, i) =>
+          let 
+            val (f, args) = collect_MtAppI_or_MtApp t
+          in
+            (f, args @ [inl i])
+          end
+        | MtApp (t, arg) =>
+          let 
+            val (f, args) = collect_MtAppI_or_MtApp t
+          in
+            (f, args @ [inr arg])
+          end
+        | _ => (t, [])
+    fun map_sum (f_l, f_r) a =
+      case a of
+          inl v => f_l v
+        | inr v => f_r v
+    fun str_apps t = 
+      let
+        val (f, args) = collect_MtAppI_or_MtApp t
+      in
+        sprintf "($$)" [str_mt ctx f, join_prefix " " $ map (map_sum (str_i gctx sctx, str_mt ctx)) $ args]
+      end
   in
-    case is_MtApp_UVar t of
-        SOME (x, i_args, t_args) => sprintf "($ ...)" [str_uvar_mt (str_mt ([], [])) x]
-      | NONE =>
+    (* case is_MtApp_UVar t of *)
+    (*     SOME (x, i_args, t_args) => sprintf "($ ...)" [str_uvar_mt (str_mt ([], [])) x] *)
+    (*   | NONE => *)
     case t of
         Arrow (t1, d, t2) =>
         if eq_i d (T0 dummy) then
@@ -823,12 +905,21 @@ fun str_mt gctx (ctx as (sctx, kctx)) (t : mtype) : string =
           str_uni gctx ctx (map SortingT binds, t)
         end
       | MtVar x => str_long_id #2 gctx kctx x
-      | MtApp (t1, t2) => sprintf "($ $)" [str_mt ctx t1, str_mt ctx t2]
+      | MtApp (t1, t2) =>
+      (* sprintf "($ $)" [str_mt ctx t1, str_mt ctx t2] *)
+        str_apps t
       | MtAbs (k, Bind ((name, _), t), _) => sprintf "(fn [$ : $] => $)" [name, str_k gctx sctx k, str_mt (sctx, name :: kctx) t]
-      | MtAppI (t, i) => sprintf "($ {$})" [str_mt ctx t, str_i gctx sctx i]
+      | MtAppI _ =>
+      (* sprintf "($ {$})" [str_mt ctx t, str_i gctx sctx i] *)
+        str_apps t
       | MtAbsI (s, Bind ((name, _), t), _) => sprintf "(fn {$ : $} => $)" [name, str_s gctx sctx s, str_mt (name :: sctx, kctx) t]
       | BaseType (bt, _) => str_bt bt
-      | UVar (u, _) => str_uvar_mt (str_mt ([], [])) u
+      | UVar (u, r) =>
+        let
+          fun str_region ((left, right) : region) = sprintf "($,$)-($,$)" [str_int (#line left), str_int (#col left), str_int (#line right), str_int (max (#col right) 0)]
+        in
+          (surround "[" "]" $ str_region r) ^ str_uvar_mt (str_raw_s, str_raw_k, str_mt ([], [])) u
+        end
   end
 
 and str_uni gctx ctx (binds, t) =
@@ -847,53 +938,6 @@ fun str_t gctx (ctx as (sctx, kctx)) (t : ty) : string =
   case t of
       Mono t => str_mt gctx ctx t
     | Uni _ => str_uni gctx ctx (collect_Uni_UniI t)
-
-fun str_raw_option f a = case a of SOME a => sprintf "SOME ($)" [f a] | NONE => "NONE"
-
-fun str_raw_id (x, _) = str_raw_v x
-
-fun str_raw_name (s, _) = s
-
-fun str_raw_long_id (m, x) = sprintf "($, $)" [str_raw_option str_raw_name m, str_raw_id x]
-                       
-fun str_raw_bind f (Bind (_, a)) = sprintf "Bind ($)" [f a]
-
-fun str_raw_bs b =
-  case b of
-      Base s => sprintf "Base ($)" [str_b s]
-    | BSArrow (s1, s2) => sprintf "BSArrow ($, $)" [str_raw_bs s1, str_raw_bs s2]
-    | UVarBS u => "UVarBS"
-
-fun str_raw_i i =
-  case i of
-      VarI x => sprintf "VarI ($)" [str_raw_long_id x]
-    | IConst (c, _) => str_idx_const c
-    | UnOpI (opr, i, _) => sprintf "UnOpI ($, $)" [str_idx_un_op opr, str_raw_i i]
-    | BinOpI (opr, i1, i2) => sprintf "BinOpI ($, $, $)" [str_idx_bin_op opr, str_raw_i i1, str_raw_i i2]
-    | Ite (i1, i2, i3, _) => sprintf "Ite ($, $, $)" [str_raw_i i1, str_raw_i i2, str_raw_i i3]
-    | IAbs (b, bind, _) => sprintf "IAbs ($, $)" [str_bs b, str_raw_bind str_raw_i bind]
-    | UVarI (u, _) => str_uvar_i str_bs str_raw_i u
-
-fun str_raw_mt (t : mtype) : string =
-  case t of
-      Arrow (t1, i, t2) => sprintf "Arrow ($, $, $)" [str_raw_mt t1, str_raw_i i, str_raw_mt t2]
-    | TyNat (i, _) => sprintf "TyNat ($))" [str_raw_i i]
-    | TyArray (t, i) => sprintf "TyArray ($, $)" [str_raw_mt t, str_raw_i i]
-    | Unit _ => "Unit"
-    | Prod (t1, t2) => sprintf "Prod ($, $)" [str_raw_mt t1, str_raw_mt t2]
-    | UniI (s, bind, _) => sprintf "UniI ($, $)" ["<sort>", str_raw_bind str_raw_mt bind]
-    | MtVar x => sprintf "MtVar ($)" [str_raw_long_id x]
-    | MtApp (t1, t2) => sprintf "MtApp ($, $)" [str_raw_mt t1, str_raw_mt t2]
-    | MtAbs (k, bind, _) => sprintf "MtAbs ($, $)" ["<kind>", str_raw_bind str_raw_mt bind]
-    | MtAppI (t, i) => sprintf "MtAppI ($, $)" [str_raw_mt t, str_raw_i i]
-    | MtAbsI (s, bind, _) => sprintf "MtAbsI ($, $)" ["<sort>", str_raw_bind str_raw_mt bind]
-    | BaseType (bt, _) => sprintf "BaseType ($)" [str_bt bt]
-    | UVar (u, _) => sprintf "UVar ($)" [str_uvar_mt str_raw_mt u]
-
-fun str_raw_t (t : ty) : string =
-  case t of
-      Mono t => str_raw_mt t
-    | Uni (t, _) => sprintf "Uni ($)" [str_raw_bind str_raw_t t]
 
 fun ptrn_names pn : string list * string list =
   case pn of
@@ -3024,7 +3068,7 @@ type 'sort uvar_s = unit
 type ('sort, 'kind, 'mtype) uvar_mt = unit
 fun str_uvar_bs _ _ = "_"
 fun str_uvar_s _ _ = "_"
-fun str_uvar_i _ _ _ = "_"
+fun str_uvar_i _ _ = "_"
 fun str_uvar_mt _ _ = "_"
 fun eq_uvar_i (_, _) = false
 fun eq_uvar_bs (_, _) = false

@@ -25,9 +25,9 @@ signature UVAR = sig
   type 'sort uvar_s
   type ('sort, 'kind, 'mtype) uvar_mt
   val str_uvar_bs : ('a -> string) -> 'a uvar_bs -> string
-  val str_uvar_i : ('bsort -> string) -> ('idx -> string) -> ('bsort, 'idx) uvar_i -> string
+  val str_uvar_i : ('bsort -> string) * ('idx -> string) -> ('bsort, 'idx) uvar_i -> string
   val str_uvar_s : ('sort -> string) -> 'sort uvar_s -> string
-  val str_uvar_mt : ('mtype -> string) -> ('sort, 'kind, 'mtype) uvar_mt -> string
+  val str_uvar_mt : ('sort -> string) * ('kind -> string) * ('mtype -> string) -> ('sort, 'kind, 'mtype) uvar_mt -> string
   val eq_uvar_i : ('bsort, 'idx) uvar_i * ('bsort, 'idx) uvar_i -> bool
   val eq_uvar_bs : 'bsort uvar_bs * 'bsort uvar_bs -> bool
   val eq_uvar_s : 'sort uvar_s * 'sort uvar_s -> bool

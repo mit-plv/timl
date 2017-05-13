@@ -252,43 +252,47 @@ fun normalize_tbind f kctx k (Bind ((name, r), t) : ((string * 'a) * 'b) tbind) 
 fun normalize_mt gctx kctx t =
   let
     val normalize_mt = normalize_mt gctx
+    (* val () = println $ "begin normalize_mt()" *)
+    val ret =
+        case t of
+            UVar (x, r) => load_uvar' (normalize_mt kctx) t x
+          | Unit r => Unit r
+          | Arrow (t1, d, t2) => Arrow (normalize_mt kctx t1, normalize_i d, normalize_mt kctx t2)
+          | TyArray (t, i) => TyArray (normalize_mt kctx t, normalize_i i)
+          | TyNat (i, r) => TyNat (normalize_i i, r)
+          | Prod (t1, t2) => Prod (normalize_mt kctx t1, normalize_mt kctx t2)
+          | UniI (s, bind, r) => UniI (normalize_s s, normalize_ibind normalize_mt kctx bind, r)
+          | MtVar x => try_retrieve_MtVar (normalize_mt kctx) gctx kctx x
+          | MtAbsI (s, bind, r) => MtAbsI (normalize_s s, normalize_ibind normalize_mt kctx bind, r)
+          | MtAppI (t, i) =>
+            let
+              val t = normalize_mt kctx t
+              val i = normalize_i i
+            in
+              case t of
+                  MtAbsI (_, Bind (_, t), _) => normalize_mt kctx (subst_i_mt i t)
+                | _ => MtAppI (t, i)
+            end
+          | MtAbs (k, bind, r) =>
+            let
+              val k = normalize_k k
+              val t = MtAbs (k, normalize_tbind normalize_mt kctx k bind, r)
+            in
+              t
+            end
+          | MtApp (t1, t2) =>
+            let
+              val t1 = normalize_mt kctx t1
+              val t2 = normalize_mt kctx t2
+            in
+              case t1 of
+                  MtAbs (_, Bind (_, t1), _) => normalize_mt kctx (subst_t_mt t2 t1)
+                | _ => MtApp (t1, t2)
+            end
+          | BaseType a => BaseType a
+    (* val () = println $ "end normalize_mt()" *)
   in
-    case t of
-        UVar (x, r) => load_uvar' (normalize_mt kctx) t x
-      | Unit r => Unit r
-      | Arrow (t1, d, t2) => Arrow (normalize_mt kctx t1, normalize_i d, normalize_mt kctx t2)
-      | TyArray (t, i) => TyArray (normalize_mt kctx t, normalize_i i)
-      | TyNat (i, r) => TyNat (normalize_i i, r)
-      | Prod (t1, t2) => Prod (normalize_mt kctx t1, normalize_mt kctx t2)
-      | UniI (s, bind, r) => UniI (normalize_s s, normalize_ibind normalize_mt kctx bind, r)
-      | MtVar x => try_retrieve_MtVar (normalize_mt kctx) gctx kctx x
-      | MtAbsI (s, bind, r) => MtAbsI (normalize_s s, normalize_ibind normalize_mt kctx bind, r)
-      | MtAppI (t, i) =>
-        let
-          val t = normalize_mt kctx t
-          val i = normalize_i i
-        in
-          case t of
-              MtAbsI (_, Bind (_, t), _) => normalize_mt kctx (subst_i_mt i t)
-            | _ => MtAppI (t, i)
-        end
-      | MtAbs (k, bind, r) =>
-        let
-          val k = normalize_k k
-          val t = MtAbs (k, normalize_tbind normalize_mt kctx k bind, r)
-        in
-          t
-        end
-      | MtApp (t1, t2) =>
-        let
-          val t1 = normalize_mt kctx t1
-          val t2 = normalize_mt kctx t2
-        in
-          case t1 of
-              MtAbs (_, Bind (_, t1), _) => normalize_mt kctx (subst_t_mt t2 t1)
-            | _ => MtApp (t1, t2)
-        end
-      | BaseType a => BaseType a
+    ret
   end
 
 fun normalize_t gctx kctx t =
