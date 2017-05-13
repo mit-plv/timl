@@ -611,9 +611,8 @@ fun on_top_bind gctx (name, bind) =
                   SOME a => a
                 | NONE => raise Error (r, "Unbound functor " ^ m)
           val ((formal_arg_name, formal_arg), body) = fetch_functor gctx (f, f_r)
-          val gctxd = [(formal_arg_name, Sig formal_arg)]
         in
-          (TopFunctorApp ((f, f_r), m), (name, Sig body) :: gctxd)
+          (TopFunctorApp ((f, f_r), m), [(name, Sig body), (formal_arg_name, Sig formal_arg)])
         end
           
 and on_prog gctx binds =

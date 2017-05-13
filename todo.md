@@ -80,7 +80,7 @@
 - [x] `subst` should do lazy shifting, not eager.
 - [x] The last two examples in bigO-evolve.timl about using `idx` instead of `absidx` does not work now.
 - [x] Simplify unused `forall` in `prop`. The unused foralls are Big-O premises.
-- [ ] `BigOEvolveSealed` in bigO-evolve.timl does not work yet.
+- [x] `BigOEvolveSealed` in bigO-evolve.timl does not work yet.
 - [x] if-then-else and list syntax.
 - [ ] Restore the version of `link_sig` in revision 00ba072, because a module may have uvars before sealing, and uvars cannot be retrieved from a module.
 - [x] Big-O solver should heuristically distinguish "defining" side of `TimeFun` uvars from the "using" side, by the rule-of-thumb that only `_ <= f x` is a defining constraint of `f`.

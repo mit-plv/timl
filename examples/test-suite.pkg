@@ -1,12 +1,12 @@
-(* (* this is for regression test, not a benchmark *) *)
-(* regression-test.pkg *)
+(* this is for regression test, not a benchmark *)
+regression-test.pkg
 
-(* (* benchmark examples *) *)
-(* ragged-matrix.timl *)
-(* tree.timl *)
-(* msort.timl *)
-(* insertion-sort.timl *)
-(* braun-tree.timl *)
+(* benchmark examples *)
+ragged-matrix.timl
+tree.timl
+msort.timl
+insertion-sort.timl
+braun-tree.timl
 rbt.timl
 dynamic-table.timl
 functional-queue.timl

@@ -1117,26 +1117,53 @@ fun str_sig gctxn ctx =
   indent (str_typing_info gctxn ([], []) (ctx, [])) @
   ["end"]
 
-fun str_gctx gctxn gctx =
-  let
-    val gctxn = union (gctxn, gctx_names $ to_map gctx)
-    fun str_sigging (name, sg) =
-      case sg of
-          Sig ctx =>
-          [sprintf "structure $ : " [name] ] @
-          indent (str_sig gctxn ctx)
-        | FunctorBind ((arg_name, arg), body) =>
-          [sprintf "functor $ (structure $ : " [name, arg_name] ] @
-          indent (str_sig gctxn arg) @
-          [") : "] @
-          indent (str_sig (curry Gctx.insert' (arg_name, ctx_names arg) gctxn) body)
-    val typing_lines = concatMap str_sigging gctx
+fun str_gctx old_gctxn gctx =
+  let 
+    fun str_sigging ((name, sg), (acc, gctxn)) =
+      let
+        val (ls, gctxnd) =
+            case sg of
+                Sig ctx =>
+                ([sprintf "structure $ : " [name] ] @
+                 indent (str_sig gctxn ctx),
+                 [(name, ctx_names ctx)])
+              | FunctorBind ((arg_name, arg), body) =>
+                ([sprintf "functor $ (structure $ : " [name, arg_name] ] @
+                 indent (str_sig gctxn arg) @
+                 [") : "] @
+                 indent (str_sig (add (arg_name, ctx_names arg) gctxn) body),
+                 [])
+      in
+        (ls :: acc, addList (gctxn, gctxnd))
+      end
+    val typing_lines = List.concat $ rev $ fst $ foldr str_sigging ([], old_gctxn) gctx
     val lines = 
         typing_lines @
         [""]
   in
     lines
   end
+
+(* fun str_gctx gctxn gctx = *)
+(*   let *)
+(*     val gctxn = union (gctxn, gctx_names $ to_map gctx) *)
+(*     fun str_sigging (name, sg) = *)
+(*       case sg of *)
+(*           Sig ctx => *)
+(*           [sprintf "structure $ : " [name] ] @ *)
+(*           indent (str_sig gctxn ctx) *)
+(*         | FunctorBind ((arg_name, arg), body) => *)
+(*           [sprintf "functor $ (structure $ : " [name, arg_name] ] @ *)
+(*           indent (str_sig gctxn arg) @ *)
+(*           [") : "] @ *)
+(*           indent (str_sig (curry Gctx.insert' (arg_name, ctx_names arg) gctxn) body) *)
+(*     val typing_lines = concatMap str_sigging gctx *)
+(*     val lines =  *)
+(*         typing_lines @ *)
+(*         [""] *)
+(*   in *)
+(*     lines *)
+(*   end *)
 
 fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, tctx : tcontext), e_all : U.expr) : expr * mtype * idx =
   let
@@ -2054,12 +2081,12 @@ fun check_top_bind gctx (name, bind) =
                   | NONE => raise Error (r, ["Unbound functor " ^ m])
               val ((formal_arg_name, formal_arg), body) = fetch_functor gctx f
               val formal_arg = link_sig (snd m) gctx m formal_arg
-              val gctxd = [(formal_arg_name, Sig formal_arg)]
             in
-              (name, Sig body) :: gctxd
+              [(name, Sig body), (formal_arg_name, Sig formal_arg)]
             end
-              (* val () = println "Typechecked program:" *)
-              (* val () = app println $ str_gctx (gctx_names gctx) gctxd *)
+    val () = println $ sprintf "Typechecked program:" []
+    val () = app println $ map fst gctxd
+    (* val () = app println $ str_gctx (gctx_names gctx) gctxd *)
   in
     gctxd
   end

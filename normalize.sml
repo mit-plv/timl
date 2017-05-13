@@ -332,11 +332,7 @@ fun normalize_sgntr gctx sg =
       end
 
 fun normalize_sgntr_list gctx0 gctx =
-  let
-    val gctx0 = Gctx.addList (gctx0, gctx)
-  in
-    map (mapSnd (normalize_sgntr gctx0)) gctx
-  end
+  fst $ foldr (fn ((name, sg), (acc, gctx)) => let val p = (name, normalize_sgntr gctx sg) in (p :: acc, add p gctx) end) ([], gctx0) gctx
 
 fun normalize_gctx gctx0 gctx =
   let

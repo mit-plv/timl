@@ -19,7 +19,7 @@ exception Error of string
 open SMT2Printer
 open SMTSolver
 
-fun process_top_bind show_result filename gctx bind =
+fun process_prog show_result filename gctx prog =
     let
       fun print_result show_region filename old_gctxn gctx =
           let 
@@ -104,7 +104,7 @@ fun process_top_bind show_result filename gctx bind =
           gctx
         end
       val old_gctx = gctx
-      val prog = [bind]
+      (* val prog = [bind] *)
       val (prog, _, _) = resolve_prog (TCgctx2NRgctx gctx) prog
       val result as ((gctxd, (* gctx *)_), (vcs, admits)) = typecheck_prog (trim_gctx prog gctx) prog
       (* val () = write_file (filename ^ ".smt2", to_smt2 vcs) *)
@@ -180,7 +180,7 @@ fun process_top_bind show_result filename gctx bind =
       val vcs = map (mapFst VC.simp_vc) vcs
       (* val vcs = BigOSolver.infer_numbers vcs *)
       val () = if null vcs then
-                 if show_result then println $ "Typechecking succeeded.\n" else ()
+                 if show_result then println $ sprintf "Typechecking $ succeeded.\n" [filename] else ()
                else
                  raise Error $ (* str_error "Error" filename dummy *) join_lines $ [sprintf "Typecheck Error: $ Unproved obligations:" [str_int $ length vcs], ""] @ (
                  (* concatMap (fn vc => str_vc true filename vc @ [""]) $ map fst vcs *)
@@ -205,18 +205,20 @@ fun typecheck_file show_result gctx filename =
       (* val () = (app println o map (suffix "\n") o fst o E.str_decls ctxn) decls *)
       (* val () = (app println o map (suffix "\n") o fst o UnderscoredExpr.str_decls ctxn) decls *)
       (* apply solvers after each top bind *)
-      fun iter (bind, (prog, gctx, admits_acc)) =
-          let
-            (* val mod_names = mod_names_top_bind bind *)
-            (* val (gctx', mapping) = select_modules gctx mod_names *)
-            val gctx' = gctx
-            val (progd, gctxd, admits) = process_top_bind show_result filename gctx' bind
-            (* val gctxd = remap_modules gctxd mapping *)
-            val gctx = addList (gctx, gctxd)
-          in
-            (progd @ prog, gctx, admits_acc @ admits)
-          end
-      val (prog, gctx, admits) = foldl iter ([], gctx, []) prog
+      (* fun iter (bind, (prog, gctx, admits_acc)) = *)
+      (*     let *)
+      (*       (* val mod_names = mod_names_top_bind bind *) *)
+      (*       (* val (gctx', mapping) = select_modules gctx mod_names *) *)
+      (*       val gctx' = gctx *)
+      (*       val (progd, gctxd, admits) = process_prog show_result filename gctx' [bind] *)
+      (*       (* val gctxd = remap_modules gctxd mapping *) *)
+      (*       val gctx = addList (gctx, gctxd) *)
+      (*     in *)
+      (*       (progd @ prog, gctx, admits_acc @ admits) *)
+      (*     end *)
+      (* val (prog, gctx, admits) = foldl iter ([], gctx, []) prog *)
+      val (prog, gctxd, admits) = process_prog show_result filename gctx prog
+      val gctx = addList (gctx, gctxd)
     in
       (prog, gctx, admits)
     end
