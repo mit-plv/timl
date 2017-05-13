@@ -791,7 +791,7 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
         (case is_AppV $ whnf_mt gctx kctx t of
              SOME (family, ts, is) =>
  	     let 
-               val c as (family', tnames, ibinds) = fetch_constr gctx (cctx, cx)
+               val c as (family', tnames, ibinds) = snd $ fetch_constr gctx (cctx, cx)
                val (name_sorts, (t1, is')) = unfold_binds ibinds
                val () = if eia then () else raise Impossible "eia shouldn't be false"
 	       val () = unify_mt r gctx (sctx, kctx) (MtVar family', MtVar family)
@@ -949,7 +949,7 @@ fun expand_rules gctx (ctx as (sctx, kctx, cctx), rules, t, r) =
                               (case is_AppV t of
                                    SOME (family, ts, _) =>
                                    let
-                                     val (_, _, ibinds) = fetch_constr gctx (cctx, x)
+                                     val (_, _, ibinds) = snd $ fetch_constr gctx (cctx, x)
                                      val (name_sorts, (t', _)) = unfold_binds ibinds
 	                             val t' = subst_ts_mt ts t'
                                      (* cut-off so that [expand_rules] won't try deeper and deeper proposals *) 

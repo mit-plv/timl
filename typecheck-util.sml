@@ -287,7 +287,8 @@ fun lookup_kind (n : int) kctx =
 fun lookup_snd n ctx =
   Option.map snd $ nth_error ctx n
              
-val lookup_constr = lookup_snd
+(* val lookup_constr = lookup_snd *)
+fun lookup_constr n ctx = nth_error ctx n
 val lookup_type = lookup_snd
 
 val get_outmost_module = id
@@ -405,10 +406,10 @@ fun do_fetch_constr (ctx, (x, r)) =
       SOME c => c
     | NONE => raise Error (r, [sprintf "Unbound constructor $ in context $" [str_v (names ctx) x, str_ls fst ctx]])
 
-fun fetch_constr a = generic_fetch package0_c do_fetch_constr #3 a
+fun fetch_constr a = generic_fetch (package0_snd package0_c) do_fetch_constr #3 a
                                    
 fun fetch_constr_type gctx (ctx : ccontext, x) =
-  constr_type VarT shiftx_long_id $ fetch_constr gctx (ctx, x)
+  constr_type VarT shiftx_long_id $ snd $ fetch_constr gctx (ctx, x)
 
 fun do_fetch_constr_by_name (ctx, (name, r)) =
   case find_idx_value name ctx of

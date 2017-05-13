@@ -135,8 +135,8 @@ fun ins ['v] {input_color : Bool} {input_size bh : Nat}
         end
       | Node (Red, left, center as (k', _), right) =>
         (case K.cmp (k, k') of
-             Equal => InsResult (Good (Red, Node (Red, left, new, right)))
-           | Less =>
+             Compare.Equal => InsResult (Good (Red, Node (Red, left, new, right)))
+           | Compare.Less =>
              let
                val (InsResult left) = ins left new
              in
@@ -155,7 +155,7 @@ fun ins ['v] {input_color : Bool} {input_size bh : Nat}
                    )
                  | _ => never
              end
-           | Greater =>
+           | Compare.Greater =>
              let
                val (InsResult right) = ins right new
              in
@@ -177,9 +177,9 @@ fun ins ['v] {input_color : Bool} {input_size bh : Nat}
         )
       | Node (Black, left, center as (k', _), right) =>
         (case K.cmp (k, k') of
-             Equal =>
+             Compare.Equal =>
              InsResult (Good (Black, Node (Black, left, new, right)))
-           | Less => 
+           | Compare.Less => 
              let
                val (InsResult left) = ins left new
              in

@@ -63,8 +63,10 @@ fun str_uvar_mt str_mt (u : ('sort, 'kind, 'mtype) uvar_mt) =
       Refined t => str_mt t
     | Fresh info => str_uinfo_mt info
                             
-fun eq_uvar_bs (u : 'bsort uvar_bs, u' : 'bsort uvar_bs) = u = u'
-fun eq_uvar_i (u : ('bsort, 'idx) uvar_i, u' : ('bsort, 'idx) uvar_i) = u = u'
+val eq_uvar_bs = op=
+val eq_uvar_i = op=
+val eq_uvar_s = op=
+val eq_uvar_mt = op=
                                                                                         
 fun get_uvar_info x =
   case !x of

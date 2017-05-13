@@ -142,39 +142,6 @@ fun unify_i r gctxn ctxn (i, i') =
     ()
   end
 
-fun eq_s s s' =
-  case s of
-      Basic (b, _) =>
-      (case s' of
-           Basic (b', _) => eq_bs b b'
-         | _ => false
-      )
-    | Subset ((b, _), Bind (_, p), _) =>
-      (case s' of
-           Subset ((b', _), Bind (_, p'), _) => eq_bs b b' andalso eq_p p p'
-         | _ => false
-      )
-    | UVarS (x, _) =>
-      (case s' of
-           UVarS (x', _) => x = x'
-         | _ => false
-      )
-    | SortBigO ((b, _), i, _) =>
-      (case s' of
-           SortBigO ((b', _), i', _) => eq_bs b b' andalso eq_i i i'
-         | _ => false
-      )
-    | SAbs (s1, Bind (_, s), _) =>
-      (case s' of
-           SAbs (s1', Bind (_, s'), _) => eq_s s1 s1' andalso eq_s s s'
-         | _ => false
-      )
-    | SApp (s, i) =>
-      (case s' of
-           SApp (s', i') => eq_s s s' andalso eq_i i i'
-         | _ => false
-      )
-                                                             
 fun is_sub_sort r gctxn ctxn (s, s') =
   let
     val is_sub_sort = is_sub_sort r gctxn
@@ -321,79 +288,6 @@ fun unify_kind r gctxn sctxn (k, k') =
         handle Error _ => raise Error (r, [kind_mismatch gctxn sctxn (str_k gctxn sctxn k) k'])
 *)
     
-fun eq_ls eq (ls1, ls2) = length ls1 = length ls2 andalso List.all eq $ zip (ls1, ls2)
-                                                              
-fun eq_k ((n, sorts) : kind) (n', sorts') =
-  n = n' andalso eq_ls (uncurry eq_s) (sorts, sorts')
-  
-fun eq_mt t t' = 
-    case t of
-	Arrow (t1, i, t2) =>
-        (case t' of
-	     Arrow (t1', i', t2') => eq_mt t1 t1' andalso eq_i i i' andalso eq_mt t2 t2'
-           | _ => false
-        )
-      | TyNat (i, r) =>
-        (case t' of
-             TyNat (i', _) => eq_i i i'
-           | _ => false
-        )
-      | TyArray (t, i) =>
-        (case t' of
-             TyArray (t', i') => eq_mt t t' andalso eq_i i i'
-           | _ => false
-        )
-      | Unit r =>
-        (case t' of
-             Unit _ => true
-           | _ => false
-        )
-      | Prod (t1, t2) =>
-        (case t' of
-             Prod (t1', t2') => eq_mt t1 t1' andalso eq_mt t2 t2'
-           | _ => false
-        )
-      | UniI (s, Bind (_, t), r) =>
-        (case t' of
-             UniI (s', Bind (_, t'), _) => eq_s s s' andalso eq_mt t t'
-           | _ => false
-        )
-      | MtVar x =>
-        (case t' of
-             MtVar x' => eq_long_id (x, x')
-           | _ => false
-        )
-      | MtAbs (k, Bind (_, t), r) =>
-        (case t' of
-             MtAbs (k', Bind (_, t'), _) => eq_k k k' andalso eq_mt t t'
-           | _ => false
-        )
-      | MtApp (t1, t2) =>
-        (case t' of
-             MtApp (t1', t2') => eq_mt t1 t1' andalso eq_mt t2 t2'
-           | _ => false
-        )
-      | MtAbsI (s, Bind (_, t), r) =>
-        (case t' of
-             MtAbsI (s', Bind (_, t'), _) => eq_s s s' andalso eq_mt t t'
-           | _ => false
-        )
-      | MtAppI (t, i) =>
-        (case t' of
-             MtAppI (t', i') => eq_mt t t' andalso eq_i i i'
-           | _ => false
-        )
-      | BaseType (a : base_type, r) =>
-        (case t' of
-             BaseType (a' : base_type, _)  => eq_base_type (a, a')
-           | _ => false
-        )
-      | UVar (x, _) =>
-        (case t' of
-             UVar (x', _) => x = x'
-           | _ => false
-        )
-
 fun MtAbsMany (ctx, t, r) = foldl (fn ((name, k), t) => MtAbs (k, Bind ((name, r), t), r)) t ctx
 fun MtAbsIMany (ctx, t, r) = foldl (fn ((name, s), t) => MtAbsI (s, Bind ((name, r), t), r)) t ctx
 

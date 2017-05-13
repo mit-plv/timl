@@ -30,5 +30,7 @@ signature UVAR = sig
   val str_uvar_mt : ('mtype -> string) -> ('sort, 'kind, 'mtype) uvar_mt -> string
   val eq_uvar_i : ('bsort, 'idx) uvar_i * ('bsort, 'idx) uvar_i -> bool
   val eq_uvar_bs : 'bsort uvar_bs * 'bsort uvar_bs -> bool
+  val eq_uvar_s : 'sort uvar_s * 'sort uvar_s -> bool
+  val eq_uvar_mt : ('sort, 'kind, 'mtype) uvar_mt * ('sort, 'kind, 'mtype) uvar_mt -> bool
 end
 

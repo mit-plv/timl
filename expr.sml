@@ -527,6 +527,112 @@ fun eq_p p p' =
     | Not (p, _) => (case p' of Not (p', _) => eq_p p p' | _ => false)
     | Quan (q, bs, Bind (_, p), _) => (case p' of Quan (q', bs', Bind (_, p'), _) => eq_quan q q' andalso eq_bs bs bs' andalso eq_p p p' | _ => false)
 
+fun eq_s s s' =
+  case s of
+      Basic (b, _) =>
+      (case s' of
+           Basic (b', _) => eq_bs b b'
+         | _ => false
+      )
+    | Subset ((b, _), Bind (_, p), _) =>
+      (case s' of
+           Subset ((b', _), Bind (_, p'), _) => eq_bs b b' andalso eq_p p p'
+         | _ => false
+      )
+    | UVarS (x, _) =>
+      (case s' of
+           UVarS (x', _) => eq_uvar_s (x, x')
+         | _ => false
+      )
+    | SortBigO ((b, _), i, _) =>
+      (case s' of
+           SortBigO ((b', _), i', _) => eq_bs b b' andalso eq_i i i'
+         | _ => false
+      )
+    | SAbs (s1, Bind (_, s), _) =>
+      (case s' of
+           SAbs (s1', Bind (_, s'), _) => eq_s s1 s1' andalso eq_s s s'
+         | _ => false
+      )
+    | SApp (s, i) =>
+      (case s' of
+           SApp (s', i') => eq_s s s' andalso eq_i i i'
+         | _ => false
+      )
+                                                             
+fun eq_ls eq (ls1, ls2) = length ls1 = length ls2 andalso List.all eq $ zip (ls1, ls2)
+                                                              
+fun eq_k ((n, sorts) : kind) (n', sorts') =
+  n = n' andalso eq_ls (uncurry eq_s) (sorts, sorts')
+  
+fun eq_mt t t' = 
+    case t of
+	Arrow (t1, i, t2) =>
+        (case t' of
+	     Arrow (t1', i', t2') => eq_mt t1 t1' andalso eq_i i i' andalso eq_mt t2 t2'
+           | _ => false
+        )
+      | TyNat (i, r) =>
+        (case t' of
+             TyNat (i', _) => eq_i i i'
+           | _ => false
+        )
+      | TyArray (t, i) =>
+        (case t' of
+             TyArray (t', i') => eq_mt t t' andalso eq_i i i'
+           | _ => false
+        )
+      | Unit r =>
+        (case t' of
+             Unit _ => true
+           | _ => false
+        )
+      | Prod (t1, t2) =>
+        (case t' of
+             Prod (t1', t2') => eq_mt t1 t1' andalso eq_mt t2 t2'
+           | _ => false
+        )
+      | UniI (s, Bind (_, t), r) =>
+        (case t' of
+             UniI (s', Bind (_, t'), _) => eq_s s s' andalso eq_mt t t'
+           | _ => false
+        )
+      | MtVar x =>
+        (case t' of
+             MtVar x' => eq_long_id (x, x')
+           | _ => false
+        )
+      | MtAbs (k, Bind (_, t), r) =>
+        (case t' of
+             MtAbs (k', Bind (_, t'), _) => eq_k k k' andalso eq_mt t t'
+           | _ => false
+        )
+      | MtApp (t1, t2) =>
+        (case t' of
+             MtApp (t1', t2') => eq_mt t1 t1' andalso eq_mt t2 t2'
+           | _ => false
+        )
+      | MtAbsI (s, Bind (_, t), r) =>
+        (case t' of
+             MtAbsI (s', Bind (_, t'), _) => eq_s s s' andalso eq_mt t t'
+           | _ => false
+        )
+      | MtAppI (t, i) =>
+        (case t' of
+             MtAppI (t', i') => eq_mt t t' andalso eq_i i i'
+           | _ => false
+        )
+      | BaseType (a : base_type, r) =>
+        (case t' of
+             BaseType (a' : base_type, _)  => eq_base_type (a, a')
+           | _ => false
+        )
+      | UVar (x, _) =>
+        (case t' of
+             UVar (x', _) => eq_uvar_mt (x, x')
+           | _ => false
+        )
+
 (* pretty-printers *)
 
 type scontext = string list
@@ -2916,12 +3022,14 @@ type 'bsort uvar_bs = unit
 type ('bsort, 'idx) uvar_i = unit
 type 'sort uvar_s = unit
 type ('sort, 'kind, 'mtype) uvar_mt = unit
-fun str_uvar_bs (_ : 'a -> string) (_ : 'a uvar_bs) = "_"
-fun str_uvar_s (_ : 'sort -> string) (_ : 'sort uvar_s) = "_"
-fun str_uvar_i (_ : 'bsort -> string) (_ : 'idx -> string) (_ : ('bsort, 'idx) uvar_i) = "_"
-fun str_uvar_mt (_ : 'mtype -> string) (_ : ('sort, 'kind, 'mtype) uvar_mt) = "_"
+fun str_uvar_bs _ _ = "_"
+fun str_uvar_s _ _ = "_"
+fun str_uvar_i _ _ _ = "_"
+fun str_uvar_mt _ _ = "_"
 fun eq_uvar_i (_, _) = false
 fun eq_uvar_bs (_, _) = false
+fun eq_uvar_s (_, _) = false
+fun eq_uvar_mt (_, _) = false
 end
 
 structure NamefulExpr = ExprFn (structure Var = StringVar structure UVar = Underscore)
