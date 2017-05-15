@@ -142,7 +142,7 @@ fun forget_i_mt x n b =
         (* val () = println $ "sctx'=" ^ str_ls fst sctx' *)
         val kctx' = remove_at_locs t_locs kctx
         val new_uvar = UVar (fresh_uvar_mt (sctx', kctx'), r)
-        val () = println $ "forget_i_mt() created new uvar " ^ str_mt empty ([], []) new_uvar
+        (* val () = println $ "forget_i_mt() created new uvar " ^ str_mt empty ([], []) new_uvar *)
         val ret = MtApps (MtAppIs new_uvar i_args) t_args
         val inner_i_args = range length_sctx
         val inner_t_args = range length_kctx
