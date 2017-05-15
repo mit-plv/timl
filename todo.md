@@ -69,7 +69,7 @@
 - [x] Add <> notation.
 - [ ] Add a return clause in `Case` to mean the time including the matchee.
 - [x] Amortized complexity of queue implementation by two stacks.
-- [ ] Infer type according to pattern.
+- [x] Infer type according to pattern.
 - [ ] Wrongly inferred `T_insert_delete_seq_0` to be (fn n => $n) without the `2.0 + 48.0 * $n` annotation. The source of the problem: unsoundness in bigO-solver.sml/solve_exists(). 
 - [ ] Have some Nat/Time inference.
 - [x] Unify `UnOpI`, `DivI` and `ExpI`.

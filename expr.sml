@@ -455,7 +455,6 @@ fun IApps f args = foldl (fn (arg, f) => BinOpI (IApp, f, arg)) f args
 fun SApps f args = foldl (fn (arg, f) => SApp (f, arg)) f args
 fun MtAppIs f args = foldl (fn (arg, f) => MtAppI (f, arg)) f args
 fun MtApps f args = foldl (fn (arg, f) => MtApp (f, arg)) f args
-fun MtApps_MtAppIs f i_args t_args = MtApps (MtAppIs f i_args) t_args
 fun SAbsMany (ctx, s, r) = foldl (fn ((name, s_arg), s) => SAbs (s_arg, Bind ((name, r), s), r)) s ctx
 fun IAbsMany (ctx, i, r) = foldl (fn ((name, b), i) => IAbs (b, Bind ((name, r), i), r)) i ctx
 fun MtAbsMany (ctx, t, r) = foldl (fn ((name, k), t) => MtAbs (k, Bind ((name, r), t), r)) t ctx

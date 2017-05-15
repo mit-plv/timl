@@ -789,70 +789,59 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
   in
     case pn of
 	U.ConstrP ((cx, eia), inames, opn, r) =>
-        (case is_AppV $ whnf_mt gctx kctx t of
-             SOME (family, ts, is) =>
- 	     let 
-               val c as (family', tnames, ibinds) = snd $ fetch_constr gctx (cctx, cx)
-               val (name_sorts, (t1, is')) = unfold_binds ibinds
-               val () = if eia then () else raise Impossible "eia shouldn't be false"
-	       val () = unify_mt r gctx (sctx, kctx) (MtVar family', MtVar family)
-                        handle
-                        Error _ =>
-                        let
-                          val expect = str_long_id #2 gctxn kctxn family
-                          val got = str_long_id #2 gctxn kctxn family'
-                        in
-                          raise Error
-                                (r, sprintf "Type of constructor $ doesn't match datatype " [str_long_id #3 gctxn (names cctx) cx] ::
-                                    indent ["expect: " ^ expect,
-                                            "got: " ^ got])
-                        end
-	       val () = if length tnames = length ts then ()
-                        else
-                          raise Error 
-                                (r, sprintf "Type of constructor $ doesn't match datatype " [str_long_id #3 gctxn (names cctx) cx] :: 
-                                    indent ["expect number of type arguments: " ^ (str_int $ length ts),
-                                            "got: " ^ (str_int $ length tnames)])
-	       val () = if length is' = length is then ()
-                        else
-                          raise Error 
-                                (r, sprintf "Type of constructor $ doesn't match datatype " [str_long_id #3 gctxn (names cctx) cx] :: 
-                                    indent ["expect number of index arguments: " ^ (str_int $ length is),
-                                            "got: " ^ (str_int $ length is')])
-               val length_name_sorts = length name_sorts
-               val () =
-                   if length inames = length_name_sorts then ()
-                   else raise Error (r, [sprintf "This constructor requires $ index argument(s), not $" [str_int (length_name_sorts), str_int (length inames)]])
-	       val ts = map (shiftx_i_mt 0 (length_name_sorts)) ts
-	       val is = map (shiftx_i_i 0 (length_name_sorts)) is
-	       val t1 = subst_ts_mt ts t1
-	       val ps = ListPair.map (fn (a, b) => BinPred (EqP, a, b)) (is', is)
-               (* val () = println "try piggyback:" *)
-               (* val () = println $ str_ls (fn (name, sort) => sprintf "$: $" [name, sort]) $ str_sctx gctx $ rev name_sorts *)
-               val sorts = rev $ map snd name_sorts
-               val sorts =
-                   case (!anno_less, sorts) of
-                       (true, Subset (bs, Bind (name, p), r) :: sorts') =>
-                       (* piggyback the equalities on a Subset sort *)
-                       let
-                         (* val () = println "piggyback!" *)
-                       in
-                         Subset (bs, Bind (name, combine_And ps /\ p), r) :: sorts'
-                       end
-                     | _ => sorts
-               val ctxd = ctx_from_full_sortings o ListPair.zip $ (rev inames, sorts)
-               val () = open_ctx ctxd
-               val () = open_premises ps
-               val ctx = add_ctx_skc ctxd ctx
-               val pn1 = default (U.TTP dummy) opn
-               val (pn1, cover, ctxd', nps) = match_ptrn (ctx, pn1, t1)
-               val ctxd = add_ctx ctxd' ctxd
-               val cover = ConstrC (cx, cover)
-             in
-	       (ConstrP ((cx, eia), inames, SOME pn1, r), cover, ctxd, length ps + nps)
-	     end
-           | NONE => raise Error (r, [sprintf "Pattern $ doesn't match type $" [U.str_pn gctxn (sctx_names sctx, names kctx, names cctx) pn, str_mt gctxn skctxn t]])
-        )
+ 	let 
+          val c as (family, tnames, ibinds) = snd $ fetch_constr gctx (cctx, cx)
+          val (name_sorts, (t1, is')) = unfold_binds ibinds
+          val () = if eia then () else raise Impossible "eia shouldn't be false"
+          val ts = map (fn _ => fresh_mt gctx (sctx, kctx) r) tnames
+          val is = map (fn b => fresh_i gctx sctx (fresh_bsort ()) r) is'
+          val t_constr = MtAppIs (MtApps (MtVar family) ts) is
+	  val () = unify_mt r gctx (sctx, kctx) (t, t_constr)
+                   handle
+                   Error _ =>
+                   let
+                     val expect = str_mt gctxn skctxn t
+                     val got = str_mt gctxn skctxn t_constr
+                   in
+                     raise Error
+                           (r, sprintf "Type of constructor $ doesn't match datatype " [str_long_id #3 gctxn (names cctx) cx] ::
+                               indent ["expect: " ^ expect,
+                                       "got: " ^ got])
+                   end
+          val length_name_sorts = length name_sorts
+          val () =
+              if length inames = length_name_sorts then ()
+              else raise Error (r, [sprintf "This constructor requires $ index argument(s), not $" [str_int (length_name_sorts), str_int (length inames)]])
+          val ts = map (normalize_mt gctx kctx) ts
+          val is = map normalize_i is
+	  val ts = map (shiftx_i_mt 0 (length_name_sorts)) ts
+	  val is = map (shiftx_i_i 0 (length_name_sorts)) is
+	  val t1 = subst_ts_mt ts t1
+	  val ps = ListPair.map (fn (a, b) => BinPred (EqP, a, b)) (is', is)
+          (* val () = println "try piggyback:" *)
+          (* val () = println $ str_ls (fn (name, sort) => sprintf "$: $" [name, sort]) $ str_sctx gctx $ rev name_sorts *)
+          val sorts = rev $ map snd name_sorts
+          val sorts =
+              case (!anno_less, sorts) of
+                  (true, Subset (bs, Bind (name, p), r) :: sorts') =>
+                  (* piggyback the equalities on a Subset sort *)
+                  let
+                    (* val () = println "piggyback!" *)
+                  in
+                    Subset (bs, Bind (name, combine_And ps /\ p), r) :: sorts'
+                  end
+                | _ => sorts
+          val ctxd = ctx_from_full_sortings o ListPair.zip $ (rev inames, sorts)
+          val () = open_ctx ctxd
+          val () = open_premises ps
+          val ctx = add_ctx_skc ctxd ctx
+          val pn1 = default (U.TTP dummy) opn
+          val (pn1, cover, ctxd', nps) = match_ptrn (ctx, pn1, t1)
+          val ctxd = add_ctx ctxd' ctxd
+          val cover = ConstrC (cx, cover)
+        in
+	  (ConstrP ((cx, eia), inames, SOME pn1, r), cover, ctxd, length ps + nps)
+	end
       | U.VarP (name, r) =>
         let
           (* val pcover = combine_covers pcovers *)

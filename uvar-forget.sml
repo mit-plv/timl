@@ -127,7 +127,7 @@ fun forget_i_mt x n b =
         val t_args = List.mapPartial is_inl t_results
         val () =
             if length i_args = length i_results andalso length t_args = length t_results then
-              raise AppUVarSucceeded $ MtApps_MtAppIs (UVar (uvar, r)) i_args t_args
+              raise AppUVarSucceeded $ MtApps (MtAppIs (UVar (uvar, r)) i_args) t_args
             else ()
         val i_locs = List.mapPartial is_inr i_results
         val t_locs = List.mapPartial is_inr t_results
@@ -143,7 +143,7 @@ fun forget_i_mt x n b =
         val kctx' = remove_at_locs t_locs kctx
         val new_uvar = UVar (fresh_uvar_mt (sctx', kctx'), r)
         val () = println $ "forget_i_mt() created new uvar " ^ str_mt empty ([], []) new_uvar
-        val ret = MtApps_MtAppIs new_uvar i_args t_args
+        val ret = MtApps (MtAppIs new_uvar i_args) t_args
         val inner_i_args = range length_sctx
         val inner_t_args = range length_kctx
         val inner_i_args = remove_at_locs i_locs inner_i_args
