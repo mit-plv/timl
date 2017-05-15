@@ -233,7 +233,7 @@ fun timefun_le is_outer hs a b =
     handle
     Error msg =>
     let
-      val () = println $ sprintf "timefun_le failed because: $" [msg]
+      (* val () = println $ sprintf "timefun_le failed because: $" [msg] *)
     in
       false
     end
@@ -258,7 +258,7 @@ in
 fun by_master_theorem uvar (hs, p) =
   let
     val (uvar_name, uvar_ctx, b) = get_uvar_info uvar !! (fn () => raise Error "not fresh uvar")
-    val () = println $ sprintf "Running bigO inference for ?$" [str_int uvar_name]
+    (* val () = println $ sprintf "Running bigO inference for ?$" [str_int uvar_name] *)
     fun ask_smt p = ask_smt_vc (hs, p)
     fun V n = VarI (NONE, (n, dummy))
     fun to_real i = UnOpI (ToReal, i, dummy)
@@ -341,8 +341,8 @@ fun by_master_theorem uvar (hs, p) =
       (*   "m" ^ str_int n *)
     val ext_ctx = Range.map (fn n => (time_fun_var_name n, Base Nat)) $ Range.zero_to arity
     val uvar_ctx = ext_ctx @ uvar_ctx
-    val () = println "  to solve this: "
-    val () = app println $ str_vc false "" (hs, p)
+    (* val () = println "  to solve this: " *)
+    (* val () = app println $ str_vc false "" (hs, p) *)
     val () = if length args + 1 = length uvar_ctx then () else raise Error "length args + 1 <> length uvar_ctx"
     val args_v = map is_VarI args
     fun filter_arg_v ((v, b), vset) =
@@ -462,7 +462,12 @@ fun by_master_theorem uvar (hs, p) =
           raise Succeeded i
         end
         handle
-        Error msg => println $ sprintf "Case failed because: $" [msg]
+        Error msg =>
+        let
+          (* val () = println $ sprintf "Case failed because: $" [msg] *)
+        in
+          ()
+        end
     val () =
         let
           val () = println "Trying [T n + f n <= T (n + 1)] case ..."
@@ -501,7 +506,12 @@ fun by_master_theorem uvar (hs, p) =
         in
           raise Succeeded i
         end
-        handle Error msg => println $ sprintf "Case failed because: $" [msg]
+        handle Error msg =>
+        let
+          (* val () = println $ sprintf "Case failed because: $" [msg] *)
+        in
+          ()
+        end
     val () =
         let
           val () = println "Trying [f n <= T n] case ..."
@@ -520,8 +530,13 @@ fun by_master_theorem uvar (hs, p) =
         in
           raise Succeeded i
         end
-        handle Error msg => println $ sprintf "Case failed because: $" [msg]
-    val () = println "Big-O inference failed because none of the cases applies"
+        handle Error msg =>
+        let
+          (* val () = println $ sprintf "Case failed because: $" [msg] *)
+        in
+          ()
+        end
+    (* val () = println "Big-O inference failed because none of the cases applies" *)
   in
     NONE    
   end
@@ -534,7 +549,7 @@ fun by_master_theorem uvar (hs, p) =
          end
        | Error msg =>
          let
-           val () = println $ sprintf "Big-O inference failed because: $" [msg]
+           (* val () = println $ sprintf "Big-O inference failed because: $" [msg] *)
          in
            NONE
          end
@@ -562,8 +577,8 @@ in
 fun solve_exists (vc as (hs, p), vcs) =
   let
     (* val () = println "solve_exists()" *)
-    val () = println "solve_exists() to solve this: "
-    val () = app println $ str_vc false "" vc
+    (* val () = println "solve_exists() to solve this: " *)
+    (* val () = app println $ str_vc false "" vc *)
     val hs_ctx = hyps2ctx hs
     val p = normalize_p p
     exception Error of string
@@ -624,7 +639,12 @@ fun solve_exists (vc as (hs, p), vcs) =
         in
           raise Succeeded ([], vcs)
         end
-        handle Error msg => println $ "Case failed because: " ^ msg
+        handle Error msg =>
+        let
+          (* val () = println $ sprintf "Case failed because: $" [msg] *)
+        in
+          ()
+        end
     fun unify (uvar_side, value_side) =
       let
         val () = println $ sprintf "try to unify $ with $" [str_i empty hs_ctx uvar_side, str_i empty hs_ctx value_side]
@@ -673,7 +693,12 @@ fun solve_exists (vc as (hs, p), vcs) =
         in
           raise Succeeded ([], vcs)
         end
-        handle Error msg => println $ "Case failed because: " ^ msg
+        handle Error msg =>
+        let
+          (* val () = println $ sprintf "Case failed because: $" [msg] *)
+        in
+          ()
+        end
 (*                          
     val () =
         let
@@ -748,12 +773,12 @@ fun solve_bigO_compare (vc as (hs, p)) =
   case normalize_p p of
       BinPred (BigO, i1, i2) =>
       let
-        val () = println "BigO-compare-solver to solve this: "
+        (* val () = println "BigO-compare-solver to solve this: " *)
         val () = app println $ str_vc false "" vc @ [""]
         fun get_arity i = length $ fst $ collect_IAbs i
         val arity = get_arity i2
         val result = timefun_le (outside_arity arity) hs i1 i2
-        val () = println $ sprintf "bigO-compare result: $" [str_bool result]
+        (* val () = println $ sprintf "bigO-compare result: $" [str_bool result] *)
       in
         if result then
           []

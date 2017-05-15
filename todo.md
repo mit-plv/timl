@@ -30,7 +30,7 @@
     * [x] Have a barebone module system with only modules, signatures, sealing, functors and `open`. No hierarchy (embeded modules), module alias, signature alias, `where`/`sharing`, `include`.
     * [ ] Combine name-resolve and typecheck.
     * [ ] Combine cctx and tctx into tctx.
-    * [ ] Combine idx and type into constructors, sort and kind into kind, Combine sctx and kctx into kctx.
+    * [ ] (\Abondoned.) Combine idx and type into constructors, sort and kind into kind, Combine sctx and kctx into kctx.
     * [ ] Add record types.
     * [ ] Add singleton kinds, dependent record kinds, dependent arrow kinds.
     * [ ] Elaborate modules and signatures into core language.
@@ -82,7 +82,7 @@
 - [x] Simplify unused `forall` in `prop`. The unused foralls are Big-O premises.
 - [x] `BigOEvolveSealed` in bigO-evolve.timl does not work yet.
 - [x] if-then-else and list syntax.
-- [ ] (No longer needed because uvars can be retrieved from modules now) Restore the version of `link_sig` in revision 00ba072, because a module may have uvars before sealing, and uvars cannot be retrieved from modules.
+- [ ] \(No longer needed because uvars can be retrieved from modules now) Restore the version of `link_sig` in revision 00ba072, because a module may have uvars before sealing, and uvars cannot be retrieved from modules.
 - [x] Big-O solver should heuristically distinguish "defining" side of `TimeFun` uvars from the "using" side, by the rule-of-thumb that only `_ <= f x` is a defining constraint of `f`.
 - [x] Do a module dependent analysis of each module and only bring the needed modules into `gctx` VC context.
 - [x] Have double-linked lists.

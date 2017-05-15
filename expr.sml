@@ -732,9 +732,9 @@ fun str_i gctx ctx (i : idx) : string =
   let
     val str_i = str_i gctx
   in
-    (* case is_IApp_UVarI i of *)
-    (*     SOME ((x, _), args) => sprintf "($ ...)" [str_uvar_i str_bs (str_i []) x] *)
-    (*   | NONE => *)
+    case is_IApp_UVarI i of
+        SOME ((x, _), args) => sprintf "($ ...)" [str_uvar_i (str_bs, str_i []) x]
+      | NONE =>
     case i of
         VarI x => str_long_id #1 gctx ctx x
       | IConst (c, _) => str_idx_const c
@@ -790,9 +790,9 @@ fun str_s gctx ctx (s : sort) : string =
   let
     val str_s = str_s gctx
   in
-    (* case is_SApp_UVarS s of *)
-    (*     SOME (x, args) => sprintf "($ ...)" [str_uvar_s (str_s []) x] *)
-    (*   | NONE => *)
+    case is_SApp_UVarS s of
+        SOME ((x, _), args) => sprintf "($ ...)" [str_uvar_s (str_s []) x]
+      | NONE =>
     case s of
         Basic (bs, _) => str_bs bs
       | Subset ((bs, _), Bind ((name, _), p), _) =>
@@ -920,9 +920,9 @@ fun str_mt gctx (ctx as (sctx, kctx)) (t : mtype) : string =
         sprintf "(fn$ => $)" [join_prefix " " binds, t]
       end
   in
-    (* case is_MtApp_UVar t of *)
-    (*     SOME (x, i_args, t_args) => sprintf "($ ...)" [str_uvar_mt (str_mt ([], [])) x] *)
-    (*   | NONE => *)
+    case is_MtApp_UVar t of
+        SOME ((x, _), i_args, t_args) => sprintf "($ ...)" [str_uvar_mt (str_raw_s, str_raw_k, str_mt ([], [])) x]
+      | NONE =>
     case t of
         Arrow (t1, d, t2) =>
         if eq_i d (T0 dummy) then

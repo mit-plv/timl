@@ -2075,8 +2075,8 @@ fun check_top_bind gctx (name, bind) =
             in
               [(name, Sig body), (formal_arg_name, Sig formal_arg)]
             end
-    val () = println $ sprintf "Typechecked program:" []
-    val () = app println $ map fst gctxd
+    (* val () = println $ sprintf "Typechecked program:" [] *)
+    (* val () = app println $ map fst gctxd *)
     (* val () = app println $ str_gctx (gctx_names gctx) gctxd *)
   in
     gctxd

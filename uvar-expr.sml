@@ -39,10 +39,10 @@ fun str_uvar n = "?" ^ str_int n
 fun str_uinfo_bs n = str_uvar n
 fun str_uinfo_i str_bs (n, ctx, b) = str_uvar n
 fun str_uinfo_s (n, ctx) = str_uvar n
-(* fun str_uinfo_mt (n, ctx) = str_uvar n *)
+fun str_uinfo_mt _ (n, ctx) = str_uvar n
                                          
 (* fun str_uinfo_i str_bs (n, ctx, b) = sprintf "$[$$]" [str_uvar n, join_suffix " => " $ map (str_bs o snd) $ rev ctx, str_bs b] *)
-fun str_uinfo_mt (str_s, str_k) (n, (sctx, kctx)) = sprintf "$[$$$]" [str_uvar n, join_suffix " => " $ map (fn (name, s) => sprintf "$:$" [name, str_s s]) $ rev sctx, join_suffix " => " $ map (str_k o snd) $ rev kctx, "*"]
+(* fun str_uinfo_mt (str_s, str_k) (n, (sctx, kctx)) = sprintf "$[$$$]" [str_uvar n, join_suffix " => " $ map (fn (name, s) => sprintf "$:$" [name, str_s s]) $ rev sctx, join_suffix " => " $ map (str_k o snd) $ rev kctx, "*"] *)
                                          
 fun str_uvar_bs str_bs (u : 'bsort uvar_bs) =
   case !u of
