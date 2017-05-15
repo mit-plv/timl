@@ -35,7 +35,6 @@ fun get_base (* r gctx ctx *) on_UVarS s =
       case s of
           Basic (s, _) => s
         | Subset ((s, _), _, _) => s
-        | SortBigO ((s, _), _, _) => s
         | UVarS _ => raise Impossible "get_base()/main(): shouldn't be UVarS"
         | SAbs _ => raise Impossible "get_base()/main(): shouldn't be SAbs"
         | SApp _ => raise Impossible "get_base()/main(): shouldn't be SApp"

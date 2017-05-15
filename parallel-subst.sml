@@ -50,7 +50,6 @@ local
 	Basic s => Basic s
       | Subset (b, bind, r) => Subset (b, psubst_aux_is_ibind psubst_aux_is_p d x v bind, r)
       | UVarS a => b
-      | SortBigO (b, i, r) => SortBigO (b, psubst_aux_is_i d x v i, r)
       | SAbs (s, bind, r) => SAbs (f d x v s, psubst_aux_is_ibind f d x v bind, r)
       | SApp (s, i) => SApp (f d x v s, psubst_aux_is_i d x v i)
 in

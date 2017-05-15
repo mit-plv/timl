@@ -72,7 +72,6 @@ local
 	Basic s => acc
       | Subset (b, bind, r) => collect_var_aux_i_ibind collect_var_aux_i_p d acc bind
       | UVarS a => acc
-      | SortBigO (b, i, r) => collect_var_aux_i_i d acc i
       | SAbs (s, bind, r) => collect_var_aux_i_ibind f d acc bind
       | SApp (s, i) =>
         let

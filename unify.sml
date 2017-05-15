@@ -30,19 +30,23 @@ fun unify_error cls r (s, s') =
 
 (* assumes arguments are already checked for well-formedness *)
 fun unify_bs r (bs, bs') =
-  case (update_bs bs, update_bs bs') of
-      (UVarBS x, _) =>
-      refine x bs'
-    | (_, UVarBS _) =>
-      unify_bs r (bs', bs)
-    | (BSArrow (a, b), BSArrow (a', b')) => (unify_bs r (a, a'); unify_bs r (b, b'))
-    | (Base b, Base b') =>
-      if b = b' then
-	()
-      else
-	raise Error (r, [sprintf "Base sort mismatch: $ and $" [str_b b, str_b b']])
-    | _ => raise unify_error "base sort" r (str_bs bs, str_bs bs')
-	         
+  let
+    (* val () = println $ sprintf "unifying bsorts $ and $" [str_bs bs, str_bs bs'] *)
+  in
+    case (update_bs bs, update_bs bs') of
+        (UVarBS x, _) =>
+        refine x bs'
+      | (_, UVarBS _) =>
+        unify_bs r (bs', bs)
+      | (BSArrow (a, b), BSArrow (a', b')) => (unify_bs r (a, a'); unify_bs r (b, b'))
+      | (Base b, Base b') =>
+        if b = b' then
+	  ()
+        else
+	  raise Error (r, [sprintf "Base sort mismatch: $ and $" [str_b b, str_b b']])
+      | _ => raise unify_error "base sort" r (str_bs bs, str_bs bs')
+  end
+    
 fun V r n = VarI (NONE, (n, r))
 fun TV r n = MtVar (NONE, (n, r))
                
@@ -212,8 +216,6 @@ fun is_sub_sort r gctxn ctxn (s, s') =
             in
               ()
             end
-          | (SortBigO s, s') => is_sub_sort ctxn (SortBigO_to_Subset s, s')
-          | (s, SortBigO s') => is_sub_sort ctxn (s, SortBigO_to_Subset s')
           | (SAbs (s1, Bind ((name, _), s), _), SAbs (s1', Bind (_, s'), _)) =>
             let
               val () = is_eqv_sort ctxn (s1, s1')

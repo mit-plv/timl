@@ -96,7 +96,6 @@ datatype sort =
 	 | Subset of (bsort * region) * (name * prop) ibind * region
          | UVarS of sort uvar_s * region
          (* a special form of [Subset] just to express that the [idx] argument will be dependent on the refinement variable, in order to support big-O spec inference *)
-	 | SortBigO of (bsort * region) * idx * region
          (* [SAbs] and [SApp] are just for higher-order unification *)
          | SAbs of sort * (name * sort) ibind * region
          | SApp of sort * idx
@@ -550,11 +549,6 @@ fun eq_s s s' =
            UVarS (x', _) => eq_uvar_s (x, x')
          | _ => false
       )
-    | SortBigO ((b, _), i, _) =>
-      (case s' of
-           SortBigO ((b', _), i', _) => eq_bs b b' andalso eq_i i i'
-         | _ => false
-      )
     | SAbs (s1, Bind (_, s), _) =>
       (case s' of
            SAbs (s1', Bind (_, s'), _) => eq_s s1 s1' andalso eq_s s s'
@@ -732,9 +726,9 @@ fun str_i gctx ctx (i : idx) : string =
   let
     val str_i = str_i gctx
   in
-    case is_IApp_UVarI i of
-        SOME ((x, _), args) => sprintf "($ ...)" [str_uvar_i (str_bs, str_i []) x]
-      | NONE =>
+    (* case is_IApp_UVarI i of *)
+    (*     SOME ((x, _), args) => sprintf "($ ...)" [str_uvar_i (str_bs, str_i []) x] *)
+    (*   | NONE => *)
     case i of
         VarI x => str_long_id #1 gctx ctx x
       | IConst (c, _) => str_idx_const c
@@ -808,14 +802,6 @@ fun str_s gctx ctx (s : sort) : string =
             | _ => default ()
         end
       | UVarS (u, _) => str_uvar_s (str_s []) u
-      | SortBigO ((b, _), i, _) =>
-        let
-          fun default () = sprintf "(BigO $ $)" [str_bs b, str_i gctx ctx i]
-        in
-          case is_time_fun b of
-              SOME n => sprintf "(BigO $ $)" [str_int n, str_i gctx ctx i]
-            | _ => default ()
-        end
       | SAbs (s1, Bind ((name, _), s), _) =>
         sprintf "(fn $ : $ => $)" [name, str_s ctx s1, str_s (name :: ctx) s]
       | SApp (s, i) => sprintf "($ $)" [str_s ctx s, str_i gctx ctx i]
@@ -1250,7 +1236,6 @@ fun get_region_s s =
       Basic (_, r) => r
     | Subset (_, _, r) => r
     | UVarS (_, r) => r
-    | SortBigO (_, _, r) => r
     | SAbs (_, _, r) => r
     | SApp (s, i) => combine_region (get_region_s s) (get_region_i i)
 
@@ -1451,7 +1436,6 @@ fun on_i_s on_i_i on_i_p x n b =
 	  Basic s => Basic s
 	| Subset (s, bind, r) => Subset (s, on_i_ibind on_i_p x n bind, r)
         | UVarS a => b
-        | SortBigO (b, i, r) => SortBigO (b, on_i_i x n i, r)
         | SAbs (s, bind, r) => SAbs (f x n s, on_i_ibind f x n bind, r)
         | SApp (s, i) => SApp (f x n s, on_i_i x n i)
   in
@@ -1767,7 +1751,6 @@ local
 	Basic s => Basic s
       | Subset (b, bind, r) => Subset (b, substx_i_ibind substx_i_p d x v bind, r)
       | UVarS a => b
-      | SortBigO (b, i, r) => SortBigO (b, substx_i_i d x v i, r)
       | SAbs (s, bind, r) => SAbs (f d x v s, substx_i_ibind f d x v bind, r)
       | SApp (s, i) => SApp (f d x v s, substx_i_i d x v i)
 in
@@ -1854,9 +1837,6 @@ fun substx_t_t d x (v : mtype) (b : ty) : ty =
     | Uni (bind, r) => Uni (substx_t_tbind substx_t_t d x v bind, r)
 fun subst_t_t v b =
   substx_t_t (0, 0) 0 v b
-
-fun SortBigO_to_Subset (bs, i, r) =
-  Subset (bs, Bind (("__f", r), BinPred (BigO, VarI (NONE, (int2var 0, r)), shift_i_i i)), r)
 
 (* VC operations *)
 
@@ -2422,7 +2402,6 @@ fun simp_s s =
       Basic b => Basic b
     | Subset (b, bind, r) => Subset (b, simp_bind simp_p bind, r)
     | UVarS u => UVarS u
-    | SortBigO (b, i, r) => SortBigO (b, simp_i i, r)
     | SAbs (s, bind, r) => SAbs (simp_s s, simp_bind simp_s bind, r)
     | SApp (s, i) =>
       let
@@ -2628,7 +2607,6 @@ local
 	Basic s => acc
       | Subset (b, bind, r) => on_ibind on_p acc bind
       | UVarS a => acc
-      | SortBigO (b, i, r) => on_i acc i
       | SAbs (s, bind, r) => on_ibind f acc bind
       | SApp (s, i) =>
         let

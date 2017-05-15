@@ -122,7 +122,6 @@ fun on_sort gctx ctx s =
     case s of
 	E.Basic (s, r) => Basic (on_bsort s, r)
       | E.Subset ((s, r1), bind, r_all) => Subset ((on_bsort s, r1), on_ibind (on_prop gctx) ctx bind, r_all)
-      | E.SortBigO ((s, r1), i, r_all) => SortBigO ((on_bsort s, r1), on_idx gctx ctx i, r_all)
       | E.UVarS u => UVarS u
       | E.SAbs (s, bind, r) => SAbs (on_sort gctx ctx s, on_ibind (on_sort gctx) ctx bind, r)
       | E.SApp (s, i) => SApp (on_sort gctx ctx s, on_idx gctx ctx i)

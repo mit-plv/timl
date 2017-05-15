@@ -29,7 +29,6 @@ fun collect_uvar_s_s s =
   case s of 
       Basic s => []
     | Subset (b, Bind (_, p), r) => []
-    | SortBigO (b, i, r) => []
     | SAbs (s1, Bind (_, s), r) => collect_uvar_s_s s1 @ collect_uvar_s_s s
     | SApp (s, i) => collect_uvar_s_s s
     | UVarS (x, r) =>

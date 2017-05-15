@@ -57,7 +57,6 @@ fun update_s s =
       UVarS (x, r) => load_uvar' update_s s x
     | Basic _ => s
     | Subset ((b, r1), Bind (name, p), r) => Subset ((update_bs b, r1), Bind (name, update_p p), r)
-    | SortBigO ((b, r1), i, r) => SortBigO ((update_bs b, r1), update_i i, r)
     | SAbs (s1, Bind (name, s), r) => SAbs (update_s s1, Bind (name, update_s s), r)
     | SApp (s, i) => SApp (update_s s, update_i i)
 
@@ -201,7 +200,6 @@ fun normalize_s s =
       UVarS (x, r) => load_uvar' normalize_s s x
     | Basic _ => s
     | Subset ((b, r1), Bind (name, p), r) => Subset ((normalize_bs b, r1), Bind (name, normalize_p p), r)
-    | SortBigO ((b, r1), i, r) => SortBigO ((normalize_bs b, r1), normalize_i i, r)
     | SAbs (s_arg, Bind (name, s), r) => SAbs (normalize_s s_arg, Bind (name, normalize_s s), r)
     | SApp (s, i) =>
       let

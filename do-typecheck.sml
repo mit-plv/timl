@@ -33,6 +33,9 @@ val is_builtin_enabled = ref false
 fun turn_on_builtin () = (is_builtin_enabled := true)
 fun turn_off_builtin () = (is_builtin_enabled := false)
                             
+fun str_sctx gctx sctx =
+  snd $ foldr (fn ((name, sort), (sctxn, acc)) => (name :: sctxn, (name, str_s gctx sctxn sort) :: acc)) ([], []) sctx
+      
 fun idx_un_op_type opr =
   case opr of
       ToReal => (Nat, Time)
@@ -87,13 +90,6 @@ fun get_sort_type gctx (ctx : scontext, s : U.sort) : sort * sort_type =
           val p = open_close add_sorting (name, Basic (bs, r)) ctx (fn ctx => is_wf_prop (ctx, p))
         in
           (Subset ((bs, r), Bind ((name, r2), p), r_all), Sort)
-        end
-      | U.SortBigO ((bs, r), i, r_all) =>
-        let
-          val bs = is_wf_bsort bs
-          val i = check_bsort (ctx, i, bs)
-        in
-          (SortBigO_to_Subset ((bs, r), i, r_all), Sort)
         end
       | U.UVarS ((), r) =>
         (* sort underscore will always mean a sort of type Sort *)
@@ -161,14 +157,18 @@ and is_wf_prop gctx (ctx : scontext, p : U.prop) : prop =
 	    val (i2, bs2) = get_bsort (ctx, i2)
             val () = unify_bs (U.get_region_p p) (bs1, bs2)
             val bs = update_bs bs1
-            fun error expected = Error (U.get_region_p p, sprintf "Sorts of operands of $ must be both $:" [str_bin_pred opr, expected] :: indent ["left: " ^ str_bs bs1, "right: " ^ str_bs bs2])
+            fun error expected =
+              Error (U.get_region_p p, sprintf "Sorts of operands of $ must be both $:" [str_bin_pred opr, expected] :: indent ["left: " ^ str_bs bs1, "right: " ^ str_bs bs2])
             val () =
                 case opr of
                     BigO =>
                     let
                       val (args, ret) = collect_BSArrow bs
                       val r = U.get_region_p p
-                      val () = unify_bs r (ret, Base Time)
+                      val () =
+                          case ret of
+                              UVarBS _ => ()  (* if it's uvar, it may be BSArrow *)
+                            | _ => unify_bs r (ret, Base Time)
                       val () = app (fn arg => unify_bs r (arg, Base Nat)) args
                     in
                       ()
@@ -332,7 +332,10 @@ and get_bsort (gctx : sigcontext) (ctx : scontext, i : U.idx) : idx * bsort =
             end
       val ret = main ()
                 handle
-                Error (r, msg) => raise Error (r, msg @ ["when sort-checking index "] @ indent [U.str_i (gctx_names gctx) (sctx_names ctx) i])
+                Error (r, msg) =>
+                raise Error (r, msg @ ["when sort-checking index "] @ indent [U.str_i (gctx_names gctx) (sctx_names ctx) i])
+                (* raise Error (r, msg @ [sprintf "when sort-checking index $ in context $" [U.str_i (gctx_names gctx) (sctx_names ctx) i, str_ls (fn (name, sort) => sprintf "\n$: $" [name, sort]) $ str_sctx (gctx_names gctx) ctx]]) *)
+      (* val () = println $ sprintf "get_bsort() result: $ : $" [str_i (gctx_names gctx) (sctx_names ctx) (fst ret), str_bs (snd ret)] *)
     in
       ret
     end
@@ -391,7 +394,6 @@ fun check_sort gctx (ctx, i : U.idx, s : sort) : idx =
           in
             ()
           end
-        | SortBigO s => main (SortBigO_to_Subset s)
 	| Basic (bs, _) => 
 	  unify_bs r (bs', bs)
         | UVarS _ => raise Impossible "check_sort()/main(): s should be UVarS"
@@ -776,9 +778,6 @@ fun is_wf_return gctx (skctx as (sctx, _), return) =
        SOME (check_bsort gctx (sctx, d, Base Time)))
     | (NONE, NONE) => (NONE, NONE)
 
-fun str_sctx gctx sctx =
-  snd $ foldr (fn ((name, sort), (sctxn, acc)) => (name :: sctxn, (name, str_s (gctx_names gctx) sctxn sort) :: acc)) ([], []) sctx
-      
 fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext), (* pcovers, *) pn : U.ptrn, t : mtype) : ptrn * cover * context * int =
   let
     val match_ptrn = match_ptrn gctx
@@ -1059,7 +1058,6 @@ fun set_prop r s p =
   case normalize_s s of
       Basic (bs as (_, r)) => Subset (bs, Bind (("__set_prop", r), p), r)
     | Subset (bs, Bind (name, _), r) => Subset (bs, Bind (name, p), r)
-    | SortBigO s => set_prop r (SortBigO_to_Subset s) p
     | UVarS _ => raise Error (r, ["unsolved unification variable in module"])
     | SAbs _ => raise Impossible "set_prop()/SAbs: shouldn't be prop"
     | SApp _ => raise Error (r, ["unsolved unification variable in module (unnormalized application)"])
@@ -1068,7 +1066,6 @@ fun add_prop r s p =
   case normalize_s s of
       Basic (bs as (_, r)) => Subset (bs, Bind (("__added_prop", r), p), r)
     | Subset (bs, Bind (name, p'), r) => Subset (bs, Bind (name, p' /\ p), r)
-    | SortBigO s => add_prop r (SortBigO_to_Subset s) p
     | UVarS _ => raise Error (r, ["unsolved unification variable in module"])
     | SAbs _ => raise Impossible "add_prop()/SAbs: shouldn't be prop"
     | SApp _ => raise Error (r, ["unsolved unification variable in module (unnormalized application)"])
@@ -1665,6 +1662,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
               (* localized the scope of the evars introduced in type-checking absidx's definition *)
               val () = open_paren ()
               val i = check_sort gctx (sctx, i, s)
+              (* val () = println $ sprintf "sort and value of absidx $: \n$\n$" [name, str_s (gctx_names gctx) (sctx_names sctx) s, str_i (gctx_names gctx) (sctx_names sctx) i] *)
               val ctxd = ctx_from_sorting (name, s)
               val () = open_ctx ctxd
               val ps = [BinPred (EqP, VarI (NONE, (0, r)), shift_ctx_i ctxd i)]

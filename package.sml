@@ -58,7 +58,6 @@ local
 	Basic s => Basic s
       | Subset (s, bind, r) => Subset (s, package_i_ibind package_i_p x v bind, r)
       | UVarS a => b
-      | SortBigO s => f x v (SortBigO_to_Subset s)
       | SAbs (s1, bind, r) => SAbs (f x v s1, package_i_ibind f x v bind, r)
       | SApp (s, i) => SApp (f x v s, package_i_i x v i)
 in

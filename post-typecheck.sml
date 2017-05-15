@@ -81,7 +81,6 @@ fun get_base_and_refinement s =
       (bsort, SOME p)
     | Basic (bsort, _) =>
       (bsort, NONE)
-    | SortBigO s => get_base_and_refinement (SortBigO_to_Subset s)
     | _ => (get_base refine_UVarS_to_Basic s, NONE)
              
 fun get_formula s(*vce sequence*) =
