@@ -407,7 +407,7 @@ fun is_SApp_UVarS s =
     val (f, args) = collect_SApp s
   in
     case f of
-        UVarS (x, _) => SOME (x, args)
+        UVarS (x, r) => SOME ((x, r), args)
       | _ => NONE
   end
     
@@ -437,7 +437,7 @@ fun is_MtApp_UVar t =
     val (t, i_args) = collect_MtAppI t
   in
     case t of
-        UVar (x, _) => SOME (x, i_args, t_args)
+        UVar (x, r) => SOME ((x, r), i_args, t_args)
       | _ => NONE
   end
     
@@ -455,8 +455,11 @@ fun IApps f args = foldl (fn (arg, f) => BinOpI (IApp, f, arg)) f args
 fun SApps f args = foldl (fn (arg, f) => SApp (f, arg)) f args
 fun MtAppIs f args = foldl (fn (arg, f) => MtAppI (f, arg)) f args
 fun MtApps f args = foldl (fn (arg, f) => MtApp (f, arg)) f args
+fun MtApps_MtAppIs f i_args t_args = MtApps (MtAppIs f i_args) t_args
 fun SAbsMany (ctx, s, r) = foldl (fn ((name, s_arg), s) => SAbs (s_arg, Bind ((name, r), s), r)) s ctx
 fun IAbsMany (ctx, i, r) = foldl (fn ((name, b), i) => IAbs (b, Bind ((name, r), i), r)) i ctx
+fun MtAbsMany (ctx, t, r) = foldl (fn ((name, k), t) => MtAbs (k, Bind ((name, r), t), r)) t ctx
+fun MtAbsIMany (ctx, t, r) = foldl (fn ((name, s), t) => MtAbsI (s, Bind ((name, r), t), r)) t ctx
                                  
 fun AppVar (x, is) = MtAppIs (MtVar x) is
 fun AppV (x, ts, is, r) = MtAppIs (MtApps (MtVar x) ts) is
@@ -692,7 +695,10 @@ fun str_raw_i i =
     | IAbs (b, bind, _) => sprintf "IAbs ($, $)" [str_bs b, str_raw_bind str_raw_i bind]
     | UVarI (u, _) => str_uvar_i (str_bs, str_raw_i) u
 
-fun str_raw_s s = "<sort>"
+fun str_raw_s s =
+  case s of
+      Basic (b, _) => sprintf "Basic ($)" [str_bs b]
+    | _ => "<sort>"
                     
 fun str_raw_k k = "<kind>"
 
@@ -884,6 +890,36 @@ fun str_mt gctx (ctx as (sctx, kctx)) (t : mtype) : string =
       in
         sprintf "($$)" [str_mt ctx f, join_prefix " " $ map (map_sum (str_i gctx sctx, str_mt ctx)) $ args]
       end
+    fun collect_MtAbsI_or_MtAbs t =
+      case t of
+          MtAbsI (s, Bind ((name, _), t), _) =>
+          let
+            val (binds, t) = collect_MtAbsI_or_MtAbs t
+          in
+            ((inl s, name) :: binds, t)
+          end
+        | MtAbs (k, Bind ((name, _), t), _) =>
+          let
+            val (binds, t) = collect_MtAbsI_or_MtAbs t
+          in
+            ((inr k, name) :: binds, t)
+          end
+        | _ => ([], t)
+    fun str_abs t =
+      let
+        val (binds, t) = collect_MtAbsI_or_MtAbs t
+        (* val () = println $ str_int (length binds) *)
+        fun iter ((c, name), (acc, (sctx, kctx))) =
+          case c of
+              inl s => (sprintf "{$ : $}" [name, (* str_s gctx sctx s *)"..."] :: acc, (name :: sctx, kctx))
+            | inr k => (sprintf "[$ : $]" [name, str_k gctx sctx k] :: acc, (sctx, name :: kctx))
+        val (binds, (sctx, kctx)) = foldl iter ([], (sctx, kctx)) binds
+        val binds = rev binds
+        (* val () = println $ str_int (length binds) *)
+        val t = str_mt (sctx, kctx) t
+      in
+        sprintf "(fn$ => $)" [join_prefix " " binds, t]
+      end
   in
     (* case is_MtApp_UVar t of *)
     (*     SOME (x, i_args, t_args) => sprintf "($ ...)" [str_uvar_mt (str_mt ([], [])) x] *)
@@ -908,17 +944,21 @@ fun str_mt gctx (ctx as (sctx, kctx)) (t : mtype) : string =
       | MtApp (t1, t2) =>
       (* sprintf "($ $)" [str_mt ctx t1, str_mt ctx t2] *)
         str_apps t
-      | MtAbs (k, Bind ((name, _), t), _) => sprintf "(fn [$ : $] => $)" [name, str_k gctx sctx k, str_mt (sctx, name :: kctx) t]
+      | MtAbs _ =>
+      (* sprintf "(fn [$ : $] => $)" [name, str_k gctx sctx k, str_mt (sctx, name :: kctx) t] *)
+        str_abs t
       | MtAppI _ =>
       (* sprintf "($ {$})" [str_mt ctx t, str_i gctx sctx i] *)
         str_apps t
-      | MtAbsI (s, Bind ((name, _), t), _) => sprintf "(fn {$ : $} => $)" [name, str_s gctx sctx s, str_mt (name :: sctx, kctx) t]
+      | MtAbsI _ =>
+        (* sprintf "(fn {$ : $} => $)" [name, str_s gctx sctx s, str_mt (name :: sctx, kctx) t] *)
+        str_abs t
       | BaseType (bt, _) => str_bt bt
       | UVar (u, r) =>
         let
           fun str_region ((left, right) : region) = sprintf "($,$)-($,$)" [str_int (#line left), str_int (#col left), str_int (#line right), str_int (max (#col right) 0)]
         in
-          (surround "[" "]" $ str_region r) ^ str_uvar_mt (str_raw_s, str_raw_k, str_mt ([], [])) u
+          (* (surround "[" "] " $ str_region r) ^ *) str_uvar_mt (str_raw_s, str_raw_k, str_mt ([], [])) u
         end
   end
 

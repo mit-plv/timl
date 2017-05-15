@@ -363,7 +363,7 @@ fun check_sort gctx (ctx, i : U.idx, s : sort) : idx =
     exception UnifySAppFailed
     fun unify_SApp_UVarS s =
       let
-        val (x, _) = is_SApp_UVarS s !! (fn () => raise UnifySAppFailed)
+        val ((x, _), _) = is_SApp_UVarS s !! (fn () => raise UnifySAppFailed)
         val (_, ctx) = get_uvar_info x !! (fn () => raise Impossible "check_sort()/unify_SApp_UVar(): x should be Fresh")
         val s = Basic (bs', r)
         val s = SAbsMany (ctx, s, r)
@@ -784,7 +784,8 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
     val match_ptrn = match_ptrn gctx
     val gctxn = gctx_names gctx
     val skctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
-  (*   val () = println $ sprintf "Checking pattern $" [U.str_pn gctxn (sctxn, kctxn, names cctx) pn] *)
+    (* val () = println $ sprintf "Checking pattern $ for type $" [U.str_pn gctxn (sctxn, kctxn, names cctx) pn, str_mt gctxn (sctxn, kctxn) t] *)
+    (* val () = println $ "sctxn=" ^ (str_ls id sctxn) *)
   in
     case pn of
 	U.ConstrP ((cx, eia), inames, opn, r) =>
@@ -818,11 +819,13 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
                                 (r, sprintf "Type of constructor $ doesn't match datatype " [str_long_id #3 gctxn (names cctx) cx] :: 
                                     indent ["expect number of index arguments: " ^ (str_int $ length is),
                                             "got: " ^ (str_int $ length is')])
+               val length_name_sorts = length name_sorts
                val () =
-                   if length inames = length name_sorts then ()
-                   else raise Error (r, [sprintf "This constructor requires $ index argument(s), not $" [str_int (length name_sorts), str_int (length inames)]])
+                   if length inames = length_name_sorts then ()
+                   else raise Error (r, [sprintf "This constructor requires $ index argument(s), not $" [str_int (length_name_sorts), str_int (length inames)]])
+	       val ts = map (shiftx_i_mt 0 (length_name_sorts)) ts
+	       val is = map (shiftx_i_i 0 (length_name_sorts)) is
 	       val t1 = subst_ts_mt ts t1
-	       val is = map (shiftx_i_i 0 (length name_sorts)) is
 	       val ps = ListPair.map (fn (a, b) => BinPred (EqP, a, b)) (is', is)
                (* val () = println "try piggyback:" *)
                (* val () = println $ str_ls (fn (name, sort) => sprintf "$: $" [name, sort]) $ str_sctx gctx $ rev name_sorts *)
@@ -919,9 +922,7 @@ fun expand_rules gctx (ctx as (sctx, kctx, cctx), rules, t, r) =
   let
     fun expand_rule (rule as (pn, e), (pcovers, rules)) =
       let
-        (* val () = println "before match_ptrn()" *)
 	val (pn, cover, ctxd, nps) = match_ptrn gctx (ctx, (* pcovers, *) pn, t)
-        (* val () = println "after match_ptrn()" *)
         val () = close_n nps
         val () = close_ctx ctxd
         (* val cover = ptrn_to_cover pn *)
@@ -1187,8 +1188,8 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
       in
         ()
       end
-    val () = print $ sprintf "Typing $\n" [U.str_e gctxn ctxn e_all]
-    val () = print $ sprintf "  Typing $\n" [U.str_raw_e e_all]
+    (* val () = print $ sprintf "Typing $\n" [U.str_e gctxn ctxn e_all] *)
+    (* val () = print $ sprintf "  Typing $\n" [U.str_raw_e e_all] *)
     (* val () = print_ctx gctx ctx *)
     fun main () =
       case e_all of
@@ -1211,7 +1212,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                     t
                   end
             val t = fetch_type gctx (tctx, x)
-            (* val () = println $ str_t skctxn t *)
+            (* val () = println $ str_t gctxn skctxn t *)
             val t = insert_type_args t
             (* val () = println $ str_mt skctxn t *)
             fun insert_idx_args t_all =
@@ -1490,7 +1491,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
     val t = simp_mt $ normalize_mt gctx kctx t
     val d = simp_i $ normalize_i d
                    (* val () = println $ str_ls id $ #4 ctxn *)
-    val () = print (sprintf " Typed $: \n        $\n" [str_e gctxn ctxn e, str_mt gctxn skctxn t])
+    (* val () = print (sprintf " Typed $: \n        $\n" [str_e gctxn ctxn e, str_mt gctxn skctxn t]) *)
                    (* val () = print (sprintf "   Time : $: \n" [str_i sctxn d]) *)
                    (* val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_mt skctxn t, str_e ctxn e, str_i sctxn d]) *)
   in

@@ -26,7 +26,7 @@ fun get_base (* r gctx ctx *) on_UVarS s =
     exception OnSAppFailed
     fun on_SApp_UVarS s =
       let
-        val (x, args) = is_SApp_UVarS s !! (fn () => raise OnSAppFailed)
+        val ((x, _), args) = is_SApp_UVarS s !! (fn () => raise OnSAppFailed)
         val info = get_uvar_info x !! (fn () => raise Impossible "check_sort()/unify_SApp_UVar(): x should be Fresh")
       in
         on_UVarS (x, r, info, args)
@@ -63,6 +63,7 @@ fun V r n = VarI (NONE, (n, r))
 fun TV r n = MtVar (NONE, (n, r))
 
 fun fresh_uvar_i ctx bsort = ref (Fresh (inc (), ctx, bsort))
+fun fresh_uvar_mt ctx = ref (Fresh (inc (), ctx))
 
 fun get_ctx_and_args sel make_arg on_snd package gctx ctx_local r =
   let
@@ -138,7 +139,7 @@ fun fresh_mt gctx (sctx, kctx) r : mtype =
   let
     val (sctx, i_args) = get_sctx_and_args id package0_s gctx sctx r
     val (kctx, t_args) = get_kctx_and_args get_ke_kind package0_kind gctx kctx r
-    val x = ref (Fresh (inc (), (sctx, kctx)))
+    val x = fresh_uvar_mt (sctx, kctx)
     val t = UVar (x, r)
     val t = MtAppIs t i_args
     val t = MtApps t t_args

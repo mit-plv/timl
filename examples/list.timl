@@ -34,23 +34,23 @@ fun hd {n: Nat | n > 0} (ls: list _ {n}) =
         x :: _ => x
       | _ => never
 
-(* (* reverse and append *)                *)
-(* fun rev_append {n m : Nat} (l : list _ {n}, acc : list _ {m}) return list _ {n + m} using $n = *)
-(*     case l of *)
-(*         [] => acc *)
-(*       | hd :: tl => rev_append (tl, hd :: acc) *)
+(* reverse and append *)
+fun rev_append {n m : Nat} (l : list _ {n}, acc : list _ {m}) return list _ {n + m} using $n =
+    case l of
+        [] => acc
+      | hd :: tl => rev_append (tl, hd :: acc)
 
-(* (* another version with Big-O complexity *) *)
-(* absidx T_rev_append : BigO (fn n => $n) (* = fn n => 2.0 * $n *) with *)
-(* fun rev_append_2 {n1 n2 : Nat} (xs : list _ {n1}) (ys : list _ {n2}) return list _ {n1 + n2} using T_rev_append n1 = *)
-(*     case xs of *)
-(*         [] => ys *)
-(*       | x :: xs => rev_append_2 xs (x :: ys) *)
-(* end *)
+(* another version with Big-O complexity *)
+absidx T_rev_append : BigO (fn n => $n) (* = fn n => 2.0 * $n *) with
+fun rev_append_2 {n1 n2 : Nat} (xs : list _ {n1}) (ys : list _ {n2}) return list _ {n1 + n2} using T_rev_append n1 =
+    case xs of
+        [] => ys
+      | x :: xs => rev_append_2 xs (x :: ys)
+end
 
-(* (* reverse *) *)
-(* absidx T_rev : BigO (fn n => $n) with *)
-(* fun rev {n : Nat} (xs : list _ {n}) return list _ {n} using T_rev n = rev_append_2 xs [] *)
-(* end *)
+(* reverse *)
+absidx T_rev : BigO (fn n => $n) with
+fun rev {n : Nat} (xs : list _ {n}) return list _ {n} using T_rev n = rev_append_2 xs []
+end
 
 end

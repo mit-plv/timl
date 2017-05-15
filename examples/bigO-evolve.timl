@@ -114,7 +114,7 @@ open List
 
 idx g_spec = _
 absidx g : BigO g_spec = _
-fun map ['a 'b] {m n : Nat} (f : 'a -- $m --> 'b) (ls : list 'a {n}) return list 'b {n} using g m n =
+fun map ['a 'b] {m n : Nat} (f : 'a -- $m --> 'b) (ls : list _ {n}) return list _ {n} using g m n =
     case ls of
         Nil => Nil
       | Cons (x, xs) => Cons (f x, map f xs)

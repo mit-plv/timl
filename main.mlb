@@ -37,10 +37,10 @@ normalize.sml
 collect-var.sml
 collect-uvar.sml
 parallel-subst.sml
-unify.sml
 fresh-uvar.sml
-redundant-exhaust.sml
 uvar-forget.sml
+unify.sml
+redundant-exhaust.sml
 do-typecheck.sml
 trivial-solver.sml
 post-typecheck.sml
