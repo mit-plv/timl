@@ -1,0 +1,14 @@
+structure PerversiveList = struct
+
+datatype list 'a =
+         Nil of list 'a
+       | Cons of 'a * list ('a * 'a) --> list 'a
+
+val a = Cons (1, Cons ((2, 3), Nil))
+
+(* fun size (l (* : list _ *)) = *)
+(*   case l of *)
+(*       Nil => 0 *)
+(*     | Cons (x, xs) => 1 + size xs *)
+             
+end

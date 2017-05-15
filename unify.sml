@@ -117,8 +117,9 @@ fun unify_i r gctxn ctxn (i, i') =
           if eq_i i i' then ()
           else write_prop (BinPred (EqP, i, i'), r)
       in
+        if eq_i i i' then ()
         (* if one-side is not in a normal form because of uvar, we can't do structural comparison *)
-        if isSome (is_IApp_UVarI i) orelse isSome (is_IApp_UVarI i') then
+        else if isSome (is_IApp_UVarI i) orelse isSome (is_IApp_UVarI i') then
           default ()
         else
         case (i, i') of
@@ -131,16 +132,14 @@ fun unify_i r gctxn ctxn (i, i') =
     val i' = whnf_i i'
     (* val () = println $ sprintf "Unifying indices $ and $" [str_i gctxn ctxn i, str_i gctxn ctxn i'] *)
     val () =
-        if eq_i i i' then ()
-        else
-          (* first try unifying applications of uvars with the other index; if unsuccessful in both directions, then try ordinary structural unification *)
-          unify_IApp r i i'
-          handle
-          UnifyAppUVarFailed _ =>
-          (unify_IApp r i' i
-           handle
-           UnifyAppUVarFailed _ =>
-           structural_compare (i, i'))
+        (* first try unifying applications of uvars with the other index; if unsuccessful in both directions, then try ordinary structural unification *)
+        unify_IApp r i i'
+        handle
+        UnifyAppUVarFailed _ =>
+        (unify_IApp r i' i
+         handle
+         UnifyAppUVarFailed _ =>
+         structural_compare (i, i'))
     (* val () = println "unify_i () ended" *)
   in
     ()
@@ -173,8 +172,9 @@ fun is_sub_sort r gctxn ctxn (s, s') =
       let
         fun default () = raise Error (r, ["Sort"] @ indent [str_s gctxn ctxn s] @ ["is not a subsort of"] @ indent [str_s gctxn ctxn s'])
       in
-        (* if one-side is not in a normal form because of uvar, we can't do structural comparison *)
-        if isSome (is_SApp_UVarS s) orelse isSome (is_SApp_UVarS s') then
+        if eq_s s s' then ()
+                            (* if one-side is not in a normal form because of uvar, we can't do structural comparison *)
+        else if isSome (is_SApp_UVarS s) orelse isSome (is_SApp_UVarS s') then
           default ()
         else
         case (s, s') of
@@ -233,15 +233,13 @@ fun is_sub_sort r gctxn ctxn (s, s') =
     val s = whnf_s s
     val s' = whnf_s s'
   in
-    if eq_s s s' then ()
-    else
-      unify_SApp s s'
-      handle
-      UnifyAppUVarFailed _ =>
-      (unify_SApp s' s
-       handle
-       UnifyAppUVarFailed _ =>
-       structural_compare (s, s'))
+    unify_SApp s s'
+    handle
+    UnifyAppUVarFailed _ =>
+    (unify_SApp s' s
+     handle
+     UnifyAppUVarFailed _ =>
+     structural_compare (s, s'))
   end
 
 and is_eqv_sort r gctxn ctxn (s, s') =
@@ -307,8 +305,6 @@ fun unify_mt r gctx ctx (t, t') =
     val kctx = #2 ctx
     val gctxn = gctx_names gctx
     val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
-    fun error ctxn (t, t') = unify_error "type" r (str_mt gctxn ctxn t, str_mt gctxn ctxn t')
-    (* fun error ctxn (t, t') = unify_error "type" r (str_raw_mt t, str_raw_mt t') *)
     fun unify_MtApp t t' =
       let
         val ((x, _), i_args, t_args) = is_MtApp_UVar t !! (fn () => raise UnifyAppUVarFailed "is_MtApp_UVar() fails")
@@ -367,6 +363,8 @@ fun unify_mt r gctx ctx (t, t') =
       in
         ()
       end
+    fun error ctxn (t, t') = unify_error "type" r (str_mt gctxn ctxn $ normalize_mt gctx kctx t, str_mt gctxn ctxn $ normalize_mt gctx kctx t')
+    (* fun error ctxn (t, t') = unify_error "type" r (str_raw_mt t, str_raw_mt t') *)
     fun structural_compare (t, t') =
       if eq_mt t t' then ()
       (* if one-side is not in a normal form because of uvar, we can't do structural comparison *)
@@ -439,26 +437,24 @@ fun unify_mt r gctx ctx (t, t') =
              else
                (t, t')
     val () = 
-        if eq_mt t t' then ()
-        else
-          unify_MtApp t_more t_less
+        unify_MtApp t_more t_less
+        handle
+        UnifyAppUVarFailed msg =>
+        let
+          (* val () = println ("(unify_MtApp t t') failed because " ^ msg) *)
+          val t_less = whnf_mt gctx kctx t_less
+        in
+          unify_MtApp t_less t_more
           handle
           UnifyAppUVarFailed msg =>
           let
-            (* val () = println ("(unify_MtApp t t') failed because " ^ msg) *)
-            val t_less = whnf_mt gctx kctx t_less
+            (* val () = println ("(unify_MtApp t' t) failed because " ^ msg) *)
+            val t = whnf_mt gctx kctx t
+            val t' = whnf_mt gctx kctx t'
           in
-            unify_MtApp t_less t_more
-            handle
-            UnifyAppUVarFailed msg =>
-            let
-              (* val () = println ("(unify_MtApp t' t) failed because " ^ msg) *)
-              val t = whnf_mt gctx kctx t
-              val t' = whnf_mt gctx kctx t'
-            in
-              structural_compare (t, t')
-            end
+            structural_compare (t, t')
           end
+        end
     (* val () = println "unify_mt () ended" *)
   in
     ()
