@@ -37,16 +37,17 @@ datatype abs =
 	 Fn
 	 | Rec
 
-datatype tbind =
-         Sorting of id * sort * region
+type sort_bind = id * sort * region
+type bsort_bind = id * bsort * region
 
-fun sortings (ids, s, r) = map (fn id => Sorting (id, s, r)) ids
+fun sortings (ids, s, r) = map (fn id => (id, s, r)) ids
+fun bsortings (ids, b, r) = map (fn id => (id, b, r)) ids
                                
 datatype ty =
 	 VarT of long_id
 	 | Arrow of ty * idx * ty * region
 	 | Prod of ty * ty * region
-	 | Quan of quan * tbind list * ty * region
+	 | Quan of quan * sort_bind list * ty * region
 	 | AppTT of ty * ty * region
 	 | AppTI of ty * idx * region
 
@@ -65,7 +66,7 @@ fun get_region_t t =
       | AppTI (_, _, r) => r
 
 type constr_core = ty * ty option
-type constr_decl = id * tbind list * constr_core option * region
+type constr_decl = id * sort_bind list * constr_core option * region
 
 datatype ptrn =
 	 ConstrP of (long_id * bool) * string list * ptrn option * region
@@ -82,11 +83,11 @@ fun get_region_pn pn =
 
 datatype bind =
 	 Typing of ptrn
-	 | TBind of tbind
+	 | TBind of sort_bind
 
 type return = ty option * idx option
 
-type datatype_def = string * string list * tbind list * sort list * constr_decl list * region
+type datatype_def = string * string list * bsort_bind list * bsort list * constr_decl list * region
               
 datatype exp = 
 	 Var of long_id * bool
@@ -129,7 +130,7 @@ datatype spec =
          SpecVal of name * name list * ty * region
          | SpecDatatype of datatype_def
          | SpecIdx of name * sort
-         | SpecType of name list * sort list * region
+         | SpecType of name list * bsort list * region
          | SpecTypeDef of name * ty
                                    
 datatype sgn =

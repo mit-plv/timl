@@ -23,10 +23,10 @@ type 'bsort uvar_bs = (uvar_name, 'bsort) uvar_ref
 type ('bsort, 'idx) uvar_i = (uvar_name * (string * 'bsort) list(*context*) * 'bsort(*result*), 'idx) uvar_ref
 
 (* uvar for sort *)                  
-type 'sort uvar_s = (uvar_name * (string * 'sort) list(*context*), 'sort) uvar_ref
+type ('bsort, 'sort) uvar_s = (uvar_name * (string * 'bsort) list(*context*), 'sort) uvar_ref
 
 (* uvar for (mono-)type *)                  
-type ('sort, 'kind, 'mtype) uvar_mt = (uvar_name * ((string * 'sort) list(*index context*) * (string * 'kind) list(*type context*)), 'mtype) uvar_ref
+type ('bsort, 'kind, 'mtype) uvar_mt = (uvar_name * ((string * 'bsort) list(*index context*) * (string * 'kind) list(*type context*)), 'mtype) uvar_ref
 
 fun refine (x : ('a, 'b) uvar_ref) (v : 'b) = 
   case !x of
@@ -54,7 +54,7 @@ fun str_uvar_i (str_bs, str_i) (u : ('bsort, 'idx) uvar_i) =
       Refined i => str_i i
     | Fresh info => str_uinfo_i str_bs info
 
-fun str_uvar_s str_s (u : 'sort uvar_s) =
+fun str_uvar_s str_s (u : ('bsort, 'sort) uvar_s) =
   case !u of
       Refined s => str_s s
     | Fresh info => str_uinfo_s info

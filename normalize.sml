@@ -57,10 +57,10 @@ fun update_s s =
       UVarS (x, r) => load_uvar' update_s s x
     | Basic _ => s
     | Subset ((b, r1), Bind (name, p), r) => Subset ((update_bs b, r1), Bind (name, update_p p), r)
-    | SAbs (s1, Bind (name, s), r) => SAbs (update_s s1, Bind (name, update_s s), r)
+    | SAbs (s1, Bind (name, s), r) => SAbs (update_bs s1, Bind (name, update_s s), r)
     | SApp (s, i) => SApp (update_s s, update_i i)
 
-fun update_k k = mapSnd (map update_s) k
+fun update_k k = mapSnd (map update_bs) k
                       
 fun update_mt t =
   case t of
@@ -74,7 +74,7 @@ fun update_mt t =
     | MtVar x => MtVar x
     | MtAbs (k, Bind (name, t), r) => MtAbs (update_k k, Bind (name, update_mt t), r)
     | MtApp (t1, t2) => MtApp (update_mt t1, update_mt t2)
-    | MtAbsI (s, Bind (name, t), r) => MtAbsI (update_s s, Bind (name, update_mt t), r)
+    | MtAbsI (s, Bind (name, t), r) => MtAbsI (update_bs s, Bind (name, update_mt t), r)
     | MtAppI (t, i) => MtAppI (update_mt t, update_i i)
     | BaseType a => BaseType a
 
@@ -82,8 +82,6 @@ fun update_t t =
   case t of
       Mono t => Mono (update_mt t)
     | Uni (Bind (name, t), r) => Uni (Bind (name, update_t t), r)
-
-fun update_k k = mapSnd (map update_s) k
 
 fun update_ke (dt, k, t) = (dt, update_k k, Option.map update_mt t)
 
@@ -200,7 +198,7 @@ fun normalize_s s =
       UVarS (x, r) => load_uvar' normalize_s s x
     | Basic _ => s
     | Subset ((b, r1), Bind (name, p), r) => Subset ((normalize_bs b, r1), Bind (name, normalize_p p), r)
-    | SAbs (s_arg, Bind (name, s), r) => SAbs (normalize_s s_arg, Bind (name, normalize_s s), r)
+    | SAbs (s_arg, Bind (name, s), r) => SAbs (normalize_bs s_arg, Bind (name, normalize_s s), r)
     | SApp (s, i) =>
       let
         val s = normalize_s s
@@ -211,7 +209,7 @@ fun normalize_s s =
           | _ => SApp (s, i)
       end
         
-fun normalize_k k = mapSnd (map normalize_s) k
+fun normalize_k k = mapSnd (map normalize_bs) k
                                       
 fun whnf_mt gctx kctx (t : mtype) : mtype =
   let
@@ -261,7 +259,7 @@ fun normalize_mt gctx kctx t =
           | Prod (t1, t2) => Prod (normalize_mt kctx t1, normalize_mt kctx t2)
           | UniI (s, bind, r) => UniI (normalize_s s, normalize_ibind normalize_mt kctx bind, r)
           | MtVar x => try_retrieve_MtVar (normalize_mt kctx) gctx kctx x
-          | MtAbsI (s, bind, r) => MtAbsI (normalize_s s, normalize_ibind normalize_mt kctx bind, r)
+          | MtAbsI (s, bind, r) => MtAbsI (normalize_bs s, normalize_ibind normalize_mt kctx bind, r)
           | MtAppI (t, i) =>
             let
               val t = normalize_mt kctx t
@@ -298,7 +296,7 @@ fun normalize_t gctx kctx t =
       Mono t => Mono (normalize_mt gctx kctx t)
     | Uni (Bind (name, t), r) => Uni (Bind (name, normalize_t gctx (add_kinding (fst name, Type) kctx) t), r)
 
-fun normalize_k k = mapSnd (map normalize_s) k
+fun normalize_k k = mapSnd (map normalize_bs) k
 
 fun normalize_ke gctx kctx ((dt, k, t) : kind_ext) = (dt, normalize_k k, Option.map (normalize_mt gctx kctx) t)
 

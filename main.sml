@@ -57,7 +57,7 @@ fun process_prog show_result filename gctx prog =
           open SU.Set
           open SU
           open List
-          fun collect_mod_ke (dt, k, t) = collect_mod_k k @ default [] (Option.map collect_mod_mt t)
+          fun collect_mod_ke (dt, k, t) = default [] (Option.map collect_mod_mt t)
           fun collect_mod_ctx ((sctx, kctx, cctx, tctx) : context) =
             let
               val acc = []

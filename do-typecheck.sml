@@ -70,7 +70,7 @@ fun is_wf_bsort (bs : U.bsort) : bsort =
     | U.UVarBS () => fresh_bsort ()
 
 (* a classifier for [sort], since [sort] has [SAbs] and [SApp] *)        
-type sort_type = sort list
+type sort_type = bsort list
 val Sort : sort_type = []
 fun is_Sort (t : sort_type) = null t
                       
@@ -94,21 +94,21 @@ fun get_sort_type gctx (ctx : scontext, s : U.sort) : sort * sort_type =
       | U.UVarS ((), r) =>
         (* sort underscore will always mean a sort of type Sort *)
         (fresh_sort gctx ctx r, Sort)
-      | U.SAbs (s1, Bind ((name, r1), s), r) =>
+      | U.SAbs (b, Bind ((name, r1), s), r) =>
         let
-          val s1 = is_wf_sort (ctx, s1)
-          val (s, t) = get_sort_type (add_sorting (name, s1) ctx, s)
+          val b = is_wf_bsort b
+          val (s, t) = get_sort_type (add_sorting (name, Basic (b, r1)) ctx, s)
         in
-          (SAbs (s1, Bind ((name, r1), s), r), s1 :: t)
+          (SAbs (b, Bind ((name, r1), s), r), b :: t)
         end
       | U.SApp (s, i) =>
         let
           val (s, t) = get_sort_type (ctx, s)
-          val (s1, t) =
+          val (b, t) =
               case t of
-                  s1 :: t => (s1, t)
+                  b :: t => (b, t)
                 | [] => raise Error (get_region_s s, [sprintf "sort $ should be an abstract" [str_s (gctx_names gctx) (sctx_names ctx) s]])
-          val i = check_bsort (ctx, i, get_base refine_UVarS_to_Basic s1)
+          val i = check_bsort (ctx, i, b)
         in
           (SApp (s, i), t)
         end
@@ -423,7 +423,7 @@ fun check_sorts gctx (ctx, is : U.idx list, sorts, r) : idx list =
   (check_length r (is, sorts);
    ListPair.map (fn (i, s) => check_sort gctx (ctx, i, s)) (is, sorts))
 
-fun is_wf_kind gctx (sctx, k) = mapSnd (curry (is_wf_sorts gctx) sctx) k
+fun is_wf_kind (k : U.kind) = mapSnd (map is_wf_bsort) k
 
 (* k => Type *)
 fun recur_kind k = (0, k)
@@ -432,13 +432,13 @@ fun recur_kind k = (0, k)
 datatype hkind =
          HKType
          | HKArrow of hkind * hkind
-         | HKArrowI of sort * hkind
+         | HKArrowI of bsort * hkind
 
-fun str_hk gctx ctx k =
+fun str_hk k =
   case k of
       HKType => "*"
-    | HKArrow (k1, k2) => sprintf "($ => $)" [str_hk gctx ctx k1, str_hk gctx ctx k2]
-    | HKArrowI (s, k) => sprintf "($ => $)" [str_s gctx ctx s, str_hk gctx ctx k]
+    | HKArrow (k1, k2) => sprintf "($ => $)" [str_hk k1, str_hk k2]
+    | HKArrowI (s, k) => sprintf "($ => $)" [str_bs s, str_hk k]
 
 val HType = HKType
 
@@ -450,24 +450,24 @@ fun kind_to_higher_kind (n, sorts) =
     k
   end
 
-fun is_sub_higher_kind r gctxn sctxn (k, k') =
+fun unify_higher_kind r (k, k') =
   case (k, k') of
       (HKType, HKType) => ()
     | (HKArrow (k1, k2), HKArrow (k1', k2')) =>
       let
-        val () = is_sub_higher_kind r gctxn sctxn (k1', k1)
-        val () = is_sub_higher_kind r gctxn sctxn (k2, k2')
+        val () = unify_higher_kind r (k1, k1')
+        val () = unify_higher_kind r (k2, k2')
       in
         ()
       end
     | (HKArrowI (s, k), HKArrowI (s', k')) =>
       let
-        val () = is_sub_sort r gctxn sctxn (s', s)
-        val () = is_sub_higher_kind r gctxn sctxn (k, k')
+        val () = unify_bs r (s, s')
+        val () = unify_higher_kind r (k, k')
       in
         ()
       end
-    | _  => raise Error (r, [kind_mismatch (str_hk gctxn sctxn k) (str_hk gctxn sctxn) k'])
+    | _  => raise Error (r, [kind_mismatch (str_hk k) str_hk k'])
 
 fun get_higher_kind gctx (ctx as (sctx : scontext, kctx : kcontext), c : U.mtype) : mtype * hkind = 
   let
@@ -514,7 +514,7 @@ fun get_higher_kind gctx (ctx as (sctx : scontext, kctx : kcontext), c : U.mtype
           (MtVar x, kind_to_higher_kind $ fetch_kind gctx (kctx, x))
         | U.MtAbs (k1, Bind ((name, r1), t), r) =>
           let
-            val k1 = is_wf_kind gctx (sctx, k1)
+            val k1 = is_wf_kind k1
             val (t, k) = get_higher_kind (add_kinding_sk (name, k1) ctx, t)
             val k1' = kind_to_higher_kind k1
             val k = HKArrow (k1', k)
@@ -532,28 +532,28 @@ fun get_higher_kind gctx (ctx as (sctx : scontext, kctx : kcontext), c : U.mtype
                 in
                   (MtApp (t1, t2), k2)
                 end
-              | _ => error (get_region_mt t1, str_mt gctxn ctxn t1, "<kind> => <kind>", str_hk gctxn sctxn, k)
+              | _ => error (get_region_mt t1, str_mt gctxn ctxn t1, "<kind> => <kind>", str_hk, k)
           end
-        | U.MtAbsI (s, Bind ((name, r1), t), r) =>
+        | U.MtAbsI (b, Bind ((name, r1), t), r) =>
           let
-            val s = is_wf_sort gctx (sctx, s)
-            val (t, k) = get_higher_kind (add_sorting_sk (name, s) ctx, t)
-            val k = HKArrowI (s, k)
+            val b = is_wf_bsort b
+            val (t, k) = get_higher_kind (add_sorting_sk (name, Basic (b, r1)) ctx, t)
+            val k = HKArrowI (b, k)
           in
-            (MtAbsI (s, Bind ((name, r1), t), r), k)
+            (MtAbsI (b, Bind ((name, r1), t), r), k)
           end
         | U.MtAppI (t, i) =>
           let
             val (t, k) = get_higher_kind (ctx, t)
           in
             case k of
-                HKArrowI (s, k) =>
+                HKArrowI (b, k) =>
                 let
-                  val i = check_sort gctx (sctx, i, s)
+                  val i = check_bsort gctx (sctx, i, b)
                 in
                   (MtAppI (t, i), k)
                 end
-              | _ => error (get_region_mt t, str_mt gctxn ctxn t, "<sort> => <kind>", str_hk gctxn sctxn, k)
+              | _ => error (get_region_mt t, str_mt gctxn ctxn t, "<sort> => <kind>", str_hk, k)
           end
     val ret =
         main ()
@@ -566,7 +566,7 @@ fun get_higher_kind gctx (ctx as (sctx : scontext, kctx : kcontext), c : U.mtype
 and check_higher_kind gctx (ctx, t, k) =
     let
       val (t, k') = get_higher_kind gctx (ctx, t)
-      val () = is_sub_higher_kind (get_region_mt t) (gctx_names gctx) (sctx_names $ #1 ctx) (k', k)
+      val () = unify_higher_kind (get_region_mt t) (k', k)
     in
       t
     end
@@ -590,7 +590,7 @@ fun higher_kind_to_kind k =
 fun get_kind gctx (ctx as (sctx : scontext, kctx : kcontext), t : U.mtype) : mtype * kind =
   let
     val (t, k) = get_higher_kind gctx (ctx, t)
-    val k = lazy_default (fn () => raise Error (get_region_mt t, kind_mismatch_in_type "first-order kind (i.e. * => ... <sort> => ... => *)" (str_hk (gctx_names gctx) (sctx_names sctx)) k (str_mt (gctx_names gctx) (sctx_names sctx, names kctx) t))) $ higher_kind_to_kind k
+    val k = lazy_default (fn () => raise Error (get_region_mt t, kind_mismatch_in_type "first-order kind (i.e. * => ... <sort> => ... => *)" str_hk k (str_mt (gctx_names gctx) (sctx_names sctx, names kctx) t))) $ higher_kind_to_kind k
   in
     (t, k)
   end
@@ -598,7 +598,7 @@ fun get_kind gctx (ctx as (sctx : scontext, kctx : kcontext), t : U.mtype) : mty
 fun check_kind gctx (ctx, t, k) =
     let
       val (t, k') = get_kind gctx (ctx, t)
-      val () = is_sub_kind (get_region_mt t) (gctx_names gctx) (sctx_names $ #1 ctx) (k', k)
+      val () = unify_k (get_region_mt t) (k', k)
     in
       t
     end
@@ -1174,8 +1174,8 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
       in
         ()
       end
-    (* val () = print $ sprintf "Typing $\n" [U.str_e gctxn ctxn e_all] *)
-    (* val () = print $ sprintf "  Typing $\n" [U.str_raw_e e_all] *)
+    val () = print $ sprintf "Typing $\n" [U.str_e gctxn ctxn e_all]
+    val () = print $ sprintf "  Typing $\n" [U.str_raw_e e_all]
     (* val () = print_ctx gctx ctx *)
     fun main () =
       case e_all of
@@ -1741,9 +1741,9 @@ and check_decls gctx (ctx, decls) : decl list * context * int * idx list * conte
       (decls, ctxd, nps, ds, ctx)
     end
 
-and is_wf_datatype gctx ctx (name, tnames, sorts, constr_decls, r) : datatype_def * context =
+and is_wf_datatype gctx ctx ((name, tnames, sorts, constr_decls, r) : U.datatype_def) : datatype_def * context =
     let 
-      val sorts = is_wf_sorts gctx (#1 ctx, sorts)
+      val sorts = map is_wf_bsort sorts
       val nk = (name, (true, (length tnames, sorts), NONE))
       val ctx as (sctx, kctx, _, _) = add_kindingext_skct nk ctx
       fun make_constr ((name, ibinds, r) : U.constr_decl) : constr_decl * (string * constr) =
@@ -1973,7 +1973,7 @@ fun is_wf_sig gctx (comps, r) =
           end
         | U.SpecType ((name, r), k) =>
           let
-            val k = is_wf_kind gctx (sctx, k)
+            val k = is_wf_kind k
           in
             (SpecType ((name, r), k), add_kinding_skct (name, k) ctx)
           end

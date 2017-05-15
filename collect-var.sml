@@ -134,13 +134,7 @@ local
         in
           acc
         end
-      | MtAbs (k, bind, _) =>
-        let
-          val acc = collect_var_aux_i_k d acc k
-          val acc = collect_var_aux_i_tbind f d acc bind
-        in
-          acc
-        end
+      | MtAbs (k, bind, _) => collect_var_aux_i_tbind f d acc bind
       | MtAppI (t, i) =>
         let
           val acc = f d acc t
@@ -148,13 +142,7 @@ local
         in
           acc
         end
-      | MtAbsI (s, bind, r) =>
-        let
-          val acc = collect_var_aux_i_s d acc s
-          val acc = collect_var_aux_i_ibind f d acc bind
-        in
-          acc
-        end
+      | MtAbsI (b, bind, r) => collect_var_aux_i_ibind f d acc bind
       | BaseType _ => acc
       | UVar _ => acc
 in

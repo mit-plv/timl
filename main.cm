@@ -14,9 +14,8 @@ Group is
       sexp/parser.sml
       operators.sml
       parser/ast.sml
-      parser/timl.grm.sig
-      parser/timl.grm.sml
-      parser/timl.lex.sml
+      parser/timl.grm
+      parser/timl.lex
       parser/parser.sml
       bind.sml
       module-context.sml
@@ -25,7 +24,6 @@ Group is
       uvar-expr.sml
       elaborate.sml
       name-resolve.sml
-      nouvar-expr.sml
       package.sml
       typecheck-util.sml
       normalize.sml
@@ -41,7 +39,6 @@ Group is
       post-typecheck.sml
       typecheck.sml
       smt2-printer.sml
-      check-no-uvar.sml
       smt-solver.sml
       long-id-map.sml
       bigO-solver.sml

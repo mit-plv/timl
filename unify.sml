@@ -149,7 +149,7 @@ fun unify_i r gctxn ctxn (i, i') =
     ()
   end
 
-fun is_sub_sort r gctxn ctxn (s, s') =
+fun is_sub_sort r gctxn ctxn (s : sort, s' : sort) =
   let
     val is_sub_sort = is_sub_sort r gctxn
     val is_eqv_sort = is_eqv_sort r gctxn
@@ -216,9 +216,9 @@ fun is_sub_sort r gctxn ctxn (s, s') =
             in
               ()
             end
-          | (SAbs (s1, Bind ((name, _), s), _), SAbs (s1', Bind (_, s'), _)) =>
+          | (SAbs (b, Bind ((name, _), s), _), SAbs (b', Bind (_, s'), _)) =>
             let
-              val () = is_eqv_sort ctxn (s1, s1')
+	      val () = unify_bs r (b, b')
               val () = is_sub_sort (name :: ctxn) (s, s')
             in
               ()
@@ -268,24 +268,16 @@ fun kind_mismatch expect str_got got = sprintf "Kind mismatch: expect $ got $" [
 fun kind_mismatch_in_type expected str_got got thing =
   [sprintf "Kind mismatch:" [thing]] @ indent [sprintf "expected:\t $" [expected], sprintf "got:\t $" [str_got got], sprintf "in type:\t $" [thing]]
 
-fun is_sub_kind r gctxn sctxn (k as (ntargs, sorts), k' as (ntargs', sorts')) =
+fun unify_k r (k as (ntargs, sorts), k' as (ntargs', sorts')) =
   let
     val () = check_eq r op= (ntargs, ntargs')
-    (* contravariant *)
-    val () = is_sub_sorts r gctxn sctxn (sorts', sorts)
+    val () = check_eq r op= (length sorts, length sorts')
+    val () = app (unify_bs r) $ zip (sorts, sorts')
   in
     ()
   end
-  handle Error _ => raise Error (r, [kind_mismatch (str_k gctxn sctxn k') (str_k gctxn sctxn) k])
+  handle Error _ => raise Error (r, [kind_mismatch (str_k k') str_k k])
                               
-fun is_eqv_kind r gctxn sctxn (k, k') =
-  let
-    val () = is_sub_kind r gctxn sctxn (k, k')
-    val () = is_sub_kind r gctxn sctxn (k', k)
-  in
-    ()
-  end
-
 (*      
 fun unify_kind r gctxn sctxn (k, k') =
     case (k, k') of
@@ -398,7 +390,7 @@ fun unify_mt r gctx ctx (t, t') =
 	| (BaseType (Int, _), BaseType (Int, _)) => ()
         | (MtAbs (k, Bind ((name, _), t), _), MtAbs (k', Bind (_, t'), _)) =>
           let
-            val () = is_eqv_kind r gctxn sctxn (k, k')
+            val () = unify_k r (k, k')
             val () = unify_mt (add_kinding_sk (name, k) ctx) (t, t')
           in
             ()
@@ -410,10 +402,10 @@ fun unify_mt r gctx ctx (t, t') =
           in
             ()
           end
-        | (MtAbsI (s, Bind ((name, _), t), _), MtAbsI (s', Bind (_, t'), _)) =>
+        | (MtAbsI (b, Bind ((name, _), t), _), MtAbsI (b', Bind (_, t'), _)) =>
           let
-            val () = is_eqv_sort r gctxn sctxn (s, s')
-            val () = open_close add_sorting_sk (name, s) ctx (fn ctx => unify_mt ctx (t, t'))
+            val () = unify_bs r (b, b')
+            val () = open_close add_sorting_sk (name, Basic (b, r)) ctx (fn ctx => unify_mt ctx (t, t'))
           in
             ()
           end
@@ -480,7 +472,7 @@ fun is_sub_kindext r gctx ctx (ke as (dt, k, t), ke' as (dt', k', t')) =
     val sctxn = sctx_names $ #1 ctx
     val kctxn = names $ #2 ctx
     val () = check_eq r op= (dt, dt')
-    val () = is_sub_kind r gctxn sctxn (k, k')
+    val () = unify_k r (k, k')
   in
     case (t, t') of
         (NONE, NONE) => ()

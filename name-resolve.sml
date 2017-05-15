@@ -120,13 +120,13 @@ fun on_prop gctx ctx p =
 
 fun on_sort gctx ctx s =
     case s of
-	E.Basic (s, r) => Basic (on_bsort s, r)
+	E.Basic (b, r) => Basic (on_bsort b, r)
       | E.Subset ((s, r1), bind, r_all) => Subset ((on_bsort s, r1), on_ibind (on_prop gctx) ctx bind, r_all)
       | E.UVarS u => UVarS u
-      | E.SAbs (s, bind, r) => SAbs (on_sort gctx ctx s, on_ibind (on_sort gctx) ctx bind, r)
+      | E.SAbs (b, bind, r) => SAbs (on_bsort b, on_ibind (on_sort gctx) ctx bind, r)
       | E.SApp (s, i) => SApp (on_sort gctx ctx s, on_idx gctx ctx i)
                                                    
-fun on_kind gctx ctx k = mapSnd (map (on_sort gctx ctx)) k
+fun on_kind k = mapSnd (map on_bsort) k
 
 fun on_mtype gctx (ctx as (sctx, kctx)) t =
     let
@@ -141,7 +141,7 @@ fun on_mtype gctx (ctx as (sctx, kctx)) t =
 	| E.UniI (s, E.Bind ((name, r), t), r_all) => UniI (on_sort gctx sctx s, Bind ((name, r), on_mtype (name :: sctx, kctx) t), r_all)
         | E.MtVar x => MtVar $ on_long_id gctx #2 kctx x
         | E.MtApp (t1, t2) => MtApp (on_mtype ctx t1, on_mtype ctx t2)
-        | E.MtAbs (k, Bind ((name, r), t), r_all) => MtAbs (on_kind gctx sctx k, Bind ((name, r), on_mtype (sctx, name :: kctx) t), r_all)
+        | E.MtAbs (k, Bind ((name, r), t), r_all) => MtAbs (on_kind k, Bind ((name, r), on_mtype (sctx, name :: kctx) t), r_all)
         | E.MtAppI (t1, i) =>
           let
             fun default () = MtAppI (on_mtype ctx t1, on_idx gctx sctx i)
@@ -161,7 +161,7 @@ fun on_mtype gctx (ctx as (sctx, kctx)) t =
                 end
               | NONE => default ()         
           end
-        | E.MtAbsI (s, Bind ((name, r), t), r_all) => MtAbsI (on_sort gctx sctx s, Bind ((name, r), on_mtype (name :: sctx, kctx) t), r_all)
+        | E.MtAbsI (b, Bind ((name, r), t), r_all) => MtAbsI (on_bsort b, Bind ((name, r), on_mtype (name :: sctx, kctx) t), r_all)
 	| E.BaseType (bt, r) => BaseType (bt, r)
         | E.UVar u => UVar u
     end
@@ -495,7 +495,7 @@ and on_datatype gctx (ctx as (sctx, kctx, cctx, tctx)) (name, tnames, sorts, con
     let
       fun on_constr_decl (cname, core, r) =
           (cname, on_constr_core gctx (sctx, name :: kctx) tnames core, r)
-      val decl = (name, tnames, map (on_sort gctx sctx) sorts, map on_constr_decl constr_decls, r)
+      val decl = (name, tnames, map on_bsort sorts, map on_constr_decl constr_decls, r)
       val cnames = map (fn (name, core, _) => (name, get_constr_inames core)) constr_decls
       val ctx = (sctx, name :: kctx, rev cnames @ cctx, tctx)
     in
@@ -531,7 +531,7 @@ fun on_sig gctx (comps, r) =
           end
         | E.SpecType ((name, r), k) =>
           let
-            val k = on_kind gctx sctx k
+            val k = on_kind k
           in
             (SpecType ((name, r), k), add_kinding_skct name ctx)
           end
@@ -640,7 +640,7 @@ fun resolve_type_opt ctx e = runError (fn () => on_type ctx e) ()
 fun resolve_expr_opt ctx e = runError (fn () => on_expr ctx e) ()
 
 fun resolve_constr_opt ctx e = runError (fn () => on_constr ctx e) ()
-fun resolve_kind_opt ctx e = runError (fn () => on_kind ctx e) ()
+fun resolve_kind_opt e = runError (fn () => on_kind e) ()
 
 val get_constr_inames = get_constr_inames
 

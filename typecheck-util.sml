@@ -28,9 +28,9 @@ exception Error of region * string list
 type kind_ext = bool (*is datatype*) * kind * mtype option (*aliasing*)
 
 fun str_ke gctx (ctx as (sctx, kctx)) (dt, k, t) =
-  if not dt andalso isNone t then str_k gctx sctx k
+  if not dt andalso isNone t then str_k k
   else
-    sprintf "($$$)" [str_k gctx sctx k, if dt then " [datatype]" else "", str_opt (fn t => sprintf " (= $)" [str_mt gctx ctx t]) t]
+    sprintf "($$$)" [str_k k, if dt then " [datatype]" else "", str_opt (fn t => sprintf " (= $)" [str_mt gctx ctx t]) t]
                                  
 (* sorting context *)
 type scontext = (string (* option *) * sort) list
@@ -65,7 +65,7 @@ type sigcontext = sgntr Gctx.map
                                    
 fun names ctx = map fst ctx
 
-fun shiftx_i_ke x n (dt, k, t) = (dt, shiftx_i_k x n k, Option.map (shiftx_i_mt x n) t)
+fun shiftx_i_ke x n (dt, k, t) = (dt, k, Option.map (shiftx_i_mt x n) t)
                                   
 fun shiftx_t_ke x n (dt, k, t) = (dt, k, Option.map (shiftx_t_mt x n) t)
                                   
@@ -225,11 +225,11 @@ fun ctx_from_typing pair : context = ([], [], [], [pair])
 
 (* fetching from context *)
                                    
-fun package_i_ke x v (dt, k, t) = (dt, package_i_kind x v k, Option.map (package_i_mt x v) t)
+fun package_i_ke x v (dt, k, t) = (dt, k, Option.map (package_i_mt x v) t)
                                   
 fun package_t_ke x v (dt, k, t) = (dt, k, Option.map (package_t_mt x v) t)
 
-fun package0_ke v b =
+fun package0_ke v (b : kind_ext) =
   package_t_ke 0 v $ package_i_ke 0 v b
                
 fun pacakge_is_mt vs b =

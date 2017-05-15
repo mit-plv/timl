@@ -163,12 +163,9 @@ local
 	| S.Arrow (t1, d, t2, _) => Arrow (elab_mt t1, elab_i d, elab_mt t2)
 	| S.Prod (t1, t2, _) => Prod (elab_mt t1, elab_mt t2)
 	| S.Quan (quan, binds, t, r) =>
-	  let fun f (b, t) =
-		  case b of
-		      Sorting (x, s, _) =>
-		      (case quan of
-			   S.Forall => UniI (elab_s s, Bind (x, t), r)
-                      )
+	  let fun f ((x, s, _), t) =
+		case quan of
+		    S.Forall => UniI (elab_s s, Bind (x, t), r)
 	  in
 	    foldr f (elab_mt t) binds
 	  end
@@ -223,9 +220,9 @@ local
                                                              inl a => (a :: acc1, acc2) |
                                                              inr b => (acc1, b :: acc2)) ([], []) ls
                 
-  fun elab_datatype (name, tnames, top_sortings, sorts, constrs, r) =
+  fun elab_datatype ((name, tnames, top_sortings, sorts, constrs, r) : S.datatype_def) : datatype_def =
       let
-        val sorts = map elab_s (map (fn Sorting (_, s, _) => s) top_sortings @ sorts)
+        val sorts = map (fst o elab_b) (map (fn (_, s, _) => s) top_sortings @ sorts)
         fun default_t2 r = foldl (fn (arg, f) => S.AppTT (f, S.VarT (NONE, (arg, r)), r)) (S.VarT (NONE, (name, r))) tnames
         fun elab_constr (((cname, _), binds, core, r) : S.constr_decl) : constr_decl =
             let
@@ -236,10 +233,8 @@ local
                       NONE => (S.VarT (NONE, ("unit", r)), default_t2 r)
                     | SOME (t1, NONE) => (S.VarT (NONE, ("unit", r)), t1)
                     | SOME (t1, SOME t2) => (t1, t2)
-              fun f bind =
-                  case bind of
-                      Sorting ((name, _), sort, r) => (name, elab_s sort)
-              val binds = map f (top_sortings @ binds)
+              fun f ((name, _), sort, r) = (name, elab_s sort)
+              val binds = map f (map (fn (name, b, r) => (name, S.Basic b, r)) top_sortings @ binds)
               val t2_orig = t2
               val (t2, is) = get_is t2
               val (t2, ts) = get_ts t2
@@ -289,7 +284,7 @@ local
             fun f (b, e) =
 		case b of
 		    Typing pn => Abs (elab_pn pn, e)
-		  | TBind (Sorting (name, s, _)) => AbsI (elab_s s, Bind (name, e), r)
+		  | TBind (name, s, _) => AbsI (elab_s s, Bind (name, e), r)
             val e = elab e
             val e = case d of SOME d => AscriptionTime (e, elab_i d) | _ => e
             val e = case t of SOME t => Ascription (e, elab_mt t) | _ => e
@@ -338,7 +333,7 @@ local
             fun f bind =
                 case bind of
 		    Typing pn => TypingST (elab_pn pn)
-		  | TBind (Sorting (nm, s, _)) => SortingST (nm, elab_s s)
+		  | TBind (nm, s, _) => SortingST (nm, elab_s s)
             val binds = map f binds
             (* if the function body is a [case] without annotations, copy the return clause from the function signature to the [case] *)
             (* val e = copy_anno (t, d) e *)
@@ -382,7 +377,7 @@ local
         | S.SpecType (tnames, sorts, r) =>
           (case tnames of
                [] => raise Error (r, "Type declaration must have a name")
-             | name :: tnames => SpecType (name, (length tnames, map elab_s sorts))
+             | name :: tnames => SpecType (name, (length tnames, map (fst o elab_b) sorts))
           )
         | S.SpecTypeDef (name, ty) => SpecTypeDef (name, elab_mt ty)
 

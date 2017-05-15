@@ -32,6 +32,7 @@ fun str_bt bt =
 end
 
 functor ExprFn (structure Var : VAR structure UVar : UVAR) = struct
+
 open Var
 open BaseSorts
 open BaseTypes
@@ -94,13 +95,12 @@ datatype prop =
 datatype sort =
 	 Basic of bsort * region
 	 | Subset of (bsort * region) * (name * prop) ibind * region
-         | UVarS of sort uvar_s * region
-         (* a special form of [Subset] just to express that the [idx] argument will be dependent on the refinement variable, in order to support big-O spec inference *)
+         | UVarS of (bsort, sort) uvar_s * region
          (* [SAbs] and [SApp] are just for higher-order unification *)
-         | SAbs of sort * (name * sort) ibind * region
+         | SAbs of bsort * (name * sort) ibind * region
          | SApp of sort * idx
                             
-type kind = int (*number of type arguments*) * sort list
+type kind = int (*number of type arguments*) * bsort list
 
 (* monotypes *)
 datatype mtype = 
@@ -115,9 +115,9 @@ datatype mtype =
          (* type-level computations *)
          | MtAbs of kind * (name * mtype) tbind * region
          | MtApp of mtype * mtype
-         | MtAbsI of sort * (name * mtype) ibind  * region
+         | MtAbsI of bsort * (name * mtype) ibind  * region
          | MtAppI of mtype * idx
-         | UVar of (sort, kind, mtype) uvar_mt * region
+         | UVar of (bsort, kind, mtype) uvar_mt * region
 
 datatype ty = 
 	 Mono of mtype
@@ -128,7 +128,7 @@ type constr_decl = string * constr_core * region
 type constr = long_id(*family*) * string list(*type argument names*) * constr_core
 
 type return = mtype option * idx option
-type datatype_def = string * string list * sort list * constr_decl list * region
+type datatype_def = string * string list * bsort list * constr_decl list * region
 
 datatype ptrn =
 	 ConstrP of (long_id * bool(*eia*)) * string list * ptrn option * region (* eia : is explicit index arguments? *)                                         
@@ -551,7 +551,7 @@ fun eq_s s s' =
       )
     | SAbs (s1, Bind (_, s), _) =>
       (case s' of
-           SAbs (s1', Bind (_, s'), _) => eq_s s1 s1' andalso eq_s s s'
+           SAbs (s1', Bind (_, s'), _) => eq_bs s1 s1' andalso eq_s s s'
          | _ => false
       )
     | SApp (s, i) =>
@@ -563,7 +563,7 @@ fun eq_s s s' =
 fun eq_ls eq (ls1, ls2) = length ls1 = length ls2 andalso List.all eq $ zip (ls1, ls2)
                                                               
 fun eq_k ((n, sorts) : kind) (n', sorts') =
-  n = n' andalso eq_ls (uncurry eq_s) (sorts, sorts')
+  n = n' andalso eq_ls (uncurry eq_bs) (sorts, sorts')
   
 fun eq_mt t t' = 
     case t of
@@ -614,7 +614,7 @@ fun eq_mt t t' =
         )
       | MtAbsI (s, Bind (_, t), r) =>
         (case t' of
-             MtAbsI (s', Bind (_, t'), _) => eq_s s s' andalso eq_mt t t'
+             MtAbsI (s', Bind (_, t'), _) => eq_bs s s' andalso eq_mt t t'
            | _ => false
         )
       | MtAppI (t, i) =>
@@ -709,7 +709,7 @@ fun str_raw_mt (t : mtype) : string =
     | MtAppI (t, i) => sprintf "MtAppI ($, $)" [str_raw_mt t, str_raw_i i]
     | MtAbsI (s, bind, _) => sprintf "MtAbsI ($, $)" ["<sort>", str_raw_bind str_raw_mt bind]
     | BaseType (bt, _) => sprintf "BaseType ($)" [str_bt bt]
-    | UVar (u, _) => sprintf "UVar ($)" [str_uvar_mt (str_raw_s, str_raw_k, str_raw_mt) u]
+    | UVar (u, _) => sprintf "UVar ($)" [str_uvar_mt (str_raw_bs, str_raw_k, str_raw_mt) u]
 
 fun str_raw_t (t : ty) : string =
   case t of
@@ -803,7 +803,7 @@ fun str_s gctx ctx (s : sort) : string =
         end
       | UVarS (u, _) => str_uvar_s (str_s []) u
       | SAbs (s1, Bind ((name, _), s), _) =>
-        sprintf "(fn $ : $ => $)" [name, str_s ctx s1, str_s (name :: ctx) s]
+        sprintf "(fn $ : $ => $)" [name, str_bs s1, str_s (name :: ctx) s]
       | SApp (s, i) => sprintf "($ $)" [str_s ctx s, str_i gctx ctx i]
   end
 
@@ -842,10 +842,10 @@ fun str_sortings gctx ctx binds =
 
 val str_Type = "*"
                  
-fun str_k gctx ctx ((n, sorts) : kind) : string =
+fun str_k ((n, sorts) : kind) : string =
   if n = 0 andalso null sorts then str_Type
   else
-    sprintf "($$$)" [if n = 0 then "" else join " => " (repeat n str_Type) ^ " => ", if null sorts then "" else join " => " (map (str_s gctx ctx) sorts) ^ " => ", str_Type]
+    sprintf "($$$)" [if n = 0 then "" else join " => " (repeat n str_Type) ^ " => ", if null sorts then "" else join " => " (map str_bs sorts) ^ " => ", str_Type]
 
 fun str_mt gctx (ctx as (sctx, kctx)) (t : mtype) : string =
   let
@@ -897,7 +897,7 @@ fun str_mt gctx (ctx as (sctx, kctx)) (t : mtype) : string =
         fun iter ((c, name), (acc, (sctx, kctx))) =
           case c of
               inl s => (sprintf "{$ : $}" [name, (* str_s gctx sctx s *)"..."] :: acc, (name :: sctx, kctx))
-            | inr k => (sprintf "[$ : $]" [name, str_k gctx sctx k] :: acc, (sctx, name :: kctx))
+            | inr k => (sprintf "[$ : $]" [name, str_k k] :: acc, (sctx, name :: kctx))
         val (binds, (sctx, kctx)) = foldl iter ([], (sctx, kctx)) binds
         val binds = rev binds
         (* val () = println $ str_int (length binds) *)
@@ -907,7 +907,7 @@ fun str_mt gctx (ctx as (sctx, kctx)) (t : mtype) : string =
       end
   in
     case is_MtApp_UVar t of
-        SOME ((x, _), i_args, t_args) => sprintf "($ ...)" [str_uvar_mt (str_raw_s, str_raw_k, str_mt ([], [])) x]
+        SOME ((x, _), i_args, t_args) => sprintf "($ ...)" [str_uvar_mt (str_raw_bs, str_raw_k, str_mt ([], [])) x]
       | NONE =>
     case t of
         Arrow (t1, d, t2) =>
@@ -943,7 +943,7 @@ fun str_mt gctx (ctx as (sctx, kctx)) (t : mtype) : string =
         let
           fun str_region ((left, right) : region) = sprintf "($,$)-($,$)" [str_int (#line left), str_int (#col left), str_int (#line right), str_int (max (#col right) 0)]
         in
-          (* (surround "[" "] " $ str_region r) ^ *) str_uvar_mt (str_raw_s, str_raw_k, str_mt ([], [])) u
+          (* (surround "[" "] " $ str_region r) ^ *) str_uvar_mt (str_raw_bs, str_raw_k, str_mt ([], [])) u
         end
   end
 
@@ -1151,7 +1151,7 @@ and str_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
                 in
                   sprintf "$ of$ $ ->$$ $" [cname, (join_prefix " " o map (surround "{" "}")) name_sorts, str_mt gctx (sctx', rev tnames @ name :: kctx) t, (join_prefix " " o map (surround "{" "}" o str_i gctx sctx') o rev) idxs, str_tnames, name]
                 end
-              val s = sprintf "datatype$$ $ = $" [(join_prefix " " o map (surround "{" "}" o str_s gctx sctx) o rev) sorts, str_tnames, name, join " | " (map str_constr_decl constrs)]
+              val s = sprintf "datatype$$ $ = $" [(join_prefix " " o map (surround "{" "}" o str_bs) o rev) sorts, str_tnames, name, join " | " (map str_constr_decl constrs)]
               val cnames = map #1 constrs
               val ctx = (sctx, name :: kctx, rev cnames @ cctx, tctx)
           in
@@ -1436,15 +1436,13 @@ fun on_i_s on_i_i on_i_p x n b =
 	  Basic s => Basic s
 	| Subset (s, bind, r) => Subset (s, on_i_ibind on_i_p x n bind, r)
         | UVarS a => b
-        | SAbs (s, bind, r) => SAbs (f x n s, on_i_ibind f x n bind, r)
+        | SAbs (b, bind, r) => SAbs (b, on_i_ibind f x n bind, r)
         | SApp (s, i) => SApp (f x n s, on_i_i x n i)
   in
     f x n b
   end
 
-fun on_i_k on_i_s x n b = mapSnd (map (on_i_s x n)) b
-                                               
-fun on_i_mt on_i_i on_i_s on_i_k x n b =
+fun on_i_mt on_i_i on_i_s x n b =
   let
     fun f x n b =
       case b of
@@ -1456,9 +1454,9 @@ fun on_i_mt on_i_i on_i_s on_i_k x n b =
 	| UniI (s, bind, r) => UniI (on_i_s x n s, on_i_ibind f x n bind, r)
         | MtVar y => MtVar y
         | MtApp (t1, t2) => MtApp (f x n t1, f x n t2)
-        | MtAbs (k, bind, r) => MtAbs (on_i_k x n k, on_i_tbind f x n bind, r)
+        | MtAbs (k, bind, r) => MtAbs (k, on_i_tbind f x n bind, r)
         | MtAppI (t, i) => MtAppI (f x n t, on_i_i x n i)
-        | MtAbsI (s, bind, r) => MtAbsI (on_i_s x n s, on_i_ibind f x n bind, r)
+        | MtAbsI (b, bind, r) => MtAbsI (b, on_i_ibind f x n bind, r)
 	| BaseType a => BaseType a
         | UVar a => b
   in
@@ -1627,10 +1625,7 @@ fun shift_i_p b = shiftx_i_p 0 1 b
 fun shiftx_i_s x n b = on_i_s shiftx_i_i shiftx_i_p x n b
 fun shift_i_s b = shiftx_i_s 0 1 b
 
-fun shiftx_i_k x n b = on_i_k shiftx_i_s x n b
-fun shift_i_k b = shiftx_i_k 0 1 b
-
-fun shiftx_i_mt x n b = on_i_mt shiftx_i_i shiftx_i_s shiftx_i_k x n b
+fun shiftx_i_mt x n b = on_i_mt shiftx_i_i shiftx_i_s x n b
 and shiftx_t_mt x n b = on_t_mt shiftx_v x n b
 fun shift_i_mt b = shiftx_i_mt 0 1 b
 fun shift_t_mt b = shiftx_t_mt 0 1 b
@@ -1675,8 +1670,7 @@ val forget_v = forget_v ForgetError
 fun forget_i_i x n b = on_i_i forget_v x n b
 fun forget_i_p x n b = on_i_p forget_i_i x n b
 fun forget_i_s x n b = on_i_s forget_i_i forget_i_p x n b
-fun forget_i_k x n b = on_i_k forget_i_s x n b
-fun forget_i_mt x n b = on_i_mt forget_i_i forget_i_s forget_i_k x n b
+fun forget_i_mt x n b = on_i_mt forget_i_i forget_i_s x n b
 fun forget_t_mt x n b = on_t_mt forget_v x n b
 fun forget_i_t x n b = on_i_t forget_i_mt x n b
 fun forget_t_t x n b = on_t_t forget_t_mt x n b
@@ -1751,14 +1745,12 @@ local
 	Basic s => Basic s
       | Subset (b, bind, r) => Subset (b, substx_i_ibind substx_i_p d x v bind, r)
       | UVarS a => b
-      | SAbs (s, bind, r) => SAbs (f d x v s, substx_i_ibind f d x v bind, r)
+      | SAbs (b, bind, r) => SAbs (b, substx_i_ibind f d x v bind, r)
       | SApp (s, i) => SApp (f d x v s, substx_i_i d x v i)
 in
 val substx_i_s = f
 fun subst_i_s (v : idx) (b : sort) : sort = substx_i_s 0 0 v b
 end
-
-fun substx_i_k d x v b = mapSnd (map (substx_i_s d x v)) b
 
 fun substx_i_tbind f d x v (Bind (name, inner) : ('name * 'b) tbind) =
   Bind (name, f d x v inner)
@@ -1774,9 +1766,9 @@ local
       | UniI (s, bind, r) => UniI (substx_i_s d x v s, substx_i_ibind f d x v bind, r)
       | MtVar y => MtVar y
       | MtApp (t1, t2) => MtApp (f d x v t1, f d x v t2)
-      | MtAbs (k, bind, r) => MtAbs (substx_i_k d x v k, substx_i_tbind f d x v bind, r)
+      | MtAbs (k, bind, r) => MtAbs (k, substx_i_tbind f d x v bind, r)
       | MtAppI (t, i) => MtAppI (f d x v t, substx_i_i d x v i)
-      | MtAbsI (s, bind, r) => MtAbsI (substx_i_s d x v s, substx_i_ibind f d x v bind, r)
+      | MtAbsI (b, bind, r) => MtAbsI (b, substx_i_ibind f d x v bind, r)
       | BaseType a => BaseType a
       | UVar a => b
 in
@@ -2402,7 +2394,7 @@ fun simp_s s =
       Basic b => Basic b
     | Subset (b, bind, r) => Subset (b, simp_bind simp_p bind, r)
     | UVarS u => UVarS u
-    | SAbs (s, bind, r) => SAbs (simp_s s, simp_bind simp_s bind, r)
+    | SAbs (b, bind, r) => SAbs (b, simp_bind simp_s bind, r)
     | SApp (s, i) =>
       let
         val s = simp_s s
@@ -2412,8 +2404,6 @@ fun simp_s s =
             SAbs (_, Bind (_, s), _) => simp_s (Subst.subst_i_s i s)
           | _ => SApp (s, i)
       end
-
-fun simp_k k = mapSnd (map simp_s) k
 
 fun simp_mt t =
   case t of
@@ -2426,9 +2416,9 @@ fun simp_mt t =
     | BaseType a => BaseType a
     | UVar u => UVar u
     | MtVar x => MtVar x
-    | MtAbs (k, bind, r) => MtAbs (simp_k k, simp_bind simp_mt bind, r)
+    | MtAbs (k, bind, r) => MtAbs (k, simp_bind simp_mt bind, r)
     | MtApp (t1, t2) => MtApp (simp_mt t1, simp_mt t2)
-    | MtAbsI (s, bind, r) => MtAbsI (simp_s s, simp_bind simp_mt bind, r)
+    | MtAbsI (b, bind, r) => MtAbsI (b, simp_bind simp_mt bind, r)
     | MtAppI (t, i) =>
       let
         val t = simp_mt t
@@ -2622,9 +2612,6 @@ end
 
 fun on_tbind f acc (Bind (_, b) : ('a * 'b) tbind) = f acc b
 
-fun on_k acc (_, sorts) =
-  foldl (fn (s, acc) => on_s acc s) acc sorts
-                                                                        
 local
   fun f acc b =
     case b of
@@ -2667,13 +2654,7 @@ local
         in
           acc
         end
-      | MtAbs (k, bind, _) =>
-        let
-          val acc = on_k acc k
-          val acc = on_tbind f acc bind
-        in
-          acc
-        end
+      | MtAbs (k, bind, _) => on_tbind f acc bind
       | MtAppI (t, i) =>
         let
           val acc = f acc t
@@ -2681,13 +2662,7 @@ local
         in
           acc
         end
-      | MtAbsI (s, bind, r) =>
-        let
-          val acc = on_s acc s
-          val acc = on_ibind f acc bind
-        in
-          acc
-        end
+      | MtAbsI (b, bind, r) => on_ibind f acc bind
       | BaseType _ => acc
       | UVar _ => acc
 in
@@ -2764,10 +2739,9 @@ fun on_constr_core acc ibinds =
   end
 fun collect_mod_constr_core b = on_constr_core [] b
     
-fun on_datatype acc (name, tnames, sorts, constr_decls, r) =
+fun on_datatype acc (name, tnames, bsorts, constr_decls, r) =
   let
     fun on_constr_decl acc (name, core, r) = on_constr_core acc core
-    val acc = on_list on_s acc sorts
     val acc = on_list on_constr_decl acc constr_decls
   in
     acc
@@ -2911,7 +2885,7 @@ local
     case b of
         SpecVal ((name, r), t) => on_t acc t
       | SpecIdx ((name, r), s) => on_s acc s
-      | SpecType ((name, r), k) => on_k acc k
+      | SpecType ((name, r), k) => []
       | SpecTypeDef ((name, r), t) => on_mt acc t
       | SpecDatatype a => on_datatype acc a
 in
@@ -3081,7 +3055,7 @@ end
 structure Underscore = struct
 type 'bsort uvar_bs = unit
 type ('bsort, 'idx) uvar_i = unit
-type 'sort uvar_s = unit
+type ('bsort, 'sort) uvar_s = unit
 type ('sort, 'kind, 'mtype) uvar_mt = unit
 fun str_uvar_bs _ _ = "_"
 fun str_uvar_s _ _ = "_"

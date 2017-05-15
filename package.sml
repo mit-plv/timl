@@ -58,14 +58,12 @@ local
 	Basic s => Basic s
       | Subset (s, bind, r) => Subset (s, package_i_ibind package_i_p x v bind, r)
       | UVarS a => b
-      | SAbs (s1, bind, r) => SAbs (f x v s1, package_i_ibind f x v bind, r)
+      | SAbs (b, bind, r) => SAbs (b, package_i_ibind f x v bind, r)
       | SApp (s, i) => SApp (f x v s, package_i_i x v i)
 in
 fun package_i_s x v (b : sort) : sort = f x v b
 end
 fun package0_s v = package_i_s 0 v
-
-fun package_i_k x v k = mapSnd (map (package_i_s x v)) k
 
 local
   fun f x v b =
@@ -77,9 +75,9 @@ local
       | Prod (t1, t2) => Prod (f x v t1, f x v t2)
       | UniI (s, bind, r) => UniI (package_i_s x v s, package_i_ibind f x v bind, r)
       | MtVar y => MtVar y
-      | MtAbs (k, bind, r) => MtAbs (package_i_k x v k, package_i_tbind f x v bind, r)
+      | MtAbs (k, bind, r) => MtAbs (k, package_i_tbind f x v bind, r)
       | MtApp (t1, t2) => MtApp (f x v t1, f x v t2)
-      | MtAbsI (s, bind, r) => MtAbsI (package_i_s x v s, package_i_ibind f x v bind, r)
+      | MtAbsI (b, bind, r) => MtAbsI (b, package_i_ibind f x v bind, r)
       | MtAppI (t, i) => MtAppI (f x v t, package_i_i x v i)
       | BaseType a => BaseType a
       | UVar a => b
@@ -129,10 +127,6 @@ fun package_t_t x v (b : ty) : ty =
     | Uni (bind, r) => Uni (package_t_tbind package_t_t x v bind, r)
 fun package0_t v b = package_t_t 0 v $ package_i_t 0 v b
 
-fun package_i_kind x v b = mapSnd (map (package_i_s x v)) b
-                                  
-fun package0_kind v = package_i_kind 0 v
-                                     
 fun package_i_ibinds f_cls f_inner x v ibinds =
   let
     val package_i_ibinds = package_i_ibinds f_cls f_inner

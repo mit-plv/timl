@@ -50,7 +50,7 @@ local
 	Basic s => Basic s
       | Subset (b, bind, r) => Subset (b, psubst_aux_is_ibind psubst_aux_is_p d x v bind, r)
       | UVarS a => b
-      | SAbs (s, bind, r) => SAbs (f d x v s, psubst_aux_is_ibind f d x v bind, r)
+      | SAbs (b, bind, r) => SAbs (b, psubst_aux_is_ibind f d x v bind, r)
       | SApp (s, i) => SApp (f d x v s, psubst_aux_is_i d x v i)
 in
 val psubst_aux_is_s = f
@@ -72,9 +72,9 @@ local
       | UniI (s, bind, r) => UniI (psubst_aux_is_s d x v s, psubst_aux_is_ibind f d x v bind, r)
       | MtVar y => MtVar y
       | MtApp (t1, t2) => MtApp (f d x v t1, f d x v t2)
-      | MtAbs (k, bind, r) => MtAbs (psubst_aux_is_k d x v k, psubst_aux_is_tbind f d x v bind, r)
+      | MtAbs (k, bind, r) => MtAbs (k, psubst_aux_is_tbind f d x v bind, r)
       | MtAppI (t, i) => MtAppI (f d x v t, psubst_aux_is_i d x v i)
-      | MtAbsI (s, bind, r) => MtAbsI (psubst_aux_is_s d x v s, psubst_aux_is_ibind f d x v bind, r)
+      | MtAbsI (b, bind, r) => MtAbsI (b, psubst_aux_is_ibind f d x v bind, r)
       | BaseType a => BaseType a
       | UVar a => b
 in

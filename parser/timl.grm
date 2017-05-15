@@ -97,9 +97,9 @@ open Ast
        | bind_plus of bind list
        | bind_star of bind list
        | bind of bind list
-       | tbind_plus of tbind list
-       | tbind_star of tbind list
-       | tbind of tbind list
+       | sort_bind_plus of sort_bind list
+       | sort_bind_star of sort_bind list
+       | sort_bind of sort_bind list
        | return of ty option * idx option
        | rec_return of ty option * idx option
        | rule_bar_star of (ptrn * exp) list
@@ -119,14 +119,19 @@ open Ast
        | cur_sort of sort
        | cur_sort_star of sort list
        | cur_sort_plus of sort list
+       | cur_bsort of bsort
+       | cur_bsort_star of bsort list
+       | cur_bsort_plus of bsort list
        (* | sort_plus of sort list *)
        | constr_bar_star of constr_decl list
        | bar_constr_star of constr_decl list
        | constr of constr_decl
        | constr_core_opt of constr_core option
        | constr_result_opt of ty option
-       | sorting_star of tbind list
-       | sorting of tbind list
+       | sorting_star of sort_bind list
+       | sorting of sort_bind list
+       | bsorting_star of bsort_bind list
+       | bsorting of bsort_bind list
        (* | idx_un_op of idx_un_op *)
        | tname of id
        | tnames of id list
@@ -142,7 +147,7 @@ open Ast
        | specs of spec list
        | datatype_def of datatype_def
          (* | sig_anno_opt of sig_anno option *)
-       | datatype_def_kind of sort list
+       | datatype_def_kind of bsort list
 
 %keyword FN CASE UNPACK OF LET IN END RETURN VAL DATATYPE AS TYPE STRUCTURE STRUCT FUNCTOR SIG OPEN IDX IF THEN ELSE
 
@@ -205,7 +210,7 @@ spec : VAL id tnames COLON ty (SpecVal (id, tnames, ty, (VALleft, tyright)))
   | DATATYPE datatype_def (SpecDatatype datatype_def)
   | IDX id COLON sort (SpecIdx (id, sort))
   | TYPE id EQ ty (SpecTypeDef (id, ty))
-  | TYPE id_plus cur_sort_star (SpecType (id_plus, cur_sort_star, (TYPEleft, cur_sort_starright)))
+  | TYPE id_plus cur_bsort_star (SpecType (id_plus, cur_bsort_star, (TYPEleft, cur_bsort_starright)))
   | TYPE id (SpecType ([id], [], (TYPEleft, idright))) (* need this rule. don't know why *)
 
 decl : VAL tnames ptrn EQ exp (Val (tnames, ptrn, exp, (VALleft, expright)))
@@ -219,9 +224,9 @@ decl : VAL tnames ptrn EQ exp (Val (tnames, ptrn, exp, (VALleft, expright)))
     | TYPE id EQ ty (TypeDef (id, ty))
     | OPEN id (Open id)
 
-datatype_def : id_plus sorting_star datatype_def_kind EQ constr_bar_star (case map fst id_plus of id :: id_star => (id, id_star, sorting_star, datatype_def_kind, constr_bar_star, (id_plusleft, constr_bar_starright)) | [] => raise Impossible "id_plus can't be empty")
+datatype_def : id_plus bsorting_star datatype_def_kind EQ constr_bar_star (case map fst id_plus of id :: id_star => (id, id_star, bsorting_star, datatype_def_kind, constr_bar_star, (id_plusleft, constr_bar_starright)) | [] => raise Impossible "id_plus can't be empty")
                        
-datatype_def_kind : COLON cur_sort_plus (cur_sort_plus)
+datatype_def_kind : COLON cur_bsort_plus (cur_bsort_plus)
                   | ([])
                     
 ty : ty_term (ty_term)
@@ -237,7 +242,7 @@ ty_term : ty_atom (ty_atom)
                   
 ty_atom : long_id (VarT long_id)
         | LPAREN ty RPAREN (ty)
-        | quan tbind_plus COMMA ty (Quan (quan, tbind_plus, ty, (quanleft, tyright)))
+        | quan sort_bind_plus COMMA ty (Quan (quan, sort_bind_plus, ty, (quanleft, tyright)))
 
 exp : aexp (aexp)
      | exp PLUS exp (BinOp (Add, exp1, exp2, (exp1left, exp2right)))
@@ -327,12 +332,12 @@ bind : aptrn ([Typing (aptrn)])
      | sorting (map TBind sorting)
      | LPAREN bind RPAREN (bind)
 
-tbind_star : tbind tbind_star (tbind @ tbind_star)
+sort_bind_star : sort_bind sort_bind_star (sort_bind @ sort_bind_star)
 	   | ([])
-tbind_plus : tbind tbind_star (tbind @ tbind_star)
+sort_bind_plus : sort_bind sort_bind_star (sort_bind @ sort_bind_star)
 
-tbind : sorting (sorting)
-      | LPAREN tbind RPAREN (tbind)
+sort_bind : sorting (sorting)
+      | LPAREN sort_bind RPAREN (sort_bind)
 
 return : RETURN ty RTRI idx ((SOME ty, SOME idx))
        | RETURN ty ((SOME ty, NONE))
@@ -394,6 +399,11 @@ cur_sort_plus : cur_sort cur_sort_star (cur_sort :: cur_sort_star)
 cur_sort_star :  cur_sort_plus (cur_sort_plus)
 	      | ([])
                          
+cur_bsort : LCUR bsort RCUR (bsort)                       
+cur_bsort_plus : cur_bsort cur_bsort_star (cur_bsort :: cur_bsort_star)
+cur_bsort_star :  cur_bsort_plus (cur_bsort_plus)
+	      | ([])
+                         
 (* sort_plus : sort cur_sort_star (sort :: cur_sort_star) *)
 
 constr_bar_star : constr bar_constr_star (constr :: bar_constr_star)
@@ -403,20 +413,26 @@ bar_constr_star : BAR constr bar_constr_star (constr :: bar_constr_star)
 	        | ([])
 
 sorting : LCUR id_plus COLON sort RCUR (sortings (id_plus, sort, (LCURleft, RCURright)))
-        | LCUR id COLON sort RCUR ([Sorting (id, sort, (LCURleft, RCURright))])
-        | LCUR id COLON bsort BAR prop RCUR ([Sorting (id, Subset (bsort, id, prop, (LCURleft, RCURright)), (LCURleft, RCURright))])
-        | LCUR id BAR prop RCUR ([Sorting (id, Subset (Base ("_", (idleft, idright)), id, prop, (LCURleft, RCURright)), (LCURleft, RCURright))])
+        | LCUR id COLON sort RCUR ([(id, sort, (LCURleft, RCURright))])
+        | LCUR id COLON bsort BAR prop RCUR ([(id, Subset (bsort, id, prop, (LCURleft, RCURright)), (LCURleft, RCURright))])
+        | LCUR id BAR prop RCUR ([(id, Subset (Base ("_", (idleft, idright)), id, prop, (LCURleft, RCURright)), (LCURleft, RCURright))])
         | LCUR prop RCUR (
             let
               val r = (LCURleft, RCURright)
               val id = ("__omitted_subset_id_name", r)
               val bsort = Base ("Unit", r)
             in
-              [Sorting (id, Subset (bsort, id, prop, r), r)]
+              [(id, Subset (bsort, id, prop, r), r)]
             end
           )
 
 sorting_star : sorting sorting_star (sorting @ sorting_star)
+	   | ([])
+
+bsorting : LCUR id_plus COLON bsort RCUR (bsortings (id_plus, bsort, (LCURleft, RCURright)))
+        | LCUR id COLON bsort RCUR ([(id, bsort, (LCURleft, RCURright))])
+
+bsorting_star : bsorting bsorting_star (bsorting @ bsorting_star)
 	   | ([])
 
 (* idx_un_op : LOG2 (Log2) *)

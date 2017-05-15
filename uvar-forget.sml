@@ -104,7 +104,6 @@ fun forget_i_i x n b =
 
 fun forget_i_p x n b = on_i_p forget_i_i x n b
 fun forget_i_s x n b = on_i_s forget_i_i forget_i_p x n b
-fun forget_i_k x n b = on_i_k forget_i_s x n b
 
                               
 (* fun forget_i_mt x n b = on_i_mt forget_i_i forget_i_s forget_i_k x n b *)
@@ -119,7 +118,7 @@ fun forget_i_mt x n b =
         val body = b
         val forget = forget_i_mt x n
         val ((uvar, r), i_args, t_args) = is_MtApp_UVar body !! (fn () => raise AppUVarFailed)
-        val (uvar_name, ctx as (sctx, kctx)) = get_uvar_info uvar !! (fn () => raise Impossible "should be fresh")
+        val (uvar_name, ctx as (sctx : (string * bsort) list, kctx)) = get_uvar_info uvar !! (fn () => raise Impossible "should be fresh")
         (* val () = println $ sprintf "  for uvar ?$" [str_int uvar_name] *)
         val i_results = mapi (try_forget (forget_i_i x n)) i_args
         val t_results = mapi (try_forget forget) t_args
@@ -163,7 +162,6 @@ fun forget_i_mt x n b =
         val f = forget_i_mt
         val on_i_i = forget_i_i
         val on_i_s = forget_i_s
-        val on_i_k = forget_i_k
       in
         case b of
 	    Arrow (t1, d, t2) => Arrow (f x n t1, on_i_i x n d, f x n t2)
@@ -174,9 +172,9 @@ fun forget_i_mt x n b =
 	  | UniI (s, bind, r) => UniI (on_i_s x n s, on_i_ibind f x n bind, r)
           | MtVar y => MtVar y
           | MtApp (t1, t2) => MtApp (f x n t1, f x n t2)
-          | MtAbs (k, bind, r) => MtAbs (on_i_k x n k, on_i_tbind f x n bind, r)
+          | MtAbs (k, bind, r) => MtAbs (k, on_i_tbind f x n bind, r)
           | MtAppI (t, i) => MtAppI (f x n t, on_i_i x n i)
-          | MtAbsI (s, bind, r) => MtAbsI (on_i_s x n s, on_i_ibind f x n bind, r)
+          | MtAbsI (b, bind, r) => MtAbsI (b, on_i_ibind f x n bind, r)
 	  | BaseType a => BaseType a
           | UVar a => b
       end
