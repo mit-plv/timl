@@ -13,5 +13,7 @@ fun domain m = List.map Util.fst (M.listItemsi m)
 fun addList (m, kvs) = foldl (fn ((k, v), m) => M.insert (m, k, v)) m kvs
 
 fun to_map kvs = addList (M.empty, kvs)
+
+fun foldli' f = M.foldli (fn (k, v, acc) => f ((k, v), acc))
                         
 end

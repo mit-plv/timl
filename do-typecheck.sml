@@ -2098,12 +2098,74 @@ fun check_top_bind gctx (name, bind) =
     gctxd
   end
     
+open CollectMod
+       
+fun collect_mod_ke (dt, k, t) = default [] (Option.map collect_mod_mt t)
+                                        
+fun collect_mod_ctx ((sctx, kctx, cctx, tctx) : context) =
+  let
+    val acc = []
+    val acc = (concatMap collect_mod_s $ map snd sctx) @ acc
+    val acc = (concatMap collect_mod_ke $ map snd kctx) @ acc
+    val acc = (concatMap collect_mod_constr $ map snd cctx) @ acc
+    val acc = (concatMap collect_mod_t $ map snd tctx) @ acc
+  in
+    acc
+  end
+    
+fun collect_mod_sgntr b =
+  case b of
+      Sig ctx => collect_mod_ctx ctx
+    | FunctorBind ((name, arg), ctx) => diff op = (collect_mod_ctx ctx) [name]
+                                             
+fun get_dependency_graph gctx = Gctx.map (to_set o collect_mod_sgntr) gctx
+
+type ('a, 'b) enum = ('a * 'b -> 'b) -> 'b -> 'b
+
+fun enum_set c f init = S.foldl f init c
+fun enum_list c f init = foldl f init c
+fun enum_map c f init = Gctx.foldli' f init c
+
+fun remove_many m ks = ks (fn (k, m) => Gctx.remove (m, k)) m
+
+exception TopoSortFailed
+fun topo_sort graph =
+  let
+    val in_graph = get_in_graph graph
+    fun find_empty_nodes g = folli (fn (k, v, acc) => if isEmpty v then S.add (acc, k) else acc) S.empty g
+    fun loop (in_graph, done) =
+      if Gctx.length in_graph <= 0 then
+        done
+      else
+        let
+          val nodes = find_empty_nodes in_graph !! (fn () => raise TopoSortFailed)
+          val in_graph = remove_many in_graph $ enum_set nodes
+          val in_graph = Gctx.map (fn s => difference (s, nodes)) in_graph
+        in
+          loop (in_graph, to_list nodes @ done)
+        end
+    val ret = rev $ loop (in_graph, [])
+    val () = assert (fn () => length ret = Gctx.length graph) "length ret = Gctx.length graph"
+  in
+    ret
+  end
+
+fun topo_sort_kvs g =
+  let
+    val ks = topo_sort g
+    val kvs = mapPartial (fn k => Option.map (fn v => (k, v)) $ Gctx.find (g, k)) ks
+  in
+    kvs
+  end
+                                         
 fun check_prog gctx (binds : U.prog) =
     let
       (* val () = println "Begin check_prog()" *)
       fun open_gctx gctx =
         (*todo: need to do a topological sort*)
-        Gctx.appi open_module $ filter_module gctx
+        appi open_module $ topo_sort_kvs $ Gctx.map (to_set o collect_mod_ctx) $ filter_module gctx
+        handle TopoSortFailed =>
+               raise Error (dummy, [sprintf "There is circular dependency in models $" [str_ls id $ domain gctx]])
       fun close_gctx gctx =
         close_n $ Gctx.length $ filter_module gctx
       fun iter (((name, r), bind), (acc, gctx)) =

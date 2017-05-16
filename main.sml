@@ -53,50 +53,32 @@ fun process_prog show_result filename gctx prog =
       fun TCgctx2NRgctx gctx = Gctx.map TCsgntr2NRsgntr gctx
       fun trim_gctx prog gctx =
         let
-          open CollectMod
           open SU.Set
           open SU
           open List
-          fun collect_mod_ke (dt, k, t) = default [] (Option.map collect_mod_mt t)
-          fun collect_mod_ctx ((sctx, kctx, cctx, tctx) : context) =
-            let
-              val acc = []
-              val acc = (concatMap collect_mod_s $ map snd sctx) @ acc
-              val acc = (concatMap collect_mod_ke $ map snd kctx) @ acc
-              val acc = (concatMap collect_mod_constr $ map snd cctx) @ acc
-              val acc = (concatMap collect_mod_t $ map snd tctx) @ acc
-            in
-              acc
-            end
-          fun collect_mod_sgntr b =
-            case b of
-                Sig ctx => collect_mod_ctx ctx
-              | FunctorBind ((name, arg), ctx) => diff op = (collect_mod_ctx ctx) [name]
-          fun trans_closure gctx ms =
+          fun trans_closure graph nodes =
             let
               fun loop (working, done) =
-                case working of
-                    [] => done
-                  | m :: working =>
-                    if member m done then
+                case pop working of
+                    NONE => done
+                  | SOME (node, working) =>
+                    if member node done then
                       loop (working, done)
                     else
                       let
-                        val sg = Gctx.find (gctx, m) !! (fn () => raise Impossible "trim_gctx(): find = NONE")
-                        val ms = dedup $ collect_mod_sgntr sg
-                        val working = dedup $ working @ ms
-                        val done = add (done, m)
+                        val outs = default empty $ Gctx.find (graph, node)
+                        val working = union (working, outs)
+                        val done = add (done, node)
                       in
                         loop (working, done)
                       end
-              val ms = loop (ms, empty)
-              val ms = to_list ms
+              val nodes = loop (nodes, empty)
             in
-              ms
+              nodes
             end
               
           val ms = dedup $ UnderscoredExpr.CollectMod.collect_mod_prog prog
-          val ms = trans_closure gctx ms
+          val ms = to_list $ trans_closure (get_dependency_graph gctx) $ to_set ms
           (* val () = println $ "before restrict: " ^ str_int (Gctx.length gctx) *)
           val gctx = MU.restrict ms gctx
           (* val () = println $ "after restrict: " ^ str_int (Gctx.length gctx) *)
@@ -110,7 +92,7 @@ fun process_prog show_result filename gctx prog =
       (* val () = write_file (filename ^ ".smt2", to_smt2 vcs) *)
       (* val () = app println $ print_result false filename (gctx_names old_gctx) gctxd *)
       val () = println $ sprintf "Typechecker generated $ proof obligations." [str_int $ length vcs]
-      val () = app println $ concatMap (fn vc => VC.str_vc false filename vc @ [""]) vcs
+      (* val () = app println $ concatMap (fn vc => VC.str_vc false filename vc @ [""]) vcs *)
       fun print_unsat show_region filename (vc, counter) =
           VC.str_vc show_region filename vc @
           (* [""] @ *)

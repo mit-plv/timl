@@ -321,11 +321,9 @@ fun vces_to_vcs vces =
     fun fs_to_prop fs =
       let
         val f = fs_to_f2 fs
-        val () = println "Formula2: "
-        val () = println $ str_f2 empty [] f
+        (* val () = println $ "Formula2: \n" ^ str_f2 empty [] f *)
         val f = unpackage_f2 f
-        val () = println "Formula2-after-unpackage: "
-        val () = println $ str_f2 empty [] f
+        (* val () = println $ "Formula2-after-unpackage: \n" ^ str_f2 empty [] f *)
         val p = f2_to_prop f
         (* val () = println "Props: " *)
         (* val () = println $ Expr.str_p [] [] p *)
