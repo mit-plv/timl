@@ -2102,6 +2102,7 @@ fun check_prog gctx (binds : U.prog) =
     let
       (* val () = println "Begin check_prog()" *)
       fun open_gctx gctx =
+        (*todo: need to do a topological sort*)
         Gctx.appi open_module $ filter_module gctx
       fun close_gctx gctx =
         close_n $ Gctx.length $ filter_module gctx
