@@ -495,12 +495,15 @@ fun close_ctx (ctx as (sctx, _, _, _)) = close_n $ length sctx
 
 fun write_prop (p, r) =
   let
-    (* val () = println $ "Writing Prop: " ^ str_p [] p *)
+    (* val () = println $ "Writing Prop: " ^ str_p empty [] p *)
   in
     write (PropVC (p, r))
   end
 
+infixr 0 @@
+         
 fun write_admit (p, r) =
+  (* (println $ "writing admit") @@ *)
   write (AdmitVC (p, r))
 
 fun write_le (d : idx, d' : idx, r) =

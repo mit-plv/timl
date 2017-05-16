@@ -51,8 +51,9 @@ fun refine_UVarS_to_Basic (x, r, info, args) =
   let
     val b = fresh_bsort ()
     val s = Basic (b, r)
-    val (_, ctx) = info
+    val (uvar_name, ctx) = info
     val s = SAbsMany (ctx, s, r)
+    val () = println $ sprintf "Warning: refining ?$ to $ (where $ is a base-sort) in order to get its base sort" [str_int uvar_name, str_s empty [] s, str_bs b]
     val () = refine x s
   in
     b

@@ -110,7 +110,7 @@ fun process_prog show_result filename gctx prog =
       (* val () = write_file (filename ^ ".smt2", to_smt2 vcs) *)
       (* val () = app println $ print_result false filename (gctx_names old_gctx) gctxd *)
       val () = println $ sprintf "Typechecker generated $ proof obligations." [str_int $ length vcs]
-      (* val () = app println $ concatMap (fn vc => VC.str_vc false filename vc @ [""]) vcs *)
+      val () = app println $ concatMap (fn vc => VC.str_vc false filename vc @ [""]) vcs
       fun print_unsat show_region filename (vc, counter) =
           VC.str_vc show_region filename vc @
           (* [""] @ *)

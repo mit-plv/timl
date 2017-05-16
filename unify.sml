@@ -234,6 +234,7 @@ fun is_sub_sort r gctxn ctxn (s : sort, s' : sort) =
       end
     val s = whnf_s s
     val s' = whnf_s s'
+    (* val () = println $ sprintf "unifying sorts $ and $" [str_s gctxn ctxn s, str_s gctxn ctxn s'] *)
   in
     unify_SApp s s'
     handle

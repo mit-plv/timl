@@ -681,7 +681,7 @@ fun str_raw_bs b =
 fun str_raw_i i =
   case i of
       VarI x => sprintf "VarI ($)" [str_raw_long_id x]
-    | IConst (c, _) => str_idx_const c
+    | IConst (c, _) => sprintf "IConst ($)" [str_idx_const c]
     | UnOpI (opr, i, _) => sprintf "UnOpI ($, $)" [str_idx_un_op opr, str_raw_i i]
     | BinOpI (opr, i1, i2) => sprintf "BinOpI ($, $, $)" [str_idx_bin_op opr, str_raw_i i1, str_raw_i i2]
     | Ite (i1, i2, i3, _) => sprintf "Ite ($, $, $)" [str_raw_i i1, str_raw_i i2, str_raw_i i3]
@@ -716,10 +716,16 @@ fun str_raw_t (t : ty) : string =
       Mono t => str_raw_mt t
     | Uni (t, _) => sprintf "Uni ($)" [str_raw_bind str_raw_t t]
 
+fun str_expr_EI opr =
+  case opr of
+      EEIAppI => "EEIAppI"
+    | EEIAscriptionTime => "EEIAscTime"
+
 fun str_raw_e e =
   case e of
       AppConstr _ => "AppConstr (...)"
     | BinOp _ => "BinOp (...)"
+    | EEI (opr, e, i) => sprintf "EEI ($, $, $)" [str_expr_EI opr, str_raw_e e, str_raw_i i]
     | _ => "<exp>"
 
 fun str_i gctx ctx (i : idx) : string =
@@ -784,9 +790,9 @@ fun str_s gctx ctx (s : sort) : string =
   let
     val str_s = str_s gctx
   in
-    case is_SApp_UVarS s of
-        SOME ((x, _), args) => sprintf "($ ...)" [str_uvar_s (str_s []) x]
-      | NONE =>
+    (* case is_SApp_UVarS s of *)
+    (*     SOME ((x, _), args) => sprintf "($ ...)" [str_uvar_s (str_s []) x] *)
+    (*   | NONE => *)
     case s of
         Basic (bs, _) => str_bs bs
       | Subset ((bs, _), Bind ((name, _), p), _) =>

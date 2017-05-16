@@ -628,7 +628,7 @@ fun solve_exists (vc as (hs, p), vcs) =
           val inferred = foldl combine_fun inferred many_inferred
           val inferred = IApps inferred args
           val inferred = normalize_i inferred
-          val () = println $ sprintf "Inferred. Now check inferred complexity $ against specified complexity $" [str_i empty [] inferred, str_i empty [] spec]
+          val () = println $ sprintf "Inferred. Now check inferred complexity $ against specified complexity $" [str_i empty hs_ctx inferred, str_i empty hs_ctx spec]
           val () = 
               if timefun_le is_outer hs inferred spec then ()
               else Unify.unify_IApp dummy spec inferred

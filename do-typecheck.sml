@@ -360,6 +360,7 @@ fun subst_uvar_error r body i ((fresh, fresh_ctx), x) =
 
 fun check_sort gctx (ctx, i : U.idx, s : sort) : idx =
   let 
+    (* val () = println $ sprintf "sortchecking $ against $" [U.str_i (gctx_names gctx) (sctx_names ctx) i, str_s (gctx_names gctx) (sctx_names ctx) s] *)
     val (i, bs') = get_bsort gctx (ctx, i)
     val r = get_region_i i
     val s = normalize_s s
@@ -384,8 +385,9 @@ fun check_sort gctx (ctx, i : U.idx, s : sort) : idx =
                 case i of
                     IConst (ICAdmit, r) => (TTI r, true)
                   | _ => (i, false)
+            (* val () = println $ "is_admit=" ^ str_bool is_admit *)
             val p = subst_i_p i p
-            (* val () = println $ sprintf "Writing prop $ $" [str_p (sctx_names ctx) p, str_region "" "" r] *)
+            (* val () = println $ sprintf "Writing prop $ $" [str_p (gctx_names gctx) (sctx_names ctx) p, str_region "" "" r] *)
 	    val () =
                 if is_admit then
                   write_admit (p, r)
@@ -1174,8 +1176,8 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
       in
         ()
       end
-    val () = print $ sprintf "Typing $\n" [U.str_e gctxn ctxn e_all]
-    val () = print $ sprintf "  Typing $\n" [U.str_raw_e e_all]
+    (* val () = print $ sprintf "Typing $\n" [U.str_e gctxn ctxn e_all] *)
+    (* val () = print $ sprintf "  Typing $\n" [U.str_raw_e e_all] *)
     (* val () = print_ctx gctx ctx *)
     fun main () =
       case e_all of
@@ -1319,20 +1321,36 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
           (case opr of
 	       EEIAppI =>
 	       let 
-                 val r = U.get_region_e e
-                 val s = fresh_sort gctx sctx r
-                 val arg_name = "_"
-                 val t1 = fresh_mt gctx (add_sorting (arg_name, s) sctx, kctx) r
-                 val t_e = UniI (s, Bind ((arg_name, r), t1), r)
-                 (* val () = println $ "t1 = " ^ str_mt gctxn (sctx_names sctx, names kctx) t1 *)
-                 (* val () = println $ "t1 = " ^ str_raw_mt t1 *)
-                 (* val () = println "before" *)
-                 val (e, t, d) = check_mtype (ctx, e, t_e) 
-                 (* val () = println "after" *)
-                 val i = check_sort gctx (sctx, i, s) 
+                 val (e, t, d) = get_mtype (ctx, e) 
                in
-	         (AppI (e, i), subst_i_mt i t1, d)
-	       end
+                 case t of
+                     UniI (s, Bind ((arg_name, _), t1), r) =>
+                     let
+                       val i = check_sort gctx (sctx, i, s) 
+                     in
+	               (AppI (e, i), subst_i_mt i t1, d)
+                     end
+                   | _ =>
+                     (* If the type is not in the expected form (maybe due to uvar), we try to unify it with the expected template. This may lose generality because the the inferred [s] will always be a base sort. *)
+	             let 
+                       val r = get_region_e e
+                       val s = fresh_sort gctx sctx r
+                       val arg_name = "_"
+                       val t1 = fresh_mt gctx (add_sorting (arg_name, s) sctx, kctx) r
+                       val t_e = UniI (s, Bind ((arg_name, r), t1), r)
+                       (* val () = println $ "t1 = " ^ str_mt gctxn (sctx_names sctx, names kctx) t1 *)
+                       (* val () = println $ "t1 = " ^ str_raw_mt t1 *)
+                       (* val () = println $ "t_e = " ^ str_mt gctxn (sctx_names sctx, names kctx) t_e *)
+                       (* val () = println "before" *)
+                       val () = unify_mt r gctx (sctx, kctx) (t, t_e)
+                       (* val () = println $ "t = " ^ str_mt gctxn (sctx_names sctx, names kctx) t *)
+                       (* val () = println $ "t_e = " ^ (str_mt gctxn (sctx_names sctx, names kctx) $ normalize_mt gctx kctx t_e) *)
+                       (* val () = println "after" *)
+                       val i = check_sort gctx (sctx, i, s) 
+                     in
+	               (AppI (e, i), subst_i_mt i t1, d)
+	             end
+               end
 	     | EEIAscriptionTime => 
 	       let val i = check_bsort gctx (sctx, i, Base Time)
 	           val (e, t) = check_time (ctx, e, i)

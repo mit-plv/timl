@@ -423,6 +423,10 @@ fun split_dir_file_ext filename =
   in
     (dir, base, ext)
   end
-    
+
+(* a replacement for ';' because ';''s precedence is too low (lower than 'if-then-else' and 'handle') *)    
+infixr 0 @@
+fun a @@ b = (a; b)
+               
 end
 
