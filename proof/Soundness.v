@@ -12290,9 +12290,9 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
     induct args; simpl; eauto.
   Qed.
 
-  Inductive par_idx_or_type : idx_or_type -> idx_or_type -> Prop :=
-  | PIOTIdx bi : par_idx_or_type (inl bi) (inl bi)
-  | PIOTType t t' : par_idx_or_type (inr t) (inr t')
+  Inductive par_idx_or_type par : idx_or_type -> idx_or_type -> Prop :=
+  | PIOTIdx bi : par_idx_or_type par (inl bi) (inl bi)
+  | PIOTType t t' : par t t' -> par_idx_or_type par (inr t) (inr t')
   .
 
   Hint Constructors par_idx_or_type.
@@ -12302,7 +12302,7 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
     exists t1' args',
       t' = TApps (TRec k t1') args' /\
       par t1 t1' /\
-      Forall2 par_idx_or_type args args'.
+      Forall2 (par_idx_or_type par) args args'.
   Proof.
     induct 1; simpl; try solve [
                            destruct (TApps_TRec_dec args k t1) as [ [ [? arg] [Heq ?] ] | [Heq ?]]; try destruct arg as [ [? ?] | ?]; subst; simpl in * ; try rewrite Heq in *; dis
@@ -12345,32 +12345,55 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
         induct ls; simpl; eauto.
       Qed.
       eapply Forall2_preserves_refl.
-      Lemma par_idx_or_type_refl a : par_idx_or_type a a.
+      Lemma par_idx_or_type_preserves_refl par : (forall t, par t t) -> forall a, par_idx_or_type par a a.
       Proof.
         induct a; simpl; eauto.
       Qed.
-      eapply par_idx_or_type_refl.
+      eapply par_idx_or_type_preserves_refl.
+      eauto.
     }
     {
-      destruct (TApps_TRec_dec args k t1) as [ [ [front arg ] [Heq Hargs] ] | [Heq Hargs]]; try destruct arg as [ [? ?] | ?]; simpl in * ; rewrite Heq in *; try dis.
+      rename t1 into t1_inner.
+      rename t0 into t1.
+      destruct (TApps_TRec_dec args k t1_inner) as [ [ [front arg ] [Heq Hargs] ] | [Heq Hargs]]; try destruct arg as [ [? ?] | ?]; simpl in * ; rewrite Heq in *; try dis.
       invert x.
-      (*here*)
-      edestruct IHpar1 as (t1'' & args' & ? & Ht1t1' & Hargsargs'); eauto.
+      rename t into t2.
+      edestruct IHpar1 as (t1_inner' & front' & ? & Ht1t1' & Hargsargs'); eauto.
       subst.
-      exists t1''.
-      split; eauto.
-      rewrite <- TApps_app_end.
-      simpl; eauto.
+      exists t1_inner', (front' ++ [inr t2']).
+      repeat try_split; eauto.
+      {
+        rewrite <- TApps_app_end.
+        simpl; eauto.
+      }
+      {
+        eapply Forall2_app; eauto.
+      }
+    }
+    {
+      destruct (TApps_TRec_dec args k t1) as [ [ [front arg ] [Heq Hargs] ] | [Heq Hargs]]; try destruct arg as [ [arg_b arg_i] | ?]; simpl in * ; rewrite Heq in *; try dis.
+      subst.
+      invert x.
+      clear Heq.
+      destruct (TApps_TRec_dec front k t1) as [ [ [? arg] [Heq ?] ] | [Heq ?]]; try destruct arg as [ [? ?] | ?]; simpl in * ; rewrite Heq in *; dis.
     }
   Qed.
-  
+
   Lemma pars_preserves_TApps_TRec k t1 args t' :
     par^* (TApps (TRec k t1) args) t' ->
-    exists t1',
-      t' = TApps (TRec k t1') args /\
-      par^* t1 t1'.
+    exists t1' args',
+      t' = TApps (TRec k t1') args' /\
+      par^* t1 t1' /\
+      Forall2 (par_idx_or_type par^*) args args'.
   Proof.
     induct 1; simpl; eauto.
+    {
+      exists t1, args.
+      repeat try_split; eauto.
+      eapply Forall2_preserves_refl.
+      eapply par_idx_or_type_preserves_refl.
+      eauto.
+    }
     eapply par_preserves_TApps_TRec in H; eauto.
     openhyp.
     subst.
@@ -12378,7 +12401,19 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
     openhyp.
     subst.
     repeat eexists_split; eauto.
+    Lemma Forall2_preserves_trans A1 A2 A3 (P12 : A1 -> A2 -> Prop) (P23 : A2 -> A3 -> Prop) (P13 : A1 -> A3 -> Prop) : (forall a1 a2 a3, P12 a1 a2 -> P23 a2 a3 -> P13 a1 a3) -> forall ls1 ls2 ls3, Forall2 P12 ls1 ls2 -> Forall2 P23 ls2 ls3 -> Forall2 P13 ls1 ls3.
+    Proof.
+      induct ls1; invert 1; invert 1; simpl; eauto.
+    Qed.
+    eapply Forall2_preserves_trans; eauto.
+    Lemma par_idx_or_type_preserves_trans par12 par23 par13 : (forall t1 t2 t3, par12 t1 t2 -> par23 t2 t3 -> par13 t1 t3) -> forall a1 a2 a3, par_idx_or_type par12 a1 a2 -> par_idx_or_type par23 a2 a3 -> par_idx_or_type par13 a1 a3.
+    Proof.
+      induct a1; invert 1; invert 1; simpl; eauto.
+    Qed.
+    eapply par_idx_or_type_preserves_trans; eauto.
   Qed.
+
+  (*here*)
   
   Lemma invert_cong_TApps_TRec L k t args k' t' args' :
     let t1 := TApps (TRec k t) args in
