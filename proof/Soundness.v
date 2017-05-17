@@ -2220,15 +2220,31 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
     | PEBIntMult => TInt
     end.
 
-  (* apply a type-level function to a series of indices, used by TyFold and TyUnfold *)
+  (* (* apply a type-level function to a series of indices, used by TyFold and TyUnfold *) *)
+  (* Fixpoint TApps t args := *)
+  (*   match args with *)
+  (*   | nil => t *)
+  (*   | (b, i) :: args => TApps (TAppI t b i) args *)
+  (*   end. *)
+
+  (* apply a type-level function to a series of indices or types, used by TyFold and TyUnfold *)
+
+  Notation idx_or_type := (bsort * idx + ty)%type.
+  
+  Definition TApp t arg :=
+    match arg with
+    | inl (b, i) => TAppI t b i
+    | inr t1 => TAppT t t1
+    end.
+  
   Fixpoint TApps t args :=
     match args with
     | nil => t
-    | (b, i) :: args => TApps (TAppI t b i) args
+    | arg :: args => TApps (TApp t arg) args
     end.
 
   (* unrolling of a recursive type, used by TyFold and TyUnfold *)
-  Definition unroll (k : kind) (t : ty) (args : list (bsort * idx)) : ty :=
+  Definition unroll (k : kind) (t : ty) args : ty :=
     let r := subst0_t_t (TRec k t) t in
     TApps r args.
 
@@ -12226,71 +12242,125 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
     invert Hr1r1'.
   Qed.
   
+  (* Fixpoint TApps t args := *)
+  (*   match args with *)
+  (*   | nil => t *)
+  (*   | (b, i) :: args => TApps (TAppI t b i) args *)
+  (*   end. *)
+
+  Notation idx_or_type := (bsort * idx + ty)%type.
+  
+  Definition TApp t arg :=
+    match arg with
+    | inl (b, i) => TAppI t b i
+    | inr t1 => TAppT t t1
+    end.
+  
   Fixpoint TApps t args :=
     match args with
     | nil => t
-    | (b, i) :: args => TApps (TAppI t b i) args
+    | arg :: args => TApps (TApp t arg) args
     end.
 
-  Lemma TApps_TAppI args t b i : sig (fun x => TApps (TAppI t b i) args = TAppI (TApps t (fst x)) (fst (snd x)) (snd (snd x)) /\ (b, i) :: args = fst x ++ [snd x]).
+  Lemma TApps_TApp args t arg : sig (fun x => TApps (TApp t arg) args = TApp (TApps t (fst x)) (snd x) /\ arg :: args = fst x ++ [snd x]).
   Proof.
     induct args; simpl; eauto.
     {
-      eexists ([], (_, _)); simpl; eauto.
+      eexists ([], _); simpl; eauto.
     }
-    destruct a as [b' i'].
-    specialize (IHargs (TAppI t b i) b' i').
+    rename a into arg'.
+    specialize (IHargs (TApp t arg) arg').
     destruct IHargs as (x & H1 & H2).
     destruct x as [front last]; simpl in *.
-    eexists ((b, i) :: front, last); simpl in *.
+    eexists (arg :: front, last); simpl in *.
     split; eauto.
     f_equal; eauto.
   Qed.
 
   Definition TApps_TRec_dec args k t :
-    sumor (sig (fun x => TApps (TRec k t) args = TAppI (TApps (TRec k t) (fst x)) (fst (snd x)) (snd (snd x)) /\ args = fst x ++ [snd x])) (TApps (TRec k t) args = TRec k t /\ args = []).
+    sumor (sig (fun x => TApps (TRec k t) args = TApp (TApps (TRec k t) (fst x)) (snd x) /\ args = fst x ++ [snd x])) (TApps (TRec k t) args = TRec k t /\ args = []).
   Proof.
     induct args; simpl; eauto.
-    destruct a as [b i]; simpl in *.
     left.
-    eapply TApps_TAppI.
+    eapply TApps_TApp.
   Qed.
   
-  Lemma TApps_app_end args t b i : TAppI (TApps t args) b i = TApps t (args ++ [(b, i)]).
+  Lemma TApps_app_end args t arg : TApp (TApps t args) arg = TApps t (args ++ [arg]).
   Proof.
     induct args; simpl; eauto.
-    destruct a.
-    eauto.
   Qed.
 
+  Inductive par_idx_or_type : idx_or_type -> idx_or_type -> Prop :=
+  | PIOTIdx bi : par_idx_or_type (inl bi) (inl bi)
+  | PIOTType t t' : par_idx_or_type (inr t) (inr t')
+  .
+
+  Hint Constructors par_idx_or_type.
+  
   Lemma par_preserves_TApps_TRec k t1 args t' :
     par (TApps (TRec k t1) args) t' ->
-    exists t1',
-      t' = TApps (TRec k t1') args /\
-      par t1 t1'.
+    exists t1' args',
+      t' = TApps (TRec k t1') args' /\
+      par t1 t1' /\
+      Forall2 par_idx_or_type args args'.
   Proof.
     induct 1; simpl; try solve [
-                           destruct (TApps_TRec_dec args k t1) as [ [ [? ?] [Heq ?] ] | [Heq ?]]; subst; simpl in * ; try rewrite Heq in *; dis
+                           destruct (TApps_TRec_dec args k t1) as [ [ [? arg] [Heq ?] ] | [Heq ?]]; try destruct arg as [ [? ?] | ?]; subst; simpl in * ; try rewrite Heq in *; dis
                          ]; eauto.
     {
-      destruct (TApps_TRec_dec args k t1) as [ [ [front [b' i'] ] [Heq Hargs] ] | [Heq Hargs]]; simpl in * ; rewrite Heq in *; try dis.
+      destruct (TApps_TRec_dec args k t1) as [ [ [front arg ] [Heq Hargs] ] | [Heq Hargs]]; try destruct arg as [ [arg_b arg_i] | ?]; simpl in * ; rewrite Heq in *; try dis.
       invert x.
-      edestruct IHpar as (t1' & ? & Ht1t1'); eauto.
+      edestruct IHpar as (t1' & args' & ? & Ht1t1' & Hargsargs'); eauto.
       subst.
-      exists t1'.
-      split; eauto.
-      eapply TApps_app_end.
+      exists t1', (args' ++ [inl (arg_b, arg_i)]).
+      repeat try_split; eauto.
+      {
+        rewrite <- TApps_app_end.
+        simpl; eauto.
+      }
+      {
+        eapply Forall2_app; eauto.
+      }
     }
     {
-      destruct (TApps_TRec_dec args k t1) as [ [ [front [b' i'] ] [Heq Hargs] ] | [Heq Hargs] ]; subst; simpl in * ; try rewrite Heq in *; try dis.
+      destruct (TApps_TRec_dec args k t1) as [ [ [front arg ] [Heq Hargs] ] | [Heq Hargs]]; try destruct arg as [ [? ?] | ?]; simpl in * ; rewrite Heq in *; try dis.
       invert x.
+      simpl in *.
+      exists c', [].
+      simpl.
       eauto.
     }
     {
-      destruct (TApps_TRec_dec args k t1) as [ [ [front [b' i'] ] [Heq Hargs] ] | [Heq Hargs] ]; subst; simpl in * ; try rewrite Heq in *; try dis.
+      destruct (TApps_TRec_dec args k t1) as [ [ [front arg ] [Heq Hargs] ] | [Heq Hargs]]; try destruct arg as [ [arg_b arg_i] | ?]; simpl in * ; rewrite Heq in *; try dis.
+      subst.
       invert x.
       clear Heq.
-      destruct (TApps_TRec_dec front k t1) as [ [ [? ?] [Heq ?] ] | [Heq ?]]; simpl in * ; rewrite Heq in *; dis.
+      destruct (TApps_TRec_dec front k t1) as [ [ [? arg] [Heq ?] ] | [Heq ?]]; try destruct arg as [ [? ?] | ?]; simpl in * ; rewrite Heq in *; dis.
+    }
+    {
+      exists t1, args.
+      repeat try_split; eauto.
+      Lemma Forall2_preserves_refl A (P : A -> A -> Prop) : (forall a, P a a) -> forall ls, Forall2 P ls ls.
+      Proof.
+        induct ls; simpl; eauto.
+      Qed.
+      eapply Forall2_preserves_refl.
+      Lemma par_idx_or_type_refl a : par_idx_or_type a a.
+      Proof.
+        induct a; simpl; eauto.
+      Qed.
+      eapply par_idx_or_type_refl.
+    }
+    {
+      destruct (TApps_TRec_dec args k t1) as [ [ [front arg ] [Heq Hargs] ] | [Heq Hargs]]; try destruct arg as [ [? ?] | ?]; simpl in * ; rewrite Heq in *; try dis.
+      invert x.
+      (*here*)
+      edestruct IHpar1 as (t1'' & args' & ? & Ht1t1' & Hargsargs'); eauto.
+      subst.
+      exists t1''.
+      split; eauto.
+      rewrite <- TApps_app_end.
+      simpl; eauto.
     }
   Qed.
   
