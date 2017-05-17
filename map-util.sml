@@ -15,5 +15,13 @@ fun addList (m, kvs) = foldl (fn ((k, v), m) => M.insert (m, k, v)) m kvs
 fun to_map kvs = addList (M.empty, kvs)
 
 fun foldli' f = M.foldli (fn (k, v, acc) => f ((k, v), acc))
+
+fun delete (m, k) = Util.fst (M.remove (m, k)) handle NotFound => m
                         
+fun enumerate c : ((M.Key.ord_key * 'value), 'result) Enum.enum = fn f => (fn init => foldli' f init c)
+                                     
+fun remove_many (m : 'a M.map) (ks : (M.Key.ord_key, 'a M.map) Enum.enum) : 'a M.map = ks (fn (k, m) => delete (m, k)) m
+
+fun find_many g ks = List.mapPartial (fn k => Option.map (Util.attach_fst k) (M.find (g, k))) ks
+                                         
 end

@@ -8,6 +8,7 @@ mlton: main
 
 FILES = \
 cont-mlton.sml \
+enumerator.sml \
 util.sml \
 string-key.sml \
 list-pair-map.sml \
@@ -32,7 +33,6 @@ uvar-expr.sml \
 elaborate.sml \
 name-resolve.sml \
 trivial-solver.sml \
-nouvar-expr.sml \
 package.sml \
 typecheck-util.sml \
 normalize.sml \
@@ -47,7 +47,6 @@ do-typecheck.sml \
 post-typecheck.sml \
 typecheck.sml \
 smt2-printer.sml \
-check-no-uvar.sml \
 smt-solver.sml \
 long-id-map.sml \
 bigO-solver.sml \

@@ -1,6 +1,7 @@
 Group is
       cont-smlnj.sml
 
+      enumerator.sml
       util.sml
       string-key.sml
       list-pair-map.sml

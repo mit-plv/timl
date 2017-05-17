@@ -88,6 +88,8 @@ fun uncurry f (a, b) = f a b
 fun swap f (a, b) = f (b, a)
 fun flip f a b = f b a
 fun upd4 f (a, b, c, d) = (a, b, c, f d)
+fun attach_fst a b = (a, b)
+fun attach_snd b a = (a, b)
 
 (* fun add_idx ls = ListPair.zip (range (length ls), ls) *)
 
@@ -142,6 +144,7 @@ fun foldli f = foldlWithIdx (fn (x, acc, n) => f (n, x, acc))
 fun foldrWithIdx start f init xs = fst $ foldl (fn (x, (acc, n)) => (f (x, acc, n), n + 1)) (init, start) xs
 fun mapWithIdx f ls = rev $ foldlWithIdx (fn (x, acc, n) => f (n, x) :: acc) [] ls
 val mapi = mapWithIdx
+fun enumerate c : ('a, 'b) Enum.enum = fn f => (fn init => List.foldl f init c)
                                  
 (* fun find_idx (x : string) ctx = find_by_snd_eq op= x (add_idx ctx) *)
 fun is_eq_snd (x : string) (i, y) = if y = x then SOME i else NONE

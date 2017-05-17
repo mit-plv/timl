@@ -5,6 +5,7 @@ $(SML_LIB)/basis/build/sources.mlb
 
 cont-mlton.sml
 
+enumerator.sml
 util.sml
 string-key.sml
 list-pair-map.sml
@@ -30,7 +31,6 @@ expr.sml
 uvar-expr.sml
 elaborate.sml
 name-resolve.sml
-nouvar-expr.sml
 package.sml
 typecheck-util.sml
 normalize.sml
@@ -46,7 +46,6 @@ trivial-solver.sml
 post-typecheck.sml
 typecheck.sml
 smt2-printer.sml
-check-no-uvar.sml
 smt-solver.sml
 long-id-map.sml
 bigO-solver.sml
