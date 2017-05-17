@@ -12290,19 +12290,19 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
     induct args; simpl; eauto.
   Qed.
 
-  Inductive par_idx_or_type par : idx_or_type -> idx_or_type -> Prop :=
-  | PIOTIdx bi : par_idx_or_type par (inl bi) (inl bi)
-  | PIOTType t t' : par t t' -> par_idx_or_type par (inr t) (inr t')
+  Inductive sum_rel {A B} l_rel r_rel : A + B -> A + B -> Prop :=
+  | SRl v v' : l_rel v v' -> sum_rel l_rel r_rel (inl v) (inl v')
+  | SRr v v' : r_rel v v' -> sum_rel l_rel r_rel (inr v) (inr v')
   .
 
-  Hint Constructors par_idx_or_type.
+  Hint Constructors sum_rel.
   
   Lemma par_preserves_TApps_TRec k t1 args t' :
     par (TApps (TRec k t1) args) t' ->
     exists t1' args',
       t' = TApps (TRec k t1') args' /\
       par t1 t1' /\
-      Forall2 (par_idx_or_type par) args args'.
+      Forall2 (sum_rel eq par) args args'.
   Proof.
     induct 1; simpl; try solve [
                            destruct (TApps_TRec_dec args k t1) as [ [ [? arg] [Heq ?] ] | [Heq ?]]; try destruct arg as [ [? ?] | ?]; subst; simpl in * ; try rewrite Heq in *; dis
@@ -12345,12 +12345,11 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
         induct ls; simpl; eauto.
       Qed.
       eapply Forall2_preserves_refl.
-      Lemma par_idx_or_type_preserves_refl par : (forall t, par t t) -> forall a, par_idx_or_type par a a.
+      Lemma sum_rel_preserves_refl A B l_rel r_rel : (forall i : A, l_rel i i) -> (forall t : B, r_rel t t) -> forall a, sum_rel l_rel r_rel a a.
       Proof.
         induct a; simpl; eauto.
       Qed.
-      eapply par_idx_or_type_preserves_refl.
-      eauto.
+      eapply sum_rel_preserves_refl; eauto.
     }
     {
       rename t1 into t1_inner.
@@ -12384,15 +12383,14 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
     exists t1' args',
       t' = TApps (TRec k t1') args' /\
       par^* t1 t1' /\
-      Forall2 (par_idx_or_type par^*) args args'.
+      Forall2 (sum_rel eq par^*) args args'.
   Proof.
     induct 1; simpl; eauto.
     {
       exists t1, args.
       repeat try_split; eauto.
       eapply Forall2_preserves_refl.
-      eapply par_idx_or_type_preserves_refl.
-      eauto.
+      eapply sum_rel_preserves_refl; eauto.
     }
     eapply par_preserves_TApps_TRec in H; eauto.
     openhyp.
@@ -12406,60 +12404,89 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
       induct ls1; invert 1; invert 1; simpl; eauto.
     Qed.
     eapply Forall2_preserves_trans; eauto.
-    Lemma par_idx_or_type_preserves_trans par12 par23 par13 : (forall t1 t2 t3, par12 t1 t2 -> par23 t2 t3 -> par13 t1 t3) -> forall a1 a2 a3, par_idx_or_type par12 a1 a2 -> par_idx_or_type par23 a2 a3 -> par_idx_or_type par13 a1 a3.
+    Lemma sum_rel_preserves_trans A B i_rel12 i_rel23 i_rel13 t_rel12 t_rel23 t_rel13 : (forall i1 i2 i3 : A, i_rel12 i1 i2 -> i_rel23 i2 i3 -> i_rel13 i1 i3) -> (forall t1 t2 t3 : B, t_rel12 t1 t2 -> t_rel23 t2 t3 -> t_rel13 t1 t3) -> forall a1 a2 a3, sum_rel i_rel12 t_rel12 a1 a2 -> sum_rel i_rel23 t_rel23 a2 a3 -> sum_rel i_rel13 t_rel13 a1 a3.
     Proof.
       induct a1; invert 1; invert 1; simpl; eauto.
     Qed.
-    eapply par_idx_or_type_preserves_trans; eauto.
+    eapply sum_rel_preserves_trans; eauto.
+    intros.
+    subst; eauto.
   Qed.
 
-  (*here*)
-  
   Lemma invert_cong_TApps_TRec L k t args k' t' args' :
     let t1 := TApps (TRec k t) args in
     let t1' := TApps (TRec k' t') args' in
     cong L t1 t1' ->
     k = k' /\
     cong L t t' /\
-    Forall2 (fun p p' => fst p = fst p' /\ idxeq L (snd p) (snd p') (fst p)) args args'.
+    Forall2 (sum_rel (fun p p' => fst p = fst p' /\ idxeq L (snd p) (snd p') (fst p)) (cong L)) args args'.
   Proof.
     simpl.
     induct 1; simpl; try solve [
-                           destruct (TApps_TRec_dec args k t) as [ [ [? ?] [Heq ?] ] | [Heq ?]]; subst; simpl in * ; try rewrite Heq in *; dis
+                           destruct (TApps_TRec_dec args k t) as [ [ [? arg] [Heq ?] ] | [Heq ?]]; try destruct arg as [ [? ?] | ?]; subst; simpl in * ; try rewrite Heq in *; dis
                          ]; eauto.
     {
-      destruct (TApps_TRec_dec args k t) as [ [ [? ?] [Heq ?] ] | [Heq ?]]; subst; simpl in * ; try rewrite Heq in *; try dis.
+      destruct (TApps_TRec_dec args k t) as [ [ [? arg] [Heq ?] ] | [Heq ?]]; try destruct arg as [ [? ?] | ?]; subst; simpl in * ; try rewrite Heq in *; try dis.
       invert x0.
       clear Heq.
-      destruct (TApps_TRec_dec args' k' t') as [ [ [? ?] [Heq ?] ] | [Heq ?]]; subst; simpl in * ; try rewrite Heq in *; try dis.
+      destruct (TApps_TRec_dec args' k' t') as [ [ [? arg] [Heq ?] ] | [Heq ?]]; try destruct arg as [ [? ?] | ?]; subst; simpl in * ; try rewrite Heq in *; try dis.
       invert x.
-      destruct p; destruct p0; simpl in *; subst.
       edestruct IHcong as (? & Htt' & Hargs); eauto.
       subst.
       repeat try_split; eauto.
       eapply Forall2_app; eauto.
     }
     {
-      destruct (TApps_TRec_dec args k t) as [ [ [? ?] [Heq ?] ] | [Heq ?]]; subst; simpl in * ; try rewrite Heq in *; try dis.
+      destruct (TApps_TRec_dec args k t) as [ [ [? arg] [Heq ?] ] | [Heq ?]]; try destruct arg as [ [? ?] | ?]; subst; simpl in * ; try rewrite Heq in *; try dis.
       invert x0.
       clear Heq.
-      destruct (TApps_TRec_dec args' k' t') as [ [ [? ?] [Heq ?] ] | [Heq ?]]; subst; simpl in * ; try rewrite Heq in *; try dis.
+      destruct (TApps_TRec_dec args' k' t') as [ [ [? arg] [Heq ?] ] | [Heq ?]]; try destruct arg as [ [? ?] | ?]; subst; simpl in * ; try rewrite Heq in *; try dis.
       invert x.
       repeat try_split; eauto.
     }
+    {
+      destruct (TApps_TRec_dec args k t) as [ [ [? arg] [Heq ?] ] | [Heq ?]]; try destruct arg as [ [? ?] | ?]; subst; simpl in * ; try rewrite Heq in *; try dis.
+      invert x0.
+      clear Heq.
+      destruct (TApps_TRec_dec args' k' t') as [ [ [? arg] [Heq ?] ] | [Heq ?]]; try destruct arg as [ [? ?] | ?]; subst; simpl in * ; try rewrite Heq in *; try dis.
+      invert x.
+      edestruct IHcong1 as (? & Htt' & Hargs); eauto.
+      subst.
+      repeat try_split; eauto.
+      eapply Forall2_app; eauto.
+    }
   Qed.
-  
+
+  Inductive sum_pred {A B} l_pred r_pred : A + B -> Prop :=
+  | SPl v : l_pred v -> sum_pred l_pred r_pred v
+  | SPr v : r_pred v -> sum_pred l_pred r_pred v
+  .
+
+  Definition KArrowIT arg k :=
+  match arg with
+  | Some b => KArrow b k
+  | NONE => KArrowT KType k (* could be more general than [KType], but we don't exploit that generality here *)
+  end.
+             
   Fixpoint KArrows args result :=
     match args with
     | [] => result
-    | arg :: args => KArrow arg (KArrows args result)
+    | arg :: args => KArrowIT arg (KArrows args result)
     end.
 
+  Definition get_bsort_or_kind (arg : idx_or_type) :=
+    match arg with
+    | inl (b, _) => Some b
+    | inr _ => None
+    end.
+  
+  (*here*)
+  
   Lemma bkinding_TApps_invert L :
     forall args t K k,
       bkinding L K (TApps t args) k ->
-      bkinding L K t (KArrows (map fst args) k) /\
-      Forall (fun p => bsorting L (snd p) (fst p)) args.
+      bkinding L K t (KArrows (map get_bsort_or_kind args) k) /\
+      Forall (sum_pred (fun p => bsorting L (snd p) (fst p)) (?)) args.
   Proof.
     induct args; simpl; intros t K k H; eauto.
     destruct a as [b i].
