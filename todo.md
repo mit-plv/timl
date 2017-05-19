@@ -90,6 +90,11 @@
 - [x] Currently `absidx ... with ... end` is "scoped abstract index". We should have "unscoped" or "module-scoped" abstract index `absidx id = ...` so within the module `id`'s definition is visible but outside the module it is not.
 - [ ] Make `kind`'s sorts dependent, or only use `bsort` in `kind`.
 - [ ] Generate typing derivations.
+    Road map (a translation validation (i.e. derivation reconstruction) approach):
+    * [ ] Generate type-annotation TiML syntax
+    * [ ] Translate it to type-annotated micro-TiML syntax
+    * [ ] Reconstruct micro-TiML typing derivations from type-annotated micro-TiML syntax
+    * [ ] The micro-TiML to assembly-TiML compilation should also use this approach
 - [x] Remove annotations on `case` (at least in a mode).
 - [x] `datatype` can introduce index variable names at the first line for every constructor.
 - [ ] `find_hab` is too slow on array-msort.timl and array-msort-inplace.timl
