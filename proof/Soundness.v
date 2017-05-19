@@ -12508,9 +12508,6 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
     }
   Qed.
 
-  (* Lemma admit P : P. *)
-  (* Admitted. *)
-  
   Lemma invert_tyeq1_TApps_TRec L k t args k' t' args' K k0 :
     let t1 := TApps (TRec k t) args in
     let t1' := TApps (TRec k' t') args' in
@@ -14747,21 +14744,6 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
         kinding1 L K t (KArrows bks k).
   Proof.
     induct args; simpl; intros t k H; eauto.
-    (*here*)
-    destruct a as [b i].
-    eapply IHargs in H.
-    destruct H as [H1 H2].
-    invert H1.
-    eauto.
-  Qed.
-  Lemma bkinding_TApps_invert L :
-    forall args t K k,
-      bkinding L K (TApps t args) k ->
-      exists bks,
-        Forall2 (sum_rel (fun bi b => b = fst bi /\ bsorting L (snd bi) (fst bi)) (fun t k => bkinding L K t k)) args bks /\
-        bkinding L K t (KArrows bks k).
-  Proof.
-    induct args; simpl; intros t K k H; eauto.
     destruct a as [ [b i] | t1].
     {
       eapply IHargs in H.
@@ -14780,7 +14762,6 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
       eapply split; eauto.
     }
   Qed.
-
 
   Lemma kinding1_shift_t_t_rev :
     forall L K t k,
@@ -14911,13 +14892,19 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
   Proof.
     intros; eapply shift_i_t_shift_cut; eauto.
   Qed.
+
+  Definition map_sum {A B A' B'} f g (s : A + B) : A' + B' :=
+    match s with
+    | inl v => inl (f v)
+    | inr v => inr (g v)
+    end.
   
   Lemma shift_i_t_TApps n x args t :
-    shift_i_t n x (TApps t args) = TApps (shift_i_t n x t) (map (map_snd (shift_i_i n x)) args).
+    shift_i_t n x (TApps t args) = TApps (shift_i_t n x t) (map (map_sum (map_snd (shift_i_i n x)) (shift_i_t n x)) args).
   Proof.
     induct args; simpl; eauto.
-    destruct a as [b i]; simpl.
-    rewrite IHargs.
+    destruct a as [ [b i] | t']; simpl;
+    rewrite IHargs;
     eauto.
   Qed.
   
@@ -14930,11 +14917,11 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
   Qed.
   
   Lemma shift_t_t_TApps n x args t :
-    shift_t_t n x (TApps t args) = TApps (shift_t_t n x t) args.
+    shift_t_t n x (TApps t args) = TApps (shift_t_t n x t) (map (map_sum id (shift_t_t n x)) args).
   Proof.
     induct args; simpl; eauto.
-    destruct a as [b i]; simpl.
-    rewrite IHargs.
+    destruct a as [ [b i] | t']; simpl;
+    rewrite IHargs;
     eauto.
   Qed.
   
@@ -14947,11 +14934,11 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
   Qed.
   
   Lemma subst_i_t_TApps x v args t :
-    subst_i_t x v (TApps t args) = TApps (subst_i_t x v t) (map (map_snd (subst_i_i x v)) args).
+    subst_i_t x v (TApps t args) = TApps (subst_i_t x v t) (map (map_sum (map_snd (subst_i_i x v)) (subst_i_t x v)) args).
   Proof.
     induct args; simpl; eauto.
-    destruct a as [b i]; simpl.
-    rewrite IHargs.
+    destruct a as [ [b i] | t']; simpl;
+    rewrite IHargs;
     eauto.
   Qed.
   
@@ -14985,11 +14972,11 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
   Qed.
   
   Lemma subst_t_t_TApps x v args t :
-    subst_t_t x v (TApps t args) = TApps (subst_t_t x v t) args.
+    subst_t_t x v (TApps t args) = TApps (subst_t_t x v t) (map (map_sum id (subst_t_t x v)) args).
   Proof.
     induct args; simpl; eauto.
-    destruct a as [b i]; simpl.
-    rewrite IHargs.
+    destruct a as [ [b i] | t']; simpl;
+    rewrite IHargs;
     eauto.
   Qed.
   
@@ -15220,7 +15207,7 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
     simpl.
     intros H H1 H2 HL.
     eapply bkinding_TApps_invert in H1.
-    destruct H1 as (H1 & Hargs).
+    destruct H1 as (bks & Hargs & H1).
     invert H1.
     invert H2.
     eapply tyeq1_par in H; eauto using bkinding_TApps.
@@ -15229,8 +15216,8 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
     openhyp; subst.
     eapply pars_preserves_TQuanI in Ht1'r1'.
     openhyp; subst.
-    set (k' := KArrows (map fst args) KType) in *.
-    destruct (TApps_TRec_dec args k' x) as [ [ [? ?] [Heq ?] ] | [Heq ?]]; subst; simpl in * ; try rewrite Heq in *; invert Hr1r1'.
+    set (k' := KArrows bks KType) in *.
+    destruct (TApps_TRec_dec x0 k' x) as [ [ [? arg] [Heq ?] ] | [Heq ?]]; try destruct arg as [ [? ?] | ?]; subst; simpl in * ; try rewrite Heq in *; invert Hr1r1'.
   Qed.
 
   Lemma invert_tyeq1_TBinOp_TQuanI L opr ta tb q s t1 K k :
@@ -15355,31 +15342,46 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
 
   Lemma kinding1_TApps_TRec_invert L K args k t k' :
     kinding1 L K (TApps (TRec k t) args) k' ->
-    k = KArrows (map fst args) k' /\
-    kinding1 L (k :: K) t k /\
-    Forall (fun p => sorting1 L (snd p) (SBaseSort (fst p))) args.
+    exists bks,
+      k = KArrows bks k' /\
+      Forall2 (sum_rel (fun p b => b = fst p /\ sorting1 L (snd p) (SBaseSort (fst p))) (kinding1 L K)) args bks /\
+      kinding1 L (k :: K) t k.
   Proof.
     intros H.
     eapply kinding1_TApps_invert in H.
-    destruct H as [H1 H2].
+    destruct H as (bks & H2 & H1).
     invert H1.
     eauto.
   Qed.
 
-  Lemma tyeq1_TApps L cs cs' :
-    Forall2 (fun p p' => fst p = fst p' /\ idxeq L (snd p) (snd p') (fst p)) cs cs' ->
-    forall K t t' k',
-      let k'' := KArrows (map fst cs) k' in
+  Lemma tyeq1_TApps L K cs cs' bks :
+    Forall3 (fun a a' bk => sum_rel (fun p p' => bk = inl (fst p) /\ fst p = fst p' /\ idxeq L (snd p) (snd p') (fst p)) (fun t t' => exists k, bk = inr k /\ tyeq1 L K t t' k) a a') cs cs' bks ->
+    forall t t' k',
+      let k'' := KArrows bks k' in
       tyeq1 L K t t' k'' ->
       tyeq1 L K (TApps t cs) (TApps t' cs') k'.
   Proof.
     simpl.
-    induct 1; simpl; intros K t t' k' Htt'; eauto.
-    destruct x as [b i]; simpl in *.
-    destruct y as [b' i']; simpl in *.
-    openhyp; subst.
-    eapply IHForall2.
-    eapply TyEq1App; eauto.
+    induct 1; simpl; intros t t' k' Htt'; eauto.
+    destruct x as [ [b i] | t1]; simpl in *.
+    destruct y as [[b' i'] | t1']; simpl in *.
+    {
+      invert H.
+      simpl in *.
+      openhyp; subst.
+      eapply IHForall3.
+      eauto.
+    }
+    {
+      invert H.
+    }
+    {
+      invert H.
+      simpl in *.
+      openhyp; subst.
+      eapply IHForall3.
+      eauto.
+    }
   Qed.
   
   Lemma forall_lift3_lift3_lift7_6_2_4_7_3_5 :
@@ -15509,7 +15511,7 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
     simpl.
     intros H H1 H2 HL.
     eapply bkinding_TApps_invert in H1.
-    destruct H1 as (H1 & Hargs).
+    destruct H1 as (bks & Hargs & H1).
     invert H1.
     invert H2.
     eapply tyeq1_par in H; eauto using bkinding_TApps.
@@ -15518,8 +15520,8 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
     openhyp; subst.
     eapply pars_preserves_TNat in Ht1'r1'.
     openhyp; subst.
-    set (k' := KArrows (map fst args) KType) in *.
-    destruct (TApps_TRec_dec args k' x) as [ [ [? ?] [Heq ?] ] | [Heq ?]]; subst; simpl in * ; try rewrite Heq in *; invert Hr1r1'.
+    set (k' := KArrows bks KType) in *.
+    destruct (TApps_TRec_dec x0 k' x) as [ [ [? arg] [Heq ?] ] | [Heq ?]]; try destruct arg as [ [? ?] | ?]; subst; simpl in * ; try rewrite Heq in *; invert Hr1r1'.
   Qed.
 
   Lemma invert_tyeq1_TQuanI_TNat L q s t1 i K k :
@@ -15673,7 +15675,7 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
     simpl.
     intros H H1 H2 HL.
     eapply bkinding_TApps_invert in H1.
-    destruct H1 as (H1 & Hargs).
+    destruct H1 as (bks & Hargs & H1).
     invert H1.
     invert H2.
     eapply tyeq1_par in H; eauto using bkinding_TApps.
@@ -15682,8 +15684,8 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
     openhyp; subst.
     eapply pars_preserves_TArr in Ht1'r1'.
     openhyp; subst.
-    set (k' := KArrows (map fst args) KType) in *.
-    destruct (TApps_TRec_dec args k' x) as [ [ [? ?] [Heq ?] ] | [Heq ?]]; subst; simpl in * ; try rewrite Heq in *; invert Hr1r1'.
+    set (k' := KArrows bks KType) in *.
+    destruct (TApps_TRec_dec x0 k' x) as [ [ [? arg] [Heq ?] ] | [Heq ?]]; try destruct arg as [ [? ?] | ?]; subst; simpl in * ; try rewrite Heq in *; invert Hr1r1'.
   Qed.
 
   Lemma invert_tyeq1_TNat_TBinOp i opr t1 t2 L K k :
@@ -16088,7 +16090,7 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
 
   Local Open Scope idx_scope.
 
-  Definition unroll (k : kind) (t : ty) (args : list (bsort * idx)) : ty :=
+  Definition unroll (k : kind) (t : ty) args : ty :=
     let r := subst0_t_t (TRec k t) t in
     TApps r args.
 
@@ -16995,7 +16997,7 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
 
   Lemma wellscoped_t_unroll L k t cs :
     wellscoped_t L t ->
-    Forall (fun p => wellscoped_i L (snd p)) cs ->
+    Forall (sum_pred (fun p => wellscoped_i L (snd p)) (wellscoped_t L)) cs ->
     wellscoped_t L (unroll k t cs).
   Proof.
     unfold unroll.
@@ -17236,10 +17238,10 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
     eapply sorting1_shift_i_i_0 with (ls := [s1]); eauto.
   Qed.
   
-  Lemma kinding1_unroll L K t cs k' :
-    let k := KArrows (map fst cs) k' in
+  Lemma kinding1_unroll L K t cs bks k' :
+    let k := KArrows bks k' in
     kinding1 L (k :: K) t k ->
-    Forall (fun p => sorting1 L (snd p) (SBaseSort (fst p))) cs ->
+    Forall2 (sum_rel (fun p b => b = fst p /\ sorting1 L (snd p) (SBaseSort (fst p))) (kinding1 L K)) cs bks ->
     wellscoped_ss L ->
     kinding1 L K (unroll k t cs) k'.
   Proof.
@@ -17334,7 +17336,7 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
       (* Case Ty1UnFold *)
       edestruct IHtyping1 as (Ht & ?); eauto.
       eapply kinding1_TApps_invert in Ht.
-      destruct Ht as [Ht ?].
+      destruct Ht as (bks & ? & Ht).
       invert Ht.
       split; eauto.
       eapply kinding1_unroll; eauto using wfsorts1_wellscoped_ss.
@@ -17781,7 +17783,7 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
   Qed.
   
   Lemma shift_i_t_unroll n x k t args :
-    shift_i_t n x (unroll k t args) = unroll k (shift_i_t n x t) (map (map_snd (shift_i_i n x)) args).
+    shift_i_t n x (unroll k t args) = unroll k (shift_i_t n x t) (map (map_sum (map_snd (shift_i_i n x)) (shift_i_t n x)) args).
   Proof.
     unfold unroll; simpl.
     unfold subst0_t_t.
@@ -17957,19 +17959,62 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
       econstructor; eauto using kinding1_shift_i_t.
       simpl.
       eapply kinding1_TApps_invert in H.
-      destruct H as [Ht ?].
+      destruct H as (bks & ? & Ht).
       invert Ht.
       eapply kinding1_TApps; eauto using kinding1_shift_i_t.
+      Definition compose {A B C} (g : B -> C) (f : A -> B) :=
+        fun x : A => g (f x).
+      Arguments compose / .
+      Notation " g << f " := (compose g f)
+                              (at level 40, left associativity) : program_scope.
+      Lemma Forall2_map_1 A1 A2 B1 (P : A1 -> A2 -> Prop) (Q : B1 -> A2 -> Prop) f ls1 ls2 :
+        (forall a1 a2, P a1 a2 -> Q (f a1) a2) -> 
+        Forall2 P ls1 ls2 ->
+        Forall2 Q (map f ls1) ls2.
+      Proof.
+        intros HPQ HP.
+        rewrite <- (map_id ls2).
+        eapply Forall2_map; eauto.
+      Qed.
+      eapply Forall2_map_1; eauto.
+      intros.
+      Lemma sum_rel_map_sum Al Ar Al' Ar' Bl Br Bl' Br' (Pl : Al -> Al' -> Prop) (Pr : Ar -> Ar' -> Prop)  (Ql : Bl -> Bl' -> Prop) (Qr : Br -> Br' -> Prop) fl fr fl' fr' s s' :
+        (forall v v', Pl v v' -> Ql (fl v) (fl' v')) ->
+        (forall v v', Pr v v' -> Qr (fr v) (fr' v')) ->
+        sum_rel Pl Pr s s' ->
+        sum_rel Ql Qr (map_sum fl fr s) (map_sum fl' fr' s').
+      Proof.
+        intros HPQl HPQr HP.
+        invert HP;
+          econstructor; eauto.
+      Qed.
+      Lemma map_sum_id A B (s : A + B) : map_sum id id s = s.
+      Proof.
+        destruct s; simpl; eauto.
+      Qed.
+      Lemma sum_rel_map_sum_l Al Ar Al' Ar' Bl Br (Pl : Al -> Al' -> Prop) (Pr : Ar -> Ar' -> Prop)  (Ql : Bl -> Al' -> Prop) (Qr : Br -> Ar' -> Prop) fl fr s s' :
+        (forall v v', Pl v v' -> Ql (fl v) v') ->
+        (forall v v', Pr v v' -> Qr (fr v) v') ->
+        sum_rel Pl Pr s s' ->
+        sum_rel Ql Qr (map_sum fl fr s) s'.
+      Proof.
+        intros HPQl HPQr HP.
+        rewrite <- (map_sum_id s').
+        eapply sum_rel_map_sum; eauto.
+      Qed.
+      eapply sum_rel_map_sum_l; eauto.
       {
-        rewrite map_map.
-        simpl.
+        intros.
+        destruct v.
+        simpl in *.
+        openhyp; subst.
+        split; eauto.
+        eauto using sorting1_shift_i_i''.
+      }
+      {
+        intros.
         eauto using kinding1_shift_i_t.
       }
-      eapply Forall_map.
-      simpl.
-      eapply Forall_impl; eauto.
-      simpl; intros.
-      eauto using sorting1_shift_i_i''.
     }
     {
       (* Case Ty1Unfold *)
@@ -18193,7 +18238,7 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
   Qed.
 
   Lemma shift_t_t_unroll n x k t args :
-    shift_t_t n x (unroll k t args) = unroll k (shift_t_t n (1 + x) t) args.
+    shift_t_t n x (unroll k t args) = unroll k (shift_t_t n (1 + x) t) (map (map_sum id (shift_t_t n x)) args).
   Proof.
     unfold unroll; simpl.
     unfold subst0_t_t.
@@ -18298,13 +18343,31 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
       rewrite shift_t_t_unroll in *.
       simpl in *.
       eapply kinding1_TApps_invert in H.
-      destruct H as [Ht ?].
+      destruct H as (bks & ? & Ht).
       invert Ht.
       econstructor; eauto using kinding1_shift_t_t.
       simpl.
       eapply kinding1_TApps; eauto using kinding1_shift_t_t.
-      econstructor.
-      eapply kinding1_shift_t_t with (x := S x) (K := _ :: _); simpl; eauto with db_la.
+      {
+        econstructor.
+        eapply kinding1_shift_t_t with (x := S x) (K := _ :: _); simpl; eauto with db_la.
+      }
+      {
+        eapply Forall2_map_1; eauto.
+        intros.
+        eapply sum_rel_map_sum_l; eauto.
+        {
+          intros.
+          destruct v.
+          simpl in *.
+          openhyp; subst.
+          split; eauto.
+        }
+        {
+          intros.
+          eauto using kinding1_shift_t_t.
+        }
+      }
     }
     {
       (* Case Ty1Unfold *)
@@ -18439,7 +18502,7 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
   Qed.
   
   Lemma subst_i_t_unroll x v k t args :
-    subst_i_t x v (unroll k t args) = unroll k (subst_i_t x v t) (map (map_snd (subst_i_i x v)) args).
+    subst_i_t x v (unroll k t args) = unroll k (subst_i_t x v t) (map (map_sum (map_snd (subst_i_i x v)) (subst_i_t x v)) args).
   Proof.
     unfold unroll; simpl.
     unfold subst0_t_t.
@@ -18585,19 +18648,24 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
       simpl in *.
       econstructor; simpl; eauto using kinding1_subst_i_t.
       eapply kinding1_TApps_invert in H.
-      destruct H as [Ht ?].
+      destruct H as (bks & ? & Ht).
       invert Ht.
       eapply kinding1_TApps; eauto using kinding1_subst_i_t.
+      eapply Forall2_map_1; eauto.
+      intros.
+      eapply sum_rel_map_sum_l; eauto.
       {
-        rewrite map_map.
-        simpl.
-        econstructor; simpl; eauto using kinding1_subst_i_t.
+        intros.
+        destruct v0.
+        simpl in *.
+        openhyp; subst.
+        split; eauto.
+        eauto using sorting1_subst_i_i'.
       }
-      eapply Forall_map.
-      simpl.
-      eapply Forall_impl; eauto.
-      simpl; intros.
-      eauto using sorting1_subst_i_i'.
+      {
+        intros.
+        eauto using kinding1_subst_i_t.
+      }
     }
     {
       (* Case Ty1Unfold *)
@@ -18826,7 +18894,7 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
   Qed.
   
   Lemma subst_t_t_unroll x v k t args :
-    subst_t_t x v (unroll k t args) = unroll k (subst_t_t (1 + x) (shift_t_t 1 0 v) t) args.
+    subst_t_t x v (unroll k t args) = unroll k (subst_t_t (1 + x) (shift_t_t 1 0 v) t) (map (map_sum id (subst_t_t x v)) args).
   Proof.
     unfold unroll; simpl.
     unfold subst0_t_t.
@@ -18967,13 +19035,31 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
       rewrite subst_t_t_unroll in *.
       simpl in *.
       eapply kinding1_TApps_invert in H.
-      destruct H as [Ht ?].
+      destruct H as (bks & ? & Ht).
       invert Ht.
       econstructor; simpl; eauto using kinding1_subst_t_t.
       eapply kinding1_TApps; eauto using kinding1_subst_t_t.
-      econstructor.
-      rewrite shift0_t_t_shift_0.
-      eapply kinding1_subst_t_t with (x := S x) (K := _ :: _); simpl; eauto using wfsorts1_wellscoped_ss with db_la.
+      {
+        econstructor.
+        rewrite shift0_t_t_shift_0.
+        eapply kinding1_subst_t_t with (x := S x) (K := _ :: _); simpl; eauto using wfsorts1_wellscoped_ss with db_la.
+      }
+      {
+        eapply Forall2_map_1; eauto.
+        intros.
+        eapply sum_rel_map_sum_l; eauto.
+        {
+          intros.
+          destruct v0.
+          simpl in *.
+          openhyp; subst.
+          split; eauto.
+        }
+        {
+          intros.
+          eauto using kinding1_subst_t_t, wfsorts1_wellscoped_ss.
+        }
+      }
     }
     {
       (* Case Ty1Unfold *)
@@ -21448,10 +21534,10 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
              H : kinding1 _ _ _ _ |- _ => invert1 H
            end.
   
-  Lemma tyeq1_unroll L K k t cs t' cs' k' :
-    k = KArrows (map fst cs) k' ->
+  Lemma tyeq1_unroll L K k t cs t' cs' bks k' :
+    k = KArrows bks k' ->
     tyeq1 L (k :: K) t t' k ->
-    Forall2 (fun p p' => fst p = fst p' /\ idxeq L (snd p) (snd p') (fst p)) cs cs' ->
+    Forall3 (fun a a' bk => sum_rel (fun p p' => bk = inl (fst p) /\ fst p = fst p' /\ idxeq L (snd p) (snd p') (fst p)) (fun t t' => exists k, bk = inr k /\ tyeq1 L K t t' k) a a') cs cs' bks ->
     kinding1 L (k :: K) t k ->
     kinding1 L (k :: K) t' k ->
     wellscoped_ss L ->
@@ -22520,14 +22606,13 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
       destruct Hty' as [Hkd' Hi'].
       copy Hkd Hkd''.
       eapply kinding1_TApps_TRec_invert in Hkd''.
-      destruct Hkd'' as (? & Ht2' & Hcs'); subst.
+      destruct Hkd'' as (bks' & ? & Hcs' & Ht2'); subst.
       copy Hkd' Hkd''.
       eapply kinding1_TApps_TRec_invert in Hkd''.
-      destruct Hkd'' as (? & Ht2 & Hcs); subst.
+      destruct Hkd'' as (bks & ? & Hcs & Ht2); subst.
       eapply invert_tyeq1_TApps_TRec in Htyeq2; eauto using kinding1_bkinding.
-      destruct Htyeq2 as (Hsorteq & Htyeq2 & Htyeqcs).
+      destruct Htyeq2 as (bks'' & Htyeqcs & Hsorteq & Htyeq2).
       rewrite <- Hsorteq in *.
-      set (k := map fst cs) in *.
       split.
       {
         rewrite Time_a_minus_a.
@@ -22544,6 +22629,52 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
           simplify.
           eapply tyeq1_sym.
           eapply tyeq1_trans; [eapply Htyeq | | ]; eauto using kinding1_bkinding.
+          assert (bks' = bks).
+          {
+            eapply KArrows_inj; eauto.
+            apply_all Forall2_length.
+            Lemma Forall3_length A B C (P : A -> B -> C -> Prop) ls1 ls2 ls3 : Forall3 P ls1 ls2 ls3 -> length ls1 = length ls2 /\ length ls2 = length ls3.
+            Proof.
+              induct ls1; invert 1; simpl; eauto; split;
+                f_equal; eapply IHls1; eauto.
+            Qed.
+            apply_all Forall3_length.
+            openhyp.
+            congruence.
+          }
+          subst.
+          assert (bks'' = bks).
+          {
+            Lemma args_bks_tyeq1_bkinding_same_k bks bks'' cs cs' :
+              Forall2
+                (sum_rel
+                   (fun (p : bsort * idx) (b : bsort) =>
+                      b = fst p /\ sorting1 [] (snd p) (SBaseSort (fst p))) (kinding1 [] [])) cs bks ->
+              Forall3
+                (fun (a a' : idx_or_type) (bk : bsort + kind) =>
+                   sum_rel
+                     (fun p p' : bsort * idx =>
+                        bk = inl (fst p) /\ fst p = fst p' /\ idxeq [] (snd p) (snd p') (fst p))
+                     (fun t t' : ty => exists k : kind, bk = inr k /\ tyeq1 [] [] t t' k) a a') cs
+                cs' bks'' ->
+              bks'' = bks.
+            Proof.
+              induct bks; invert 1; invert 1; simpl; eauto.
+              invert H2; invert H3; simpl in *; try dis.
+              {
+                destruct v; destruct v'; openhyp; simpl in *; subst.
+                f_equal; eauto.
+              }
+              {
+                destruct H; openhyp; simpl in *; subst.
+                f_equal; eauto.
+                f_equal.
+                eapply tyeq1_bkinding_same_k_1 in H0; eauto.
+              }
+            Qed.
+            eapply args_bks_tyeq1_bkinding_same_k in Htyeqcs; eauto.
+          }
+          subst.
           eapply tyeq1_unroll; eauto.
         }
         {
