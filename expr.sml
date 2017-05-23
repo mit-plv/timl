@@ -69,19 +69,11 @@ type ('classifier, 'name, 'inner) tbinds = (type_namespace, 'classifier, 'name, 
                                                                                         
 datatype idx =
 	 VarI of long_id
-	 (* | ConstIT of string * region *)
-	 (* | ConstIN of int * region *)
          | IConst of idx_const * region
          | UnOpI of idx_un_op * idx * region
-         (* | DivI of idx * (int * region) *)
-         (* | ExpI of idx * (string * region) *)
          | BinOpI of idx_bin_op * idx * idx
          | Ite of idx * idx * idx * region
-	 (* | TrueI of region *)
-	 (* | FalseI of region *)
-	 (* | TTI of region *)
          | IAbs of bsort * (name * idx) ibind * region
-         (* | AdmitI of region *)
          | UVarI of (bsort, idx) uvar_i * region
 
 datatype prop =
@@ -143,25 +135,13 @@ datatype stbind =
          | TypingST of ptrn
 
 datatype expr =
-	 Var of long_id * bool(*eia*)
+	 Var of long_id * bool(*explicit index arguments (EIA)*)
          | EConst of expr_const * region
-	 (* | TT of region *)
-	 (* | ConstNat of int * region *)
-	 (* | ConstInt of int * region *)
          | EUnOp of expr_un_op * expr * region
-	 (* | Fst of expr *)
-	 (* | Snd of expr *)
          | BinOp of bin_op * expr * expr
-	 (* | App of expr * expr *)
-	 (* | Pair of expr * expr *)
-	 (* | BinOp of bin_op * expr * expr *)
 	 | TriOp of tri_op * expr * expr * expr
          | EEI of expr_EI * expr * idx
-	 (* | AppI of expr * idx *)
-	 (* | AscriptionTime of expr * idx *)
          | ET of expr_T * mtype * region
-	 (* | Never of mtype * region *)
-	 (* | Builtin of mtype * region *)
 	 | Abs of ptrn * expr
 	 | AbsI of sort * (name * expr) ibind * region
 	 | AppConstr of (long_id * bool) * idx list * expr
