@@ -24,6 +24,14 @@ fun fold_binds (binds, inner) =
 
 fun binds_length binds = length $ fst $ unfold_binds binds
                                   
+datatype idx_namespace = IdxNS
+datatype type_namespace = TypeNS
+                            
+type 'body ibind = (idx_namespace, 'body) bind
+type 'body tbind = (type_namespace, 'body) bind
+type ('classifier, 'name, 'inner) ibinds = (idx_namespace, 'classifier, 'name, 'inner) binds
+type ('classifier, 'name, 'inner) tbinds = (type_namespace, 'classifier, 'name, 'inner) binds
+                                                                                        
 end
 (*
 structure ExprUtil = struct

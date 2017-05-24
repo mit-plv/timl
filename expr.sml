@@ -18,12 +18,7 @@ end
 structure BaseTypes = struct
 datatype base_type =
          Int
-(* fun eq_base_type (t : base_type, t') = t = t' *)
-fun eq_base_type (t : base_type, t') =
-  case t of
-      Int =>
-      (case t' of
-           Int => true)
+fun eq_base_type (t : base_type, t') = t = t'
         
 fun str_bt bt =
   case bt of
@@ -32,7 +27,6 @@ fun str_bt bt =
 end
 
 functor ExprFn (structure Var : VAR structure UVar : UVAR) = struct
-
 open Var
 open BaseSorts
 open BaseTypes
@@ -42,31 +36,23 @@ open UVar
 open Region
 open Bind
 
+structure UVar = UVar
+structure BaseSorts = BaseSorts
+                        
 type id = var * region
 type name = string * region
 
-(* basic index sort *)
+(* basic index sort with arrow and uvar *)
 datatype bsort = 
          Base of base_sort 
          | BSArrow of bsort * bsort
          | UVarBS of bsort uvar_bs
                            
 (* Curve out a fragment of module expression that is not a full component list ('struct' in ML) that involves types and terms, to avoid making everything mutually dependent. (This means I can't do module substitution because the result may not be expressible.) It coincides with the concept 'projectible' or 'determinate'. *)
-(* datatype mod_projectible = *)
-(*          ModVar of id *)
-(* | ModSel of mod_projectible * id *)
 type mod_projectible = name
                          
 type long_id = mod_projectible option * id
 
-datatype idx_namespace = IdxNS
-datatype type_namespace = TypeNS
-                            
-type 'body ibind = (idx_namespace, 'body) bind
-type 'body tbind = (type_namespace, 'body) bind
-type ('classifier, 'name, 'inner) ibinds = (idx_namespace, 'classifier, 'name, 'inner) binds
-type ('classifier, 'name, 'inner) tbinds = (type_namespace, 'classifier, 'name, 'inner) binds
-                                                                                        
 datatype idx =
 	 VarI of long_id
          | IConst of idx_const * region
@@ -83,7 +69,6 @@ datatype prop =
 	 | BinPred of bin_pred * idx * idx
          | Quan of (idx -> unit) option (*for linking idx inferer with types*) quan * bsort * (name * prop) ibind * region
 
-(* index sort *)
 datatype sort =
 	 Basic of bsort * region
 	 | Subset of (bsort * region) * (name * prop) ibind * region
@@ -2938,7 +2923,12 @@ fun collect_mod_constr (family, tnames, core) = collect_mod_constr_core core
 end
                          
 end
-                                                                
+
+(* Test that the result of [ExprFun] matches signature [IDX]. We don't use a signature ascription because signature ascription (transparent or opaque) hides components that are not in the signature. SML should have a "signature check" kind of ascription. *)
+functor TestIDX (structure Var : VAR structure UVar : UVAR) = struct
+structure E : IDX = ExprFn (structure Var = Var structure UVar = UVar)
+end
+
 structure StringVar = struct
 open Util
 type var = string
@@ -3055,3 +3045,4 @@ end
 
 structure NamefulExpr = ExprFn (structure Var = StringVar structure UVar = Underscore)
 structure UnderscoredExpr = ExprFn (structure Var = IntVar structure UVar = Underscore)
+

@@ -1,9 +1,10 @@
 (* collect fresh uvars *)
 
 structure CollectUVar = struct
+open Bind
 open UVar
 open Expr
-
+       
 fun collect_uvar_i_i i =
   case i of
       VarI _ => []
