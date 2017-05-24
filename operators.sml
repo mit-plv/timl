@@ -53,9 +53,11 @@ datatype 'a quan =
          Forall
          | Exists of 'a
 
+type nat = int
+
 datatype expr_const =
          ECTT
-         | ECNat of int
+         | ECNat of nat
          | ECInt of int
 
 datatype expr_un_op =

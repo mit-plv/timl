@@ -36,47 +36,23 @@ open UVar
 open Region
 open Bind
 
-structure UVar = UVar
-structure BaseSorts = BaseSorts
-                        
 type id = var * region
 type name = string * region
 
-(* basic index sort with arrow and uvar *)
-datatype bsort = 
-         Base of base_sort 
-         | BSArrow of bsort * bsort
-         | UVarBS of bsort uvar_bs
-                           
 (* Curve out a fragment of module expression that is not a full component list ('struct' in ML) that involves types and terms, to avoid making everything mutually dependent. (This means I can't do module substitution because the result may not be expressible.) It coincides with the concept 'projectible' or 'determinate'. *)
 type mod_projectible = name
                          
 type long_id = mod_projectible option * id
 
-datatype idx =
-	 VarI of long_id
-         | IConst of idx_const * region
-         | UnOpI of idx_un_op * idx * region
-         | BinOpI of idx_bin_op * idx * idx
-         | Ite of idx * idx * idx * region
-         | IAbs of bsort * (name * idx) ibind * region
-         | UVarI of (bsort, idx) uvar_i * region
+structure Idx = IdxFn (struct
+                        structure UVar = UVar
+                        type base_sort = base_sort
+                        type var = long_id
+                        type name = name
+                        type region = region
+                        end)
+open Idx
 
-datatype prop =
-	 PTrueFalse of bool * region
-         | BinConn of bin_conn * prop * prop
-         | Not of prop * region
-	 | BinPred of bin_pred * idx * idx
-         | Quan of (idx -> unit) option (*for linking idx inferer with types*) quan * bsort * (name * prop) ibind * region
-
-datatype sort =
-	 Basic of bsort * region
-	 | Subset of (bsort * region) * (name * prop) ibind * region
-         | UVarS of (bsort, sort) uvar_s * region
-         (* [SAbs] and [SApp] are just for higher-order unification *)
-         | SAbs of bsort * (name * sort) ibind * region
-         | SApp of sort * idx
-                            
 type kind = int (*number of type arguments*) * bsort list
 
 (* monotypes *)
