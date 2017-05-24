@@ -46,6 +46,8 @@ Group is
       bigO-solver.sml
       main.sml
 
+      micro-timl/micro-timl.sml
+
       $/basis.cm
       $/smlnj-lib.cm
       $/ml-yacc-lib.cm
