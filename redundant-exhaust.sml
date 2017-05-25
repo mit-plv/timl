@@ -57,7 +57,7 @@ val op\/ = OrC
 
 fun impossible s = Impossible $ "cover has the wrong type: " ^ s
 
-fun get_family (c : constr) = #1 c
+fun get_family (c : mtype constr) = #1 c
                                  
 fun cover_neg gctx (ctx as (sctx, kctx, cctx)) (t : mtype) c =
   let

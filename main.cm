@@ -25,6 +25,8 @@ Group is
       idx.sml
       type.sig
       type.sml
+      datatype.sml
+      pattern.sml
       expr.sml
       uvar-expr.sml
       elaborate.sml

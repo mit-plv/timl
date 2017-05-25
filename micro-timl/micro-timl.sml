@@ -14,6 +14,7 @@ datatype kind =
 datatype ty_const =
          TCUnit
        | TCInt
+       | TCEmpty
 
 (* binary type constructors *)
 datatype ty_bin_op =
@@ -27,7 +28,7 @@ datatype ty =
        | TBinOp of ty_bin_op * ty * ty
        | TArrow of ty * idx * ty
        | TAbsI of bsort * ty
-       | TAppI of ty * idx
+       | TAppI of ty * bsort * idx
        | TQuan of unit quan * kind * ty
        | TQuanI of unit quan * sort * ty
        | TRec of kind * ty

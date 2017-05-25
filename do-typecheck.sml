@@ -780,7 +780,7 @@ fun is_wf_return gctx (skctx as (sctx, _), return) =
        SOME (check_bsort gctx (sctx, d, Base Time)))
     | (NONE, NONE) => (NONE, NONE)
 
-fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext), (* pcovers, *) pn : U.ptrn, t : mtype) : ptrn * cover * context * int =
+fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext), (* pcovers, *) pn : U.mtype U.ptrn, t : mtype) : mtype ptrn * cover * context * int =
   let
     val match_ptrn = match_ptrn gctx
     val gctxn = gctx_names gctx
@@ -1759,12 +1759,12 @@ and check_decls gctx (ctx, decls) : decl list * context * int * idx list * conte
       (decls, ctxd, nps, ds, ctx)
     end
 
-and is_wf_datatype gctx ctx ((name, tnames, sorts, constr_decls, r) : U.datatype_def) : datatype_def * context =
+and is_wf_datatype gctx ctx ((name, tnames, sorts, constr_decls, r) : U.mtype U.datatype_def) : mtype datatype_def * context =
     let 
       val sorts = map is_wf_bsort sorts
       val nk = (name, (true, (length tnames, sorts), NONE))
       val ctx as (sctx, kctx, _, _) = add_kindingext_skct nk ctx
-      fun make_constr ((name, ibinds, r) : U.constr_decl) : constr_decl * (string * constr) =
+      fun make_constr ((name, ibinds, r) : U.mtype U.constr_decl) : mtype constr_decl * (string * mtype constr) =
 	let
           val family = (NONE, (0, r))
           val c = (family, tnames, ibinds)

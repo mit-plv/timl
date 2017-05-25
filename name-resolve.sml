@@ -218,10 +218,10 @@ fun on_ibinds on_anno on_inner ctx ibinds =
       | BindCons (anno, E.Bind (name, ibinds)) =>
         BindCons (on_anno ctx anno, Bind (name, on_ibinds on_anno on_inner (name :: ctx) ibinds))
 
-fun on_constr_core gctx (ctx as (sctx, kctx)) tnames (ibinds : E.constr_core) : constr_core =
+fun on_constr_core gctx (ctx as (sctx, kctx)) tnames (ibinds : E.mtype E.constr_core) : mtype constr_core =
     on_ibinds (on_sort gctx) (fn sctx => fn (t, is) => (on_mtype gctx (sctx, rev tnames @ kctx) t, map (on_idx gctx sctx) is)) sctx ibinds
 
-fun on_constr gctx (ctx as (sctx, kctx)) ((family, tnames, core) : E.constr) : constr =
+fun on_constr gctx (ctx as (sctx, kctx)) ((family, tnames, core) : E.mtype E.constr) : mtype constr =
     (on_long_id gctx #2 kctx family,
      tnames, 
      on_constr_core gctx ctx tnames core)

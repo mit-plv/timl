@@ -1,26 +1,24 @@
 structure TiML2microTiML = struct
 
 structure LongIdVar = struct
-type var = string option * int
+type var = (string * unit) option * (int * unit)
 end
 structure Var = LongIdVar
 open BaseSorts
-structure Idx = IdxFn (struct
-                        structure UVarI = UVar
-                        type base_sort = base_sort
-                        type var = Var.var
-                        type name = unit
-                        type region = unit
-                        end)
-structure TiMLType = TypeFn (struct
-                              structure Idx = Idx
-                              structure UVarT = NoUVar
-                              type base_type = BaseTypes.base_type
-                              type var = Var.var
-                              type name = unit
-                              type region = unit
-                              end)
-structure TiML = TAst (structure Idx = Idx structure Type = TiMLType)
+structure Idx = IdxFn (structure UVarI = UVar
+                       type base_sort = base_sort
+                       type var = Var.var
+                       type name = unit
+                       type region = unit)
+(* structure TiMLType = TypeFn (structure Idx = Idx *)
+(*                              structure UVarT = NoUVar *)
+(*                              type base_type = BaseTypes.base_type *)
+(*                              type var = Var.var *)
+(*                              type name = unit *)
+(*                              type region = unit) *)
+structure TiML = TAst (structure Idx = Idx
+                       structure UVarT = NoUVar
+                       type base_type = BaseTypes.base_type)
 structure MicroTiML = MicroTiMLFn (Idx)
 structure S = TiML
 structure T = MicroTiML
@@ -52,51 +50,58 @@ fun on_base_type t =
 
 fun KArrows bs k = foldr KArrow k bs
 fun KArrowTs ks k = foldr KArrowT k ks
+fun KArrowTypes n k = KArrowTs (repeat n KType) k
                           
-fun on_k ((n, bs) : S.kind) : kind = KArrowTs (repeat n KType) $ KArrows bs KType
+fun on_k ((n, bs) : S.kind) : kind = KArrowTypes n $ KArrows bs KType
+
+val TUnit = TConst TCUnit
+val TEmpty = TConst TCEmpty
+fun TSum (t1, t2) = TBinOp (TBSum, t1, t2)
+fun TProd (t1, t2) = TBinOp (TBProd, t1, t2)
 
 fun on_mt (t : S.mtype) : ty =
   case t of
       S.Arrow (t1, i, t2) => TArrow (on_mt t1, i, on_mt t2)
     | S.TyNat (i, _) => TNat i
     | S.TyArray (t, i) => TArr (on_mt t, i)
-    | S.Unit _ => TConst TCUnit
-    | S.Prod (t1, t2) => TBinOp (TBProd, on_mt t1, on_mt t2)
+    | S.Unit _ => TUnit
+    | S.Prod (t1, t2) => TProd (on_mt t1, on_mt t2)
     | S.UniI (s, Bind (_, t), r) => TQuanI (Forall, s, on_mt t)
     | S.MtVar x => TVar x
     | S.MtApp (t1, t2) => TAppT (on_mt t1, on_mt t2)
     | S.MtAbs (k, Bind (_, t), _) => TAbsT (on_k k, on_mt t)
-    | S.MtAppI (t, i) => TAppI (on_mt t, i)
+    | S.MtAppI (t, b, i) => TAppI (on_mt t, b, i)
     | S.MtAbsI (b, Bind (_, t), _) => TAbsI (b, on_mt t)
     | S.BaseType t => TConst (on_base_type t)
     | S.UVar (x, _) => exfalso x
+    | S.Datatype (dt as (_, tnames, bsorts, constrs, _)) =>
+      let
+        fun on_constr ibinds =
+          let
+            val (name_sorts, (t, is)) = unfold_binds ibinds
+            val formal_iargs = map (fn x => VarI (NONE, (x, dummy))) $ rev $ range $ length name_sorts
+                                   (*here*)
+          in
+            ()
+          end
+        val n = length tnames
+        val k = KArrowTypes n $ KArrows bsorts KType
+        val ts = map (fn (_, c, _) => on_constr c) constrs
+        val t = foldr' TSum TEmpty ts
+        val t = TAbsIMany (rev bsorts, t)
+        val t = TAbsTMany (repeat n KType, t)
+      in
+        TRec (k, t)
+      end
 
-(* fun on_ptrn p = *)
-(*     case p of *)
-(* 	ConstrP ((x, eia), inames, pn, r) => *)
-(*         let *)
-(*           val acc = on_long_id acc x *)
-(*           val acc = on_option f acc pn *)
-(*         in *)
-(*           acc *)
-(*         end *)
-(*       | VarP name => acc *)
-(*       | PairP (pn1, pn2) => *)
-(*         let *)
-(*           val acc = f acc pn1 *)
-(*           val acc = f acc pn2 *)
-(*         in *)
-(*           acc *)
-(*         end *)
-(*       | TTP r => acc *)
-(*       | AliasP (name, pn, r) => f acc pn *)
-(*       | AnnoP (pn, t) => *)
-(*         let *)
-(*           val acc = f acc pn *)
-(*           val acc = on_mt acc t *)
-(*         in *)
-(*           acc *)
-(*         end *)
+fun on_ptrn pn e =
+    case pn of
+        S.TTP _ => e
+      | S.AliasP (_, pn, _) => e
+      | S.ConstrP ((x, eia), inames, pn, r) => e
+      | S.VarP name => e
+      | S.PairP (pn1, pn2) => e
+      | S.AnnoP (pn, t) => e
       
 fun on_e (e : S.expr) : expr =
   case e of
@@ -115,6 +120,8 @@ fun on_e (e : S.expr) : expr =
            Op.ETNever => ENever (on_mt t)
          | Op.ETBuiltin => raise Error "can't translate builtin expression"
       )
+    (* | S.Case (e, return, rules, _) => *)
+    (*   Case (e, return, map (f_rule x n) rules) *)
     (* | S.Abs (pn, e) => *)
     (*   Abs (pn, e) *)
     | S.AbsI (s, Bind (_, e), _) => EAbsI (s, on_e e)
@@ -126,6 +133,5 @@ fun on_e (e : S.expr) : expr =
     (*   end *)
     | S.Ascription (e, t) => EAscType (on_e e, on_mt t)
     (* | AppConstr (cx, is, e) => AppConstr (cx, is, f x n e) *)
-    (* | Case (e, return, rules, r) => Case (f x n e, return, map (f_rule x n) rules, r) *)
       
 end

@@ -37,7 +37,7 @@ type scontext = (string (* option *) * sort) list
 (* kinding context *)
 type kcontext = (string * kind_ext) list 
 (* constructor context *)
-type ccontext = (string * constr) list
+type ccontext = (string * mtype constr) list
 (* typing context *)
 type tcontext = (string * ty) list
 type context = scontext * kcontext * ccontext * tcontext

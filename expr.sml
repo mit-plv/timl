@@ -52,43 +52,34 @@ type mod_projectible = name
                          
 type long_id = mod_projectible option * id
 
-structure Idx = IdxFn (struct
-                        structure UVarI = UVarI
-                        type base_sort = base_sort
-                        type var = long_id
-                        type name = name
-                        type region = region
-                        end)
+structure Idx = IdxFn (structure UVarI = UVarI
+                       type base_sort = base_sort
+                       type var = long_id
+                       type name = name
+                       type region = region)
 open Idx
 
-structure Type = TypeFn (struct
-                          structure Idx = Idx
-                          structure UVarT = UVarT
-                          type base_type = base_type
-                          type var = long_id
-                          type name = name
-                          type region = region
-                          end)
+structure Type = TypeFn (structure Idx = Idx
+                         structure UVarT = UVarT
+                         type base_type = base_type
+                         type var = long_id
+                         type name = name
+                         type region = region)
 open Type
 
-type constr_core = (sort, string, mtype * idx list) ibinds
-type constr_decl = string * constr_core * region
-type constr = long_id(*family*) * string list(*type argument names*) * constr_core
+structure Datatype = DatatypeFn (structure Idx = Idx
+                                 type var = long_id)
+open Datatype
+
+structure Pattern = PatternFn (structure Idx = Idx
+                               type var = long_id)
+open Pattern
 
 type return = mtype option * idx option
-type datatype_def = string * string list * bsort list * constr_decl list * region
-
-datatype ptrn =
-	 ConstrP of (long_id * bool(*eia*)) * string list * ptrn option * region (* eia : is explicit index arguments? *)                                         
-         | VarP of name
-         | PairP of ptrn * ptrn
-         | TTP of region
-         | AliasP of name * ptrn * region
-         | AnnoP of ptrn * mtype
-
+                                 
 datatype stbind = 
          SortingST of name * sort
-         | TypingST of ptrn
+         | TypingST of mtype ptrn
 
 datatype expr =
 	 Var of long_id * bool(*explicit index arguments (EIA)*)
@@ -98,18 +89,18 @@ datatype expr =
 	 | TriOp of tri_op * expr * expr * expr
          | EEI of expr_EI * expr * idx
          | ET of expr_T * mtype * region
-	 | Abs of ptrn * expr
+	 | Abs of mtype ptrn * expr
 	 | AbsI of sort * (name * expr) ibind * region
 	 | AppConstr of (long_id * bool) * idx list * expr
-	 | Case of expr * return * (ptrn * expr) list * region
+	 | Case of expr * return * (mtype ptrn * expr) list * region
 	 | Let of return * decl list * expr * region
 	 | Ascription of expr * mtype
 
 
      and decl =
-         Val of name list * ptrn * expr * region
+         Val of name list * mtype ptrn * expr * region
          | Rec of name list * name * (stbind list * ((mtype * idx) * expr)) * region
-	 | Datatype of datatype_def
+	 | Datatype of mtype datatype_def
          | IdxDef of name * sort * idx
          | AbsIdx2 of name * sort * idx
          | AbsIdx of (name * sort * idx) * decl list * region
@@ -118,7 +109,7 @@ datatype expr =
 
 datatype spec =
          SpecVal of name * ty
-         | SpecDatatype of datatype_def
+         | SpecDatatype of mtype datatype_def
          | SpecIdx of name * sort
          | SpecType of name * kind
          | SpecTypeDef of name * mtype
@@ -399,10 +390,10 @@ fun AppVar (x, is) = MtAppIs (MtVar x) is
 fun AppV (x, ts, is, r) = MtAppIs (MtApps (MtVar x) ts) is
 
 val VarT = MtVar
-fun constr_type VarT shiftx_long_id ((family, tnames, ibinds) : constr) = 
+fun constr_type VarT shiftx_long_id ((family, tnames, ibinds) : mtype constr) = 
   let 
     val (ns, (t, is)) = unfold_binds ibinds
-    val ts = (map (fn x => VarT (NONE, (x, dummy))) o rev o range o length) tnames
+    val ts = map (fn x => VarT (NONE, (x, dummy))) $ rev $ range $ length tnames
     val t2 = AppV (shiftx_long_id 0 (length tnames) family, ts, is, dummy)
     val t = Arrow (t, T0 dummy, t2)
     val t = foldr (fn ((name, s), t) => UniI (s, Bind ((name, dummy), t), dummy)) t ns
@@ -1581,7 +1572,7 @@ fun shift_t_t b = shiftx_t_t 0 1 b
 fun shiftx_pair (f, g) x n (a, b) = (f x n a, g x n b)
 fun shiftx_list f x n ls = map (f x n) ls
 
-fun shiftx_i_c x n ((family, tnames, ibinds) : constr) : constr =
+fun shiftx_i_c x n ((family, tnames, ibinds) : mtype constr) : mtype constr =
   (family,
    tnames, 
    on_i_ibinds shiftx_i_s (shiftx_pair (shiftx_i_mt, shiftx_list shiftx_i_i)) x n ibinds)
@@ -1592,7 +1583,7 @@ fun shiftx_noop x n b = b
 
 fun shiftx_id x n (y, r) = (shiftx_v x n y, r)
                              
-fun shiftx_t_c x n (((m, family), tnames, ibinds) : constr) : constr =
+fun shiftx_t_c x n (((m, family), tnames, ibinds) : mtype constr) : mtype constr =
   ((m, shiftx_id x n family), 
    tnames, 
    on_t_ibinds shiftx_noop (shiftx_pair (shiftx_t_mt, shiftx_noop)) (x + length tnames) n ibinds)
