@@ -70,12 +70,39 @@ fun on_mt (t : S.mtype) : ty =
     | S.MtAbsI (b, Bind (_, t), _) => TAbsI (b, on_mt t)
     | S.BaseType t => TConst (on_base_type t)
     | S.UVar (x, _) => exfalso x
+
+(* fun on_ptrn p = *)
+(*     case p of *)
+(* 	ConstrP ((x, eia), inames, pn, r) => *)
+(*         let *)
+(*           val acc = on_long_id acc x *)
+(*           val acc = on_option f acc pn *)
+(*         in *)
+(*           acc *)
+(*         end *)
+(*       | VarP name => acc *)
+(*       | PairP (pn1, pn2) => *)
+(*         let *)
+(*           val acc = f acc pn1 *)
+(*           val acc = f acc pn2 *)
+(*         in *)
+(*           acc *)
+(*         end *)
+(*       | TTP r => acc *)
+(*       | AliasP (name, pn, r) => f acc pn *)
+(*       | AnnoP (pn, t) => *)
+(*         let *)
+(*           val acc = f acc pn *)
+(*           val acc = on_mt acc t *)
+(*         in *)
+(*           acc *)
+(*         end *)
       
 fun on_e (e : S.expr) : expr =
   case e of
-      S.Var x => EVar x
-    | S.EConst b => EConst b
-    | S.EUnOp (opr, e) => EUnOp (on_expr_un_op opr, on_e e)
+      S.Var (x, _) => EVar x
+    | S.EConst (c, _) => EConst c
+    | S.EUnOp (opr, e, _) => EUnOp (on_expr_un_op opr, on_e e)
     | S.BinOp (opr, e1, e2) => EBinOp (on_bin_op opr, on_e e1, on_e e2)
     | S.TriOp (Op.Write, e1, e2, e3) => EWrite (on_e e1, on_e e2, on_e e3)
     | S.EEI (opr, e, i) =>
@@ -88,16 +115,16 @@ fun on_e (e : S.expr) : expr =
            Op.ETNever => ENever (on_mt t)
          | Op.ETBuiltin => raise Error "can't translate builtin expression"
       )
-    (* | Abs (pn, e) => *)
-    (*   Abs (pn, f (x + (length $ snd $ ptrn_names pn)) n e) *)
-    (* | AbsI (s, bind, r) => AbsI (s, on_e_ibind f x n bind, r) *)
+    (* | S.Abs (pn, e) => *)
+    (*   Abs (pn, e) *)
+    | S.AbsI (s, Bind (_, e), _) => EAbsI (s, on_e e)
     (* | Let (return, decs, e, r) => *)
     (*   let  *)
     (*     val (decs, m) = f_decls x n decs *)
     (*   in *)
     (*     Let (return, decs, f (x + m) n e, r) *)
     (*   end *)
-    (* | Ascription (e, t) => Ascription (f x n e, t) *)
+    | S.Ascription (e, t) => EAscType (on_e e, on_mt t)
     (* | AppConstr (cx, is, e) => AppConstr (cx, is, f x n e) *)
     (* | Case (e, return, rules, r) => Case (f x n e, return, map (f_rule x n) rules, r) *)
       

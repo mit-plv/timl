@@ -27,7 +27,7 @@ datatype ty =
        | TBinOp of ty_bin_op * ty * ty
        | TArrow of ty * idx * ty
        | TAbsI of bsort * ty
-       | TAppI of ty * (*a discrepency with Coq version: we don't have the [bsort] annotation here*) idx
+       | TAppI of ty * idx
        | TQuan of unit quan * kind * ty
        | TQuanI of unit quan * sort * ty
        | TRec of kind * ty
@@ -82,7 +82,7 @@ datatype expr =
          | ERec of expr
          | EAbsT of expr
          | EAppT of expr * ty
-         | EAbsI of expr
+         | EAbsI of sort * expr
          | EAppI of expr * idx
          | EPack of ty * expr
          | EUnpack of expr * expr
