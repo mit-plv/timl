@@ -23,6 +23,8 @@ Group is
       var-uvar.sig
       idx.sig
       idx.sml
+      type.sig
+      type.sml
       expr.sml
       uvar-expr.sml
       elaborate.sml
@@ -49,6 +51,7 @@ Group is
 
       micro-timl/micro-timl.sml
       t-ast.sml
+      nouvar-expr.sml
       micro-timl/timl-to-micro-timl.sml
 
       $/basis.cm

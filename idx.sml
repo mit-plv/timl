@@ -1,5 +1,5 @@
 signature IDX_PARAMS = sig
-  structure UVar : UVAR
+  structure UVarI : UVAR_I
   type base_sort
   type var
   type name
@@ -10,7 +10,7 @@ functor IdxFn (Params : IDX_PARAMS) =
 struct
 
 open Params
-open UVar
+open UVarI
 open Bind
 open Operators
                         
@@ -44,4 +44,8 @@ datatype sort =
          | SAbs of bsort * (name * sort) ibind * region
          | SApp of sort * idx
                             
+end
+
+functor TestIdxFnSignatures (Params : IDX_PARAMS) = struct
+structure M : IDX = IdxFn (Params)
 end

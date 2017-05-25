@@ -26,13 +26,21 @@ fun str_bt bt =
 
 end
 
-functor ExprFn (structure Var : VAR structure UVar : UVAR) = struct
+signature EXPR_PARAMS = sig
+  structure Var : VAR
+  structure UVarI : UVAR_I
+  structure UVarT : UVAR_T
+end
+                          
+functor ExprFn (Params : EXPR_PARAMS) = struct
+open Params
 open Var
 open BaseSorts
 open BaseTypes
 open Util
 open Operators
-open UVar
+open UVarI
+open UVarT
 open Region
 open Bind
 
@@ -45,7 +53,7 @@ type mod_projectible = name
 type long_id = mod_projectible option * id
 
 structure Idx = IdxFn (struct
-                        structure UVar = UVar
+                        structure UVarI = UVarI
                         type base_sort = base_sort
                         type var = long_id
                         type name = name
@@ -53,28 +61,15 @@ structure Idx = IdxFn (struct
                         end)
 open Idx
 
-type kind = int (*number of type arguments*) * bsort list
-
-(* monotypes *)
-datatype mtype = 
-	 Arrow of mtype * idx * mtype
-         | TyNat of idx * region
-         | TyArray of mtype * idx
-	 | BaseType of base_type * region
-         | Unit of region
-	 | Prod of mtype * mtype
-	 | UniI of sort * (name * mtype) ibind * region
-         | MtVar of long_id
-         (* type-level computations *)
-         | MtAbs of kind * (name * mtype) tbind * region
-         | MtApp of mtype * mtype
-         | MtAbsI of bsort * (name * mtype) ibind  * region
-         | MtAppI of mtype * idx
-         | UVar of (bsort, kind, mtype) uvar_mt * region
-
-datatype ty = 
-	 Mono of mtype
-	 | Uni of (name * ty) tbind * region
+structure Type = TypeFn (struct
+                          structure Idx = Idx
+                          structure UVarT = UVarT
+                          type base_type = base_type
+                          type var = long_id
+                          type name = name
+                          type region = region
+                          end)
+open Type
 
 type constr_core = (sort, string, mtype * idx list) ibinds
 type constr_decl = string * constr_core * region
@@ -2673,7 +2668,7 @@ fun on_pair (f, g) acc (a, b) =
     acc
   end
   
-val on_return = on_pair (on_option on_mt, on_option on_i)
+fun on_return x = on_pair (on_option on_mt, on_option on_i) x
                       
 fun on_constr_core acc ibinds =
   let
@@ -2900,9 +2895,10 @@ end
                          
 end
 
-(* Test that the result of [ExprFun] matches signature [IDX]. We don't use a signature ascription because signature ascription (transparent or opaque) hides components that are not in the signature. SML should have a "signature check" kind of ascription. *)
-functor TestIDX (structure Var : VAR structure UVar : UVAR) = struct
-structure E : IDX = ExprFn (structure Var = Var structure UVar = UVar)
+(* Test that the result of [ExprFun] matches some signatures. We don't use a signature ascription because signature ascription (transparent or opaque) hides components that are not in the signature. SML should have a "signature check" kind of ascription. *)
+functor TestExprFnSignatures (Params : EXPR_PARAMS) = struct
+structure M : IDX = ExprFn (Params)
+structure M2 : TYPE = ExprFn (Params)
 end
 
 structure StringVar = struct
@@ -3019,6 +3015,6 @@ fun eq_uvar_s (_, _) = false
 fun eq_uvar_mt (_, _) = false
 end
 
-structure NamefulExpr = ExprFn (structure Var = StringVar structure UVar = Underscore)
-structure UnderscoredExpr = ExprFn (structure Var = IntVar structure UVar = Underscore)
+structure NamefulExpr = ExprFn (structure Var = StringVar structure UVarI = Underscore structure UVarT = Underscore)
+structure UnderscoredExpr = ExprFn (structure Var = IntVar structure UVarI = Underscore structure UVarT = Underscore)
 

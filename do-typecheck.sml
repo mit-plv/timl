@@ -1331,7 +1331,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	               (AppI (e, i), subst_i_mt i t1, d)
                      end
                    | _ =>
-                     (* If the type is not in the expected form (maybe due to uvar), we try to unify it with the expected template. This may lose generality because the the inferred [s] will always be a base sort. *)
+                     (* If the type is not in the expected form (maybe due to uvar), we try to unify it with the expected template. This may lose generality because the the inferred argument sort will always be a base sort. *)
 	             let 
                        val r = get_region_e e
                        val s = fresh_sort gctx sctx r

@@ -892,7 +892,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   | TBinOp (opr : ty_bin_op) (c1 c2 : ty)
   | TArrow (t1 : ty) (i : idx) (t2 : ty)
   | TAbsI (s : bsort) (t : ty)
-  | TAppI (t : ty) (b : bsort) (i : idx)
+  | TAppI (t : ty) (b : bsort)(*need this annotation because of [CongApp]*) (i : idx)
   | TQuan (q : quan) (k : kind) (t : ty)
   | TQuanI (q : quan) (s : sort) (t : ty)
   | TRec (k : kind) (t : ty)
