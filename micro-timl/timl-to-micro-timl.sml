@@ -59,6 +59,12 @@ val TEmpty = TConst TCEmpty
 fun TSum (t1, t2) = TBinOp (TBSum, t1, t2)
 fun TProd (t1, t2) = TBinOp (TBProd, t1, t2)
 
+fun foldr' f init xs = foldl' f init $ rev xs
+
+fun combine_TSum ts = foldr' TSum TEmpty ts
+
+fun int2var x = (NONE, (x, ()))
+                  
 fun on_mt (t : S.mtype) : ty =
   case t of
       S.Arrow (t1, i, t2) => TArrow (on_mt t1, i, on_mt t2)
@@ -74,20 +80,27 @@ fun on_mt (t : S.mtype) : ty =
     | S.MtAbsI (b, Bind (_, t), _) => TAbsI (b, on_mt t)
     | S.BaseType t => TConst (on_base_type t)
     | S.UVar (x, _) => exfalso x
-    | S.Datatype (dt as (_, tnames, bsorts, constrs, _)) =>
+    | S.TDatatype (dt as (_, tnames, bsorts, constrs, _)) =>
       let
         fun on_constr ibinds =
           let
             val (name_sorts, (t, is)) = unfold_binds ibinds
-            val formal_iargs = map (fn x => VarI (NONE, (x, dummy))) $ rev $ range $ length name_sorts
-                                   (*here*)
+            val () = assert (fn () => length is = length bsorts) "length is = length bsorts"
+            val formal_iargs = map (fn x => VarI (int2var x)) $ rev $ range $ length bsorts
+            val t = shiftx_i_mt 0 1 t
+            val is = map (shiftx_i_i 0 1) is
+            val formal_iargs = map (shift_i_i 0 (length name_sorts + 1)) formal_iargs
+            val prop = PEqs (is, formal_iargs)
+            val extra_sort_name = "__datatype_constraint"
+            val extra_sort = Subset ((BSUnit, ()), Bind ((extra_sort_name, ()), prop), ())
+            val t = TExistsIMany (extra_sort :: map snd name_sorts, t)
           in
-            ()
+            t
           end
         val n = length tnames
         val k = KArrowTypes n $ KArrows bsorts KType
         val ts = map (fn (_, c, _) => on_constr c) constrs
-        val t = foldr' TSum TEmpty ts
+        val t = combine_TSum ts
         val t = TAbsIMany (rev bsorts, t)
         val t = TAbsTMany (repeat n KType, t)
       in

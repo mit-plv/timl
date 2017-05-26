@@ -795,7 +795,7 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
           val (name_sorts, (t1, is')) = unfold_binds ibinds
           val () = if eia then () else raise Impossible "eia shouldn't be false"
           val ts = map (fn _ => fresh_mt gctx (sctx, kctx) r) tnames
-          val is = map (fn b => fresh_i gctx sctx (fresh_bsort ()) r) is'
+          val is = map (fn _ => fresh_i gctx sctx (fresh_bsort ()) r) is'
           val t_constr = MtAppIs (MtApps (MtVar family) ts) is
 	  val () = unify_mt r gctx (sctx, kctx) (t, t_constr)
                    handle

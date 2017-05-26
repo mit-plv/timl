@@ -3,6 +3,7 @@ signature TYPE_PARAMS = sig
   structure UVarT : UVAR_T
   type base_type
   type var
+  type 'mtype datatype_def
   type name
   type region
 end         
@@ -27,12 +28,12 @@ datatype mtype =
 	 | Prod of mtype * mtype
 	 | UniI of sort * (name * mtype) ibind * region
          | MtVar of var
-         (* type-level computations *)
          | MtAbs of kind * (name * mtype) tbind * region
          | MtApp of mtype * mtype
          | MtAbsI of bsort * (name * mtype) ibind  * region
          | MtAppI of mtype * idx
          | UVar of (bsort, kind, mtype) uvar_mt * region
+         | TDatatype of mtype datatype_def * region
 
 datatype ty = 
 	 Mono of mtype

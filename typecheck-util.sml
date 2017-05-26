@@ -83,9 +83,6 @@ fun shiftx_i_ts n ctx =
 fun shiftx_t_ts n ctx = 
   map (mapSnd (shiftx_t_t 0 n)) ctx
 
-fun shiftx_snd f x n (a, b) = (a, f x n b)
-fun shiftx_list_snd f x n ls = map (mapSnd (f x n)) ls
-                                   
 fun add_sorting (name, s) pairs = (name, s) :: pairs
 fun add_sorting_sk pair (sctx, kctx) = 
   (add_sorting pair sctx, 

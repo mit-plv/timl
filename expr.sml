@@ -59,17 +59,18 @@ structure Idx = IdxFn (structure UVarI = UVarI
                        type region = region)
 open Idx
 
+structure Datatype = DatatypeFn (structure Idx = Idx
+                                 type var = long_id)
+open Datatype
+
 structure Type = TypeFn (structure Idx = Idx
                          structure UVarT = UVarT
                          type base_type = base_type
                          type var = long_id
+                         type 'mtype datatype_def = 'mtype datatype_def
                          type name = name
                          type region = region)
 open Type
-
-structure Datatype = DatatypeFn (structure Idx = Idx
-                                 type var = long_id)
-open Datatype
 
 structure Pattern = PatternFn (structure Idx = Idx
                                type var = long_id)
@@ -100,7 +101,7 @@ datatype expr =
      and decl =
          Val of name list * mtype ptrn * expr * region
          | Rec of name list * name * (stbind list * ((mtype * idx) * expr)) * region
-	 | Datatype of mtype datatype_def
+	 | Datatype of name * (mtype datatype_def * region)
          | IdxDef of name * sort * idx
          | AbsIdx2 of name * sort * idx
          | AbsIdx of (name * sort * idx) * decl list * region
@@ -109,7 +110,7 @@ datatype expr =
 
 datatype spec =
          SpecVal of name * ty
-         | SpecDatatype of mtype datatype_def
+         | SpecDatatype of mtype datatype_def * region
          | SpecIdx of name * sort
          | SpecType of name * kind
          | SpecTypeDef of name * mtype
@@ -389,6 +390,7 @@ fun MtAbsIMany (ctx, t, r) = foldl (fn ((name, s), t) => MtAbsI (s, Bind ((name,
 fun AppVar (x, is) = MtAppIs (MtVar x) is
 fun AppV (x, ts, is, r) = MtAppIs (MtApps (MtVar x) ts) is
 
+type 'mtype constr = var(*family*) * string list(*type argument names*) * 'mtype constr_core
 val VarT = MtVar
 fun constr_type VarT shiftx_long_id ((family, tnames, ibinds) : mtype constr) = 
   let 
@@ -1074,19 +1076,24 @@ and str_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
           in
             (sprintf "rec$ $$ : $ |> $ = $" [tnames, name, binds, t, d, e], ctx_ret)
           end
-        | Datatype (name, tnames, sorts, constrs, _) =>
-          let val str_tnames = (join_prefix " " o rev) tnames
-              fun str_constr_decl (cname, ibinds, _) =
-                let 
-                  val (name_sorts, (t, idxs)) = unfold_binds ibinds
-                  val (name_sorts, sctx') = str_sortings gctx sctx name_sorts
-                  val name_sorts = map (fn (nm, s) => sprintf "$ : $" [nm, s]) name_sorts
-                in
-                  sprintf "$ of$ $ ->$$ $" [cname, (join_prefix " " o map (surround "{" "}")) name_sorts, str_mt gctx (sctx', rev tnames @ name :: kctx) t, (join_prefix " " o map (surround "{" "}" o str_i gctx sctx') o rev) idxs, str_tnames, name]
-                end
-              val s = sprintf "datatype$$ $ = $" [(join_prefix " " o map (surround "{" "}" o str_bs) o rev) sorts, str_tnames, name, join " | " (map str_constr_decl constrs)]
-              val cnames = map #1 constrs
-              val ctx = (sctx, name :: kctx, rev cnames @ cctx, tctx)
+        | Datatype ((name, _), (tbinds, _)) =>
+          let
+            val (tname_kinds, ibinds) = unfold_binds tbinds
+            val tnames = map fst tname_kinds
+            val (name_sorts, constrs) = unfold_binds ibinds
+            val sorts = map snd name_sorts
+            val str_tnames = (join_prefix " " o rev) tnames
+            fun str_constr_decl (cname, ibinds, _) =
+              let 
+                val (name_sorts, (t, idxs)) = unfold_binds ibinds
+                val (name_sorts, sctx') = str_sortings gctx sctx name_sorts
+                val name_sorts = map (fn (nm, s) => sprintf "$ : $" [nm, s]) name_sorts
+              in
+                sprintf "$ of$ $ ->$$ $" [cname, (join_prefix " " o map (surround "{" "}")) name_sorts, str_mt gctx (sctx', rev tnames @ name :: kctx) t, (join_prefix " " o map (surround "{" "}" o str_i gctx sctx') o rev) idxs, str_tnames, name]
+              end
+            val s = sprintf "datatype$$ $ = $" [(join_prefix " " o map (surround "{" "}" o str_bs) o rev) sorts, str_tnames, name, join " | " (map str_constr_decl constrs)]
+            val cnames = map #1 constrs
+            val ctx = (sctx, name :: kctx, rev cnames @ cctx, tctx)
           in
             (s, ctx)
           end
@@ -1224,7 +1231,7 @@ fun get_region_dec dec =
   case dec of
       Val (_, _, _, r) => r
     | Rec (_, _, _, r) => r
-    | Datatype (_, _, _, _, r) => r
+    | Datatype ((_, r1), (_, r)) => combine_region r1 r
     | IdxDef ((_, r), _, i) => combine_region r (get_region_i i)
     | AbsIdx2 ((_, r), _, i) => combine_region r (get_region_i i)
     | AbsIdx (_, _, r) => r
@@ -1445,6 +1452,19 @@ fun on_t_mt on_v x n b =
         | MtAbsI (s, bind, r) => MtAbsI (s, on_t_ibind f x n bind, r)
 	| BaseType a => BaseType a
         | UVar a => b
+(* fun shiftx_i_c x n ((family, tnames, ibinds) : mtype constr) : mtype constr = *)
+(*   (family, *)
+(*    tnames,  *)
+(*    on_i_ibinds shiftx_i_s (shiftx_pair (shiftx_i_mt, shiftx_list shiftx_i_i)) x n ibinds) *)
+
+(* fun shift_i_c b = shiftx_i_c 0 1 b *)
+
+(* fun shiftx_t_c x n (((m, family), tnames, ibinds) : mtype constr) : mtype constr = *)
+(*   ((m, shiftx_id x n family),  *)
+(*    tnames,  *)
+(*    on_t_ibinds shiftx_noop (shiftx_pair (shiftx_t_mt, shiftx_noop)) (x + length tnames) n ibinds) *)
+(* fun shift_t_c b = shiftx_t_c 0 1 b *)
+
   in
     f x n b
   end
@@ -1569,26 +1589,14 @@ fun shift_i_t b = shiftx_i_t 0 1 b
 fun shiftx_t_t x n b = on_t_t shiftx_t_mt x n b
 fun shift_t_t b = shiftx_t_t 0 1 b
 
-fun shiftx_pair (f, g) x n (a, b) = (f x n a, g x n b)
-fun shiftx_list f x n ls = map (f x n) ls
-
-fun shiftx_i_c x n ((family, tnames, ibinds) : mtype constr) : mtype constr =
-  (family,
-   tnames, 
-   on_i_ibinds shiftx_i_s (shiftx_pair (shiftx_i_mt, shiftx_list shiftx_i_i)) x n ibinds)
-
-fun shift_i_c b = shiftx_i_c 0 1 b
-
 fun shiftx_noop x n b = b
+fun shiftx_pair (f, g) x n (a, b) = (f x n a, g x n b)
+fun shiftx_snd f x n (a, b) = (a, f x n b)
+fun shiftx_list f x n b = map (f x n) b
+fun shiftx_list_snd f = shiftx_list $ shiftx_snd f
 
 fun shiftx_id x n (y, r) = (shiftx_v x n y, r)
                              
-fun shiftx_t_c x n (((m, family), tnames, ibinds) : mtype constr) : mtype constr =
-  ((m, shiftx_id x n family), 
-   tnames, 
-   on_t_ibinds shiftx_noop (shiftx_pair (shiftx_t_mt, shiftx_noop)) (x + length tnames) n ibinds)
-fun shift_t_c b = shiftx_t_c 0 1 b
-
 (* shift_e_e *)
 fun shiftx_e_e x n b = on_e_e shiftx_v x n b
 fun shift_e_e b = shiftx_e_e 0 1 b
@@ -1704,6 +1712,15 @@ local
       | MtAbsI (b, bind, r) => MtAbsI (b, substx_i_ibind f d x v bind, r)
       | BaseType a => BaseType a
       | UVar a => b
+      | TDatatype (dt, r) =>
+        let
+          (*here*)
+          fun on_constr d x v b = substx_t_ibinds substx_noop (substx_pair (f, substx_noop)) d x v b
+          fun on_constr_decl d x v (name, c, r) = (name, on_constr d x v c, r)
+          val dt = substx_t_tbinds substx_noop (substx_t_ibinds substx_noop (substx_list on_constr_decl)) d x v dt
+        in
+          TDatatype (dt, r)
+        end
 in
 val substx_i_mt = f
 fun subst_i_mt (v : idx) (b : mtype) : mtype = substx_i_mt 0 0 v b
@@ -1724,12 +1741,36 @@ end
 (*   shift_t = shiftx_t_mt 0 *)
 (* } *)
 
+fun substx_binds substx_bind f_cls f d x v b =
+  let
+    val substx_binds = substx_binds substx_bind f_cls f
+  in
+    case b of
+        BindNil a => BindNil (f d x v a)
+      | BindCons (cls, bind) => BindCons (f_cls d x v cls, substx_bind substx_binds d x v bind)
+  end
+
 fun substx_t_ibind f (di, dt) x v (Bind (name, inner) : ('name * 'b) ibind) =
   Bind (name, f (di + 1, dt) x v inner)
+fun substx_t_ibinds f_cls f d x v (b : ('classifier, 'name, 'inner) ibinds) = substx_binds substx_t_ibind f_cls f d x v b
+(* fun substx_t_ibinds f_cls f d x v b = *)
+  (* case b of *)
+  (*     BindNil a => BindNil (f d x v a) *)
+  (*   | BindCons (cls, bind) => BindCons (f_cls d x v cls, substx_t_ibind (substx_t_ibinds f_cls f) d x v bind) *)
 
 fun substx_t_tbind f (di, dt) x v (Bind (name, inner) : ('name * 'b) tbind) =
   Bind (name, f (di, dt + 1) (x + 1) v inner)
+fun substx_t_tbinds f_cls f d x v (b : ('classifier, 'name, 'inner) tbinds) = substx_binds substx_t_tbind f_cls f d x v b
+(* fun substx_t_tbinds f_cls f d x v b = *)
+(*   case b of *)
+(*       BindNil a => BindNil (f d x v a) *)
+(*     | BindCons (cls, bind) => BindCons (f_cls d x v cls, substx_t_tbind (substx_t_tbinds f_cls f) d x v bind) *)
 
+
+fun substx_noop d x v b = b
+fun substx_pair (f1, f2) d x v (b1, b2) = (f1 d x v b1, f2 d x v b2)
+fun substx_list f d x v b = map (f d x v) b
+                            
 local
   fun f d x v (b : mtype) : mtype =
     case b of
@@ -1747,6 +1788,14 @@ local
       | MtAppI (t, i) => MtAppI (f d x v t, i)
       | BaseType a => BaseType a
       | UVar a => b
+      | TDatatype (dt, r) =>
+        let
+          fun on_constr d x v b = substx_t_ibinds substx_noop (substx_pair (f, substx_noop)) d x v b
+          fun on_constr_decl d x v (name, c, r) = (name, on_constr d x v c, r)
+          val dt = substx_t_tbinds substx_noop (substx_t_ibinds substx_noop (substx_list on_constr_decl)) d x v dt
+        in
+          TDatatype (dt, r)
+        end
 in
 val substx_t_mt = f
 fun subst_t_mt (v : mtype) (b : mtype) : mtype = substx_t_mt (0, 0) 0 v b
@@ -2321,6 +2370,10 @@ end
 fun simp_vc (ctx, ps, p, r) = (ctx, map simp_p ps, simp_p p, r)
 
 fun simp_bind f (Bind (name, inner)) = Bind (name, f inner)
+fun simp_binds f_cls f binds =
+  case binds of
+      BindNil a => BindNil (f a)
+    | BindCons (cls, bind) => BindCons (f_cls cls, simp_bind (simp_binds f_cls f) bind)
 
 fun simp_s s =
   case s of
@@ -2360,6 +2413,14 @@ fun simp_mt t =
         case t of
             MtAbsI (_, Bind (_, t), _) => simp_mt (Subst.subst_i_mt i t)
           | _ => MtAppI (t, i)
+      end
+    | TDatatype (dt, r) =>
+      let
+        fun simp_constr c = simp_binds simp_s (mapPair (simp_mt, map simp_i)) c
+        fun simp_constr_decl ((name, c, r) : mtype constr_decl) : mtype constr_decl = (name, simp_constr c, r)
+        val dt = simp_binds id (simp_binds id (map simp_constr_decl)) dt
+      in
+        TDatatype (dt, r)
       end
 
 fun simp_t t =
@@ -2545,8 +2606,19 @@ end
 
 fun on_tbind f acc (Bind (_, b) : ('a * 'b) tbind) = f acc b
 
-local
-  fun f acc b =
+fun on_list f acc b = foldl (fn (b, acc) => f acc b) acc b
+fun on_pair (f, g) acc (a, b) =
+  let
+    val acc = f acc a
+    val acc = g acc b
+  in
+    acc
+  end
+  
+fun on_mt acc b =
+  let
+    val f = on_mt
+  in
     case b of
 	Arrow (t1, i, t2) =>
         let
@@ -2598,11 +2670,32 @@ local
       | MtAbsI (b, bind, r) => on_ibind f acc bind
       | BaseType _ => acc
       | UVar _ => acc
-in
-val on_mt = f
-fun collect_mod_mt b = f [] b
-end
-
+      | TDatatype dt => on_datatype acc dt
+  end
+    
+and on_constr_core acc ibinds =
+  let
+    val (ns, (t, is)) = unfold_binds ibinds
+    val acc = on_list on_s acc $ map snd ns
+    val acc = on_mt acc t
+    val acc = on_list on_i acc is
+  in
+    acc
+  end
+    
+and on_datatype acc (tbinds, r) =
+    let
+      val (_, ibinds) = unfold_binds tbinds
+      val (_, constr_decls) = unfold_binds ibinds                      
+      fun on_constr_decl acc (name, core, r) = on_constr_core acc core
+      val acc = on_list on_constr_decl acc constr_decls
+    in
+      acc
+    end
+    
+fun collect_mod_mt b = on_mt [] b
+fun collect_mod_constr_core b = on_constr_core [] b
+    
 local
   fun f acc b =
     case b of
@@ -2650,36 +2743,8 @@ val on_ptrn = f
 fun collect_mod_ptrn b = f [] b
 end
 
-fun on_list f acc b = foldl (fn (b, acc) => f acc b) acc b
-fun on_pair (f, g) acc (a, b) =
-  let
-    val acc = f acc a
-    val acc = g acc b
-  in
-    acc
-  end
-  
 fun on_return x = on_pair (on_option on_mt, on_option on_i) x
                       
-fun on_constr_core acc ibinds =
-  let
-    val (ns, (t, is)) = unfold_binds ibinds
-    val acc = on_list on_s acc $ map snd ns
-    val acc = on_mt acc t
-    val acc = on_list on_i acc is
-  in
-    acc
-  end
-fun collect_mod_constr_core b = on_constr_core [] b
-    
-fun on_datatype acc (name, tnames, bsorts, constr_decls, r) =
-  let
-    fun on_constr_decl acc (name, core, r) = on_constr_core acc core
-    val acc = on_list on_constr_decl acc constr_decls
-  in
-    acc
-  end
-    
 local
   fun f acc b =
       case b of
@@ -2778,7 +2843,7 @@ local
           in
             acc
           end
-        | Datatype a => on_datatype acc a
+        | Datatype (name, a) => on_datatype acc a
         | IdxDef ((name, r), s, i) =>
           let 
             val acc = on_s acc s

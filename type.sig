@@ -5,6 +5,7 @@ signature TYPE = sig
   type base_type
   type var
   type kind
+  type 'mtype datatype_def
   type name
   type region
          
@@ -18,11 +19,11 @@ signature TYPE = sig
 	   | Prod of mtype * mtype
 	   | UniI of Idx.sort * (name * mtype) Bind.ibind * region
            | MtVar of var
-           (* type-level computations *)
            | MtAbs of kind * (name * mtype) Bind.tbind * region
            | MtApp of mtype * mtype
            | MtAbsI of Idx.bsort * (name * mtype) Bind.ibind  * region
            | MtAppI of mtype * Idx.idx
            | UVar of (Idx.bsort, kind, mtype) UVarT.uvar_mt * region
+           | TDatatype of mtype datatype_def * region
 
 end

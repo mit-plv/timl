@@ -3,7 +3,10 @@
 (* end *)
 
 (* type-annotated AST *)
-functor TAst (structure Idx : IDX structure UVarT : UVAR_T type base_type) = struct
+functor TAst (structure Idx : IDX
+              structure UVarT : UVAR_T
+              type base_type
+             ) = struct
 
 open Idx
 open UVarT
@@ -20,23 +23,22 @@ open Pattern
 
 type kind = int (*number of type arguments*) * bsort list
 
-(* monotypes *)
-datatype mtype = 
-	 Arrow of mtype * idx * mtype
-         | TyNat of idx * region
-         | TyArray of mtype * idx
-	 | BaseType of base_type * region
-         | Unit of region
-	 | Prod of mtype * mtype
-	 | UniI of sort * (name * mtype) ibind * region
-         | MtVar of var
-         | TDatatype of mtype datatype_def
-         (* type-level computations *)
-         | MtAbs of kind * (name * mtype) tbind * region
-         | MtApp of mtype * mtype
-         | MtAbsI of bsort * (name * mtype) ibind  * region
-         | MtAppI of mtype * bsort * idx
-         | UVar of (bsort, kind, mtype) uvar_mt * region
+(* (* monotypes *) *)
+(* datatype mtype =  *)
+(* 	 Arrow of mtype * idx * mtype *)
+(*          | TyNat of idx * region *)
+(*          | TyArray of mtype * idx *)
+(* 	 | BaseType of base_type * region *)
+(*          | Unit of region *)
+(* 	 | Prod of mtype * mtype *)
+(* 	 | UniI of sort * (name * mtype) ibind * region *)
+(*          | MtVar of var *)
+(*          | MtAbs of kind * (name * mtype) tbind * region *)
+(*          | MtApp of mtype * mtype *)
+(*          | MtAbsI of bsort * (name * mtype) ibind  * region *)
+(*          | MtAppI of mtype * bsort * idx *)
+(*          | UVar of (bsort, kind, mtype) uvar_mt * region *)
+(*          | TDatatype of mtype datatype_def *)
 
 type return = mtype option * idx option
                                  
