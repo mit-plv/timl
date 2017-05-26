@@ -84,16 +84,18 @@ fun on_mt (t : S.mtype) : ty =
       let
         fun on_constr ibinds =
           let
+            val len_bsorts = length bsorts
+            val ibinds = on_ibinds shiftx_i_s (on_pair (on_noop, on_pair (shiftx_i_mt, on_list shiftx_i_i))) 0 len_bsorts
             val (name_sorts, (t, is)) = unfold_binds ibinds
-            val () = assert (fn () => length is = length bsorts) "length is = length bsorts"
-            val formal_iargs = map (fn x => VarI (int2var x)) $ rev $ range $ length bsorts
+            val () = assert (fn () => length is = len_bsorts) "length is = len_bsorts"
+            val formal_iargs = map (fn x => VarI (int2var x)) $ rev $ range $ len_bsorts
             val t = shiftx_i_mt 0 1 t
             val is = map (shiftx_i_i 0 1) is
             val formal_iargs = map (shift_i_i 0 (length name_sorts + 1)) formal_iargs
             val prop = PEqs (is, formal_iargs)
             val extra_sort_name = "__datatype_constraint"
             val extra_sort = Subset ((BSUnit, ()), Bind ((extra_sort_name, ()), prop), ())
-            val t = TExistsIMany (extra_sort :: map snd name_sorts, t)
+            val t = TExistsIMany (extra_sort :: map snd (rev name_sorts), t)
           in
             t
           end

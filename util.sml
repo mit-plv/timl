@@ -186,6 +186,7 @@ fun allSome f (xs : 'a list) =
 fun to_hd i l = List.nth (l, i) :: take i l @ drop (i + 1) l
 
 exception Impossible of string
+exception Unimplemented of string
 
 fun singleton x = [x]
 fun mem eq x ls = List.exists (fn y => eq (y, x)) ls

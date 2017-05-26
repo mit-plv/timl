@@ -390,10 +390,13 @@ fun MtAbsIMany (ctx, t, r) = foldl (fn ((name, s), t) => MtAbsI (s, Bind ((name,
 fun AppVar (x, is) = MtAppIs (MtVar x) is
 fun AppV (x, ts, is, r) = MtAppIs (MtApps (MtVar x) ts) is
 
-type 'mtype constr = var(*family*) * string list(*type argument names*) * 'mtype constr_core
+type 'mtype constr = var(*family*) * (unit, string, 'mtype constr_core) tbinds
+(* type 'mtype constr = var(*family*) * string list(*type argument names*) * 'mtype constr_core *)
 val VarT = MtVar
-fun constr_type VarT shiftx_long_id ((family, tnames, ibinds) : mtype constr) = 
-  let 
+fun constr_type VarT shiftx_long_id ((family, tbinds) : mtype constr) = 
+  let
+    val (tname_kinds, ibinds) = unfold_binds tbinds
+    val tnames = map fst tname_kinds
     val (ns, (t, is)) = unfold_binds ibinds
     val ts = map (fn x => VarT (NONE, (x, dummy))) $ rev $ range $ length tnames
     val t2 = AppV (shiftx_long_id 0 (length tnames) family, ts, is, dummy)
@@ -561,6 +564,7 @@ fun eq_mt t t' =
              UVar (x', _) => eq_uvar_mt (x, x')
            | _ => false
         )
+      | TDatatype _ => false (* can't compare datatypes *)
 
 (* pretty-printers *)
 
@@ -639,6 +643,7 @@ fun str_raw_mt (t : mtype) : string =
     | MtAbsI (s, bind, _) => sprintf "MtAbsI ($, $)" ["<sort>", str_raw_bind str_raw_mt bind]
     | BaseType (bt, _) => sprintf "BaseType ($)" [str_bt bt]
     | UVar (u, _) => sprintf "UVar ($)" [str_uvar_mt (str_raw_bs, str_raw_k, str_raw_mt) u]
+    | TDatatype (dt, _) => "TDatatype (...)"
 
 fun str_raw_t (t : ty) : string =
   case t of
@@ -880,6 +885,7 @@ fun str_mt gctx (ctx as (sctx, kctx)) (t : mtype) : string =
         in
           (* (surround "[" "] " $ str_region r) ^ *) str_uvar_mt (str_raw_bs, str_raw_k, str_mt ([], [])) u
         end
+      | TDatatype (dt, _) => "(datatype ...)"
   end
 
 and str_uni gctx ctx (binds, t) =
@@ -1078,10 +1084,8 @@ and str_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
           end
         | Datatype ((name, _), (tbinds, _)) =>
           let
-            val (tname_kinds, ibinds) = unfold_binds tbinds
+            val (tname_kinds, (sorts, constrs)) = unfold_binds tbinds
             val tnames = map fst tname_kinds
-            val (name_sorts, constrs) = unfold_binds ibinds
-            val sorts = map snd name_sorts
             val str_tnames = (join_prefix " " o rev) tnames
             fun str_constr_decl (cname, ibinds, _) =
               let 
@@ -1194,6 +1198,7 @@ fun get_region_mt t =
     | MtAbsI (_, _, r) => r
     | BaseType (_, r) => r
     | UVar (_, r) => r
+    | TDatatype (_, r) => r
 
 fun get_region_t t = 
   case t of
@@ -1382,27 +1387,69 @@ fun on_i_s on_i_i on_i_p x n b =
     f x n b
   end
 
-fun on_i_mt on_i_i on_i_s x n b =
+fun on_noop x n b = b
+fun on_snd f x n (a, b) = (a, f x n b)
+fun on_pair (f, g) x n (a, b) = (f x n a, g x n b)
+fun on_list f x n b = map (f x n) b
+fun on_list_snd f = on_list $ on_snd f
+
+fun on_t_ibind f x n (bind : ('a * 'b) ibind) =
+  case bind of
+      Bind (name, inner) => Bind (name, f x n inner)
+
+fun on_binds on_bind on_anno on_inner x n b =
+  let
+    val on_binds = on_binds on_bind on_anno on_inner
+  in
+    case b of
+        BindNil inner => 
+        BindNil (on_inner x n inner)
+      | BindCons (anno, bind) =>
+        BindCons (on_anno x n anno, on_bind on_binds x n bind)
+  end
+
+fun on_i_ibinds on_anno on_inner x n (b : ('a, 'b, 'c) ibinds) =
+  on_binds on_i_ibind on_anno on_inner x n b
+(* fun on_i_ibinds on_anno on_inner x n (ibinds : ('a, 'b, 'c) ibinds) = *)
+(*   case ibinds of *)
+(*       BindNil inner =>  *)
+(*       BindNil (on_inner x n inner) *)
+(*     | BindCons (anno, bind) => *)
+(*       BindCons (on_anno x n anno, on_i_ibind (on_i_ibinds on_anno on_inner) x n bind) *)
+
+fun on_i_tbinds on_anno on_inner x n (b : ('a, 'b, 'c) tbinds) =
+  on_binds on_i_tbind on_anno on_inner x n b
+           
+fun on_i_mt on_i on_s x n b =
   let
     fun f x n b =
       case b of
-	  Arrow (t1, d, t2) => Arrow (f x n t1, on_i_i x n d, f x n t2)
-        | TyNat (i, r) => TyNat (on_i_i x n i, r)
-        | TyArray (t, i) => TyArray (f x n t, on_i_i x n i)
+	  Arrow (t1, d, t2) => Arrow (f x n t1, on_i x n d, f x n t2)
+        | TyNat (i, r) => TyNat (on_i x n i, r)
+        | TyArray (t, i) => TyArray (f x n t, on_i x n i)
         | Unit r => Unit r
 	| Prod (t1, t2) => Prod (f x n t1, f x n t2)
-	| UniI (s, bind, r) => UniI (on_i_s x n s, on_i_ibind f x n bind, r)
+	| UniI (s, bind, r) => UniI (on_s x n s, on_i_ibind f x n bind, r)
         | MtVar y => MtVar y
         | MtApp (t1, t2) => MtApp (f x n t1, f x n t2)
         | MtAbs (k, bind, r) => MtAbs (k, on_i_tbind f x n bind, r)
-        | MtAppI (t, i) => MtAppI (f x n t, on_i_i x n i)
+        | MtAppI (t, i) => MtAppI (f x n t, on_i x n i)
         | MtAbsI (b, bind, r) => MtAbsI (b, on_i_ibind f x n bind, r)
 	| BaseType a => BaseType a
         | UVar a => b
+        | TDatatype (dt, r) =>
+          let
+            fun on_constr_decl x n (name, c, r) = (name, on_i_constr_core on_i on_s f x n c, r)
+            val dt = on_i_tbinds on_noop (on_pair (on_noop, on_list on_constr_decl)) x n dt
+          in
+            TDatatype (dt, r)
+          end
   in
     f x n b
   end
 
+and on_i_constr_core on_i on_s on_i_mt x n b = on_i_ibinds on_s (on_pair (on_i_mt, on_list on_i)) x n b
+                                    
 fun on_i_t on_i_mt x n b =
   let
     fun f x n b =
@@ -1413,28 +1460,22 @@ fun on_i_t on_i_mt x n b =
     f x n b
   end
 
-fun on_i_ibinds on_anno on_inner x n (ibinds : ('a, 'b, 'c) ibinds) =
-  case ibinds of
-      BindNil inner => 
-      BindNil (on_inner x n inner)
-    | BindCons (anno, bind) =>
-      BindCons (on_anno x n anno, on_i_ibind (on_i_ibinds on_anno on_inner) x n bind)
-
-fun on_t_ibind f x n (bind : ('a * 'b) ibind) =
-  case bind of
-      Bind (name, inner) => Bind (name, f x n inner)
-
 fun on_t_tbind f x n (bind : ('a * 'b) tbind) =
   case bind of
       Bind (name, inner) => Bind (name, f (x + 1) n inner)
 
-fun on_t_ibinds on_anno on_inner x n (ibinds : ('a, 'b, 'c) ibinds) =
-  case ibinds of
-      BindNil inner => 
-      BindNil (on_inner x n inner)
-    | BindCons (anno, bind) =>
-      BindCons (on_anno x n anno, on_t_ibind (on_t_ibinds on_anno on_inner) x n bind)
+fun on_t_ibinds on_anno on_inner x n (b : ('a, 'b, 'c) ibinds) =
+  on_binds on_t_ibind on_anno on_inner x n b
+(* fun on_t_ibinds on_anno on_inner x n (ibinds : ('a, 'b, 'c) ibinds) = *)
+(*   case ibinds of *)
+(*       BindNil inner =>  *)
+(*       BindNil (on_inner x n inner) *)
+(*     | BindCons (anno, bind) => *)
+(*       BindCons (on_anno x n anno, on_t_ibind (on_t_ibinds on_anno on_inner) x n bind) *)
 
+fun on_t_tbinds on_anno on_inner x n (b : ('a, 'b, 'c) tbinds) =
+  on_binds on_t_tbind on_anno on_inner x n b
+  
 fun on_t_mt on_v x n b =
   let
     fun f x n b =
@@ -1452,23 +1493,19 @@ fun on_t_mt on_v x n b =
         | MtAbsI (s, bind, r) => MtAbsI (s, on_t_ibind f x n bind, r)
 	| BaseType a => BaseType a
         | UVar a => b
-(* fun shiftx_i_c x n ((family, tnames, ibinds) : mtype constr) : mtype constr = *)
-(*   (family, *)
-(*    tnames,  *)
-(*    on_i_ibinds shiftx_i_s (shiftx_pair (shiftx_i_mt, shiftx_list shiftx_i_i)) x n ibinds) *)
-
-(* fun shift_i_c b = shiftx_i_c 0 1 b *)
-
-(* fun shiftx_t_c x n (((m, family), tnames, ibinds) : mtype constr) : mtype constr = *)
-(*   ((m, shiftx_id x n family),  *)
-(*    tnames,  *)
-(*    on_t_ibinds shiftx_noop (shiftx_pair (shiftx_t_mt, shiftx_noop)) (x + length tnames) n ibinds) *)
-(* fun shift_t_c b = shiftx_t_c 0 1 b *)
-
+        | TDatatype (dt, r) =>
+          let
+            fun on_constr_decl x n (name, c, r) = (name, on_t_constr_core f x n c, r)
+            val dt = on_t_tbinds on_noop (on_pair (on_noop, on_list on_constr_decl)) x n dt
+          in
+            TDatatype (dt, r)
+          end
   in
     f x n b
   end
-
+    
+and on_t_constr_core on_mt x n b = on_t_ibinds on_noop (on_pair (on_mt, on_noop)) x n b
+                                         
 fun on_t_t on_t_mt x n b =
   let
     fun f x n b =
@@ -1589,17 +1626,22 @@ fun shift_i_t b = shiftx_i_t 0 1 b
 fun shiftx_t_t x n b = on_t_t shiftx_t_mt x n b
 fun shift_t_t b = shiftx_t_t 0 1 b
 
-fun shiftx_noop x n b = b
-fun shiftx_pair (f, g) x n (a, b) = (f x n a, g x n b)
-fun shiftx_snd f x n (a, b) = (a, f x n b)
-fun shiftx_list f x n b = map (f x n) b
-fun shiftx_list_snd f = shiftx_list $ shiftx_snd f
-
 fun shiftx_id x n (y, r) = (shiftx_v x n y, r)
                              
 (* shift_e_e *)
 fun shiftx_e_e x n b = on_e_e shiftx_v x n b
 fun shift_e_e b = shiftx_e_e 0 1 b
+
+fun shiftx_i_c x n ((family, tbinds) : mtype constr) : mtype constr =
+  (family,
+   on_i_tbinds on_noop (on_i_constr_core shiftx_i_i shiftx_i_s shiftx_i_mt) x n tbinds)
+
+fun shift_i_c b = shiftx_i_c 0 1 b
+
+fun shiftx_t_c x n (((m, family), tbinds) : mtype constr) : mtype constr =
+  ((m, shiftx_id x n family),
+   on_t_tbinds on_noop (on_t_constr_core shiftx_t_mt) x n tbinds)
+fun shift_t_c b = shiftx_t_c 0 1 b
 
 (* forget *)
 
@@ -1641,16 +1683,29 @@ type 'a shiftable = {
 }
 (* todo: split [shiftable] to [ishiftable] and [tshiftable], or ultimately get rid of it aftering changing to lazy shifting *)                      
 
-fun shift_noop n v = v
-
-(* val idx_shiftable : idx shiftable = { *)
-(*   shift_i = shiftx_i_i 0, *)
-(*   shift_t = shift_noop *)
-(* } *)
-
+fun substx_noop d x v b = b
+fun substx_pair (f1, f2) d x v (b1, b2) = (f1 d x v b1, f2 d x v b2)
+fun substx_list f d x v b = map (f d x v) b
+                            
 fun substx_i_ibind f d x v (Bind (name, inner) : ('name * 'b) ibind) =
   Bind (name, f (d + 1) (x + 1) v inner)
        
+fun substx_i_tbind f d x v (Bind (name, inner) : ('name * 'b) tbind) =
+  Bind (name, f d x v inner)
+
+fun substx_binds substx_bind f_cls f d x v b =
+  let
+    val substx_binds = substx_binds substx_bind f_cls f
+  in
+    case b of
+        BindNil a => BindNil (f d x v a)
+      | BindCons (cls, bind) => BindCons (f_cls d x v cls, substx_bind substx_binds d x v bind)
+  end
+
+fun substx_i_ibinds f_cls f d x v (b : ('classifier, 'name, 'inner) ibinds) = substx_binds substx_i_ibind f_cls f d x v b
+                                                                                           
+fun substx_i_tbinds f_cls f d x v (b : ('classifier, 'name, 'inner) tbinds) = substx_binds substx_i_tbind f_cls f d x v b
+                                                                                           
 (* depth [d] is used for shifting value [v] *)
 local
   fun f d(*depth*) x v b =
@@ -1693,9 +1748,6 @@ val substx_i_s = f
 fun subst_i_s (v : idx) (b : sort) : sort = substx_i_s 0 0 v b
 end
 
-fun substx_i_tbind f d x v (Bind (name, inner) : ('name * 'b) tbind) =
-  Bind (name, f d x v inner)
-
 local
   fun f d x v b =
     case b of
@@ -1714,10 +1766,9 @@ local
       | UVar a => b
       | TDatatype (dt, r) =>
         let
-          (*here*)
-          fun on_constr d x v b = substx_t_ibinds substx_noop (substx_pair (f, substx_noop)) d x v b
+          fun on_constr d x v b = substx_i_ibinds substx_i_s (substx_pair (f, substx_list substx_i_i)) d x v b
           fun on_constr_decl d x v (name, c, r) = (name, on_constr d x v c, r)
-          val dt = substx_t_tbinds substx_noop (substx_t_ibinds substx_noop (substx_list on_constr_decl)) d x v dt
+          val dt = substx_i_tbinds substx_noop (substx_pair (substx_noop, substx_list on_constr_decl)) d x v dt
         in
           TDatatype (dt, r)
         end
@@ -1736,30 +1787,18 @@ val substx_i_t = f
 fun subst_i_t (v : idx) (b : ty) : ty = substx_i_t 0 0 v b
 end
 
-(* val mtype_shiftable : mtype shiftable = { *)
-(*   shift_i = shiftx_i_mt 0, *)
-(*   shift_t = shiftx_t_mt 0 *)
-(* } *)
-
-fun substx_binds substx_bind f_cls f d x v b =
-  let
-    val substx_binds = substx_binds substx_bind f_cls f
-  in
-    case b of
-        BindNil a => BindNil (f d x v a)
-      | BindCons (cls, bind) => BindCons (f_cls d x v cls, substx_bind substx_binds d x v bind)
-  end
-
 fun substx_t_ibind f (di, dt) x v (Bind (name, inner) : ('name * 'b) ibind) =
   Bind (name, f (di + 1, dt) x v inner)
+
+fun substx_t_tbind f (di, dt) x v (Bind (name, inner) : ('name * 'b) tbind) =
+  Bind (name, f (di, dt + 1) (x + 1) v inner)
+       
 fun substx_t_ibinds f_cls f d x v (b : ('classifier, 'name, 'inner) ibinds) = substx_binds substx_t_ibind f_cls f d x v b
 (* fun substx_t_ibinds f_cls f d x v b = *)
   (* case b of *)
   (*     BindNil a => BindNil (f d x v a) *)
-  (*   | BindCons (cls, bind) => BindCons (f_cls d x v cls, substx_t_ibind (substx_t_ibinds f_cls f) d x v bind) *)
-
-fun substx_t_tbind f (di, dt) x v (Bind (name, inner) : ('name * 'b) tbind) =
-  Bind (name, f (di, dt + 1) (x + 1) v inner)
+(*   | BindCons (cls, bind) => BindCons (f_cls d x v cls, substx_t_ibind (substx_t_ibinds f_cls f) d x v bind) *)
+                                                                                           
 fun substx_t_tbinds f_cls f d x v (b : ('classifier, 'name, 'inner) tbinds) = substx_binds substx_t_tbind f_cls f d x v b
 (* fun substx_t_tbinds f_cls f d x v b = *)
 (*   case b of *)
@@ -1767,10 +1806,6 @@ fun substx_t_tbinds f_cls f d x v (b : ('classifier, 'name, 'inner) tbinds) = su
 (*     | BindCons (cls, bind) => BindCons (f_cls d x v cls, substx_t_tbind (substx_t_tbinds f_cls f) d x v bind) *)
 
 
-fun substx_noop d x v b = b
-fun substx_pair (f1, f2) d x v (b1, b2) = (f1 d x v b1, f2 d x v b2)
-fun substx_list f d x v b = map (f d x v) b
-                            
 local
   fun f d x v (b : mtype) : mtype =
     case b of
@@ -1792,7 +1827,7 @@ local
         let
           fun on_constr d x v b = substx_t_ibinds substx_noop (substx_pair (f, substx_noop)) d x v b
           fun on_constr_decl d x v (name, c, r) = (name, on_constr d x v c, r)
-          val dt = substx_t_tbinds substx_noop (substx_t_ibinds substx_noop (substx_list on_constr_decl)) d x v dt
+          val dt = substx_t_tbinds substx_noop (substx_pair (substx_noop, substx_list on_constr_decl)) d x v dt
         in
           TDatatype (dt, r)
         end
@@ -2418,7 +2453,7 @@ fun simp_mt t =
       let
         fun simp_constr c = simp_binds simp_s (mapPair (simp_mt, map simp_i)) c
         fun simp_constr_decl ((name, c, r) : mtype constr_decl) : mtype constr_decl = (name, simp_constr c, r)
-        val dt = simp_binds id (simp_binds id (map simp_constr_decl)) dt
+        val dt = simp_binds id (mapPair (id, map simp_constr_decl)) dt
       in
         TDatatype (dt, r)
       end
@@ -2685,8 +2720,7 @@ and on_constr_core acc ibinds =
     
 and on_datatype acc (tbinds, r) =
     let
-      val (_, ibinds) = unfold_binds tbinds
-      val (_, constr_decls) = unfold_binds ibinds                      
+      val (_, (_, constr_decls)) = unfold_binds tbinds
       fun on_constr_decl acc (name, core, r) = on_constr_core acc core
       val acc = on_list on_constr_decl acc constr_decls
     in
