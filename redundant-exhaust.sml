@@ -103,7 +103,8 @@ fun cover_neg gctx (ctx as (sctx, kctx, cctx)) (t : mtype) c =
                (* val () = println $ sprintf "Family of $: $" [str_long_id #3 (gctx_names gctx) (names cctx) x, str_ls (str_long_id #3 (gctx_names gctx) (names cctx)) all] *)
 	       val others = diff eq_long_id all [x]
                (* val () = println $ sprintf "Family siblings of $: $" [str_long_id #3 (gctx_names gctx) (names cctx) x, str_ls (str_long_id #3 (gctx_names gctx) (names cctx)) others] *)
-               val (_, _, ibinds) = snd $ fetch_constr gctx (cctx, x)
+               val (_, tbinds) = snd $ fetch_constr gctx (cctx, x)
+               val (_, ibinds) = unfold_binds tbinds
                val (_, (t', _)) = unfold_binds ibinds
 	       val t' = subst_ts_mt ts t'
                val covers = ConstrC (x, neg t' c) :: map (fn y => ConstrC (y, TrueC)) others
@@ -316,13 +317,13 @@ fun find_hab deep gctx (ctx as (sctx, kctx, cctx)) (t : mtype) cs =
                                in
                                  ret
                                end
-                             val (name, (family, _, _)) = fetch_constr gctx (cctx, x)
+                             val (name, (family, _)) = fetch_constr gctx (cctx, x)
                              val family = normalize_mt gctx kctx (MtVar family)
                              fun same_constr c =
                                case c of
                                    ConstrC (y, c) =>
                                    let
-                                     val (name', (family', _, _)) = fetch_constr gctx (cctx, y)
+                                     val (name', (family', _)) = fetch_constr gctx (cctx, y)
                                      val family' = normalize_mt gctx kctx $ MtVar family'
                                    in
                                      if eq_constr_long_id ((name', family'), (name, family)) then
@@ -335,7 +336,8 @@ fun find_hab deep gctx (ctx as (sctx, kctx, cctx)) (t : mtype) cs =
                              case allSome same_constr cs of
                                  OK cs' =>
                                  let
-                                   val (_, _, ibinds) = snd $ fetch_constr gctx (cctx, x)
+                                   val (_, tbinds) = snd $ fetch_constr gctx (cctx, x)
+                                   val (_, ibinds) = unfold_binds tbinds
                                    val (_, (t', _)) = unfold_binds ibinds
 		                   val t' = subst_ts_mt ts t'
                                    (* val () = (* Debug. *)println (sprintf "All are $, now try to satisfy $" [str_v (names cctx) x, (join ", " o map (str_cover (names cctx))) (c' :: cs')]) *)

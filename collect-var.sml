@@ -145,6 +145,7 @@ local
       | MtAbsI (b, bind, r) => collect_var_aux_i_ibind f d acc bind
       | BaseType _ => acc
       | UVar _ => acc
+      | TDatatype _ => raise Unimplemented "collect_var_i_mt()/TDatatype"
 in
 val collect_var_aux_i_mt = f
 fun collect_var_i_mt b = f 0 [] b
@@ -184,6 +185,7 @@ local
       | MtAbsI (s, bind, r) => collect_var_aux_t_ibind f d acc bind
       | BaseType _ => acc
       | UVar _ => acc
+      | TDatatype _ => raise Unimplemented "collect_var_t_mt()/TDatatype"
 in
 val collect_var_aux_t_mt = f
 fun collect_var_t_mt b = f 0 [] b

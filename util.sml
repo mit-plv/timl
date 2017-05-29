@@ -66,6 +66,7 @@ fun str_bool b = if b then "true" else "false"
 
 fun id x = x
 fun const a _ = a
+fun const_fun a _ = a
 fun self_compose n f =
     if n <= 0 then
       id

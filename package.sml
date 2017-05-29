@@ -81,6 +81,7 @@ local
       | MtAppI (t, i) => MtAppI (f x v t, package_i_i x v i)
       | BaseType a => BaseType a
       | UVar a => b
+      | TDatatype _ => raise Unimplemented "package_i_mt()/TDatatype"
 in
 fun package_i_mt x v (b : mtype) : mtype = f x v b
 end
@@ -116,6 +117,7 @@ local
       | MtAppI (t, i) => MtAppI (f x v t, i)
       | BaseType a => BaseType a
       | UVar a => b
+      | TDatatype _ => raise Unimplemented "package_t_mt()/TDatatype"
 in
 fun package_t_mt x v (b : mtype) : mtype = f x v b
 end
@@ -127,40 +129,55 @@ fun package_t_t x v (b : ty) : ty =
     | Uni (bind, r) => Uni (package_t_tbind package_t_t x v bind, r)
 fun package0_t v b = package_t_t 0 v $ package_i_t 0 v b
 
-fun package_i_ibinds f_cls f_inner x v ibinds =
+fun package_binds on_bind f_cls f_inner x v ibinds =
   let
-    val package_i_ibinds = package_i_ibinds f_cls f_inner
+    val package_binds = package_binds on_bind f_cls f_inner
   in
     case ibinds of
         BindNil inner => BindNil $ f_inner x v inner
-      | BindCons (cls, bind) => BindCons (f_cls x v cls, package_i_ibind package_i_ibinds x v bind)
+      | BindCons (cls, bind) => BindCons (f_cls x v cls, on_bind package_binds x v bind)
   end
     
-fun package_t_ibinds f_cls f_inner x v ibinds =
-  let
-    val package_t_ibinds = package_t_ibinds f_cls f_inner
-  in
-    case ibinds of
-        BindNil inner => BindNil $ f_inner x v inner
-      | BindCons (cls, bind) => BindCons (f_cls x v cls, package_t_ibind package_t_ibinds x v bind)
-  end
+fun package_i_ibinds f_cls f_inner x v ibinds = package_binds package_i_ibind f_cls f_inner x v ibinds
+(* fun package_i_ibinds f_cls f_inner x v ibinds = *)
+(*   let *)
+(*     val package_i_ibinds = package_i_ibinds f_cls f_inner *)
+(*   in *)
+(*     case ibinds of *)
+(*         BindNil inner => BindNil $ f_inner x v inner *)
+(*       | BindCons (cls, bind) => BindCons (f_cls x v cls, package_i_ibind package_i_ibinds x v bind) *)
+(*   end *)
     
-fun package_i_c x m (family, tnames, core) =
+fun package_t_ibinds f_cls f_inner x v ibinds = package_binds package_t_ibind f_cls f_inner x v ibinds
+(* fun package_t_ibinds f_cls f_inner x v ibinds = *)
+(*   let *)
+(*     val package_t_ibinds = package_t_ibinds f_cls f_inner *)
+(*   in *)
+(*     case ibinds of *)
+(*         BindNil inner => BindNil $ f_inner x v inner *)
+(*       | BindCons (cls, bind) => BindCons (f_cls x v cls, package_t_ibind package_t_ibinds x v bind) *)
+(*   end *)
+    
+fun package_i_tbinds f_cls f_inner x v ibinds = package_binds package_i_tbind f_cls f_inner x v ibinds
+fun package_t_tbinds f_cls f_inner x v ibinds = package_binds package_t_tbind f_cls f_inner x v ibinds
+
+fun package_noop x m b = b
+                                                              
+fun package_i_c x m ((family, core) : mtype constr) =
   let
-    fun package_i_body x v (t, is) = (package_i_mt x v t, map (package_i_i x v) is)
-    val core = package_i_ibinds package_i_s package_i_body x m core
+    fun on_body x v (t, is) = (package_i_mt x v t, map (package_i_i x v) is)
+    val core = package_i_tbinds package_noop (package_i_ibinds package_i_s on_body) x m core
   in
-    (family, tnames, core)
+    (family, core)
   end
 
-fun package_t_c x m (family, tnames, core) =
+fun package_t_c x m ((family, core) : mtype constr) =
   let
-    fun package_t_body x v (t, is) = (package_t_mt x v t, is)
-    fun package_t_s x v b = b
+    fun on_body x v (t, is) = (package_t_mt x v t, is)
     val family = package_long_id x m family
-    val core = package_t_ibinds package_t_s package_t_body (x + length tnames) m core
+    val core = package_t_tbinds package_noop (package_t_ibinds package_noop on_body) x m core
   in
-    (family, tnames, core)
+    (family, core)
   end
 
 fun package0_c v b =

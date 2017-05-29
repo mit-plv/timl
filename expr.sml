@@ -564,7 +564,7 @@ fun eq_mt t t' =
              UVar (x', _) => eq_uvar_mt (x, x')
            | _ => false
         )
-      | TDatatype _ => false (* can't compare datatypes *)
+      | TDatatype _ => raise Unimplemented "eq_mt()/TDatatype"
 
 (* pretty-printers *)
 

@@ -177,6 +177,7 @@ fun forget_i_mt x n b =
           | MtAbsI (b, bind, r) => MtAbsI (b, on_i_ibind f x n bind, r)
 	  | BaseType a => BaseType a
           | UVar a => b
+          | TDatatype _ => raise Unimplemented "uvar_forget/forget_i_mt()/TDatatype"
       end
     val ret =
         on_App_UVar ()
