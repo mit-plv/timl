@@ -85,7 +85,9 @@ fun on_bsort bs =
       | E.BSArrow (a, b) => BSArrow (on_bsort a, on_bsort b)
       | E.UVarBS u => UVarBS u
 
-fun on_ibind f ctx (E.Bind ((name, r), inner)) = Bind ((name, r), f (name :: ctx) inner)
+fun on_ibind_generic get_name f ctx (Bind (name, inner) : ('a * 'b) ibind) = Bind (name, f (get_name name :: ctx) inner)
+
+fun on_ibind x = on_ibind_generic fst x
 
 fun on_idx (gctx : sigcontext) ctx i =
     let
@@ -128,6 +130,11 @@ fun on_sort gctx ctx s =
                                                    
 fun on_kind k = mapSnd (map on_bsort) k
 
+fun on_tbind_generic get_name f kctx (Bind (name, b) : ('a * 'b) tbind) = 
+  Bind (name, f (get_name name :: kctx) b)
+
+fun on_tbind x = on_tbind_generic fst x
+                       
 fun on_mtype gctx (ctx as (sctx, kctx)) t =
     let
       val on_mtype = on_mtype gctx
@@ -138,10 +145,10 @@ fun on_mtype gctx (ctx as (sctx, kctx)) t =
         | E.TyNat (i, r) => TyNat (on_idx gctx sctx i, r)
         | E.Unit r => Unit r
 	| E.Prod (t1, t2) => Prod (on_mtype ctx t1, on_mtype ctx t2)
-	| E.UniI (s, E.Bind ((name, r), t), r_all) => UniI (on_sort gctx sctx s, Bind ((name, r), on_mtype (name :: sctx, kctx) t), r_all)
+	| E.UniI (s, bind, r_all) => UniI (on_sort gctx sctx s, on_ibind (fn sctx => on_mtype (sctx, kctx)) sctx bind, r_all)
         | E.MtVar x => MtVar $ on_long_id gctx #2 kctx x
         | E.MtApp (t1, t2) => MtApp (on_mtype ctx t1, on_mtype ctx t2)
-        | E.MtAbs (k, Bind ((name, r), t), r_all) => MtAbs (on_kind k, Bind ((name, r), on_mtype (sctx, name :: kctx) t), r_all)
+        | E.MtAbs (k, bind, r_all) => MtAbs (on_kind k, on_tbind (fn kctx => (on_mtype (sctx, kctx))) kctx bind, r_all)
         | E.MtAppI (t1, i) =>
           let
             fun default () = MtAppI (on_mtype ctx t1, on_idx gctx sctx i)
@@ -161,7 +168,7 @@ fun on_mtype gctx (ctx as (sctx, kctx)) t =
                 end
               | NONE => default ()         
           end
-        | E.MtAbsI (b, Bind ((name, r), t), r_all) => MtAbsI (on_bsort b, Bind ((name, r), on_mtype (name :: sctx, kctx) t), r_all)
+        | E.MtAbsI (b, bind, r_all) => MtAbsI (on_bsort b, on_ibind (fn sctx => on_mtype (sctx, kctx)) sctx bind, r_all)
 	| E.BaseType (bt, r) => BaseType (bt, r)
         | E.UVar u => UVar u
     end
@@ -212,19 +219,37 @@ fun on_ptrn gctx (ctx as (sctx, kctx, cctx)) pn =
           AnnoP (on_ptrn ctx pn, on_mtype gctx (sctx, kctx) t)
     end
 
-fun on_ibinds on_anno on_inner ctx ibinds =
+fun on_binds on_bind get_name on_anno on_inner ctx ibinds =
+  let
+    val on_binds = on_binds on_bind get_name on_anno on_inner
+  in
     case ibinds of
         BindNil inner => BindNil (on_inner ctx inner)
-      | BindCons (anno, E.Bind (name, ibinds)) =>
-        BindCons (on_anno ctx anno, Bind (name, on_ibinds on_anno on_inner (name :: ctx) ibinds))
+      | BindCons (anno, bind) =>
+        BindCons (on_anno ctx anno, on_bind get_name on_binds ctx bind)
+  end
 
-fun on_constr_core gctx (ctx as (sctx, kctx)) tnames (ibinds : E.mtype E.constr_core) : mtype constr_core =
-    on_ibinds (on_sort gctx) (fn sctx => fn (t, is) => (on_mtype gctx (sctx, rev tnames @ kctx) t, map (on_idx gctx sctx) is)) sctx ibinds
+fun on_ibinds get_name on_anno on_inner ctx (ibinds : ('a, 'name, 'c) ibinds) = on_binds on_ibind_generic get_name on_anno on_inner ctx ibinds
+(* fun on_ibinds get_name on_anno on_inner ctx ibinds = *)
+(*   let *)
+(*     val on_ibinds = on_ibinds get_name on_anno on_inner *)
+(*   in *)
+(*     case ibinds of *)
+(*         BindNil inner => BindNil (on_inner ctx inner) *)
+(*       | BindCons (anno, bind) => *)
+(*         BindCons (on_anno ctx anno, on_ibind_generic get_name on_ibinds ctx bind) *)
+(*   end *)
 
-fun on_constr gctx (ctx as (sctx, kctx)) ((family, tnames, core) : E.mtype E.constr) : mtype constr =
+fun on_tbinds get_name on_anno on_inner ctx (tbinds : ('a, 'name, 'c) tbinds) = on_binds on_tbind_generic get_name on_anno on_inner ctx tbinds
+                                                                                         
+fun on_constr_core gctx (ctx as (sctx, kctx)) (ibinds : E.mtype E.constr_core) : mtype constr_core =
+    on_ibinds id (on_sort gctx) (fn sctx => fn (t, is) => (on_mtype gctx (sctx, kctx) t, map (on_idx gctx sctx) is)) sctx ibinds
+
+fun return2 a1 a2 = a2
+                      
+fun on_constr gctx (ctx as (sctx, kctx)) ((family, tbinds) : E.mtype E.constr) : mtype constr =
     (on_long_id gctx #2 kctx family,
-     tnames, 
-     on_constr_core gctx ctx tnames core)
+     on_tbinds id return2 (fn kctx => on_constr_core gctx (sctx, kctx)) kctx tbinds)
 
 fun on_return gctx (ctx as (sctx, _)) return = mapPair (Option.map (on_mtype gctx ctx), Option.map (on_idx gctx sctx)) return
 
@@ -491,11 +516,15 @@ and on_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
           end
     end
 
-and on_datatype gctx (ctx as (sctx, kctx, cctx, tctx)) (name, tnames, sorts, constr_decls, r) =
+and on_datatype gctx (ctx as (sctx, kctx, cctx, tctx)) (name, (dt, r)) =
     let
-      fun on_constr_decl (cname, core, r) =
-          (cname, on_constr_core gctx (sctx, name :: kctx) tnames core, r)
-      val decl = (name, tnames, map on_bsort sorts, map on_constr_decl constr_decls, r)
+      fun on_constr_decl kctx (cname, core, r) =
+        (cname, on_constr_core gctx (sctx, name :: kctx) core, r)
+      fun on_constrs kctx (sorts, constr_decls) =
+        (map on_bsort sorts, map (on_constr_decl kctx) constr_decls)
+      val dt = on_tbinds id return2 on_constrs kctx dt
+      val decl = (name, dt, r)
+      val (_, (_, constr_decls)) = unfold_binds dt
       val cnames = map (fn (name, core, _) => (name, get_constr_inames core)) constr_decls
       val ctx = (sctx, name :: kctx, rev cnames @ cctx, tctx)
     in

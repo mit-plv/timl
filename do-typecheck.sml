@@ -557,6 +557,7 @@ fun get_higher_kind gctx (ctx as (sctx : scontext, kctx : kcontext), c : U.mtype
                 end
               | _ => error (get_region_mt t, str_mt gctxn ctxn t, "<sort> => <kind>", str_hk, k)
           end
+        | U.TDatatype _ => raise Unimplemented "get_higher_kind()/TDatatype"
     val ret =
         main ()
         handle
@@ -1539,6 +1540,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
               | MtAbsI (k, bind, r) => MtAbsI (k, substu_ibind substu x v bind, r)
               | MtAppI (t, i) => MtAppI (substu x v t, i)
 	      | BaseType a => BaseType a
+              | TDatatype _ => raise Unimplemented "check_decl()/substu()/TDatatype"
           fun evar_name n =
             if n < 26 then
               "'_" ^ (str o chr) (ord #"a" + n)
@@ -1762,15 +1764,17 @@ and check_decls gctx (ctx, decls) : decl list * context * int * idx list * conte
       (decls, ctxd, nps, ds, ctx)
     end
 
-and is_wf_datatype gctx ctx ((name, tnames, sorts, constr_decls, r) : U.mtype U.datatype_def) : mtype datatype_def * context =
-    let 
+and is_wf_datatype gctx ctx (name : name, (tbinds : U.mtype U.datatype_def, r)) : (name * (mtype datatype_def * region)) * context =
+    let
+      val (tname_kinds, (sorts, constr_decls)) = unfold_binds tbinds
+      val tnames = map fst tname_kinds
       val sorts = map is_wf_bsort sorts
-      val nk = (name, (true, (length tnames, sorts), NONE))
+      val nk = (fst name, (true, (length tnames, sorts), NONE))
       val ctx as (sctx, kctx, _, _) = add_kindingext_skct nk ctx
       fun make_constr ((name, ibinds, r) : U.mtype U.constr_decl) : mtype constr_decl * (string * mtype constr) =
 	let
           val family = (NONE, (0, r))
-          val c = (family, tnames, ibinds)
+          val c = (family, fold_binds (tname_kinds, ibinds))
 	  val t = U.constr_type U.VarT shiftx_long_id c
 	  val t = is_wf_type gctx ((sctx, kctx), t)
 		  handle Error (_, msg) =>
@@ -1801,11 +1805,11 @@ and is_wf_datatype gctx ctx ((name, tnames, sorts, constr_decls, r) : U.mtype U.
             end
           val (_, ibinds) = constr_from_type t
 	in
-	  ((name, ibinds, r), (name, (family, tnames, ibinds)))
+	  ((name, ibinds, r), (name, (family, fold_binds (tname_kinds, ibinds))))
 	end
       val (constr_decls, constrs) = (unzip o map make_constr) constr_decls
     in
-      ((name, tnames, sorts, constr_decls, r), ([], add_kindingext nk [], rev constrs, []))
+      ((name, (fold_binds (tname_kinds, (sorts, constr_decls)), r)), ([], add_kindingext nk [], rev constrs, []))
     end
       
 and check_rules gctx (ctx as (sctx, kctx, cctx, tctx), rules, t as (t1, return), r) =

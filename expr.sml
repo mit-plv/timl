@@ -101,7 +101,7 @@ datatype expr =
      and decl =
          Val of name list * mtype ptrn * expr * region
          | Rec of name list * name * (stbind list * ((mtype * idx) * expr)) * region
-	 | Datatype of name * (mtype datatype_def * region)
+	 | Datatype of mtype datatype_def * region
          | IdxDef of name * sort * idx
          | AbsIdx2 of name * sort * idx
          | AbsIdx of (name * sort * idx) * decl list * region
@@ -2915,11 +2915,11 @@ fun collect_mod_k b = on_k [] b
 local
   fun f acc b =
     case b of
-        SpecVal ((name, r), t) => on_t acc t
-      | SpecIdx ((name, r), s) => on_s acc s
-      | SpecType ((name, r), k) => []
-      | SpecTypeDef ((name, r), t) => on_mt acc t
-      | SpecDatatype a => on_datatype acc a
+        SpecVal (name, t) => on_t acc t
+      | SpecIdx (name, s) => on_s acc s
+      | SpecType (name, k) => []
+      | SpecTypeDef (name, t) => on_mt acc t
+      | SpecDatatype (name, a) => on_datatype acc a
 in
 val on_spec = f
 fun collect_mod_spec b = f [] b
@@ -2980,7 +2980,13 @@ fun on_prog acc b =
 
 fun collect_mod_prog b = on_prog [] b
 
-fun collect_mod_constr (family, tnames, core) = collect_mod_constr_core core
+fun collect_mod_constr (family, tbinds) =
+  let
+    val (_, ibinds) = unfold_binds tbinds
+  in
+    collect_mod_constr_core ibinds
+  end
+                          
 end
                          
 end
