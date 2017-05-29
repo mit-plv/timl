@@ -785,7 +785,7 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
     val match_ptrn = match_ptrn gctx
     val gctxn = gctx_names gctx
     val skctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
-    (* val () = println $ sprintf "Checking pattern $ for type $" [U.str_pn gctxn (sctxn, kctxn, names cctx) pn, str_mt gctxn (sctxn, kctxn) t] *)
+    val () = println $ sprintf "Checking pattern $ for type $" [U.str_pn gctxn (sctxn, kctxn, names cctx) pn, str_mt gctxn (sctxn, kctxn) t]
     (* val () = println $ "sctxn=" ^ (str_ls id sctxn) *)
   in
     case pn of
