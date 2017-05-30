@@ -4,11 +4,12 @@
 
 (* type-annotated AST *)
 functor TAst (structure Idx : IDX
+              structure Type : TYPE
               structure UVarT : UVAR_T
-              type base_type
              ) = struct
 
 open Idx
+open Type
 open UVarT
 open Operators
 open Bind

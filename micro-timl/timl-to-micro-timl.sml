@@ -1,7 +1,8 @@
 structure TiML2microTiML = struct
 
+type long_id = (string * unit) option * (int * unit)
 structure LongIdVar = struct
-type var = (string * unit) option * (int * unit)
+type var = long_id
 end
 structure Var = LongIdVar
 open BaseSorts
@@ -10,22 +11,41 @@ structure Idx = IdxFn (structure UVarI = UVar
                        type var = Var.var
                        type name = unit
                        type region = unit)
-(* structure TiMLType = TypeFn (structure Idx = Idx *)
-(*                              structure UVarT = NoUVar *)
-(*                              type base_type = BaseTypes.base_type *)
-(*                              type var = Var.var *)
-(*                              type name = unit *)
-(*                              type region = unit) *)
+structure TiMLType = TypeFn (structure Idx = Idx
+                             structure UVarT = NoUVar
+                             type base_type = BaseTypes.base_type
+                             type var = Var.var
+                             type name = unit
+                             type region = unit)
 structure TiML = TAst (structure Idx = Idx
+                       structure Type = TiMLType
                        structure UVarT = NoUVar
-                       type base_type = BaseTypes.base_type)
+                      )
 structure MicroTiML = MicroTiMLFn (Idx)
+
+structure LongIdShiftable = struct
+open ShiftUtil
+open LongIdUtil
+type var = long_id
+val shiftx_v = shiftx_int
+fun shiftx_long_id x n b = on_v_long_id shiftx_v x n b
+val forget_v = forget_int ForgetError
+fun forget_long_id x n b = on_v_long_id forget_v x n b
+val shiftx_var = shiftx_long_id
+val forget_var = forget_long_id
+end
+
+structure IdxSubst = IdxSubstFn (structure Idx = Idx
+                                 structure ShiftableVar = LongIdShiftable)
+open IdxSubst
+                                  
 structure S = TiML
 structure T = MicroTiML
 open T
 structure Op = Operators
 open Util
 open Bind
+open ShiftUtil
        
 infixr 0 $
 
@@ -85,7 +105,7 @@ fun on_mt (t : S.mtype) : ty =
         fun on_constr ibinds =
           let
             val len_bsorts = length bsorts
-            val ibinds = on_ibinds shiftx_i_s (on_pair (return3, on_pair (shiftx_i_mt, on_list shiftx_i_i))) 0 len_bsorts
+            val ibinds = on_i_ibinds shiftx_i_s (on_pair (return3, on_pair (shiftx_i_mt, on_list shiftx_i_i))) 0 len_bsorts ibinds
             val (name_sorts, (t, is)) = unfold_binds ibinds
             val () = assert (fn () => length is = len_bsorts) "length is = len_bsorts"
             val formal_iargs = map (fn x => VarI (int2var x)) $ rev $ range $ len_bsorts
@@ -99,12 +119,12 @@ fun on_mt (t : S.mtype) : ty =
           in
             t
           end
-        val n = length tnames
-        val k = KArrowTypes n $ KArrows bsorts KType
+        val len_tnames = length tnames
+        val k = KArrowTypes len_tnames $ KArrows bsorts KType
         val ts = map (fn (_, c, _) => on_constr c) constrs
         val t = combine_TSum ts
         val t = TAbsIMany (rev bsorts, t)
-        val t = TAbsTMany (repeat n KType, t)
+        val t = TAbsTMany (repeat len_tnames KType, t)
       in
         TRec (k, t)
       end

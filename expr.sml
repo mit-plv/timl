@@ -49,9 +49,8 @@ type name = string * region
 
 (* Curve out a fragment of module expression that is not a full component list ('struct' in ML) that involves types and terms, to avoid making everything mutually dependent. (This means I can't do module substitution because the result may not be expressible.) It coincides with the concept 'projectible' or 'determinate'. *)
 type mod_projectible = name
-                         
 type long_id = mod_projectible option * id
-
+                         
 structure Idx = IdxFn (structure UVarI = UVarI
                        type base_sort = base_sort
                        type var = long_id
@@ -59,15 +58,10 @@ structure Idx = IdxFn (structure UVarI = UVarI
                        type region = region)
 open Idx
 
-structure Datatype = DatatypeFn (structure Idx = Idx
-                                 type var = long_id)
-open Datatype
-
 structure Type = TypeFn (structure Idx = Idx
                          structure UVarT = UVarT
                          type base_type = base_type
                          type var = long_id
-                         type 'mtype datatype_def = 'mtype datatype_def
                          type name = name
                          type region = region)
 open Type
@@ -1330,198 +1324,12 @@ fun prop2vc p =
 
 structure Subst = struct
 open Util
+open ShiftUtil
        
 infixr 0 $
-(* generic traversers for both 'shift' and 'forget' *)
 
-(* if it has module reference, don't shift/forget *)
-fun on_v_long_id on_v x n (m, (y, r)) =
-  let
-    val y =
-        case m of
-            NONE => on_v x n y
-          | SOME _ => y
-  in
-    (m, (y, r))
-  end
-    
-fun on_i_ibind f x n (bind : ('a * 'b) ibind) =
-  case bind of
-      Bind (name, inner) => Bind (name, f (x + 1) n inner)
-
-fun on_i_tbind f x n (bind : ('a * 'b) tbind) =
-  case bind of
-      Bind (name, inner) => Bind (name, f x n inner)
-
-fun on_i_i on_v x n b =
-  let
-    fun f x n b =
-      case b of
-	  VarI y => VarI $ on_v_long_id on_v x n y
-        | IConst c => IConst c
-        | UnOpI (opr, i, r) => UnOpI (opr, f x n i, r)
-	| BinOpI (opr, i1, i2) => BinOpI (opr, f x n i1, f x n i2)
-        | Ite (i1, i2, i3, r) => Ite (f x n i1, f x n i2, f x n i3, r)
-        | IAbs (b, bind, r) => IAbs (b, on_i_ibind f x n bind, r)
-        | UVarI a => b (* uvars are closed, so no need to deal with *)
-  in
-    f x n b
-  end
-
-fun on_i_p on_i_i x n b =
-  let
-    fun f x n b =
-      case b of
-	  PTrueFalse b => PTrueFalse b
-        | Not (p, r) => Not (f x n p, r)
-	| BinConn (opr, p1, p2) => BinConn (opr, f x n p1, f x n p2)
-	| BinPred (opr, d1, d2) => BinPred (opr, on_i_i x n d1, on_i_i x n d2)
-        | Quan (q, bs, bind, r) => Quan (q, bs, on_i_ibind f x n bind, r)
-  in
-    f x n b
-  end
-
-fun on_i_s on_i_i on_i_p x n b =
-  let
-    fun f x n b =
-      case b of
-	  Basic s => Basic s
-	| Subset (s, bind, r) => Subset (s, on_i_ibind on_i_p x n bind, r)
-        | UVarS a => b
-        | SAbs (b, bind, r) => SAbs (b, on_i_ibind f x n bind, r)
-        | SApp (s, i) => SApp (f x n s, on_i_i x n i)
-  in
-    f x n b
-  end
-
-fun on_snd f x n (a, b) = (a, f x n b)
-fun on_pair (f, g) x n (a, b) = (f x n a, g x n b)
-fun on_list f x n b = map (f x n) b
-fun on_list_snd f = on_list $ on_snd f
-
-fun on_t_ibind f x n (bind : ('a * 'b) ibind) =
-  case bind of
-      Bind (name, inner) => Bind (name, f x n inner)
-
-fun on_binds on_bind on_anno on_inner x n b =
-  let
-    val on_binds = on_binds on_bind on_anno on_inner
-  in
-    case b of
-        BindNil inner => 
-        BindNil (on_inner x n inner)
-      | BindCons (anno, bind) =>
-        BindCons (on_anno x n anno, on_bind on_binds x n bind)
-  end
-
-fun on_i_ibinds on_anno on_inner x n (b : ('a, 'b, 'c) ibinds) =
-  on_binds on_i_ibind on_anno on_inner x n b
-(* fun on_i_ibinds on_anno on_inner x n (ibinds : ('a, 'b, 'c) ibinds) = *)
-(*   case ibinds of *)
-(*       BindNil inner =>  *)
-(*       BindNil (on_inner x n inner) *)
-(*     | BindCons (anno, bind) => *)
-(*       BindCons (on_anno x n anno, on_i_ibind (on_i_ibinds on_anno on_inner) x n bind) *)
-
-fun on_i_tbinds on_anno on_inner x n (b : ('a, 'b, 'c) tbinds) =
-  on_binds on_i_tbind on_anno on_inner x n b
-           
-fun on_i_mt on_i on_s x n b =
-  let
-    fun f x n b =
-      case b of
-	  Arrow (t1, d, t2) => Arrow (f x n t1, on_i x n d, f x n t2)
-        | TyNat (i, r) => TyNat (on_i x n i, r)
-        | TyArray (t, i) => TyArray (f x n t, on_i x n i)
-        | Unit r => Unit r
-	| Prod (t1, t2) => Prod (f x n t1, f x n t2)
-	| UniI (s, bind, r) => UniI (on_s x n s, on_i_ibind f x n bind, r)
-        | MtVar y => MtVar y
-        | MtApp (t1, t2) => MtApp (f x n t1, f x n t2)
-        | MtAbs (k, bind, r) => MtAbs (k, on_i_tbind f x n bind, r)
-        | MtAppI (t, i) => MtAppI (f x n t, on_i x n i)
-        | MtAbsI (b, bind, r) => MtAbsI (b, on_i_ibind f x n bind, r)
-	| BaseType a => BaseType a
-        | UVar a => b
-        | TDatatype (dt, r) =>
-          let
-            fun on_constr_decl x n (name, c, r) = (name, on_i_constr_core on_i on_s f x n c, r)
-            val dt = on_i_tbind (on_i_tbinds return3 (on_pair (return3, on_list on_constr_decl))) x n dt
-          in
-            TDatatype (dt, r)
-          end
-  in
-    f x n b
-  end
-
-and on_i_constr_core on_i on_s on_i_mt x n b = on_i_ibinds on_s (on_pair (on_i_mt, on_list on_i)) x n b
-                                    
-fun on_i_t on_i_mt x n b =
-  let
-    fun f x n b =
-      case b of
-	  Mono t => Mono (on_i_mt x n t)
-	| Uni (bind, r) => Uni (on_i_tbind f x n bind, r)
-  in
-    f x n b
-  end
-
-fun on_t_tbind f x n (bind : ('a * 'b) tbind) =
-  case bind of
-      Bind (name, inner) => Bind (name, f (x + 1) n inner)
-
-fun on_t_ibinds on_anno on_inner x n (b : ('a, 'b, 'c) ibinds) =
-  on_binds on_t_ibind on_anno on_inner x n b
-(* fun on_t_ibinds on_anno on_inner x n (ibinds : ('a, 'b, 'c) ibinds) = *)
-(*   case ibinds of *)
-(*       BindNil inner =>  *)
-(*       BindNil (on_inner x n inner) *)
-(*     | BindCons (anno, bind) => *)
-(*       BindCons (on_anno x n anno, on_t_ibind (on_t_ibinds on_anno on_inner) x n bind) *)
-
-fun on_t_tbinds on_anno on_inner x n (b : ('a, 'b, 'c) tbinds) =
-  on_binds on_t_tbind on_anno on_inner x n b
-  
-fun on_t_mt on_v x n b =
-  let
-    fun f x n b =
-      case b of
-	  Arrow (t1, d, t2) => Arrow (f x n t1, d, f x n t2)
-        | TyNat (i, r) => TyNat (i, r)
-        | TyArray (t, i) => TyArray (f x n t, i)
-        | Unit r => Unit r
-	| Prod (t1, t2) => Prod (f x n t1, f x n t2)
-	| UniI (s, bind, r) => UniI (s, on_t_ibind f x n bind, r)
-        | MtVar y => MtVar $ on_v_long_id on_v x n y
-        | MtApp (t1, t2) => MtApp (f x n t1, f x n t2)
-        | MtAbs (k, bind, r) => MtAbs (k, on_t_tbind f x n bind, r)
-        | MtAppI (t, i) => MtAppI (f x n t, i)
-        | MtAbsI (s, bind, r) => MtAbsI (s, on_t_ibind f x n bind, r)
-	| BaseType a => BaseType a
-        | UVar a => b
-        | TDatatype (dt, r) =>
-          let
-            fun on_constr_decl x n (name, c, r) = (name, on_t_constr_core f x n c, r)
-            val dt = on_t_tbind (on_t_tbinds return3 (on_pair (return3, on_list on_constr_decl))) x n dt
-          in
-            TDatatype (dt, r)
-          end
-  in
-    f x n b
-  end
-    
-and on_t_constr_core on_mt x n b = on_t_ibinds return3 (on_pair (on_mt, return3)) x n b
-                                         
-fun on_t_t on_t_mt x n b =
-  let
-    fun f x n b =
-      case b of
-	  Mono t => Mono (on_t_mt x n t)
-	| Uni (bind, r) => Uni (on_t_tbind f x n bind, r)
-  in
-    f x n b
-  end
-
+open LongIdUtil
+       
 fun on_e_ibind f x n (Bind (name, b) : ('a * 'b) ibind) = Bind (name, f x n b)
                                                                
 fun on_e_e on_v =
@@ -1608,29 +1416,21 @@ fun on_e_e on_v =
     f
   end
 
-(* shift *)
-
 fun shiftx_long_id x n b = on_v_long_id shiftx_v x n b
+val forget_v = forget_v ForgetError
+fun forget_long_id x n b = on_v_long_id forget_v x n b
+                                        
+structure LongIdShiftable = struct
+type var = long_id
+val shiftx_var = shiftx_long_id
+val forget_var = forget_long_id
+end
 
-fun shiftx_i_i x n b = on_i_i shiftx_v x n b
-fun shift_i_i b = shiftx_i_i 0 1 b
-
-fun shiftx_i_p x n b = on_i_p shiftx_i_i x n b
-fun shift_i_p b = shiftx_i_p 0 1 b
-
-fun shiftx_i_s x n b = on_i_s shiftx_i_i shiftx_i_p x n b
-fun shift_i_s b = shiftx_i_s 0 1 b
-
-fun shiftx_i_mt x n b = on_i_mt shiftx_i_i shiftx_i_s x n b
-and shiftx_t_mt x n b = on_t_mt shiftx_v x n b
-fun shift_i_mt b = shiftx_i_mt 0 1 b
-fun shift_t_mt b = shiftx_t_mt 0 1 b
-
-fun shiftx_i_t x n b = on_i_t shiftx_i_mt x n b
-fun shift_i_t b = shiftx_i_t 0 1 b
-
-fun shiftx_t_t x n b = on_t_t shiftx_t_mt x n b
-fun shift_t_t b = shiftx_t_t 0 1 b
+structure IdxSubst = IdxSubstFn (structure Idx = Idx
+                                 structure ShiftableVar = LongIdShiftable)
+open IdxSubst
+                                        
+(* shift *)
 
 fun shiftx_id x n (y, r) = (shiftx_v x n y, r)
                              
@@ -1650,19 +1450,6 @@ fun shiftx_t_c x n (((m, family), tbinds) : mtype constr) : mtype constr =
 fun shift_t_c b = shiftx_t_c 0 1 b
 
 (* forget *)
-
-exception ForgetError of int * string
-(* exception Unimpl *)
-
-val forget_v = forget_v ForgetError
-                        
-fun forget_i_i x n b = on_i_i forget_v x n b
-fun forget_i_p x n b = on_i_p forget_i_i x n b
-fun forget_i_s x n b = on_i_s forget_i_i forget_i_p x n b
-fun forget_i_mt x n b = on_i_mt forget_i_i forget_i_s x n b
-fun forget_t_mt x n b = on_t_mt forget_v x n b
-fun forget_i_t x n b = on_i_t forget_i_mt x n b
-fun forget_t_t x n b = on_t_t forget_t_mt x n b
 
 fun forget_e_e x n b = on_e_e forget_v x n b
                               
@@ -3033,6 +2820,7 @@ end
 
 structure IntVar = struct
 open Util
+open ShiftUtil
 open Gctx
 type var = int
 type name_context = string list * string list * string list * string list
@@ -3074,20 +2862,9 @@ fun str_long_id sel gctx ctx (m, x) =
     
 fun eq_v (x : var, y) = x = y
 
-fun shiftx_v x n y = 
-  if y >= x then
-    y + n
-  else
-    y
-
-fun forget_v ForgetError x n y = 
-  if y >= x + n then
-    y - n
-  else if y < x then
-    y
-  else
-    raise ForgetError (y, "")
-
+val shiftx_v = shiftx_int
+val forget_v = forget_int
+                 
 fun substx_v Var x v y =
   if y = x then
     v ()

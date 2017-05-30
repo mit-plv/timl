@@ -9,6 +9,11 @@ signature TYPE = sig
   type name
   type region
          
+type 'mtype constr_core = (sort, string, 'mtype * idx list) ibinds
+type 'mtype constr_decl = string * 'mtype constr_core * region
+
+type 'mtype datatype_def = (string * (unit, string, bsort list * 'mtype constr_decl list) tbinds) tbind(*for datatype self-reference*)
+
   (* monotypes *)
   datatype mtype = 
 	   Arrow of mtype * Idx.idx * mtype
