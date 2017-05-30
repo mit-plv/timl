@@ -140,22 +140,18 @@ datatype top_bind =
 
 type prog = (name * top_bind) list
 
+structure IdxUtil = IdxUtilFn (structure Idx = Idx
+                               val dummy = dummy
+                              )
+open IdxUtil
+
 (* some shorthands *)
 
-fun ConstIT (s, r) = IConst (ICTime s, r)
-fun ConstIN (d, r) = IConst (ICNat d, r)
-fun T0 r = ConstIT ("0.0", r)
-fun T1 r = ConstIT ("1.0", r)
-fun N0 r = ConstIN (0, r)
-fun N1 r = ConstIN (1, r)
-fun DivI (i, (n, r)) = UnOpI (IUDiv n, i, r)
-fun ExpI (i, (s, r)) = UnOpI (IUExp s, i, r)
-fun TrueI r = IConst (ICBool true, r)
-fun FalseI r = IConst (ICBool false, r)
-fun TTI r = IConst (ICTT, r)
-fun AdmitI r = IConst (ICAdmit, r)
-fun True r = PTrueFalse (true, r)
-fun False r = PTrueFalse (false, r)
+val STime = Basic (Base Time, dummy)
+val SBool = Basic (Base BoolSort, dummy)
+val SUnit = Basic (Base UnitSort, dummy)
+
+val Type = (0, [])
 
 fun TT r = EConst (ECTT, r)
 fun ConstInt (n, r) = EConst (ECInt n, r)
@@ -169,39 +165,22 @@ fun AscriptionTime (e, i) = EEI (EEIAscriptionTime, e, i)
 fun Never (t, r) = ET (ETNever, t, r)
 fun Builtin (t, r) = ET (ETBuiltin, t, r)
   
-val STime = Basic (Base Time, dummy)
-val SBool = Basic (Base BoolSort, dummy)
-val SUnit = Basic (Base UnitSort, dummy)
-
-val Type = (0, [])
-
-infixr 0 $
-
 (* notations *)
          
-infix 9 %@
-fun a %@ b = BinOpI (IApp, a, b)
-infix 8 %^
-fun a %^ b = BinOpI (ExpNI, a, b)
-infix 7 %*
-fun a %* b = BinOpI (MultI, a, b)
-infix 6 %+ 
-fun a %+ b = BinOpI (AddI, a, b)
-infix 4 %<=
-fun a %<= b = BinPred (LeP, a, b)
-infix 4 %>=
-fun a %>= b = BinPred (GeP, a, b)
-infix 4 %=
-fun a %= b = BinPred (EqP, a, b)
-infixr 3 /\
-fun a /\ b = BinConn (And, a, b)
-infixr 2 \/
-fun a \/ b = BinConn (Or, a, b)
-infixr 1 -->
-fun a --> b = BinConn (Imply, a, b)
-infix 1 <->
-fun a <-> b = BinConn (Iff, a, b)
+infixr 0 $
 
+infix 9 %@
+infix 8 %^
+infix 7 %*
+infix 6 %+ 
+infix 4 %<=
+infix 4 %>=
+infix 4 %=
+infixr 3 /\
+infixr 2 \/
+infixr 1 -->
+infix 1 <->
+        
 (* useful functions *)
                       
 fun collect_UniI t =
@@ -274,7 +253,6 @@ val collect_MultI = collect_BinOpI MultI
                                    
 val collect_And = collect_BinConn And
 
-fun combine_And ps = foldl' (fn (p, acc) => acc /\ p) (True dummy) ps
 fun combine_AddI zero is = foldl' (fn (i, acc) => acc %+ i) zero is
 fun combine_AddI_Time is = combine_AddI (T0 dummy) is
 fun combine_AddI_Nat is = combine_AddI (N0 dummy) is
@@ -1420,15 +1398,21 @@ fun shiftx_long_id x n b = on_v_long_id shiftx_v x n b
 val forget_v = forget_v ForgetError
 fun forget_long_id x n b = on_v_long_id forget_v x n b
                                         
-structure LongIdShiftable = struct
+structure LongIdShift = struct
 type var = long_id
 val shiftx_var = shiftx_long_id
 val forget_var = forget_long_id
 end
 
-structure IdxSubst = IdxSubstFn (structure Idx = Idx
-                                 structure ShiftableVar = LongIdShiftable)
-open IdxSubst
+structure IdxShift = IdxShiftFn (structure Idx = Idx
+                                 structure ShiftableVar = LongIdShift)
+open IdxShift
+                                        
+structure TypeShift = TypeShiftFn (structure Type = Type
+                                  structure ShiftableVar = LongIdShift
+                                  structure ShiftableIdx = IdxShift
+                                 )
+open TypeShift
                                         
 (* shift *)
 

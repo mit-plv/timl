@@ -5,14 +5,13 @@ signature TYPE = sig
   type base_type
   type var
   type kind
-  type 'mtype datatype_def
   type name
   type region
          
-type 'mtype constr_core = (sort, string, 'mtype * idx list) ibinds
-type 'mtype constr_decl = string * 'mtype constr_core * region
+  type 'mtype constr_core = (Idx.sort, string, 'mtype * Idx.idx list) Bind.ibinds
+  type 'mtype constr_decl = string * 'mtype constr_core * region
 
-type 'mtype datatype_def = (string * (unit, string, bsort list * 'mtype constr_decl list) tbinds) tbind(*for datatype self-reference*)
+  type 'mtype datatype_def = (string * (unit, string, Idx.bsort list * 'mtype constr_decl list) Bind.tbinds) Bind.tbind(*for datatype self-reference*)
 
   (* monotypes *)
   datatype mtype = 
@@ -30,5 +29,9 @@ type 'mtype datatype_def = (string * (unit, string, bsort list * 'mtype constr_d
            | MtAppI of mtype * Idx.idx
            | UVar of (Idx.bsort, kind, mtype) UVarT.uvar_mt * region
            | TDatatype of mtype datatype_def * region
+
+  datatype ty = 
+	   Mono of mtype
+	   | Uni of (name * ty) Bind.tbind * region
 
 end

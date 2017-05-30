@@ -23,7 +23,7 @@ structure TiML = TAst (structure Idx = Idx
                       )
 structure MicroTiML = MicroTiMLFn (Idx)
 
-structure LongIdShiftable = struct
+structure LongIdShift = struct
 open ShiftUtil
 open LongIdUtil
 type var = long_id
@@ -35,9 +35,19 @@ val shiftx_var = shiftx_long_id
 val forget_var = forget_long_id
 end
 
-structure IdxSubst = IdxSubstFn (structure Idx = Idx
-                                 structure ShiftableVar = LongIdShiftable)
-open IdxSubst
+structure IdxShift = IdxShiftFn (structure Idx = Idx
+                                 structure ShiftableVar = LongIdShift)
+open IdxShift       
+structure TypeShift = TypeShiftFn (structure Type = TiMLType
+                                  structure ShiftableVar = LongIdShift
+                                  structure ShiftableIdx = IdxShift
+                                 )
+open TypeShift
+       
+structure IdxUtil = IdxUtilFn (structure Idx = Idx
+                               val dummy = ()
+                              )
+open IdxUtil
                                   
 structure S = TiML
 structure T = MicroTiML
@@ -84,7 +94,9 @@ fun foldr' f init xs = foldl' f init $ rev xs
 fun combine_TSum ts = foldr' TSum TEmpty ts
 
 fun int2var x = (NONE, (x, ()))
-                  
+
+fun PEqs pairs = combine_And $ map PEq pairs
+  
 fun on_mt (t : S.mtype) : ty =
   case t of
       S.Arrow (t1, i, t2) => TArrow (on_mt t1, i, on_mt t2)
@@ -112,7 +124,7 @@ fun on_mt (t : S.mtype) : ty =
             val t = shiftx_i_mt 0 1 t
             val is = map (shiftx_i_i 0 1) is
             val formal_iargs = map (shift_i_i 0 (length name_sorts + 1)) formal_iargs
-            val prop = PEqs (is, formal_iargs)
+            val prop = PEqs $ zip (is, formal_iargs)
             val extra_sort_name = "__datatype_constraint"
             val extra_sort = Subset ((BSUnit, ()), Bind ((extra_sort_name, ()), prop), ())
             val t = TExistsIMany (extra_sort :: map snd (rev name_sorts), t)

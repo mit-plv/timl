@@ -17,9 +17,10 @@ open Bind
                         
 type kind = int (*number of type arguments*) * bsort list
 
-structure Datatype = DatatypeFn (structure Idx = Idx
-                                 type var = var)
-open Datatype
+type 'mtype constr_core = (sort, string, 'mtype * idx list) ibinds
+type 'mtype constr_decl = string * 'mtype constr_core * region
+
+type 'mtype datatype_def = (string * (unit, string, bsort list * 'mtype constr_decl list) tbinds) tbind(*for datatype self-reference*)
 
 (* monotypes *)
 datatype mtype = 
@@ -48,13 +49,28 @@ functor TestTypeFnSignatures (Params : TYPE_PARAMS) = struct
 structure M : TYPE = TypeFn (Params)
 end
   
-functor TypeSubstFn (structure Type : TYPE
-                    structure ShiftableVar : SHIFTABLE_VAR
-                    sharing type Type.var = ShiftableVar.var
-                   ) = struct
+signature SHIFTABLE_IDX = sig
+
+  type idx
+  type sort
+  val shiftx_i_i : int -> int -> idx -> idx
+  val shiftx_i_s : int -> int -> sort -> sort
+  val forget_i_i : int -> int -> idx -> idx
+  val forget_i_s : int -> int -> sort -> sort
+
+end
+                            
+functor TypeShiftFn (structure Type : TYPE
+                     structure ShiftableVar : SHIFTABLE_VAR
+                     sharing type Type.var = ShiftableVar.var
+                     structure ShiftableIdx : SHIFTABLE_IDX
+                     sharing type Type.Idx.idx = ShiftableIdx.idx 
+                     sharing type Type.Idx.sort = ShiftableIdx.sort
+                    ) = struct
 
 open Type
 open ShiftableVar
+open ShiftableIdx
 open ShiftUtil
 
 infixr 0 $
@@ -140,7 +156,7 @@ fun on_t_t on_t_mt x n b =
   end
 
 fun shiftx_i_mt x n b = on_i_mt shiftx_i_i shiftx_i_s x n b
-and shiftx_t_mt x n b = on_t_mt shiftx_v x n b
+and shiftx_t_mt x n b = on_t_mt shiftx_var x n b
 fun shift_i_mt b = shiftx_i_mt 0 1 b
 fun shift_t_mt b = shiftx_t_mt 0 1 b
 
@@ -151,7 +167,7 @@ fun shiftx_t_t x n b = on_t_t shiftx_t_mt x n b
 fun shift_t_t b = shiftx_t_t 0 1 b
 
 fun forget_i_mt x n b = on_i_mt forget_i_i forget_i_s x n b
-fun forget_t_mt x n b = on_t_mt forget_v x n b
+fun forget_t_mt x n b = on_t_mt forget_var x n b
 fun forget_i_t x n b = on_i_t forget_i_mt x n b
 fun forget_t_t x n b = on_t_t forget_t_mt x n b
 
