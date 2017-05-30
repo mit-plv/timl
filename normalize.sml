@@ -32,7 +32,7 @@ fun load_uvar on_refined on_fresh (a as (x, r)) =
       Refined b => on_refined b
     | Fresh _ => on_fresh x
 
-fun load_uvar' on_refined origin x = load_uvar on_refined (const origin) (x, dummy)
+fun load_uvar' on_refined origin x = load_uvar on_refined (const_fun origin) (x, dummy)
                    
 fun update_i i =
   case i of

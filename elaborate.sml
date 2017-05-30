@@ -220,11 +220,11 @@ local
                                                              inl a => (a :: acc1, acc2) |
                                                              inr b => (acc1, b :: acc2)) ([], []) ls
                 
-  fun elab_datatype ((name, tnames, top_sortings, sorts, constrs, r) : S.datatype_def) : datatype_def =
+  fun elab_datatype ((name, tnames, top_sortings, sorts, constrs, r) : S.datatype_def) : mtype datatype_def * region =
       let
         val sorts = map (fst o elab_b) (map (fn (_, s, _) => s) top_sortings @ sorts)
         fun default_t2 r = foldl (fn (arg, f) => S.AppTT (f, S.VarT (NONE, (arg, r)), r)) (S.VarT (NONE, (name, r))) tnames
-        fun elab_constr (((cname, _), binds, core, r) : S.constr_decl) : constr_decl =
+        fun elab_constr (((cname, _), binds, core, r) : S.constr_decl) : mtype constr_decl =
             let
               (* val (t1, t2) = default (S.VarT ("unit", r), SOME (default_t2 r)) core *)
               (* val t2 = default (default_t2 r) t2 *)
@@ -256,7 +256,7 @@ local
               (cname, fold_binds (binds, (elab_mt t1, map elab_i is)), r)
             end
       in
-        (name, tnames, sorts, map elab_constr constrs, r)
+        (Bind (name, fold_binds (map (attach_snd ()) tnames, (sorts, map elab_constr constrs))), r)
       end
         
   fun elab e =

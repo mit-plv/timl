@@ -65,8 +65,11 @@ val str_int = Int.toString
 fun str_bool b = if b then "true" else "false"
 
 fun id x = x
-fun const a _ = a
-fun const_fun a _ = a
+val return1 = id
+fun return2 a1 a2 = a2
+fun return3 a1 a2 a3 = a3
+fun return4 a1 a2 a3 a4 = a4
+fun const_fun c _ = c
 fun self_compose n f =
     if n <= 0 then
       id
@@ -74,7 +77,7 @@ fun self_compose n f =
       (self_compose (n - 1) f) o f
                                    
 fun range n = List.tabulate (n, id)
-fun repeat n a = List.tabulate (n, const a)
+fun repeat n a = List.tabulate (n, const_fun a)
                                
 fun nth_error ls n =
   SOME (List.nth (ls, n)) handle Subscript => NONE

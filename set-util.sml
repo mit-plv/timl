@@ -13,7 +13,7 @@ fun member x s = S.member (s, x)
 fun dedup ls = to_list $ to_set ls
                        
 fun pop s =
-  case S.find (const true) s of
+  case S.find (const_fun true) s of
       SOME e => SOME (e, S.delete (s, e))
     | NONE => NONE
                 

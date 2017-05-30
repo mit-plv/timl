@@ -161,12 +161,10 @@ fun package_t_ibinds f_cls f_inner x v ibinds = package_binds package_t_ibind f_
 fun package_i_tbinds f_cls f_inner x v ibinds = package_binds package_i_tbind f_cls f_inner x v ibinds
 fun package_t_tbinds f_cls f_inner x v ibinds = package_binds package_t_tbind f_cls f_inner x v ibinds
 
-fun package_noop x m b = b
-                                                              
 fun package_i_c x m ((family, core) : mtype constr) =
   let
     fun on_body x v (t, is) = (package_i_mt x v t, map (package_i_i x v) is)
-    val core = package_i_tbinds package_noop (package_i_ibinds package_i_s on_body) x m core
+    val core = package_i_tbinds return3 (package_i_ibinds package_i_s on_body) x m core
   in
     (family, core)
   end
@@ -175,7 +173,7 @@ fun package_t_c x m ((family, core) : mtype constr) =
   let
     fun on_body x v (t, is) = (package_t_mt x v t, is)
     val family = package_long_id x m family
-    val core = package_t_tbinds package_noop (package_t_ibinds package_noop on_body) x m core
+    val core = package_t_tbinds return3 (package_t_ibinds return3 on_body) x m core
   in
     (family, core)
   end

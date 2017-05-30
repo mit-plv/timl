@@ -85,7 +85,7 @@ fun on_mt (t : S.mtype) : ty =
         fun on_constr ibinds =
           let
             val len_bsorts = length bsorts
-            val ibinds = on_ibinds shiftx_i_s (on_pair (on_noop, on_pair (shiftx_i_mt, on_list shiftx_i_i))) 0 len_bsorts
+            val ibinds = on_ibinds shiftx_i_s (on_pair (return3, on_pair (shiftx_i_mt, on_list shiftx_i_i))) 0 len_bsorts
             val (name_sorts, (t, is)) = unfold_binds ibinds
             val () = assert (fn () => length is = len_bsorts) "length is = len_bsorts"
             val formal_iargs = map (fn x => VarI (int2var x)) $ rev $ range $ len_bsorts

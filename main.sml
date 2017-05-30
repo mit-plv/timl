@@ -40,7 +40,13 @@ fun process_prog show_result filename gctx prog =
       fun TCctx2NRctx (ctx : TC.context) : NR.context =
           let
             val (sctx, kctx, cctx, tctx) = ctx
-            val cctx = map (fn (name, (_, _, core)) => (name, get_constr_inames core)) cctx
+            fun on_constr (name, (_, tbinds)) =
+              let
+                val (_, core) = unfold_binds tbinds
+              in
+                (name, TC.get_constr_inames core)
+              end
+            val cctx = map on_constr cctx
           in
             (sctx_names sctx, names kctx, cctx, names tctx)
           end

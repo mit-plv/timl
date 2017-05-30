@@ -408,6 +408,13 @@ fun constr_type VarT shiftx_long_id ((family, tbinds) : mtype constr) =
     t
   end
 
+fun get_constr_inames (core : mtype constr_core) =
+  let
+    val (name_sorts, _) = unfold_binds core
+  in
+    map fst name_sorts
+  end
+                                 
 (* equality test *)
     
 fun eq_option eq (a, a') =
@@ -1082,7 +1089,7 @@ and str_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
           in
             (sprintf "rec$ $$ : $ |> $ = $" [tnames, name, binds, t, d, e], ctx_ret)
           end
-        | Datatype ((name, _), (tbinds, _)) =>
+        | Datatype (Bind (name, tbinds), _) =>
           let
             val (tname_kinds, (sorts, constrs)) = unfold_binds tbinds
             val tnames = map fst tname_kinds
@@ -1236,7 +1243,7 @@ fun get_region_dec dec =
   case dec of
       Val (_, _, _, r) => r
     | Rec (_, _, _, r) => r
-    | Datatype ((_, r1), (_, r)) => combine_region r1 r
+    | Datatype (_, r) => r
     | IdxDef ((_, r), _, i) => combine_region r (get_region_i i)
     | AbsIdx2 ((_, r), _, i) => combine_region r (get_region_i i)
     | AbsIdx (_, _, r) => r
@@ -1387,7 +1394,6 @@ fun on_i_s on_i_i on_i_p x n b =
     f x n b
   end
 
-fun on_noop x n b = b
 fun on_snd f x n (a, b) = (a, f x n b)
 fun on_pair (f, g) x n (a, b) = (f x n a, g x n b)
 fun on_list f x n b = map (f x n) b
@@ -1440,7 +1446,7 @@ fun on_i_mt on_i on_s x n b =
         | TDatatype (dt, r) =>
           let
             fun on_constr_decl x n (name, c, r) = (name, on_i_constr_core on_i on_s f x n c, r)
-            val dt = on_i_tbinds on_noop (on_pair (on_noop, on_list on_constr_decl)) x n dt
+            val dt = on_i_tbind (on_i_tbinds return3 (on_pair (return3, on_list on_constr_decl))) x n dt
           in
             TDatatype (dt, r)
           end
@@ -1496,7 +1502,7 @@ fun on_t_mt on_v x n b =
         | TDatatype (dt, r) =>
           let
             fun on_constr_decl x n (name, c, r) = (name, on_t_constr_core f x n c, r)
-            val dt = on_t_tbinds on_noop (on_pair (on_noop, on_list on_constr_decl)) x n dt
+            val dt = on_t_tbind (on_t_tbinds return3 (on_pair (return3, on_list on_constr_decl))) x n dt
           in
             TDatatype (dt, r)
           end
@@ -1504,7 +1510,7 @@ fun on_t_mt on_v x n b =
     f x n b
   end
     
-and on_t_constr_core on_mt x n b = on_t_ibinds on_noop (on_pair (on_mt, on_noop)) x n b
+and on_t_constr_core on_mt x n b = on_t_ibinds return3 (on_pair (on_mt, return3)) x n b
                                          
 fun on_t_t on_t_mt x n b =
   let
@@ -1634,13 +1640,13 @@ fun shift_e_e b = shiftx_e_e 0 1 b
 
 fun shiftx_i_c x n ((family, tbinds) : mtype constr) : mtype constr =
   (family,
-   on_i_tbinds on_noop (on_i_constr_core shiftx_i_i shiftx_i_s shiftx_i_mt) x n tbinds)
+   on_i_tbinds return3 (on_i_constr_core shiftx_i_i shiftx_i_s shiftx_i_mt) x n tbinds)
 
 fun shift_i_c b = shiftx_i_c 0 1 b
 
 fun shiftx_t_c x n (((m, family), tbinds) : mtype constr) : mtype constr =
   ((m, shiftx_id x n family),
-   on_t_tbinds on_noop (on_t_constr_core shiftx_t_mt) x n tbinds)
+   on_t_tbinds return3 (on_t_constr_core shiftx_t_mt) x n tbinds)
 fun shift_t_c b = shiftx_t_c 0 1 b
 
 (* forget *)
@@ -1683,7 +1689,6 @@ type 'a shiftable = {
 }
 (* todo: split [shiftable] to [ishiftable] and [tshiftable], or ultimately get rid of it aftering changing to lazy shifting *)                      
 
-fun substx_noop d x v b = b
 fun substx_pair (f1, f2) d x v (b1, b2) = (f1 d x v b1, f2 d x v b2)
 fun substx_list f d x v b = map (f d x v) b
                             
@@ -1768,7 +1773,7 @@ local
         let
           fun on_constr d x v b = substx_i_ibinds substx_i_s (substx_pair (f, substx_list substx_i_i)) d x v b
           fun on_constr_decl d x v (name, c, r) = (name, on_constr d x v c, r)
-          val dt = substx_i_tbinds substx_noop (substx_pair (substx_noop, substx_list on_constr_decl)) d x v dt
+          val dt = substx_i_tbind (substx_i_tbinds return4 (substx_pair (return4, substx_list on_constr_decl))) d x v dt
         in
           TDatatype (dt, r)
         end
@@ -1825,9 +1830,9 @@ local
       | UVar a => b
       | TDatatype (dt, r) =>
         let
-          fun on_constr d x v b = substx_t_ibinds substx_noop (substx_pair (f, substx_noop)) d x v b
+          fun on_constr d x v b = substx_t_ibinds return4 (substx_pair (f, return4)) d x v b
           fun on_constr_decl d x v (name, c, r) = (name, on_constr d x v c, r)
-          val dt = substx_t_tbinds substx_noop (substx_pair (substx_noop, substx_list on_constr_decl)) d x v dt
+          val dt = substx_t_tbind (substx_t_tbinds return4 (substx_pair (return4, substx_list on_constr_decl))) d x v dt
         in
           TDatatype (dt, r)
         end
@@ -2453,7 +2458,7 @@ fun simp_mt t =
       let
         fun simp_constr c = simp_binds simp_s (mapPair (simp_mt, map simp_i)) c
         fun simp_constr_decl ((name, c, r) : mtype constr_decl) : mtype constr_decl = (name, simp_constr c, r)
-        val dt = simp_binds id (mapPair (id, map simp_constr_decl)) dt
+        val dt = simp_bind (simp_binds id (mapPair (id, map simp_constr_decl))) dt
       in
         TDatatype (dt, r)
       end
@@ -2718,7 +2723,7 @@ and on_constr_core acc ibinds =
     acc
   end
     
-and on_datatype acc (tbinds, r) =
+and on_datatype acc (Bind (_, tbinds), r) =
     let
       val (_, (_, constr_decls)) = unfold_binds tbinds
       fun on_constr_decl acc (name, core, r) = on_constr_core acc core
@@ -2877,7 +2882,7 @@ local
           in
             acc
           end
-        | Datatype (name, a) => on_datatype acc a
+        | Datatype a => on_datatype acc a
         | IdxDef ((name, r), s, i) =>
           let 
             val acc = on_s acc s
@@ -2919,7 +2924,7 @@ local
       | SpecIdx (name, s) => on_s acc s
       | SpecType (name, k) => []
       | SpecTypeDef (name, t) => on_mt acc t
-      | SpecDatatype (name, a) => on_datatype acc a
+      | SpecDatatype a => on_datatype acc a
 in
 val on_spec = f
 fun collect_mod_spec b = f [] b

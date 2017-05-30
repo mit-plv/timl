@@ -52,9 +52,9 @@ Group is
       main.sml
 
       micro-timl/micro-timl.sml
-      t-ast.sml
       nouvar-expr.sml
-      micro-timl/timl-to-micro-timl.sml
+      (* t-ast.sml *)
+      (* micro-timl/timl-to-micro-timl.sml *)
 
       $/basis.cm
       $/smlnj-lib.cm

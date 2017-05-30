@@ -171,6 +171,7 @@ fun on_mtype gctx (ctx as (sctx, kctx)) t =
         | E.MtAbsI (b, bind, r_all) => MtAbsI (on_bsort b, on_ibind (fn sctx => on_mtype (sctx, kctx)) sctx bind, r_all)
 	| E.BaseType (bt, r) => BaseType (bt, r)
         | E.UVar u => UVar u
+        | E.TDatatype _ => raise Unimplemented "name-resolve/on_mtype()/TDatatype"
     end
 
 fun on_type gctx (ctx as (sctx, kctx)) t =
@@ -245,8 +246,6 @@ fun on_tbinds get_name on_anno on_inner ctx (tbinds : ('a, 'name, 'c) tbinds) = 
 fun on_constr_core gctx (ctx as (sctx, kctx)) (ibinds : E.mtype E.constr_core) : mtype constr_core =
     on_ibinds id (on_sort gctx) (fn sctx => fn (t, is) => (on_mtype gctx (sctx, kctx) t, map (on_idx gctx sctx) is)) sctx ibinds
 
-fun return2 a1 a2 = a2
-                      
 fun on_constr gctx (ctx as (sctx, kctx)) ((family, tbinds) : E.mtype E.constr) : mtype constr =
     (on_long_id gctx #2 kctx family,
      on_tbinds id return2 (fn kctx => on_constr_core gctx (sctx, kctx)) kctx tbinds)
@@ -326,8 +325,6 @@ and copy_anno_rule gctx return (pn, e) =
       (pn, copy_anno gctx (shift_return offset return) e)
     end
       
-fun get_constr_inames core = map fst $ fst $ unfold_binds core
-                                 
 val empty_ctx = ([], [], [], [])
 fun add_sorting_skct name (sctx, kctx, cctx, tctx) = (name :: sctx, kctx, cctx, tctx)
 fun add_kinding_skct name (sctx, kctx, cctx, tctx) = (sctx, name :: kctx, cctx, tctx)
@@ -516,14 +513,15 @@ and on_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
           end
     end
 
-and on_datatype gctx (ctx as (sctx, kctx, cctx, tctx)) (name, (dt, r)) =
+and on_datatype gctx (ctx as (sctx, kctx, cctx, tctx)) (dt, r) =
     let
       fun on_constr_decl kctx (cname, core, r) =
-        (cname, on_constr_core gctx (sctx, name :: kctx) core, r)
+        (cname, on_constr_core gctx (sctx, kctx) core, r)
       fun on_constrs kctx (sorts, constr_decls) =
         (map on_bsort sorts, map (on_constr_decl kctx) constr_decls)
-      val dt = on_tbinds id return2 on_constrs kctx dt
-      val decl = (name, dt, r)
+      val dt = on_tbind_generic id (on_tbinds id return2 on_constrs) kctx dt
+      val decl = (dt, r)
+      val Bind (name, dt) = dt
       val (_, (_, constr_decls)) = unfold_binds dt
       val cnames = map (fn (name, core, _) => (name, get_constr_inames core)) constr_decls
       val ctx = (sctx, name :: kctx, rev cnames @ cctx, tctx)
@@ -670,7 +668,5 @@ fun resolve_expr_opt ctx e = runError (fn () => on_expr ctx e) ()
 
 fun resolve_constr_opt ctx e = runError (fn () => on_constr ctx e) ()
 fun resolve_kind_opt e = runError (fn () => on_kind e) ()
-
-val get_constr_inames = get_constr_inames
 
 end
