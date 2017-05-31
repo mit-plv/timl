@@ -55,15 +55,15 @@ structure Idx = IdxFn (structure UVarI = UVarI
                        type base_sort = base_sort
                        type var = long_id
                        type name = name
-                       type region = region)
+                       type region = region
+                       type 'idx exists_anno = ('idx -> unit) option
+                      )
 open Idx
 
 structure Type = TypeFn (structure Idx = Idx
                          structure UVarT = UVarT
                          type base_type = base_type
-                         type var = long_id
-                         type name = name
-                         type region = region)
+                        )
 open Type
 
 structure Pattern = PatternFn (structure Idx = Idx
@@ -148,6 +148,7 @@ open IdxUtil
 (* some shorthands *)
 
 val STime = Basic (Base Time, dummy)
+val SNat = Basic (Base Nat, dummy)
 val SBool = Basic (Base BoolSort, dummy)
 val SUnit = Basic (Base UnitSort, dummy)
 

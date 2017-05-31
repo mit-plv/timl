@@ -1,5 +1,5 @@
 structure NameResolve = struct
-structure E = NamefulExpr
+structure S = NamefulExpr
 open UnderscoredExpr
 open Region
 open Gctx
@@ -73,7 +73,7 @@ fun find_long_id gctx sel eq ctx (m, (x, xr)) =
 fun on_long_id gctx sel ctx x =
     case find_long_id gctx sel is_eq_snd ctx x of
         SOME x => x
-      | NONE => raise Error (E.get_region_long_id x, sprintf "Unbound (long) variable '$' in context: $ $" [E.str_long_id #1 empty [] x, str_ls id ctx, str_ls id $ domain gctx])
+      | NONE => raise Error (S.get_region_long_id x, sprintf "Unbound (long) variable '$' in context: $ $" [S.str_long_id #1 empty [] x, str_ls id ctx, str_ls id $ domain gctx])
                       
 fun find_constr (gctx : sigcontext) ctx x =
     flip Option.map (find_long_id gctx #3 is_eq_fst_snd ctx x)
@@ -81,9 +81,9 @@ fun find_constr (gctx : sigcontext) ctx x =
          
 fun on_bsort bs =
     case bs of
-        E.Base b => Base b
-      | E.BSArrow (a, b) => BSArrow (on_bsort a, on_bsort b)
-      | E.UVarBS u => UVarBS u
+        S.Base b => Base b
+      | S.BSArrow (a, b) => BSArrow (on_bsort a, on_bsort b)
+      | S.UVarBS u => UVarBS u
 
 fun on_ibind_generic get_name f ctx (Bind (name, inner) : ('a * 'b) ibind) = Bind (name, f (get_name name :: ctx) inner)
 
@@ -94,13 +94,13 @@ fun on_idx (gctx : sigcontext) ctx i =
       val on_idx = on_idx gctx
     in
       case i of
-	  E.VarI x => VarI (on_long_id gctx #1 ctx x)
-        | E.IConst c => IConst c
-        | E.UnOpI (opr, i, r) => UnOpI (opr, on_idx ctx i, r)
-	| E.BinOpI (opr, i1, i2) => BinOpI (opr, on_idx ctx i1, on_idx ctx i2)
-        | E.Ite (i1, i2, i3, r) => Ite (on_idx ctx i1, on_idx ctx i2, on_idx ctx i3, r)
-        | E.IAbs (bs, bind, r) => IAbs (on_bsort bs, on_ibind on_idx ctx bind, r)
-        | E.UVarI u => UVarI u
+	  S.VarI x => VarI (on_long_id gctx #1 ctx x)
+        | S.IConst c => IConst c
+        | S.UnOpI (opr, i, r) => UnOpI (opr, on_idx ctx i, r)
+	| S.BinOpI (opr, i1, i2) => BinOpI (opr, on_idx ctx i1, on_idx ctx i2)
+        | S.Ite (i1, i2, i3, r) => Ite (on_idx ctx i1, on_idx ctx i2, on_idx ctx i3, r)
+        | S.IAbs (bs, bind, r) => IAbs (on_bsort bs, on_ibind on_idx ctx bind, r)
+        | S.UVarI u => UVarI u
     end
       
 fun on_quan q =
@@ -113,20 +113,20 @@ fun on_prop gctx ctx p =
       val on_prop = on_prop gctx
     in
       case p of
-	  E.PTrueFalse b => PTrueFalse b
-        | E.Not (p, r) => Not (on_prop ctx p, r)
-	| E.BinConn (opr, p1, p2) => BinConn (opr, on_prop ctx p1, on_prop ctx p2)
-	| E.BinPred (opr, i1, i2) => BinPred (opr, on_idx gctx ctx i1, on_idx gctx ctx i2)
-        | E.Quan (q, bs, bind, r_all) => Quan (on_quan q, on_bsort bs, on_ibind on_prop ctx bind, r_all)
+	  S.PTrueFalse b => PTrueFalse b
+        | S.Not (p, r) => Not (on_prop ctx p, r)
+	| S.BinConn (opr, p1, p2) => BinConn (opr, on_prop ctx p1, on_prop ctx p2)
+	| S.BinPred (opr, i1, i2) => BinPred (opr, on_idx gctx ctx i1, on_idx gctx ctx i2)
+        | S.Quan (q, bs, bind, r_all) => Quan (on_quan q, on_bsort bs, on_ibind on_prop ctx bind, r_all)
     end
 
 fun on_sort gctx ctx s =
     case s of
-	E.Basic (b, r) => Basic (on_bsort b, r)
-      | E.Subset ((s, r1), bind, r_all) => Subset ((on_bsort s, r1), on_ibind (on_prop gctx) ctx bind, r_all)
-      | E.UVarS u => UVarS u
-      | E.SAbs (b, bind, r) => SAbs (on_bsort b, on_ibind (on_sort gctx) ctx bind, r)
-      | E.SApp (s, i) => SApp (on_sort gctx ctx s, on_idx gctx ctx i)
+	S.Basic (b, r) => Basic (on_bsort b, r)
+      | S.Subset ((s, r1), bind, r_all) => Subset ((on_bsort s, r1), on_ibind (on_prop gctx) ctx bind, r_all)
+      | S.UVarS u => UVarS u
+      | S.SAbs (b, bind, r) => SAbs (on_bsort b, on_ibind (on_sort gctx) ctx bind, r)
+      | S.SApp (s, i) => SApp (on_sort gctx ctx s, on_idx gctx ctx i)
                                                    
 fun on_kind k = mapSnd (map on_bsort) k
 
@@ -140,38 +140,38 @@ fun on_mtype gctx (ctx as (sctx, kctx)) t =
       val on_mtype = on_mtype gctx
     in
       case t of
-	  E.Arrow (t1, d, t2) => Arrow (on_mtype ctx t1, on_idx gctx sctx d, on_mtype ctx t2)
-        | E.TyArray (t, i) => TyArray (on_mtype ctx t, on_idx gctx sctx i)
-        | E.TyNat (i, r) => TyNat (on_idx gctx sctx i, r)
-        | E.Unit r => Unit r
-	| E.Prod (t1, t2) => Prod (on_mtype ctx t1, on_mtype ctx t2)
-	| E.UniI (s, bind, r_all) => UniI (on_sort gctx sctx s, on_ibind (fn sctx => on_mtype (sctx, kctx)) sctx bind, r_all)
-        | E.MtVar x => MtVar $ on_long_id gctx #2 kctx x
-        | E.MtApp (t1, t2) => MtApp (on_mtype ctx t1, on_mtype ctx t2)
-        | E.MtAbs (k, bind, r_all) => MtAbs (on_kind k, on_tbind (fn kctx => (on_mtype (sctx, kctx))) kctx bind, r_all)
-        | E.MtAppI (t1, i) =>
+	  S.Arrow (t1, d, t2) => Arrow (on_mtype ctx t1, on_idx gctx sctx d, on_mtype ctx t2)
+        | S.TyArray (t, i) => TyArray (on_mtype ctx t, on_idx gctx sctx i)
+        | S.TyNat (i, r) => TyNat (on_idx gctx sctx i, r)
+        | S.Unit r => Unit r
+	| S.Prod (t1, t2) => Prod (on_mtype ctx t1, on_mtype ctx t2)
+	| S.UniI (s, bind, r_all) => UniI (on_sort gctx sctx s, on_ibind (fn sctx => on_mtype (sctx, kctx)) sctx bind, r_all)
+        | S.MtVar x => MtVar $ on_long_id gctx #2 kctx x
+        | S.MtApp (t1, t2) => MtApp (on_mtype ctx t1, on_mtype ctx t2)
+        | S.MtAbs (k, bind, r_all) => MtAbs (on_kind k, on_tbind (fn kctx => (on_mtype (sctx, kctx))) kctx bind, r_all)
+        | S.MtAppI (t1, i) =>
           let
             fun default () = MtAppI (on_mtype ctx t1, on_idx gctx sctx i)
           in
-            case E.is_AppV t of
+            case S.is_AppV t of
                 SOME (x, ts, is) =>
                 let
                   val ts = map (on_mtype ctx) ts
                   val is = map (on_idx gctx sctx) is
                 in
-                  if E.eq_long_id (x, (NONE, ("nat", dummy))) andalso length ts = 0 andalso length is = 1 then
-                    TyNat (hd is, E.get_region_mt t)
-                  else if E.eq_long_id (x, (NONE, ("array", dummy))) andalso length ts = 1 andalso length is = 1 then
+                  if S.eq_long_id (x, (NONE, ("nat", dummy))) andalso length ts = 0 andalso length is = 1 then
+                    TyNat (hd is, S.get_region_mt t)
+                  else if S.eq_long_id (x, (NONE, ("array", dummy))) andalso length ts = 1 andalso length is = 1 then
                     TyArray (hd ts, hd is)
                   else
                     default ()
                 end
               | NONE => default ()         
           end
-        | E.MtAbsI (b, bind, r_all) => MtAbsI (on_bsort b, on_ibind (fn sctx => on_mtype (sctx, kctx)) sctx bind, r_all)
-	| E.BaseType (bt, r) => BaseType (bt, r)
-        | E.UVar u => UVar u
-        | E.TDatatype _ => raise Unimplemented "name-resolve/on_mtype()/TDatatype"
+        | S.MtAbsI (b, bind, r_all) => MtAbsI (on_bsort b, on_ibind (fn sctx => on_mtype (sctx, kctx)) sctx bind, r_all)
+	| S.BaseType (bt, r) => BaseType (bt, r)
+        | S.UVar u => UVar u
+        | S.TDatatype _ => raise Unimplemented "name-resolve/on_mtype()/TDatatype"
     end
 
 fun on_type gctx (ctx as (sctx, kctx)) t =
@@ -179,8 +179,8 @@ fun on_type gctx (ctx as (sctx, kctx)) t =
       val on_type = on_type gctx
     in
       case t of
-	  E.Mono t => Mono (on_mtype gctx ctx t)
-	| E.Uni (Bind ((name, r), t), r_all) => Uni (Bind ((name, r), on_type (sctx, name :: kctx) t), r_all)
+	  S.Mono t => Mono (on_mtype gctx ctx t)
+	| S.Uni (Bind ((name, r), t), r_all) => Uni (Bind ((name, r), on_type (sctx, name :: kctx) t), r_all)
     end
       
 fun on_ptrn gctx (ctx as (sctx, kctx, cctx)) pn =
@@ -188,7 +188,7 @@ fun on_ptrn gctx (ctx as (sctx, kctx, cctx)) pn =
       val on_ptrn = on_ptrn gctx
     in
       case pn of
-	  E.ConstrP ((x, eia), inames, pn, r) =>
+	  S.ConstrP ((x, eia), inames, pn, r) =>
           (case find_constr gctx cctx x of
 	       SOME (x, c_inames) =>
                let
@@ -205,18 +205,18 @@ fun on_ptrn gctx (ctx as (sctx, kctx, cctx)) pn =
                (case (fst x, eia, inames, pn) of
                     (NONE, false, [], NONE) => VarP $ snd x
                   | _ =>
-                    raise Error (E.get_region_long_id x, "Unknown constructor " ^ E.str_long_id #1 empty [] x)
+                    raise Error (S.get_region_long_id x, "Unknown constructor " ^ S.str_long_id #1 empty [] x)
                )
           )
-        | E.VarP name =>
+        | S.VarP name =>
           VarP name
-        | E.PairP (pn1, pn2) =>
+        | S.PairP (pn1, pn2) =>
           PairP (on_ptrn ctx pn1, on_ptrn ctx pn2)
-        | E.TTP r =>
+        | S.TTP r =>
           TTP r
-        | E.AliasP (name, pn, r) =>
+        | S.AliasP (name, pn, r) =>
           AliasP (name, on_ptrn ctx pn, r)
-        | E.AnnoP (pn, t) =>
+        | S.AnnoP (pn, t) =>
           AnnoP (on_ptrn ctx pn, on_mtype gctx (sctx, kctx) t)
     end
 
@@ -243,10 +243,10 @@ fun on_ibinds get_name on_anno on_inner ctx (ibinds : ('a, 'name, 'c) ibinds) = 
 
 fun on_tbinds get_name on_anno on_inner ctx (tbinds : ('a, 'name, 'c) tbinds) = on_binds on_tbind_generic get_name on_anno on_inner ctx tbinds
                                                                                          
-fun on_constr_core gctx (ctx as (sctx, kctx)) (ibinds : E.mtype E.constr_core) : mtype constr_core =
+fun on_constr_core gctx (ctx as (sctx, kctx)) (ibinds : S.mtype S.constr_core) : mtype constr_core =
     on_ibinds id (on_sort gctx) (fn sctx => fn (t, is) => (on_mtype gctx (sctx, kctx) t, map (on_idx gctx sctx) is)) sctx ibinds
 
-fun on_constr gctx (ctx as (sctx, kctx)) ((family, tbinds) : E.mtype E.constr) : mtype constr =
+fun on_constr gctx (ctx as (sctx, kctx)) ((family, tbinds) : S.mtype S.constr) : mtype constr =
     (on_long_id gctx #2 kctx family,
      on_tbinds id return2 (fn kctx => on_constr_core gctx (sctx, kctx)) kctx tbinds)
 
@@ -335,28 +335,28 @@ fun add_ctx (sctxd, kctxd, cctxd, tctxd) (sctx, kctx, cctx, tctx) =
 fun on_expr gctx (ctx as (sctx, kctx, cctx, tctx)) e =
     let
       val on_expr = on_expr gctx
-      (* val () = println $ sprintf "on_expr $ in context $" [E.str_e ctx e, join " " tctx] *)
+      (* val () = println $ sprintf "on_expr $ in context $" [S.str_e ctx e, join " " tctx] *)
       val skctx = (sctx, kctx)
     in
       case e of
-	  E.Var (x, b) => 
+	  S.Var (x, b) => 
 	  (case find_constr gctx cctx x of
 	       SOME (x, _) => AppConstr ((x, b), [], TT $ get_region_long_id x)
 	     | NONE => Var ((on_long_id gctx #4 tctx x), b)
           )
-        | E.EConst c => EConst c
-	| E.EUnOp (opr, e, r) => EUnOp (opr, on_expr ctx e, r)
-	| E.BinOp (opr, e1, e2) =>
+        | S.EConst c => EConst c
+	| S.EUnOp (opr, e, r) => EUnOp (opr, on_expr ctx e, r)
+	| S.BinOp (opr, e1, e2) =>
           (case opr of
 	       EBApp => 
 	       let
                  val e2 = on_expr ctx e2
 	         fun default () = 
                    App (on_expr ctx e1, e2)
-	         val (e1, is) = E.collect_AppI e1 
+	         val (e1, is) = S.collect_AppI e1 
 	       in
 	         case e1 of
-		     E.Var (x, b) =>
+		     S.Var (x, b) =>
 		     (case find_constr gctx cctx x of
 		          SOME (x, _) => AppConstr ((x, b), map (on_idx gctx sctx) is, e2)
 		        | NONE => default ())
@@ -364,20 +364,20 @@ fun on_expr gctx (ctx as (sctx, kctx, cctx, tctx)) e =
 	       end
 	     | _ => BinOp (opr, on_expr ctx e1, on_expr ctx e2)
           )
-	| E.TriOp (opr, e1, e2, e3) => TriOp (opr, on_expr ctx e1, on_expr ctx e2, on_expr ctx e3)
-	| E.EEI (opr, e, i) =>
+	| S.TriOp (opr, e1, e2, e3) => TriOp (opr, on_expr ctx e1, on_expr ctx e2, on_expr ctx e3)
+	| S.EEI (opr, e, i) =>
           (case opr of
 	       EEIAppI => 
 	       let
                  fun default () = 
                    AppI (on_expr ctx e, on_idx gctx sctx i)
-	         val (e, is) = E.collect_AppI e
+	         val (e, is) = S.collect_AppI e
                  val is = is @ [i]
 	       in
 	         case e of
-		     E.Var (x, b) =>
+		     S.Var (x, b) =>
 		     (case find_constr gctx cctx x of
-		          SOME (x, _) => AppConstr ((x, b), map (on_idx gctx sctx) is, TT (E.get_region_i i))
+		          SOME (x, _) => AppConstr ((x, b), map (on_idx gctx sctx) is, TT (S.get_region_i i))
 		        | NONE => default ())
 	           | _ => default ()
 	       end
@@ -390,8 +390,8 @@ fun on_expr gctx (ctx as (sctx, kctx, cctx, tctx)) e =
                  AscriptionTime (e, i)
                end
           )
-	| E.ET (opr, t, r) => ET (opr, on_mtype gctx skctx t, r)
-	| E.Abs (pn, e) => 
+	| S.ET (opr, t, r) => ET (opr, on_mtype gctx skctx t, r)
+	| S.Abs (pn, e) => 
           let 
             val pn = on_ptrn gctx (sctx, kctx, cctx) pn
             val (inames, enames) = ptrn_names pn
@@ -400,15 +400,15 @@ fun on_expr gctx (ctx as (sctx, kctx, cctx, tctx)) e =
           in
             Abs (pn, e)
           end
-	| E.AbsI (s, Bind ((name, r), e), r_all) => AbsI (on_sort gctx sctx s, Bind ((name, r), on_expr (add_sorting_skct name ctx) e), r_all)
-	| E.Let (return, decls, e, r) =>
+	| S.AbsI (s, Bind ((name, r), e), r_all) => AbsI (on_sort gctx sctx s, Bind ((name, r), on_expr (add_sorting_skct name ctx) e), r_all)
+	| S.Let (return, decls, e, r) =>
           let 
             val return = on_return gctx skctx return
             val (decls, ctx) = on_decls gctx ctx decls
           in
             Let (return, decls, on_expr ctx e, r)
           end
-	| E.Ascription (e, t) =>
+	| S.Ascription (e, t) =>
           let
             val t = on_mtype gctx skctx t
             val e = on_expr ctx e
@@ -416,8 +416,8 @@ fun on_expr gctx (ctx as (sctx, kctx, cctx, tctx)) e =
           in
             Ascription (e, t)
           end
-	| E.AppConstr ((x, b), is, e) => AppConstr ((on_long_id gctx (map fst o #3) (map fst cctx) x, b), map (on_idx gctx sctx) is, on_expr ctx e)
-	| E.Case (e, return, rules, r) =>
+	| S.AppConstr ((x, b), is, e) => AppConstr ((on_long_id gctx (map fst o #3) (map fst cctx) x, b), map (on_idx gctx sctx) is, on_expr ctx e)
+	| S.Case (e, return, rules, r) =>
           let
             val return = on_return gctx skctx return
             val rules = map (on_rule gctx ctx) rules
@@ -445,7 +445,7 @@ and on_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
       val on_decl = on_decl gctx
     in
       case decl of
-          E.Val (tnames, pn, e, r) =>
+          S.Val (tnames, pn, e, r) =>
           let 
             val ctx' as (sctx', kctx', cctx', _) = (sctx, (rev o map fst) tnames @ kctx, cctx, tctx)
             val pn = on_ptrn gctx (sctx', kctx', cctx') pn
@@ -455,16 +455,16 @@ and on_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
           in
             (Val (tnames, pn, e, r), ctx)
           end
-        | E.Rec (tnames, (name, r1), (binds, ((t, d), e)), r) =>
+        | S.Rec (tnames, (name, r1), (binds, ((t, d), e)), r) =>
           let 
 	    val ctx as (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx)
             val ctx_ret = ctx
             val ctx as (sctx, kctx, cctx, tctx) = (sctx, (rev o map fst) tnames @ kctx, cctx, tctx)
             fun f (bind, (binds, ctx as (sctx, kctx, cctx, tctx))) =
                 case bind of
-                    E.SortingST ((name, r), s) => 
+                    S.SortingST ((name, r), s) => 
                     (SortingST ((name, r), on_sort gctx sctx s) :: binds, add_sorting_skct name ctx)
-                  | E.TypingST pn =>
+                  | S.TypingST pn =>
                     let
                       val pn = on_ptrn gctx (sctx, kctx, cctx) pn
                       val (inames, enames) = ptrn_names pn
@@ -480,13 +480,13 @@ and on_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
           in
             (Rec (tnames, (name, r1), (binds, ((t, d), e)), r), ctx_ret)
           end
-        | E.Datatype a =>
+        | S.Datatype a =>
           mapFst Datatype $ on_datatype gctx ctx a
-        | E.IdxDef ((name, r), s, i) =>
+        | S.IdxDef ((name, r), s, i) =>
           (IdxDef ((name, r), on_sort gctx sctx s, on_idx gctx sctx i), add_sorting_skct name ctx)
-        | E.AbsIdx2 ((name, r), s, i) =>
+        | S.AbsIdx2 ((name, r), s, i) =>
           (AbsIdx2 ((name, r), on_sort gctx sctx s, on_idx gctx sctx i), add_sorting_skct name ctx)
-        | E.AbsIdx (((name, r1), s, i), decls, r) =>
+        | S.AbsIdx (((name, r1), s, i), decls, r) =>
           let
             val s = on_sort gctx sctx s
             val i = on_idx gctx sctx i
@@ -495,13 +495,13 @@ and on_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
           in
             (AbsIdx (((name, r1), s, i), decls, r), ctx)
           end
-        | E.TypeDef ((name, r), t) =>
+        | S.TypeDef ((name, r), t) =>
           let
             val t = on_mtype gctx (sctx, kctx) t
           in
             (TypeDef ((name, r), t), add_kinding_skct name ctx)
           end
-        | E.Open (m, r) =>
+        | S.Open (m, r) =>
           let
             val (m, ctxd) =
                 case lookup_module gctx m of
@@ -531,10 +531,10 @@ and on_datatype gctx (ctx as (sctx, kctx, cctx, tctx)) (dt, r) =
       
 and on_rule gctx (ctx as (sctx, kctx, cctx, tctx)) (pn, e) =
     let 
-      (* val () = println $ sprintf "on_rule $ in context $" [E.str_rule ctx (pn, e), join " " tctx] *)
+      (* val () = println $ sprintf "on_rule $ in context $" [S.str_rule ctx (pn, e), join " " tctx] *)
       val pn = on_ptrn gctx (sctx, kctx, cctx) pn
       val (inames, enames) = ptrn_names pn
-      (* val () = println $ sprintf "enames of $: $" [E.str_pn (sctx, kctx, cctx) pn, join " " enames] *)
+      (* val () = println $ sprintf "enames of $: $" [S.str_pn (sctx, kctx, cctx) pn, join " " enames] *)
       val ctx' = (inames @ sctx, kctx, cctx, enames @ tctx)
     in
       (pn, on_expr gctx ctx' e)
@@ -544,31 +544,31 @@ fun on_sig gctx (comps, r) =
   let
     fun on_spec (ctx as (sctx, kctx, _, _)) spec =
       case spec of
-          E.SpecVal ((name, r), t) =>
+          S.SpecVal ((name, r), t) =>
           let
             val t = on_type gctx (sctx, kctx) t
           in
             (SpecVal ((name, r), t), add_typing_skct name ctx)
           end
-        | E.SpecIdx ((name, r), s) =>
+        | S.SpecIdx ((name, r), s) =>
           let
             val s = on_sort gctx sctx s
           in
             (SpecIdx ((name, r), s), add_sorting_skct name ctx)
           end
-        | E.SpecType ((name, r), k) =>
+        | S.SpecType ((name, r), k) =>
           let
             val k = on_kind k
           in
             (SpecType ((name, r), k), add_kinding_skct name ctx)
           end
-        | E.SpecTypeDef ((name, r), t) =>
+        | S.SpecTypeDef ((name, r), t) =>
           let
             val t = on_mtype gctx (sctx, kctx) t
           in
             (SpecTypeDef ((name, r), t), add_kinding_skct name ctx)
           end
-        | E.SpecDatatype a =>
+        | S.SpecDatatype a =>
           mapFst SpecDatatype $ on_datatype gctx ctx a
     fun iter (spec, (specs, ctx)) =
       let
@@ -584,20 +584,20 @@ fun on_sig gctx (comps, r) =
     
 fun on_module gctx m =
     case m of
-        E.ModComponents (comps, r) =>
+        S.ModComponents (comps, r) =>
         let
           val (comps, ctx) = on_decls gctx empty_ctx comps
         in
           (ModComponents (comps, r), ctx)
         end
-      | E.ModSeal (m, sg) =>
+      | S.ModSeal (m, sg) =>
         let
           val (sg, ctx) = on_sig gctx sg
           val (m, _) = on_module gctx m
         in
           (ModSeal (m, sg), ctx)
         end
-      | E.ModTransparentAscription (m, sg) =>
+      | S.ModTransparentAscription (m, sg) =>
         let
           val (sg, _) = on_sig gctx sg
           val (m, ctx) = on_module gctx m
@@ -607,20 +607,20 @@ fun on_module gctx m =
 
 fun on_top_bind gctx (name, bind) = 
     case bind of
-        E.TopModBind m =>
+        S.TopModBind m =>
         let
           val (m, ctx) = on_module gctx m
         in
           (TopModBind m, [(name, Sig ctx)])
         end
-      (* | E.TopModSpec ((name, r), sg) => *)
+      (* | S.TopModSpec ((name, r), sg) => *)
       (*   let *)
       (*     val (sg = on_sig gctx sg *)
       (*     val () = open_module (name, sg) *)
       (*   in *)
       (*     [(name, Sig sg)] *)
       (*   end *)
-      | E.TopFunctorBind (((arg_name, r2), arg), m) =>
+      | S.TopFunctorBind (((arg_name, r2), arg), m) =>
         let
           val (arg, arg_ctx) = on_sig gctx arg
           val gctx = add (arg_name, Sig arg_ctx) gctx
@@ -628,7 +628,7 @@ fun on_top_bind gctx (name, bind) =
         in
           (TopFunctorBind (((arg_name, r2), arg), m), [(name, FunctorBind ((arg_name, arg_ctx), body_ctx))])
         end
-      | E.TopFunctorApp ((f, f_r), m) =>
+      | S.TopFunctorApp ((f, f_r), m) =>
         let
           fun lookup_functor (gctx : sigcontext) m =
             opt_bind (Gctx.find (gctx, m)) is_FunctorBind

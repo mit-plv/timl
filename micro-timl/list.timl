@@ -1,0 +1,7 @@
+structure List = struct
+
+datatype list 'a : {Nat} =
+         Nil of list 'a {0} 
+       | Cons {n : Nat} of 'a * list 'a {n} --> list 'a {n + 1} 
+
+end

@@ -5,6 +5,7 @@ signature IDX = sig
   type var
   type name
   type region
+  type 'idx exists_anno
          
   datatype bsort = 
            Base of base_sort 
@@ -25,7 +26,7 @@ signature IDX = sig
            | BinConn of Operators.bin_conn * prop * prop
            | Not of prop * region
 	   | BinPred of Operators.bin_pred * idx * idx
-           | Quan of (idx -> unit) option (*for linking idx inferer with types*) Operators.quan * bsort * (name * prop) Bind.ibind * region
+           | Quan of idx exists_anno (*for linking idx inferer with types*) Operators.quan * bsort * (name * prop) Bind.ibind * region
 
   datatype sort =
 	   Basic of bsort * region

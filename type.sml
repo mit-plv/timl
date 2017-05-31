@@ -2,9 +2,6 @@ signature TYPE_PARAMS = sig
   structure Idx : IDX
   structure UVarT : UVAR_T
   type base_type
-  type var
-  type name
-  type region
 end         
 
 functor TypeFn (Params : TYPE_PARAMS) =

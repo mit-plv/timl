@@ -4,6 +4,7 @@ signature IDX_PARAMS = sig
   type var
   type name
   type region
+  type 'idx exists_anno
 end         
 
 functor IdxFn (Params : IDX_PARAMS) =
@@ -34,7 +35,7 @@ datatype prop =
          | BinConn of bin_conn * prop * prop
          | Not of prop * region
 	 | BinPred of bin_pred * idx * idx
-         | Quan of (idx -> unit) option (*for linking idx inferer with types*) quan * bsort * (name * prop) ibind * region
+         | Quan of idx exists_anno (*for linking idx inferer with types*) quan * bsort * (name * prop) ibind * region
 
 datatype sort =
 	 Basic of bsort * region

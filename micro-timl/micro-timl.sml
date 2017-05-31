@@ -28,7 +28,7 @@ datatype ty =
        | TBinOp of ty_bin_op * ty * ty
        | TArrow of ty * idx * ty
        | TAbsI of bsort * ty
-       | TAppI of ty * bsort * idx
+       | TAppI of ty * idx
        | TQuan of unit quan * kind * ty
        | TQuanI of unit quan * sort * ty
        | TRec of kind * ty
