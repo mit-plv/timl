@@ -29,25 +29,25 @@ local
   type ('this, 'a, 'b, 'a2, 'b2, 'env) refinement = 'this -> ('this, 'a, 'b, 'a2, 'b2, 'env) expr_visitor_interface
   fun default_visit_expr (is_sub : ('this, 'a, 'b, 'a2, 'b2, 'env) refinement) this env data =
   let
-    val record = is_sub this
+    val vtable = is_sub this
   in
     case data of
-        EConst data => #visit_EConst record this env data
-      | EAdd data => #visit_EAdd record this env data
+        EConst data => #visit_EConst vtable this env data
+      | EAdd data => #visit_EAdd vtable this env data
   end
 fun default_visit_EConst (is_sub : ('this, 'a, 'b, 'a2, 'b2, 'env) refinement) this env data =
   let
-    val record = is_sub this
+    val vtable = is_sub this
   in
-    EConst $ #visit_'a record this env data
+    EConst $ #visit_'a vtable this env data
   end
 fun default_visit_EAdd (is_sub : ('this, 'a, 'b, 'a2, 'b2, 'env) refinement) this env data = 
   let
-    val record = is_sub this
+    val vtable = is_sub this
     val (data, e1, e2) = data
-    val data = #visit_'b record this env data
-    val e1 = #visit_expr record this env e1
-    val e2 = #visit_expr record this env e2
+    val data = #visit_'b vtable this env data
+    val e1 = #visit_expr vtable this env e1
+    val e2 = #visit_expr vtable this env e2
   in
     EAdd (data, e1, e2)
   end
@@ -121,13 +121,12 @@ fun new_strip_expr_visitor () : ('a, 'b, unit, unit, 'env) expr_visitor =
     
 fun strip e : (unit, unit) expr =
   let
-    val visitor as (ExprVisitor record) = new_strip_expr_visitor ()
+    val visitor as (ExprVisitor vtable) = new_strip_expr_visitor ()
   in
-    #visit_expr record visitor () e
+    #visit_expr vtable visitor () e
   end
     
-datatype ('this, 'a, 'b, 'env) number_expr_visitor_interface =
-         NumberExprVisitorInterface of
+type ('this, 'a, 'b, 'env) number_expr_visitor_interface =
          {
            vtable : ('this, 'a, 'b, int, int, 'env) expr_visitor_vtable,
            count : int ref
@@ -135,7 +134,7 @@ datatype ('this, 'a, 'b, 'env) number_expr_visitor_interface =
 
 fun number_expr_visitor_refines_expr_visitor (is_sub : 'this -> ('this, 'a, 'b, 'env) number_expr_visitor_interface) (this : 'this) : ('this, 'a, 'b, int, int, 'env) expr_visitor_interface =
   let
-    val NumberExprVisitorInterface record = is_sub this
+    val record = is_sub this
     val vtable = #vtable record
   in
     vtable
@@ -145,7 +144,7 @@ fun number_expr_visitor_vtable is_sub =
   let
     fun visit_'a_'b this _ _ =
       let
-        val NumberExprVisitorInterface record = is_sub this
+        val record = is_sub this
         val count = #count record
         val old = !count
         val () = count := old + 1
@@ -170,9 +169,9 @@ fun number_expr_visitor_impls_interface (this : ('a, 'b, 'env) number_expr_visit
     val vtable = #vtable record
     val count = #count record
   in
-    NumberExprVisitorInterface {vtable = vtable,
-                                count = count
-                               }
+    {vtable = vtable,
+     count = count
+    }
   end
 
 fun new_number_expr_visitor () : ('a, 'b, 'env) number_expr_visitor =
@@ -193,11 +192,11 @@ fun number e : (int, int) expr =
     #visit_expr vtable visitor () e
   end
 
-fun number2_expr_visitor_vtable is_sub =
+fun number2_expr_visitor_vtable (is_sub : 'this -> ('this, 'a, 'b, 'env) number_expr_visitor_interface) =
   let
     fun visit_'b this _ _ =
       let
-        val NumberExprVisitorInterface record = is_sub this
+        val record = is_sub this
         val count = #count record
         val old = !count
         val () = count := old + 1
