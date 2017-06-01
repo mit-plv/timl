@@ -53,6 +53,7 @@ Group is
       bigO-solver.sml
       main.sml
 
+      micro-timl/micro-timl.sig
       micro-timl/micro-timl.sml
       nouvar-expr.sml
       t-ast.sml

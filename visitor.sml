@@ -194,17 +194,9 @@ fun number e : (int, int) expr =
 
 fun number2_expr_visitor_vtable (is_sub : 'this -> ('this, 'a, 'b, 'env) number_expr_visitor_interface) =
   let
-    fun visit_'b this _ _ =
-      let
-        val record = is_sub this
-        val count = #count record
-        val old = !count
-        val () = count := old + 1
-      in
-        old + 10000
-      end
-    val vtable = number_expr_visitor_vtable number_expr_visitor_impls_interface
-    val vtable = override_visit_'b vtable visit_'b
+    val super_vtable = number_expr_visitor_vtable number_expr_visitor_impls_interface
+    fun visit_'b this env data = #visit_'b super_vtable this env data + 10000
+    val vtable = override_visit_'b super_vtable visit_'b
   in
     vtable
   end

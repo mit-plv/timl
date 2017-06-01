@@ -1,6 +1,8 @@
 functor MicroTiMLFn (Idx : IDX) =
 struct
 
+structure Idx = Idx
+     
 open Idx
 open Operators
        
@@ -94,3 +96,9 @@ datatype expr =
          | ENever of ty
 
 end
+
+functor TestMicroTiMLFnSignatures (Params : IDX) = struct
+structure M : MICRO_TIML = MicroTiMLFn (Params)
+end
+
+  
