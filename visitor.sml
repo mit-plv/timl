@@ -10,45 +10,51 @@ datatype ('a, 'b) expr =
 
 (* using record types and recursive types (datatypes) to mimic object-oriented programming (dynamic dispatching and inheritance) *)
 
-                                                 
+(* This is the expression visitor interface. An interface is a class where the carrier type ['this] is unknown but we know it has the desired methods. *)
 datatype ('this, 'a, 'b, 'a2, 'b2, 'env) expr_visitor =
          ExprVisitor of
          {
-           visit_expr : 'this -> ('this -> ('this, 'a, 'b, 'a2, 'b2, 'env) expr_visitor) -> 'env -> ('a, 'b) expr -> ('a2, 'b2) expr,
-           visit_EConst : 'this -> ('this -> ('this, 'a, 'b, 'a2, 'b2, 'env) expr_visitor) -> 'env -> 'a -> ('a2, 'b2) expr,
-           visit_EAdd : 'this -> ('this -> ('this, 'a, 'b, 'a2, 'b2, 'env) expr_visitor) -> 'env -> 'b * ('a, 'b) expr * ('a, 'b) expr -> ('a2, 'b2) expr,
-           visit_'a : 'this -> ('this -> ('this, 'a, 'b, 'a2, 'b2, 'env) expr_visitor) -> 'env -> 'a -> 'a2,
-           visit_'b : 'this -> ('this -> ('this, 'a, 'b, 'a2, 'b2, 'env) expr_visitor) -> 'env -> 'b -> 'b2
+           is_sub_class : 'this -> ('this, 'a, 'b, 'a2, 'b2, 'env) expr_visitor,
+           visit_expr : 'this -> 'env -> ('a, 'b) expr -> ('a2, 'b2) expr,
+           visit_EConst : 'this -> 'env -> 'a -> ('a2, 'b2) expr,
+           visit_EAdd : 'this -> 'env -> 'b * ('a, 'b) expr * ('a, 'b) expr -> ('a2, 'b2) expr,
+           visit_'a : 'this -> 'env -> 'a -> 'a2,
+           visit_'b : 'this -> 'env -> 'b -> 'b2
          }
 
 local
-fun default_visit_expr this this_is_visitor env data =
+fun default_visit_expr is_sub_class this env data =
   let
-    val ExprVisitor record = this_is_visitor this
+    val ExprVisitor record = is_sub_class this
   in
     case data of
-        EConst data => #visit_EConst record this this_is_visitor env data
-      | EAdd data => #visit_EAdd record this this_is_visitor env data
+        EConst data => #visit_EConst record this env data
+      | EAdd data => #visit_EAdd record this env data
   end
-fun default_visit_EConst this this_is_visitor env data =
+fun default_visit_EConst is_sub_class this env data =
   let
-    val ExprVisitor record = this_is_visitor this
+    val ExprVisitor record = is_sub_class this
   in
-    EConst $ #visit_'a record this this_is_visitor env data
+    EConst $ #visit_'a record this env data
   end
-fun default_visit_EAdd this this_is_visitor env data = 
+fun default_visit_EAdd is_sub_class this env data = 
   let
-    val ExprVisitor record = this_is_visitor this
+    val ExprVisitor record = is_sub_class this
     val (data, e1, e2) = data
-    val data = #visit_'b record this this_is_visitor env data
-    val e1 = #visit_expr record this this_is_visitor env e1
-    val e2 = #visit_expr record this this_is_visitor env e2
+    val data = #visit_'b record this env data
+    val e1 = #visit_expr record this env e1
+    val e2 = #visit_expr record this env e2
   in
     EAdd (data, e1, e2)
   end
 in
-fun default_expr_visitor visit_'a visit_'b (* : ('a, 'b, 'a2, 'b2, 'env) default_expr_visitor *) =
-  ExprVisitor {visit_expr = default_visit_expr, visit_EConst = default_visit_EConst, visit_EAdd = default_visit_EAdd, visit_'a = visit_'a, visit_'b = visit_'b}
+fun default_expr_visitor is_sub_class visit_'a visit_'b (* : ('a, 'b, 'a2, 'b2, 'env) default_expr_visitor *) =
+  ExprVisitor {is_sub_class = is_sub_class,
+               visit_expr = default_visit_expr is_sub_class,
+               visit_EConst = default_visit_EConst is_sub_class,
+               visit_EAdd = default_visit_EAdd is_sub_class,
+               visit_'a = visit_'a,
+               visit_'b = visit_'b}
 end
 
 (*
@@ -88,11 +94,11 @@ fun override_visit_'b super new =
   end
 *)
 
-fun strip_expr_visitor () =
+fun strip_expr_visitor is_sub_class () =
   let
-    fun visit_'a_'b _ _ _ _ = ()
+    fun visit_'a_'b _ _ _ = ()
   in
-    default_expr_visitor visit_'a_'b visit_'a_'b
+    default_expr_visitor is_sub_class visit_'a_'b visit_'a_'b
   end
 
 (* the real type in memory *)    
@@ -110,25 +116,34 @@ fun strip_expr_visitor_is_expr_visitor (this : ('a, 'b, 'a2, 'b2, 'env) strip_ex
     (('a, 'b, 'a2, 'b2, 'env) strip_expr_visitor, 'a, 'b, 'a2, 'b2, 'env) expr_visitor =
   let
     val StripExprVisitor record = this
-    fun visit_expr this this_is_visitor = #visit_expr record this
-    fun visit_EConst this this_is_visitor = #visit_EConst record this
-    fun visit_EAdd this this_is_visitor = #visit_EAdd record this
-    fun visit_'a this this_is_visitor = #visit_'a record this
-    fun visit_'b this this_is_visitor = #visit_'b record this
+    fun visit_expr this = #visit_expr record this
+    fun visit_EConst this = #visit_EConst record this
+    fun visit_EAdd this = #visit_EAdd record this
+    fun visit_'a this = #visit_'a record this
+    fun visit_'b this = #visit_'b record this
   in
-    ExprVisitor {visit_expr = visit_expr, visit_EConst = visit_EConst, visit_EAdd = visit_EAdd, visit_'a = visit_'a, visit_'b = visit_'b}
+    ExprVisitor {is_sub_class = strip_expr_visitor_is_expr_visitor,
+                 visit_expr = visit_expr,
+                 visit_EConst = visit_EConst,
+                 visit_EAdd = visit_EAdd,
+                 visit_'a = visit_'a,
+                 visit_'b = visit_'b}
   end
 
 fun new_strip_expr_visitor () : ('a, 'b, unit, unit, 'env) strip_expr_visitor =
   let
-    val visitor as (ExprVisitor record) = strip_expr_visitor ()
-    fun visit_expr this = #visit_expr record this strip_expr_visitor_is_expr_visitor
-    fun visit_EConst this = #visit_EConst record this strip_expr_visitor_is_expr_visitor
-    fun visit_EAdd this = #visit_EAdd record this strip_expr_visitor_is_expr_visitor
-    fun visit_'a this = #visit_'a record this strip_expr_visitor_is_expr_visitor
-    fun visit_'b this = #visit_'b record this strip_expr_visitor_is_expr_visitor
+    val visitor as (ExprVisitor record) = strip_expr_visitor strip_expr_visitor_is_expr_visitor ()
+    fun visit_expr this = #visit_expr record this 
+    fun visit_EConst this = #visit_EConst record this
+    fun visit_EAdd this = #visit_EAdd record this
+    fun visit_'a this = #visit_'a record this
+    fun visit_'b this = #visit_'b record this
   in
-    StripExprVisitor {visit_expr = visit_expr, visit_EConst = visit_EConst, visit_EAdd = visit_EAdd, visit_'a = visit_'a, visit_'b = visit_'b}
+    StripExprVisitor {visit_expr = visit_expr,
+                      visit_EConst = visit_EConst,
+                      visit_EAdd = visit_EAdd,
+                      visit_'a = visit_'a,
+                      visit_'b = visit_'b}
   end
     
 fun strip e : (unit, unit) expr =
