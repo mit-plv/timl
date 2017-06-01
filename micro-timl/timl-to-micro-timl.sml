@@ -363,17 +363,21 @@ open NameResolve
 (* val nil = fold_ibinds ([], (S.Unit (), [N0])) *)
 (* val cons = fold_ibinds ([("n", SNat)], (S.Prod (), [V0 %+ N1])) *)
 (* val src = TDatatype (, ()) *)
-                    
-val prog = parse_file "list.timl"
-val prog = elaborate_prog prog
-val (prog, _, _) = resolve_prog empty prog
-val (_, TopModBind (ModComponents (decls, _))) = hd prog
-val Datatype (dt, _) = hd decls
-val dt = TypeTrans.on_dt dt
-val t = TiMLType.TDatatype (dt, ())
-val t = on_mt t
-              
+
+fun test () =
+  let
+    val prog = parse_file "list.timl"
+    val prog = elaborate_prog prog
+    val (prog, _, _) = resolve_prog empty prog
+    val (_, TopModBind (ModComponents (decls, _))) = hd prog
+    val Datatype (dt, _) = hd decls
+    val dt = TypeTrans.on_dt dt
+    val t = TiMLType.TDatatype (dt, ())
+    val t = on_mt t
 (* val () = println $ str_t ([], []) t *)
+  in
+    t
+  end
                           
 end
                              
