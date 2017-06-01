@@ -3,108 +3,123 @@ structure Visitor = struct
 open Util
        
 infixr 0 $
-         
-datatype ('a, 'b) expr =
-         EConst of 'a
-         | EAdd of 'b * ('a, 'b) expr * ('a, 'b) expr
+
+type bn = string
+             
+datatype ty =
+         TInt
+
+type 'p abs = 'p
+type 'bn binder = 'bn
+type 't outer = 't
+type 'p rebind = 'p
+           
+type 't inner = ('t outer) rebind
+type ('p, 't) bind = ('p * 't inner) abs
+     
+datatype ('c, 'fn) expr =
+         EConst of 'c
+         | EApp of ('c, 'fn) expr * ('c, 'fn) expr
+         | EVar of 'fn
+         | EAbs of (bn binder, ty outer, ('c, 'fn) expr) bind
 
 (* using record types and recursive types (datatypes) to mimic object-oriented programming (dynamic dispatching and inheritance) *)
 
 (* This is the expression visitor interface. An interface is a record where the carrier type ['this] is unknown but we know it has the desired methods. *)
 (* Only interfaces can be inherited, overrode and extended. *)
-type ('this, 'a, 'b, 'a2, 'b2, 'env) expr_visitor_vtable =
+type ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable =
      {
-       visit_expr : 'this -> 'env -> ('a, 'b) expr -> ('a2, 'b2) expr,
-       visit_EConst : 'this -> 'env -> 'a -> ('a2, 'b2) expr,
-       visit_EAdd : 'this -> 'env -> 'b * ('a, 'b) expr * ('a, 'b) expr -> ('a2, 'b2) expr,
-       visit_'a : 'this -> 'env -> 'a -> 'a2,
-       visit_'b : 'this -> 'env -> 'b -> 'b2
+       visit_expr : 'this -> 'env -> ('c, 'fn) expr -> ('c2, 'fn2) expr,
+       visit_EConst : 'this -> 'env -> 'c -> ('c2, 'fn2) expr,
+       visit_EApp : 'this -> 'env -> 'fn * ('c, 'fn) expr * ('c, 'fn) expr -> ('c2, 'fn2) expr,
+       visit_'c : 'this -> 'env -> 'c -> 'c2,
+       visit_'fn : 'this -> 'env -> 'fn -> 'fn2
      }
-type ('this, 'a, 'b, 'a2, 'b2, 'env) expr_visitor_interface =
-     ('this, 'a, 'b, 'a2, 'b2, 'env) expr_visitor_vtable
+type ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_interface =
+     ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable
 
 (* Always implement runtime behaviors in terms of interface, so it can be inherited, overrode and extended. *)
 (* [is_sub] is a coercion to mimic subtyping or subclassing *)
 local
-  type ('this, 'a, 'b, 'a2, 'b2, 'env) refinement = 'this -> ('this, 'a, 'b, 'a2, 'b2, 'env) expr_visitor_interface
-  fun default_visit_expr (is_sub : ('this, 'a, 'b, 'a2, 'b2, 'env) refinement) this env data =
+  type ('this, 'c, 'fn, 'c2, 'fn2, 'env) refinement = 'this -> ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_interface
+  fun default_visit_expr (is_sub : ('this, 'c, 'fn, 'c2, 'fn2, 'env) refinement) this env data =
   let
     val vtable = is_sub this
   in
     case data of
         EConst data => #visit_EConst vtable this env data
-      | EAdd data => #visit_EAdd vtable this env data
+      | EApp data => #visit_EApp vtable this env data
   end
-fun default_visit_EConst (is_sub : ('this, 'a, 'b, 'a2, 'b2, 'env) refinement) this env data =
+fun default_visit_EConst (is_sub : ('this, 'c, 'fn, 'c2, 'fn2, 'env) refinement) this env data =
   let
     val vtable = is_sub this
   in
-    EConst $ #visit_'a vtable this env data
+    EConst $ #visit_'c vtable this env data
   end
-fun default_visit_EAdd (is_sub : ('this, 'a, 'b, 'a2, 'b2, 'env) refinement) this env data = 
+fun default_visit_EApp (is_sub : ('this, 'c, 'fn, 'c2, 'fn2, 'env) refinement) this env data = 
   let
     val vtable = is_sub this
     val (data, e1, e2) = data
-    val data = #visit_'b vtable this env data
+    val data = #visit_'fn vtable this env data
     val e1 = #visit_expr vtable this env e1
     val e2 = #visit_expr vtable this env e2
   in
-    EAdd (data, e1, e2)
+    EApp (data, e1, e2)
   end
 in
-fun default_expr_visitor_vtable is_sub visit_'a visit_'b =
+fun default_expr_visitor_vtable is_sub visit_'c visit_'fn =
   {visit_expr = default_visit_expr is_sub,
    visit_EConst = default_visit_EConst is_sub,
-   visit_EAdd = default_visit_EAdd is_sub,
-   visit_'a = visit_'a,
-   visit_'b = visit_'b}
+   visit_EApp = default_visit_EApp is_sub,
+   visit_'c = visit_'c,
+   visit_'fn = visit_'fn}
 end
 
 (* fun override_visit_expr super visit_expr = *)
 (*   let *)
 (*     val ExprVisitor record = super *)
 (*   in *)
-(*     ExprVisitor {visit_expr = visit_expr, visit_EConst = #visit_EConst record, visit_EAdd = #visit_EAdd record, visit_'a = #visit_'a record, visit_'b = #visit_'b record} *)
+(*     ExprVisitor {visit_expr = visit_expr, visit_EConst = #visit_EConst record, visit_EApp = #visit_EApp record, visit_'c = #visit_'c record, visit_'fn = #visit_'fn record} *)
 (*   end *)
     
 (* fun override_visit_EConst super new = *)
 (*   let *)
 (*     val ExprVisitor record = super *)
 (*   in *)
-(*     ExprVisitor {visit_expr = #visit_expr record, visit_EConst = new, visit_EAdd = #visit_EAdd record, visit_'a = #visit_'a record, visit_'b = #visit_'b record} *)
+(*     ExprVisitor {visit_expr = #visit_expr record, visit_EConst = new, visit_EApp = #visit_EApp record, visit_'c = #visit_'c record, visit_'fn = #visit_'fn record} *)
 (*   end *)
     
-(* fun override_visit_EAdd super new = *)
+(* fun override_visit_EApp super new = *)
 (*   let *)
 (*     val ExprVisitor record = super *)
 (*   in *)
-(*     ExprVisitor {visit_expr = #visit_expr record, visit_EConst = #visit_EConst record, visit_EAdd = new, visit_'a = #visit_'a record, visit_'b = #visit_'b record} *)
+(*     ExprVisitor {visit_expr = #visit_expr record, visit_EConst = #visit_EConst record, visit_EApp = new, visit_'c = #visit_'c record, visit_'fn = #visit_'fn record} *)
 (*   end *)
 
-(* fun override_visit_'a super new = *)
+(* fun override_visit_'c super new = *)
 (*   let *)
 (*     val ExprVisitor record = super *)
 (*   in *)
-(*     ExprVisitor {visit_expr = #visit_expr record, visit_EConst = #visit_EConst record, visit_EAdd = #visit_EAdd record, visit_'a = new, visit_'b = #visit_'b record} *)
+(*     ExprVisitor {visit_expr = #visit_expr record, visit_EConst = #visit_EConst record, visit_EApp = #visit_EApp record, visit_'c = new, visit_'fn = #visit_'fn record} *)
 (*   end *)
 
-fun override_visit_'b (record : ('this, 'a, 'b, 'a2, 'b2, 'env) expr_visitor_vtable) new =
-    {visit_expr = #visit_expr record, visit_EConst = #visit_EConst record, visit_EAdd = #visit_EAdd record, visit_'a = #visit_'a record, visit_'b = new}
+fun override_visit_'fn (record : ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable) new =
+    {visit_expr = #visit_expr record, visit_EConst = #visit_EConst record, visit_EApp = #visit_EApp record, visit_'c = #visit_'c record, visit_'fn = new}
 
 (* Always implement runtime behaviors in terms of interface, so it can be inherited, overrode and extended. *)
 fun strip_expr_visitor_vtable is_sub () =
   let
-    fun visit_'a_'b _ _ _ = ()
+    fun visit_'c_'fn _ _ _ = ()
   in
-    default_expr_visitor_vtable is_sub visit_'a_'b visit_'a_'b
+    default_expr_visitor_vtable is_sub visit_'c_'fn visit_'c_'fn
   end
 
 (* This is the expression visitor class. A class determines the real memory layout. It is not parametrized on a carrier type so it is closed and cannot be inherited, overrode or extended. *)    
-datatype ('a, 'b, 'a2, 'b2, 'env) expr_visitor =
-         ExprVisitor of (('a, 'b, 'a2, 'b2, 'env) expr_visitor, 'a, 'b, 'a2, 'b2, 'env) expr_visitor_vtable
+datatype ('c, 'fn, 'c2, 'fn2, 'env) expr_visitor =
+         ExprVisitor of (('c, 'fn, 'c2, 'fn2, 'env) expr_visitor, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable
 
-fun expr_visitor_impls_interface (this : ('a, 'b, 'a2, 'b2, 'env) expr_visitor) :
-    (('a, 'b, 'a2, 'b2, 'env) expr_visitor, 'a, 'b, 'a2, 'b2, 'env) expr_visitor_interface =
+fun expr_visitor_impls_interface (this : ('c, 'fn, 'c2, 'fn2, 'env) expr_visitor) :
+    (('c, 'fn, 'c2, 'fn2, 'env) expr_visitor, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_interface =
   let
     val ExprVisitor vtable = this
   in
@@ -112,7 +127,7 @@ fun expr_visitor_impls_interface (this : ('a, 'b, 'a2, 'b2, 'env) expr_visitor) 
   end
 
 (* create a real visitor in memory *)
-fun new_strip_expr_visitor () : ('a, 'b, unit, unit, 'env) expr_visitor =
+fun new_strip_expr_visitor () : ('c, 'fn, unit, unit, 'env) expr_visitor =
   let
     val vtable = strip_expr_visitor_vtable expr_visitor_impls_interface ()
   in
@@ -126,13 +141,13 @@ fun strip e : (unit, unit) expr =
     #visit_expr vtable visitor () e
   end
     
-type ('this, 'a, 'b, 'env) number_expr_visitor_interface =
+type ('this, 'c, 'fn, 'env) number_expr_visitor_interface =
          {
-           vtable : ('this, 'a, 'b, int, int, 'env) expr_visitor_vtable,
+           vtable : ('this, 'c, 'fn, int, int, 'env) expr_visitor_vtable,
            count : int ref
          }
 
-fun number_expr_visitor_refines_expr_visitor (is_sub : 'this -> ('this, 'a, 'b, 'env) number_expr_visitor_interface) (this : 'this) : ('this, 'a, 'b, int, int, 'env) expr_visitor_interface =
+fun number_expr_visitor_refines_expr_visitor (is_sub : 'this -> ('this, 'c, 'fn, 'env) number_expr_visitor_interface) (this : 'this) : ('this, 'c, 'fn, int, int, 'env) expr_visitor_interface =
   let
     val record = is_sub this
     val vtable = #vtable record
@@ -142,7 +157,7 @@ fun number_expr_visitor_refines_expr_visitor (is_sub : 'this -> ('this, 'a, 'b, 
 
 fun number_expr_visitor_vtable is_sub =
   let
-    fun visit_'a_'b this _ _ =
+    fun visit_'c_'fn this _ _ =
       let
         val record = is_sub this
         val count = #count record
@@ -152,18 +167,18 @@ fun number_expr_visitor_vtable is_sub =
         old
       end
   in
-    default_expr_visitor_vtable (number_expr_visitor_refines_expr_visitor is_sub) visit_'a_'b visit_'a_'b
+    default_expr_visitor_vtable (number_expr_visitor_refines_expr_visitor is_sub) visit_'c_'fn visit_'c_'fn
   end
 
-datatype ('a, 'b, 'env) number_expr_visitor =
+datatype ('c, 'fn, 'env) number_expr_visitor =
          NumberExprVisitor of
          {
-           vtable : (('a, 'b, 'env) number_expr_visitor, 'a, 'b, int, int, 'env) expr_visitor_vtable,
+           vtable : (('c, 'fn, 'env) number_expr_visitor, 'c, 'fn, int, int, 'env) expr_visitor_vtable,
            count : int ref
          }
 
-fun number_expr_visitor_impls_interface (this : ('a, 'b, 'env) number_expr_visitor) :
-    (('a, 'b, 'env) number_expr_visitor, 'a, 'b, 'env) number_expr_visitor_interface =
+fun number_expr_visitor_impls_interface (this : ('c, 'fn, 'env) number_expr_visitor) :
+    (('c, 'fn, 'env) number_expr_visitor, 'c, 'fn, 'env) number_expr_visitor_interface =
   let
     val NumberExprVisitor record = this
     val vtable = #vtable record
@@ -174,7 +189,7 @@ fun number_expr_visitor_impls_interface (this : ('a, 'b, 'env) number_expr_visit
     }
   end
 
-fun new_number_expr_visitor () : ('a, 'b, 'env) number_expr_visitor =
+fun new_number_expr_visitor () : ('c, 'fn, 'env) number_expr_visitor =
   let
     val vtable = number_expr_visitor_vtable number_expr_visitor_impls_interface
     val count = ref 0
@@ -192,16 +207,16 @@ fun number e : (int, int) expr =
     #visit_expr vtable visitor () e
   end
 
-fun number2_expr_visitor_vtable (is_sub : 'this -> ('this, 'a, 'b, 'env) number_expr_visitor_interface) =
+fun number2_expr_visitor_vtable (is_sub : 'this -> ('this, 'c, 'fn, 'env) number_expr_visitor_interface) =
   let
     val super_vtable = number_expr_visitor_vtable number_expr_visitor_impls_interface
-    fun visit_'b this env data = #visit_'b super_vtable this env data + 10000
-    val vtable = override_visit_'b super_vtable visit_'b
+    fun visit_'fn this env data = #visit_'fn super_vtable this env data + 10000
+    val vtable = override_visit_'fn super_vtable visit_'fn
   in
     vtable
   end
 
-fun new_number2_expr_visitor () : ('a, 'b, 'env) number_expr_visitor =
+fun new_number2_expr_visitor () : ('c, 'fn, 'env) number_expr_visitor =
   let
     val vtable = number2_expr_visitor_vtable number_expr_visitor_impls_interface
     val count = ref 0
@@ -219,7 +234,7 @@ fun number2 e : (int, int) expr =
     #visit_expr vtable visitor () e
   end
 
-val e = EAdd ("a", EAdd ("b", EConst [()], EConst [(), ()]), EConst [])
+val e = EApp ("a", EApp ("b", EConst [()], EConst [(), ()]), EConst [])
              
 val e1 = strip e
 val e2 = number e
