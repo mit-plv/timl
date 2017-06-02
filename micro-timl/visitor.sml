@@ -96,6 +96,8 @@ fun extend_noop this env x1 = (env, x1)
 val visit_noop = return3
 fun visit_imposs msg _ _ _ = raise Impossible ""
                            
+(***************** the default visitor  **********************)    
+    
 fun default_ty_visitor_vtable
       (cast : 'this -> ('this, 'env, 'var, 'bsort, 'idx, 'sort, 'var2, 'bsort2, 'idx2, 'sort2) ty_visitor_interface)
       extend
@@ -288,4 +290,28 @@ fun default_ty_visitor_vtable
     }
   end
 
+(***************** the "shift" visitor  **********************)    
+    
+(* fun shift_expr_visitor_vtable cast n : ('this, 'c, int, 'c, int, int) expr_visitor_vtable = *)
+(*   let *)
+(*     fun extend this env x1 = (1 + env, x1) *)
+(*     fun visit_'fn this env data = ShiftUtil.shiftx_int env n data *)
+(*   in *)
+(*     default_expr_visitor_vtable cast extend visit_noop visit_'fn visit_noop *)
+(*   end *)
+
+(* fun new_shift_expr_visitor params = *)
+(*   let *)
+(*     val vtable = shift_expr_visitor_vtable expr_visitor_impls_interface params *)
+(*   in *)
+(*     ExprVisitor vtable *)
+(*   end *)
+    
+(* fun shift x n e = *)
+(*   let *)
+(*     val visitor as (ExprVisitor vtable) = new_shift_expr_visitor n *)
+(*   in *)
+(*     #visit_expr vtable visitor x e *)
+(*   end *)
+    
 end

@@ -76,6 +76,57 @@ type ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable =
 type ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_interface =
      ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable
 
+(* fun override_visit_expr super visit_expr = *)
+(*   let *)
+(*     val ExprVisitor record = super *)
+(*   in *)
+(*     ExprVisitor {visit_expr = visit_expr, visit_EConst = #visit_EConst record, visit_EApp = #visit_EApp record, visit_'c = #visit_'c record, visit_'fn = #visit_'fn record} *)
+(*   end *)
+    
+(* fun override_visit_EConst super new = *)
+(*   let *)
+(*     val ExprVisitor record = super *)
+(*   in *)
+(*     ExprVisitor {visit_expr = #visit_expr record, visit_EConst = new, visit_EApp = #visit_EApp record, visit_'c = #visit_'c record, visit_'fn = #visit_'fn record} *)
+(*   end *)
+    
+(* fun override_visit_EApp super new = *)
+(*   let *)
+(*     val ExprVisitor record = super *)
+(*   in *)
+(*     ExprVisitor {visit_expr = #visit_expr record, visit_EConst = #visit_EConst record, visit_EApp = new, visit_'c = #visit_'c record, visit_'fn = #visit_'fn record} *)
+(*   end *)
+
+fun override_visit_EVar (record : ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable) new : ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable =
+  {visit_expr = #visit_expr record,
+   visit_EConst = #visit_EConst record,
+   visit_EApp = #visit_EApp record,
+   visit_EVar = new,
+   visit_EAbs = #visit_EAbs record,
+   visit_'c = #visit_'c record,
+   visit_'fn = #visit_'fn record,
+   visit_bn = #visit_bn record,
+   visit_ty = #visit_ty record,
+   visit_anno_bind = #visit_anno_bind record,
+   extend = #extend record
+  }
+
+fun override_visit_'c (record : ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable) new : ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable =
+  {visit_expr = #visit_expr record,
+   visit_EConst = #visit_EConst record,
+   visit_EApp = #visit_EApp record,
+   visit_EVar = #visit_EVar record,
+   visit_EAbs = #visit_EAbs record,
+   visit_'c = new,
+   visit_'fn = #visit_'fn record,
+   visit_bn = #visit_bn record,
+   visit_ty = #visit_ty record,
+   visit_anno_bind = #visit_anno_bind record,
+   extend = #extend record
+  }
+
+(***************** the default visitor  **********************)    
+    
 (* Always implement runtime behaviors as vtables in terms of interface, so it can be inherited, overrode and extended. *)
 (* [cast] is a coercion to mimic subtyping or subclassing *)
 fun default_expr_visitor_vtable
@@ -139,55 +190,6 @@ fun default_expr_visitor_vtable
      extend = extend
     }
   end
-
-(* fun override_visit_expr super visit_expr = *)
-(*   let *)
-(*     val ExprVisitor record = super *)
-(*   in *)
-(*     ExprVisitor {visit_expr = visit_expr, visit_EConst = #visit_EConst record, visit_EApp = #visit_EApp record, visit_'c = #visit_'c record, visit_'fn = #visit_'fn record} *)
-(*   end *)
-    
-(* fun override_visit_EConst super new = *)
-(*   let *)
-(*     val ExprVisitor record = super *)
-(*   in *)
-(*     ExprVisitor {visit_expr = #visit_expr record, visit_EConst = new, visit_EApp = #visit_EApp record, visit_'c = #visit_'c record, visit_'fn = #visit_'fn record} *)
-(*   end *)
-    
-(* fun override_visit_EApp super new = *)
-(*   let *)
-(*     val ExprVisitor record = super *)
-(*   in *)
-(*     ExprVisitor {visit_expr = #visit_expr record, visit_EConst = #visit_EConst record, visit_EApp = new, visit_'c = #visit_'c record, visit_'fn = #visit_'fn record} *)
-(*   end *)
-
-fun override_visit_EVar (record : ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable) new : ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable =
-  {visit_expr = #visit_expr record,
-   visit_EConst = #visit_EConst record,
-   visit_EApp = #visit_EApp record,
-   visit_EVar = new,
-   visit_EAbs = #visit_EAbs record,
-   visit_'c = #visit_'c record,
-   visit_'fn = #visit_'fn record,
-   visit_bn = #visit_bn record,
-   visit_ty = #visit_ty record,
-   visit_anno_bind = #visit_anno_bind record,
-   extend = #extend record
-  }
-
-fun override_visit_'c (record : ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable) new : ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable =
-  {visit_expr = #visit_expr record,
-   visit_EConst = #visit_EConst record,
-   visit_EApp = #visit_EApp record,
-   visit_EVar = #visit_EVar record,
-   visit_EAbs = #visit_EAbs record,
-   visit_'c = new,
-   visit_'fn = #visit_'fn record,
-   visit_bn = #visit_bn record,
-   visit_ty = #visit_ty record,
-   visit_anno_bind = #visit_anno_bind record,
-   extend = #extend record
-  }
 
 (***************** the "strip" visitor  **********************)    
     
