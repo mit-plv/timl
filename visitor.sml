@@ -3,6 +3,7 @@ structure Visitor = struct
 open Util
        
 infixr 0 $
+infix 0 !!
 
 type bn = string
              
@@ -199,7 +200,7 @@ fun new_strip_expr_visitor () : ('c, 'fn, unit, 'fn, 'env) expr_visitor =
     ExprVisitor vtable
   end
     
-fun strip e : (unit, 'fn) expr =
+fun strip e =
   let
     val visitor as (ExprVisitor vtable) = new_strip_expr_visitor ()
   in
@@ -264,7 +265,7 @@ fun new_number_expr_visitor () : ('c, 'fn, 'env) number_expr_visitor =
                       }
   end
                                   
-fun number e : (int, 'fn) expr =
+fun number e =
   let
     val visitor as (NumberExprVisitor record) = new_number_expr_visitor ()
     val vtable = #vtable record
@@ -291,7 +292,7 @@ fun new_number2_expr_visitor () : ('c, 'fn, 'env) number_expr_visitor =
                       }
   end
                                   
-fun number2 e : (int, 'fn) expr =
+fun number2 e =
   let
     val visitor as (NumberExprVisitor record) = new_number2_expr_visitor ()
     val vtable = #vtable record
@@ -299,10 +300,39 @@ fun number2 e : (int, 'fn) expr =
     #visit_expr vtable visitor () e
   end
 
+exception Unbound of string
+                       
+fun import_expr_visitor_vtable is_sub : ('this, 'c, string, 'c, int, string list) expr_visitor_vtable =
+  let
+    fun extend this env x1 = (x1 :: env, x1)
+    fun lookup ctx x = find_idx x ctx !! (fn () => raise Unbound x)
+    fun visit_'fn this = lookup
+  in
+    default_expr_visitor_vtable is_sub visit_noop visit_'fn extend visit_noop
+  end
+
+fun new_import_expr_visitor () : ('c, string, 'c, int, string list) expr_visitor =
+  let
+    val vtable = import_expr_visitor_vtable expr_visitor_impls_interface
+  in
+    ExprVisitor vtable
+  end
+    
+fun import e =
+  let
+    val visitor as (ExprVisitor vtable) = new_import_expr_visitor ()
+  in
+    #visit_expr vtable visitor [] e
+  end
+    
 val e = EApp (EApp (EConst [()], EConst [(), ()]), EConst [])
              
 val e1 = strip e
 val e2 = number e
 val e3 = number2 e
 
+val e = EAbs (("x", TInt), EAbs (("y", TInt), EApp (EVar "x", EVar "y")))
+
+val e4 = import e
+                 
 end
