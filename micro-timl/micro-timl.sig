@@ -1,16 +1,23 @@
+signature BINDERS = sig
+  type 't ibind
+  type 't tbind
+  type 't ebind
+  type ('anno, 't) ibind_anno
+  type ('anno, 't) tbind_anno
+  type ('anno, 't) ebind_anno
+end
+
 signature MICRO_TIML = sig
 
-  structure Idx : IDX
-  type var
-  type ('anno, 't) ibind
-  type ('anno, 't) tbind
-  type ('anno, 't) ebind
+  structure Binders : BINDERS
 
+  (* The following definitions use type variables instead of abstract types to enable universal mappings between different AST instantiations. *)
+                   
   (* kind *)
-  datatype kind =
+  datatype 'bsort kind =
            KType
-           | KArrow of Idx.bsort * kind
-           | KArrowT of kind * kind
+           | KArrow of 'bsort * 'bsort kind
+           | KArrowT of 'bsort kind * 'bsort kind
 
   (* type constants *)
   datatype ty_const =
@@ -24,20 +31,20 @@ signature MICRO_TIML = sig
            | TBSum
 
   (* type *)
-  datatype ty =
-           TVar of var
+  datatype ('var, 'bsort, 'idx, 'sort) ty =
+           TVar of 'var
            | TConst of ty_const
-           | TBinOp of ty_bin_op * ty * ty
-           | TArrow of ty * Idx.idx * ty
-           | TAbsI of (Idx.bsort, ty) ibind
-           | TAppI of ty * Idx.idx
-           | TQuan of unit Operators.quan * (kind, ty) tbind
-           | TQuanI of unit Operators.quan * (Idx.sort, ty) ibind
-           | TRec of (kind, ty) tbind
-           | TNat of Idx.idx
-           | TArr of ty * Idx.idx
-           | TAbsT of (kind, ty) tbind
-           | TAppT of ty * ty
+           | TBinOp of ty_bin_op * ('var, 'bsort, 'idx, 'sort) ty * ('var, 'bsort, 'idx, 'sort) ty
+           | TArrow of ('var, 'bsort, 'idx, 'sort) ty * 'idx * ('var, 'bsort, 'idx, 'sort) ty
+           | TAbsI of ('bsort, ('var, 'bsort, 'idx, 'sort) ty) Binders.ibind_anno
+           | TAppI of ('var, 'bsort, 'idx, 'sort) ty * 'idx
+           | TQuan of unit Operators.quan * ('bsort kind, ('var, 'bsort, 'idx, 'sort) ty) Binders.tbind_anno
+           | TQuanI of unit Operators.quan * ('sort, ('var, 'bsort, 'idx, 'sort) ty) Binders.ibind_anno
+           | TRec of ('bsort kind, ('var, 'bsort, 'idx, 'sort) ty) Binders.tbind_anno
+           | TNat of 'idx
+           | TArr of ('var, 'bsort, 'idx, 'sort) ty * 'idx
+           | TAbsT of ('bsort kind, ('var, 'bsort, 'idx, 'sort) ty) Binders.tbind_anno
+           | TAppT of ('var, 'bsort, 'idx, 'sort) ty * ('var, 'bsort, 'idx, 'sort) ty
 
   type loc = int
                
@@ -73,26 +80,26 @@ signature MICRO_TIML = sig
            | EBNatAdd
 
   (* term *)
-  datatype expr =
-           EVar of var
+  datatype ('var, 'bsort, 'idx, 'sort) expr =
+           EVar of 'var
            | EConst of Operators.expr_const
            | ELoc of loc
-           | EUnOp of expr_un_op * expr
-           | EBinOp of expr_bin_op * expr * expr
-           | EWrite of expr * expr * expr
-           | ECase of expr * expr * expr
-           | EAbs of (unit, expr) ebind
-           | ERec of (unit, expr) ebind
-           | EAbsT of (unit, expr) tbind
-           | EAppT of expr * ty
-           | EAbsI of (Idx.sort, expr) ibind
-           | EAppI of expr * Idx.idx
-           | EPack of ty * expr
-           | EUnpack of expr * (unit, (unit, expr) ebind) tbind
-           | EPackI of Idx.idx * expr
-           | EUnpackI of expr * (unit, (unit, expr) ebind) ibind
-           | EAscTime of expr * Idx.idx (* time ascription *)
-           | EAscType of expr * ty (* type ascription *)
-           | ENever of ty
+           | EUnOp of expr_un_op * ('var, 'bsort, 'idx, 'sort) expr
+           | EBinOp of expr_bin_op * ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) expr
+           | EWrite of ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) expr
+           | ECase of ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) expr Binders.ebind * ('var, 'bsort, 'idx, 'sort) expr Binders.ebind
+           | EAbs of ('var, 'bsort, 'idx, 'sort) expr Binders.ebind
+           | ERec of ('var, 'bsort, 'idx, 'sort) expr Binders.ebind
+           | EAbsT of ('var, 'bsort, 'idx, 'sort) expr Binders.tbind
+           | EAppT of ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) ty
+           | EAbsI of ('sort, ('var, 'bsort, 'idx, 'sort) expr) Binders.ibind_anno
+           | EAppI of ('var, 'bsort, 'idx, 'sort) expr * 'idx
+           | EPack of ('var, 'bsort, 'idx, 'sort) ty * ('var, 'bsort, 'idx, 'sort) expr
+           | EUnpack of ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) expr Binders.ebind Binders.tbind
+           | EPackI of 'idx * ('var, 'bsort, 'idx, 'sort) expr
+           | EUnpackI of ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) expr Binders.ebind Binders.ibind
+           | EAscTime of ('var, 'bsort, 'idx, 'sort) expr * 'idx (* time ascription *)
+           | EAscType of ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) ty (* type ascription *)
+           | ENever of ('var, 'bsort, 'idx, 'sort) ty
 
 end

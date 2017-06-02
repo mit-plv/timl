@@ -1,3 +1,4 @@
+(* inspired by the ICFP 2017 paper "Visitors Unchained" by FRANÇOIS POTTIER *)
 structure Visitor = struct
 
 open Util
@@ -82,7 +83,8 @@ fun default_expr_visitor_vtable
       extend
       visit_'c
       visit_'fn
-      visit_ty : ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable =
+      visit_ty
+    : ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable =
   let
     fun visit_expr this env data =
       let
@@ -121,7 +123,7 @@ fun default_expr_visitor_vtable
       in
         EAbs $ #visit_anno_bind vtable this (#visit_bn vtable this) (#visit_ty vtable this) (#visit_expr vtable this) (#extend vtable this) env data
       end
-    fun visit_anno_bind' this = visit_anno_bind
+    fun default_visit_anno_bind this = visit_anno_bind
     val visit_bn = visit_imposs "visit_bn()"
   in
     {visit_expr = visit_expr,
@@ -133,7 +135,7 @@ fun default_expr_visitor_vtable
      visit_'fn = visit_'fn,
      visit_ty = visit_ty,
      visit_bn = visit_bn,
-     visit_anno_bind = visit_anno_bind',
+     visit_anno_bind = default_visit_anno_bind,
      extend = extend
     }
   end

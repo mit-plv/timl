@@ -139,8 +139,17 @@ and on_dt (Bind (name, tbinds)) =
 
 end
 
-structure TiML2microTiML = struct
+structure TiML2MicroTiML = struct
 
+structure MicroTiMLParams = struct
+type 't ibind = 't
+type 't tbind = 't
+type 't ebind = 't
+type ('anno, 't) ibind_anno = 'anno * 't
+type ('anno, 't) tbind_anno = 'anno * 't
+type ('anno, 't) ebind_anno = 'anno * 't
+end
+       
 type long_id = (string * unit) option * (int * unit)
 structure LongIdVar = struct
 type var = long_id
@@ -162,7 +171,7 @@ structure TiML = TAst (structure Idx = Idx
                        structure Type = TiMLType
                        structure UVarT = NoUVar
                       )
-structure MicroTiML = MicroTiMLFn (Idx)
+structure MicroTiML = MicroTiMLFn (MicroTiMLParams)
 
 structure LongIdShift = struct
 open ShiftUtil
@@ -223,7 +232,7 @@ fun KArrows bs k = foldr KArrow k bs
 fun KArrowTs ks k = foldr KArrowT k ks
 fun KArrowTypes n k = KArrowTs (repeat n KType) k
                           
-fun on_k ((n, bs) : S.kind) : kind = KArrowTypes n $ KArrows bs KType
+fun on_k ((n, bs) : S.kind) : bsort kind = KArrowTypes n $ KArrows bs KType
 
 val TUnit = TConst TCUnit
 val TEmpty = TConst TCEmpty
@@ -245,7 +254,7 @@ fun TExistsIMany (ctx, t) = foldl TExistsI t ctx
 fun TAbsIMany (ctx, t) = foldl TAbsI t ctx
 fun TAbsTMany (ctx, t) = foldl TAbsT t ctx
                   
-fun on_mt (t : S.mtype) : ty =
+fun on_mt (t : S.mtype) =
   case t of
       S.Arrow (t1, i, t2) => TArrow (on_mt t1, i, on_mt t2)
     | S.TyNat (i, _) => TNat i
@@ -301,7 +310,7 @@ fun on_ptrn pn e =
       | S.PairP (pn1, pn2) => e
       | S.AnnoP (pn, t) => e
       
-fun on_e (e : S.expr) : expr =
+fun on_e (e : S.expr) =
   case e of
       S.Var (x, _) => EVar x
     | S.EConst (c, _) => EConst c
@@ -364,9 +373,9 @@ open NameResolve
 (* val cons = fold_ibinds ([("n", SNat)], (S.Prod (), [V0 %+ N1])) *)
 (* val src = TDatatype (, ()) *)
 
-fun test () =
+fun test filename =
   let
-    val prog = parse_file "list.timl"
+    val prog = parse_file filename
     val prog = elaborate_prog prog
     val (prog, _, _) = resolve_prog empty prog
     val (_, TopModBind (ModComponents (decls, _))) = hd prog
