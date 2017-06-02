@@ -240,7 +240,7 @@ fun PEqs pairs = combine_And $ map PEq pairs
   
 val BSUnit = Base UnitSort
 
-fun TExistsI (s, t) = TQuanI (Exists (), s, t)
+fun TExistsI (s, t) = TQuanI (Exists (), (s, t))
 fun TExistsIMany (ctx, t) = foldl TExistsI t ctx
 fun TAbsIMany (ctx, t) = foldl TAbsI t ctx
 fun TAbsTMany (ctx, t) = foldl TAbsT t ctx
@@ -252,7 +252,7 @@ fun on_mt (t : S.mtype) : ty =
     | S.TyArray (t, i) => TArr (on_mt t, i)
     | S.Unit _ => TUnit
     | S.Prod (t1, t2) => TProd (on_mt t1, on_mt t2)
-    | S.UniI (s, Bind (_, t), r) => TQuanI (Forall, s, on_mt t)
+    | S.UniI (s, Bind (_, t), r) => TQuanI (Forall, (s, on_mt t))
     | S.MtVar x => TVar x
     | S.MtApp (t1, t2) => TAppT (on_mt t1, on_mt t2)
     | S.MtAbs (k, Bind (_, t), _) => TAbsT (on_k k, on_mt t)
