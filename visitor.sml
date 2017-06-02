@@ -325,6 +325,29 @@ fun import e =
     #visit_expr vtable visitor [] e
   end
     
+fun export_expr_visitor_vtable is_sub : ('this, 'c, int, 'c, string, string list) expr_visitor_vtable =
+  let
+    fun extend this env x1 = (x1 :: env, x1)
+    fun lookup ctx x = nth_error ctx x !! (fn () => raise Unbound $ str_int x)
+    fun visit_'fn this = lookup
+  in
+    default_expr_visitor_vtable is_sub visit_noop visit_'fn extend visit_noop
+  end
+
+fun new_export_expr_visitor () : ('c, int, 'c, string, string list) expr_visitor =
+  let
+    val vtable = export_expr_visitor_vtable expr_visitor_impls_interface
+  in
+    ExprVisitor vtable
+  end
+    
+fun export e =
+  let
+    val visitor as (ExprVisitor vtable) = new_export_expr_visitor ()
+  in
+    #visit_expr vtable visitor [] e
+  end
+    
 val e = EApp (EApp (EConst [()], EConst [(), ()]), EConst [])
              
 val e1 = strip e
@@ -334,5 +357,6 @@ val e3 = number2 e
 val e = EAbs (("x", TInt), EAbs (("y", TInt), EApp (EVar "x", EVar "y")))
 
 val e4 = import e
+val e5 = export e4
                  
 end
