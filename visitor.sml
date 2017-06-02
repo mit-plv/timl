@@ -152,6 +152,20 @@ fun default_expr_visitor_vtable (cast : 'this -> ('this, 'c, 'fn, 'c2, 'fn2, 'en
 (*     ExprVisitor {visit_expr = #visit_expr record, visit_EConst = #visit_EConst record, visit_EApp = new, visit_'c = #visit_'c record, visit_'fn = #visit_'fn record} *)
 (*   end *)
 
+fun override_visit_EVar (record : ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable) new : ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable =
+  {visit_expr = #visit_expr record,
+   visit_EConst = #visit_EConst record,
+   visit_EApp = #visit_EApp record,
+   visit_EVar = new,
+   visit_EAbs = #visit_EAbs record,
+   visit_'c = #visit_'c record,
+   visit_'fn = #visit_'fn record,
+   visit_bn = #visit_bn record,
+   visit_ty = #visit_ty record,
+   visit_anno_bind = #visit_anno_bind record,
+   extend = #extend record
+  }
+
 fun override_visit_'c (record : ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable) new : ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable =
   {visit_expr = #visit_expr record,
    visit_EConst = #visit_EConst record,
@@ -370,6 +384,44 @@ fun shift x n e =
     #visit_expr vtable visitor x e
   end
     
+(***************** the "subst" visitor  **********************)    
+    
+fun subst_expr_visitor_vtable cast (d, x, v) : ('this, 'c, int, 'c, int, int) expr_visitor_vtable =
+  let
+    fun extend this env x1 = (1 + env, x1)
+    val visit_'fn = visit_imposs "visit_'fn()"
+    fun visit_EVar this env y =
+      let
+        val x = x + env
+        val d = d + env
+      in
+        if y = x then
+          shift 0 d v
+        else if y > x then
+          EVar (y - 1)
+        else
+          EVar y
+      end
+    val vtable = default_expr_visitor_vtable cast visit_noop visit_'fn extend visit_noop
+    val vtable = override_visit_EVar vtable visit_EVar
+  in
+    vtable
+  end
+
+fun new_subst_expr_visitor params =
+  let
+    val vtable = subst_expr_visitor_vtable expr_visitor_impls_interface params
+  in
+    ExprVisitor vtable
+  end
+    
+fun subst d x v e =
+  let
+    val visitor as (ExprVisitor vtable) = new_subst_expr_visitor (d, x, v)
+  in
+    #visit_expr vtable visitor 0 e
+  end
+    
 (***************** tests  **********************)    
 
 fun test () =
@@ -390,8 +442,10 @@ fun test () =
     val e6 = import ["z", "w"] e
     val e7 = shift 0 1 e6
     val e8 = shift 1 1 e6
+
+    val e9 = subst 0 0 e6 e6
   in
-    (e1, e2, e3, e4, e5, e6, e7, e8)
+    (e1, e2, e3, e4, e5, e6, e7, e8, e9)
   end
                    
 end
