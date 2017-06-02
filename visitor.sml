@@ -43,6 +43,7 @@ fun visit_anno_bind visit_'bn visit_'anno visit_'t = visit_bind (visit_pair (vis
 
 fun extend_noop this env x1 = (env, x1)
 val visit_noop = return3
+fun visit_imposs msg _ _ _ = raise Impossible ""
                            
 datatype ('c, 'fn) expr =
          EConst of 'c
@@ -65,7 +66,7 @@ type ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable =
        visit_'c : 'this -> 'env -> 'c -> 'c2,
        visit_'fn : 'this -> 'env -> 'fn -> 'fn2,
        visit_ty : 'this -> 'env -> ty -> ty,
-       visit_string : 'this -> 'env -> string -> string,
+       visit_bn : 'this -> 'env -> string -> string,
        visit_anno_bind : 'this -> ('env -> bn -> bn) -> ('env -> ty -> ty) -> ('env -> ('c, 'fn) expr -> ('c2, 'fn2) expr) -> ('env -> bn -> 'env * bn) -> 'env -> (bn, ty, ('c, 'fn) expr) anno_bind -> (bn, ty, ('c2, 'fn2) expr) anno_bind,
        extend : 'this -> 'env -> bn -> 'env * bn
      }
@@ -111,10 +112,10 @@ fun default_expr_visitor_vtable (cast : 'this -> ('this, 'c, 'fn, 'c2, 'fn2, 'en
       let
         val vtable = cast this
       in
-        EAbs $ #visit_anno_bind vtable this (#visit_string vtable this) (#visit_ty vtable this) (#visit_expr vtable this) (#extend vtable this) env data
+        EAbs $ #visit_anno_bind vtable this (#visit_bn vtable this) (#visit_ty vtable this) (#visit_expr vtable this) (#extend vtable this) env data
       end
     fun visit_anno_bind' this = visit_anno_bind
-    fun visit_string _ _ data = data
+    val visit_bn = visit_imposs "visit_bn()"
   in
     {visit_expr = visit_expr,
      visit_EConst = visit_EConst,
@@ -124,7 +125,7 @@ fun default_expr_visitor_vtable (cast : 'this -> ('this, 'c, 'fn, 'c2, 'fn2, 'en
      visit_'c = visit_'c,
      visit_'fn = visit_'fn,
      visit_ty = visit_ty,
-     visit_string = visit_string,
+     visit_bn = visit_bn,
      visit_anno_bind = visit_anno_bind',
      extend = extend
     }
@@ -159,7 +160,7 @@ fun override_visit_'c (record : ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_v
    visit_EAbs = #visit_EAbs record,
    visit_'c = new,
    visit_'fn = #visit_'fn record,
-   visit_string = #visit_string record,
+   visit_bn = #visit_bn record,
    visit_ty = #visit_ty record,
    visit_anno_bind = #visit_anno_bind record,
    extend = #extend record
@@ -188,7 +189,7 @@ fun expr_visitor_impls_interface (this : ('c, 'fn, 'c2, 'fn2, 'env) expr_visitor
   end
 
 (* create a real visitor in memory *)
-fun new_strip_expr_visitor () : ('c, 'fn, unit, 'fn, 'env) expr_visitor =
+fun new_strip_expr_visitor () =
   let
     val vtable = strip_expr_visitor_vtable expr_visitor_impls_interface
   in
@@ -248,7 +249,7 @@ fun number_expr_visitor_impls_interface (this : ('c, 'fn, 'env) number_expr_visi
     }
   end
 
-fun new_number_expr_visitor () : ('c, 'fn, 'env) number_expr_visitor =
+fun new_number_expr_visitor () =
   let
     val vtable = number_expr_visitor_vtable number_expr_visitor_impls_interface
     val count = ref 0
@@ -277,7 +278,7 @@ fun number2_expr_visitor_vtable (cast : 'this -> ('this, 'c, 'fn, 'env) number_e
     vtable
   end
 
-fun new_number2_expr_visitor () : ('c, 'fn, 'env) number_expr_visitor =
+fun new_number2_expr_visitor () =
   let
     val vtable = number2_expr_visitor_vtable number_expr_visitor_impls_interface
     val count = ref 0
@@ -302,24 +303,23 @@ exception Unbound of string
 fun import_expr_visitor_vtable cast : ('this, 'c, string, 'c, int, string list) expr_visitor_vtable =
   let
     fun extend this env x1 = (x1 :: env, x1)
-    fun lookup ctx x = find_idx x ctx !! (fn () => raise Unbound x)
-    fun visit_'fn this = lookup
+    fun visit_'fn this env x = find_idx x env !! (fn () => raise Unbound x)
   in
     default_expr_visitor_vtable cast visit_noop visit_'fn extend visit_noop
   end
 
-fun new_import_expr_visitor () : ('c, string, 'c, int, string list) expr_visitor =
+fun new_import_expr_visitor () =
   let
     val vtable = import_expr_visitor_vtable expr_visitor_impls_interface
   in
     ExprVisitor vtable
   end
     
-fun import e =
+fun import ctx e =
   let
     val visitor as (ExprVisitor vtable) = new_import_expr_visitor ()
   in
-    #visit_expr vtable visitor [] e
+    #visit_expr vtable visitor ctx e
   end
     
 (***************** the "export" visitor: convertnig de Bruijn indices to nameful terms **********************)    
@@ -327,35 +327,71 @@ fun import e =
 fun export_expr_visitor_vtable cast : ('this, 'c, int, 'c, string, string list) expr_visitor_vtable =
   let
     fun extend this env x1 = (x1 :: env, x1)
-    fun lookup ctx x = nth_error ctx x !! (fn () => raise Unbound $ str_int x)
-    fun visit_'fn this = lookup
+    fun visit_'fn this env x = nth_error env x !! (fn () => raise Unbound $ str_int x)
   in
     default_expr_visitor_vtable cast visit_noop visit_'fn extend visit_noop
   end
 
-fun new_export_expr_visitor () : ('c, int, 'c, string, string list) expr_visitor =
+fun new_export_expr_visitor () =
   let
     val vtable = export_expr_visitor_vtable expr_visitor_impls_interface
   in
     ExprVisitor vtable
   end
     
-fun export e =
+fun export ctx e =
   let
     val visitor as (ExprVisitor vtable) = new_export_expr_visitor ()
   in
-    #visit_expr vtable visitor [] e
+    #visit_expr vtable visitor ctx e
   end
     
-val e = EApp (EApp (EConst [()], EConst [(), ()]), EConst [])
-             
-val e1 = strip e
-val e2 = number e
-val e3 = number2 e
+(***************** the "shift" visitor  **********************)    
+    
+fun shift_expr_visitor_vtable cast n : ('this, 'c, int, 'c, int, int) expr_visitor_vtable =
+  let
+    fun extend this env x1 = (1 + env, x1)
+    fun visit_'fn this env data = ShiftUtil.shiftx_int env n data
+  in
+    default_expr_visitor_vtable cast visit_noop visit_'fn extend visit_noop
+  end
 
-val e = EAbs (("x", TInt), EAbs (("y", TInt), EApp (EVar "x", EVar "y")))
+fun new_shift_expr_visitor params =
+  let
+    val vtable = shift_expr_visitor_vtable expr_visitor_impls_interface params
+  in
+    ExprVisitor vtable
+  end
+    
+fun shift x n e =
+  let
+    val visitor as (ExprVisitor vtable) = new_shift_expr_visitor n
+  in
+    #visit_expr vtable visitor x e
+  end
+    
+(***************** tests  **********************)    
 
-val e4 = import e
-val e5 = export e4
+fun test () =
+  let
+    val e = EApp (EApp (EConst "A", EConst "B"), EConst "C")
                  
+    val e1 = strip e
+    val e2 = number e
+    val e3 = number2 e
+
+    val e = EAbs (("x", TInt), EAbs (("y", TInt), EApp (EVar "x", EVar "y")))
+
+    val e4 = import [] e
+    val e5 = export [] e4
+                    
+    val e = EAbs (("x", TInt), EAbs (("y", TInt), EApp (EVar "x", EVar "z")))
+
+    val e6 = import ["z", "w"] e
+    val e7 = shift 0 1 e6
+    val e8 = shift 1 1 e6
+  in
+    (e1, e2, e3, e4, e5, e6, e7, e8)
+  end
+                   
 end
