@@ -54,8 +54,7 @@ datatype ('c, 'fn) expr =
 
 (* using record types and recursive types (datatypes) to mimic object-oriented programming (dynamic dispatching and inheritance) *)
 
-(* This is the expression visitor interface. An interface is a record where the carrier type ['this] is unknown but we know it has the desired methods. *)
-(* Only interfaces can be inherited, overrode and extended. *)
+(* All behaviors are defined by virtual tables (vtables). *)
 type ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable =
      {
        visit_expr : 'this -> 'env -> ('c, 'fn) expr -> ('c2, 'fn2) expr,
@@ -70,12 +69,20 @@ type ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable =
        visit_anno_bind : 'this -> ('env -> bn -> bn) -> ('env -> ty -> ty) -> ('env -> ('c, 'fn) expr -> ('c2, 'fn2) expr) -> ('env -> bn -> 'env * bn) -> 'env -> (bn, ty, ('c, 'fn) expr) anno_bind -> (bn, ty, ('c2, 'fn2) expr) anno_bind,
        extend : 'this -> 'env -> bn -> 'env * bn
      }
+       
+(* This is the expression visitor interface. An interface is a record where the carrier type ['this] is unknown but we know it has the desired methods. *)
+(* Only interfaces can be inherited, overrode and extended. *)
 type ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_interface =
      ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable
 
-(* Always implement runtime behaviors in terms of interface, so it can be inherited, overrode and extended. *)
+(* Always implement runtime behaviors as vtables in terms of interface, so it can be inherited, overrode and extended. *)
 (* [cast] is a coercion to mimic subtyping or subclassing *)
-fun default_expr_visitor_vtable (cast : 'this -> ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_interface) visit_'c visit_'fn extend visit_ty : ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable =
+fun default_expr_visitor_vtable
+      (cast : 'this -> ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_interface)
+      extend
+      visit_'c
+      visit_'fn
+      visit_ty : ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable =
   let
     fun visit_expr this env data =
       let
@@ -187,7 +194,7 @@ fun strip_expr_visitor_vtable cast : ('this, 'c, 'fn, unit, 'fn, 'env) expr_visi
   let
     fun visit_'c _ _ _ = ()
   in
-    default_expr_visitor_vtable cast visit_'c visit_noop extend_noop visit_noop
+    default_expr_visitor_vtable cast extend_noop visit_'c visit_noop visit_noop
   end
 
 (* This is the expression visitor class. A class determines the real memory layout. It is not parametrized on a carrier type so it is closed and cannot be inherited, overrode or extended. *)    
@@ -245,7 +252,7 @@ fun number_expr_visitor_vtable cast : ('this, 'c, 'fn, int, 'fn, 'env) expr_visi
         old
       end
   in
-    default_expr_visitor_vtable (number_expr_visitor_refines_expr_visitor cast) visit_'c visit_noop extend_noop visit_noop
+    default_expr_visitor_vtable (number_expr_visitor_refines_expr_visitor cast) extend_noop visit_'c visit_noop visit_noop
   end
 
 datatype ('c, 'fn, 'env) number_expr_visitor =
@@ -319,7 +326,7 @@ fun import_expr_visitor_vtable cast : ('this, 'c, string, 'c, int, string list) 
     fun extend this env x1 = (x1 :: env, x1)
     fun visit_'fn this env x = find_idx x env !! (fn () => raise Unbound x)
   in
-    default_expr_visitor_vtable cast visit_noop visit_'fn extend visit_noop
+    default_expr_visitor_vtable cast extend visit_noop visit_'fn visit_noop
   end
 
 fun new_import_expr_visitor () =
@@ -343,7 +350,7 @@ fun export_expr_visitor_vtable cast : ('this, 'c, int, 'c, string, string list) 
     fun extend this env x1 = (x1 :: env, x1)
     fun visit_'fn this env x = nth_error env x !! (fn () => raise Unbound $ str_int x)
   in
-    default_expr_visitor_vtable cast visit_noop visit_'fn extend visit_noop
+    default_expr_visitor_vtable cast extend visit_noop visit_'fn visit_noop
   end
 
 fun new_export_expr_visitor () =
@@ -367,7 +374,7 @@ fun shift_expr_visitor_vtable cast n : ('this, 'c, int, 'c, int, int) expr_visit
     fun extend this env x1 = (1 + env, x1)
     fun visit_'fn this env data = ShiftUtil.shiftx_int env n data
   in
-    default_expr_visitor_vtable cast visit_noop visit_'fn extend visit_noop
+    default_expr_visitor_vtable cast extend visit_noop visit_'fn visit_noop
   end
 
 fun new_shift_expr_visitor params =
@@ -402,7 +409,7 @@ fun subst_expr_visitor_vtable cast (d, x, v) : ('this, 'c, int, 'c, int, int) ex
         else
           EVar y
       end
-    val vtable = default_expr_visitor_vtable cast visit_noop visit_'fn extend visit_noop
+    val vtable = default_expr_visitor_vtable cast extend visit_noop visit_'fn visit_noop
     val vtable = override_visit_EVar vtable visit_EVar
   in
     vtable
