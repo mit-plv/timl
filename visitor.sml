@@ -73,12 +73,12 @@ type ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_interface =
      ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable
 
 (* Always implement runtime behaviors in terms of interface, so it can be inherited, overrode and extended. *)
-(* [is_sub] is a coercion to mimic subtyping or subclassing *)
-fun default_expr_visitor_vtable (is_sub : 'this -> ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_interface) visit_'c visit_'fn extend visit_ty : ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable =
+(* [cast] is a coercion to mimic subtyping or subclassing *)
+fun default_expr_visitor_vtable (cast : 'this -> ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_interface) visit_'c visit_'fn extend visit_ty : ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable =
   let
     fun visit_expr this env data =
       let
-        val vtable = is_sub this
+        val vtable = cast this
       in
         case data of
             EConst data => #visit_EConst vtable this env data
@@ -88,13 +88,13 @@ fun default_expr_visitor_vtable (is_sub : 'this -> ('this, 'c, 'fn, 'c2, 'fn2, '
       end
     fun visit_EConst this env data =
       let
-        val vtable = is_sub this
+        val vtable = cast this
       in
         EConst $ #visit_'c vtable this env data
       end
     fun visit_EApp this env data = 
       let
-        val vtable = is_sub this
+        val vtable = cast this
         val (e1, e2) = data
         val e1 = #visit_expr vtable this env e1
         val e2 = #visit_expr vtable this env e2
@@ -103,13 +103,13 @@ fun default_expr_visitor_vtable (is_sub : 'this -> ('this, 'c, 'fn, 'c2, 'fn2, '
       end
     fun visit_EVar this env data =
       let
-        val vtable = is_sub this
+        val vtable = cast this
       in
         EVar $ #visit_'fn vtable this env data
       end
     fun visit_EAbs this env data =
       let
-        val vtable = is_sub this
+        val vtable = cast this
       in
         EAbs $ #visit_anno_bind vtable this (#visit_string vtable this) (#visit_ty vtable this) (#visit_expr vtable this) (#extend vtable this) env data
       end
@@ -151,13 +151,6 @@ fun default_expr_visitor_vtable (is_sub : 'this -> ('this, 'c, 'fn, 'c2, 'fn2, '
 (*     ExprVisitor {visit_expr = #visit_expr record, visit_EConst = #visit_EConst record, visit_EApp = new, visit_'c = #visit_'c record, visit_'fn = #visit_'fn record} *)
 (*   end *)
 
-(* fun override_visit_'c super new = *)
-(*   let *)
-(*     val ExprVisitor record = super *)
-(*   in *)
-(*     ExprVisitor {visit_expr = #visit_expr record, visit_EConst = #visit_EConst record, visit_EApp = #visit_EApp record, visit_'c = new, visit_'fn = #visit_'fn record} *)
-(*   end *)
-
 fun override_visit_'c (record : ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable) new : ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable =
   {visit_expr = #visit_expr record,
    visit_EConst = #visit_EConst record,
@@ -172,17 +165,19 @@ fun override_visit_'c (record : ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_v
    extend = #extend record
   }
 
+(***************** the "strip" visitor  **********************)    
+    
 (* Always implement runtime behaviors in terms of interface, so it can be inherited, overrode and extended. *)
-fun strip_expr_visitor_vtable is_sub : ('this, 'c, 'fn, unit, 'fn, 'env) expr_visitor_vtable =
+fun strip_expr_visitor_vtable cast : ('this, 'c, 'fn, unit, 'fn, 'env) expr_visitor_vtable =
   let
     fun visit_'c _ _ _ = ()
   in
-    default_expr_visitor_vtable is_sub visit_'c visit_noop extend_noop visit_noop
+    default_expr_visitor_vtable cast visit_'c visit_noop extend_noop visit_noop
   end
 
 (* This is the expression visitor class. A class determines the real memory layout. It is not parametrized on a carrier type so it is closed and cannot be inherited, overrode or extended. *)    
 datatype ('c, 'fn, 'c2, 'fn2, 'env) expr_visitor =
-         ExprVisitor of (('c, 'fn, 'c2, 'fn2, 'env) expr_visitor, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable
+         ExprVisitor of (('c, 'fn, 'c2, 'fn2, 'env) expr_visitor, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_interface
 
 fun expr_visitor_impls_interface (this : ('c, 'fn, 'c2, 'fn2, 'env) expr_visitor) :
     (('c, 'fn, 'c2, 'fn2, 'env) expr_visitor, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_interface =
@@ -213,19 +208,21 @@ type ('this, 'c, 'fn, 'env) number_expr_visitor_interface =
            count : int ref
          }
 
-fun number_expr_visitor_refines_expr_visitor (is_sub : 'this -> ('this, 'c, 'fn, 'env) number_expr_visitor_interface) (this : 'this) : ('this, 'c, 'fn, int, 'fn, 'env) expr_visitor_interface =
+(***************** the "number" visitor  **********************)    
+    
+fun number_expr_visitor_refines_expr_visitor (cast : 'this -> ('this, 'c, 'fn, 'env) number_expr_visitor_interface) (this : 'this) : ('this, 'c, 'fn, int, 'fn, 'env) expr_visitor_interface =
   let
-    val record = is_sub this
+    val record = cast this
     val vtable = #vtable record
   in
     vtable
   end
 
-fun number_expr_visitor_vtable is_sub : ('this, 'c, 'fn, int, 'fn, 'env) expr_visitor_vtable =
+fun number_expr_visitor_vtable cast : ('this, 'c, 'fn, int, 'fn, 'env) expr_visitor_vtable =
   let
     fun visit_'c this _ _ =
       let
-        val record = is_sub this
+        val record = cast this
         val count = #count record
         val old = !count
         val () = count := old + 1
@@ -233,15 +230,11 @@ fun number_expr_visitor_vtable is_sub : ('this, 'c, 'fn, int, 'fn, 'env) expr_vi
         old
       end
   in
-    default_expr_visitor_vtable (number_expr_visitor_refines_expr_visitor is_sub) visit_'c visit_noop extend_noop visit_noop
+    default_expr_visitor_vtable (number_expr_visitor_refines_expr_visitor cast) visit_'c visit_noop extend_noop visit_noop
   end
 
 datatype ('c, 'fn, 'env) number_expr_visitor =
-         NumberExprVisitor of
-         {
-           vtable : (('c, 'fn, 'env) number_expr_visitor, 'c, 'fn, int, 'fn, 'env) expr_visitor_vtable,
-           count : int ref
-         }
+         NumberExprVisitor of (('c, 'fn, 'env) number_expr_visitor, 'c, 'fn, 'env) number_expr_visitor_interface
 
 fun number_expr_visitor_impls_interface (this : ('c, 'fn, 'env) number_expr_visitor) :
     (('c, 'fn, 'env) number_expr_visitor, 'c, 'fn, 'env) number_expr_visitor_interface =
@@ -273,9 +266,11 @@ fun number e =
     #visit_expr vtable visitor () e
   end
 
-fun number2_expr_visitor_vtable (is_sub : 'this -> ('this, 'c, 'fn, 'env) number_expr_visitor_interface) : ('this, 'c, 'fn, int, 'fn, 'env) expr_visitor_vtable =
+(***************** a variant of the "number" visitor  **********************)    
+    
+fun number2_expr_visitor_vtable (cast : 'this -> ('this, 'c, 'fn, 'env) number_expr_visitor_interface) : ('this, 'c, 'fn, int, 'fn, 'env) expr_visitor_vtable =
   let
-    val vtable = number_expr_visitor_vtable is_sub
+    val vtable = number_expr_visitor_vtable cast
     fun visit_'c this env data = #visit_'c vtable this env data + 10000
     val vtable = override_visit_'c vtable visit_'c
   in
@@ -300,15 +295,17 @@ fun number2 e =
     #visit_expr vtable visitor () e
   end
 
+(***************** the "import" (or name-resolving) visitor: converting nameful terms to de Bruijn indices **********************)    
+    
 exception Unbound of string
                        
-fun import_expr_visitor_vtable is_sub : ('this, 'c, string, 'c, int, string list) expr_visitor_vtable =
+fun import_expr_visitor_vtable cast : ('this, 'c, string, 'c, int, string list) expr_visitor_vtable =
   let
     fun extend this env x1 = (x1 :: env, x1)
     fun lookup ctx x = find_idx x ctx !! (fn () => raise Unbound x)
     fun visit_'fn this = lookup
   in
-    default_expr_visitor_vtable is_sub visit_noop visit_'fn extend visit_noop
+    default_expr_visitor_vtable cast visit_noop visit_'fn extend visit_noop
   end
 
 fun new_import_expr_visitor () : ('c, string, 'c, int, string list) expr_visitor =
@@ -325,13 +322,15 @@ fun import e =
     #visit_expr vtable visitor [] e
   end
     
-fun export_expr_visitor_vtable is_sub : ('this, 'c, int, 'c, string, string list) expr_visitor_vtable =
+(***************** the "export" visitor: convertnig de Bruijn indices to nameful terms **********************)    
+    
+fun export_expr_visitor_vtable cast : ('this, 'c, int, 'c, string, string list) expr_visitor_vtable =
   let
     fun extend this env x1 = (x1 :: env, x1)
     fun lookup ctx x = nth_error ctx x !! (fn () => raise Unbound $ str_int x)
     fun visit_'fn this = lookup
   in
-    default_expr_visitor_vtable is_sub visit_noop visit_'fn extend visit_noop
+    default_expr_visitor_vtable cast visit_noop visit_'fn extend visit_noop
   end
 
 fun new_export_expr_visitor () : ('c, int, 'c, string, string list) expr_visitor =
