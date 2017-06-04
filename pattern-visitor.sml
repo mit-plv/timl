@@ -23,13 +23,26 @@ open Binders
 infixr 0 $
 infix 0 !!
 
+datatype ptrn_un_op =
+         PnUOInj of bool
+         | PnUOUnfold
+             
 datatype ('var, 'mtype) ptrn =
          PnVar of ename binder
          | PnTT of region outer
          | PnPair of ('var, 'mtype) ptrn * ('var, 'mtype) ptrn
          | PnAlias of ename binder * ('var, 'mtype) ptrn * region outer
-         | PnAnno of ('var, 'mtype) ptrn * 'mtype outer
 	 | PnConstr of ('var * bool) outer * iname binder list * ('var, 'mtype) ptrn option * region outer
+         | PnAnno of ('var, 'mtype) ptrn * 'mtype outer
+         (* | PnUnOp of ptrn_un_op outer * ('var, 'mtype) ptrn *)
+         | PnInj of bool outer * ('var, 'mtype) ptrn
+         | PnUnfold of ('var, 'mtype) ptrn
+         | PnUnpackI of iname binder * ('var, 'mtype) ptrn
+
+(* fun PnInj (inj, p) = PnUnOp (PnUOInj inj, p) *)
+(* fun PnInl p = PnInj (true, p) *)
+(* fun PnInr p = PnInj (false, p) *)
+(* fun PnUnfold p = PnUnOp (PnUOUnfold, p) *)
 
 type ('this, 'env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor_vtable =
      {
@@ -38,8 +51,12 @@ type ('this, 'env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor_vtable =
        visit_PnTT : 'this -> 'env ctx -> region outer -> ('var2, 'mtype2) ptrn,
        visit_PnPair : 'this -> 'env ctx -> ('var, 'mtype) ptrn * ('var, 'mtype) ptrn -> ('var2, 'mtype2) ptrn,
        visit_PnAlias : 'this -> 'env ctx -> ename binder * ('var, 'mtype) ptrn * region outer -> ('var2, 'mtype2) ptrn,
-       visit_PnAnno : 'this -> 'env ctx -> ('var, 'mtype) ptrn * 'mtype outer -> ('var2, 'mtype2) ptrn,
        visit_PnConstr : 'this -> 'env ctx -> ('var * bool) outer * iname binder list * ('var, 'mtype) ptrn option * region outer -> ('var2, 'mtype2) ptrn,
+       visit_PnAnno : 'this -> 'env ctx -> ('var, 'mtype) ptrn * 'mtype outer -> ('var2, 'mtype2) ptrn,
+       (* visit_PnUnOp : 'this -> 'env ctx -> ptrn_un_op outer * ('var, 'mtype) ptrn -> ('var2, 'mtype2) ptrn, *)
+       visit_PnUnpackI : 'this -> 'env ctx -> iname binder * ('var, 'mtype) ptrn -> ('var2, 'mtype2) ptrn,
+       visit_PnInj : 'this -> 'env ctx -> bool outer * ('var, 'mtype) ptrn -> ('var2, 'mtype2) ptrn,
+       visit_PnUnfold : 'this -> 'env ctx -> ('var, 'mtype) ptrn -> ('var2, 'mtype2) ptrn,
        visit_var : 'this -> 'env -> 'var -> 'var2,
        visit_mtype : 'this -> 'env -> 'mtype -> 'mtype2,
        visit_region : 'this -> 'env -> region -> region,
@@ -62,6 +79,9 @@ fun override_visit_PnAnno (record : ('this, 'env, 'var, 'mtype, 'var2, 'mtype2) 
     visit_PnAlias = #visit_PnAlias record,
     visit_PnAnno = new,
     visit_PnConstr = #visit_PnConstr record,
+    visit_PnInj = #visit_PnInj record,
+    visit_PnUnfold = #visit_PnUnfold record,
+    visit_PnUnpackI = #visit_PnUnpackI record,
     visit_var = #visit_var record,
     visit_mtype = #visit_mtype record,
     visit_region = #visit_region record,
@@ -93,8 +113,12 @@ fun default_ptrn_visitor_vtable
           | PnTT data => #visit_PnTT vtable this env data
           | PnPair data => #visit_PnPair vtable this env data
           | PnAlias data => #visit_PnAlias vtable this env data
-          | PnAnno data => #visit_PnAnno vtable this env data
           | PnConstr data => #visit_PnConstr vtable this env data
+          | PnAnno data => #visit_PnAnno vtable this env data
+          (* | PnUnOp data => #visit_PnUnOp vtable this env data *)
+          | PnUnpackI data => #visit_PnUnpackI vtable this env data
+          | PnInj data => #visit_PnInj vtable this env data
+          | PnUnfold data => #visit_PnUnfold vtable this env data
       end
     fun visit_PnVar this env data =
       let
@@ -147,6 +171,40 @@ fun default_ptrn_visitor_vtable
       in
         PnConstr (x, inames, p, r)
       end
+    (* fun visit_PnUnOp this env data =  *)
+    (*   let *)
+    (*     val vtable = cast this *)
+    (*     val (opr, p) = data *)
+    (*   in *)
+    (*     case opr of *)
+    (*         PnUOInj data => #visit_PnInj vtable this env (data, p) *)
+    (*       | PnUOUnfold data => #visit_PnUnfold vtable this env p *)
+    (*   end *)
+    fun visit_PnUnpackI this env data =
+      let
+        val vtable = cast this
+        val (name, p) = data
+        val name = #visit_ibinder vtable this env name
+        val p = #visit_ptrn vtable this env p
+      in
+        PnUnpackI (name, p)
+      end
+    fun visit_PnInj this env data =
+      let
+        val vtable = cast this
+        val (inj, p) = data
+        val inj = visit_outer (#visit_bool vtable this) env inj
+        val p = #visit_ptrn vtable this env p
+      in
+        PnInj (inj, p)
+      end
+    fun visit_PnUnfold this env data =
+      let
+        val vtable = cast this
+        val data = #visit_ptrn vtable this env data
+      in
+        PnUnfold data
+      end
     fun default_visit_binder extend this = visit_binder (extend this)
   in
     {
@@ -157,6 +215,9 @@ fun default_ptrn_visitor_vtable
       visit_PnAlias = visit_PnAlias,
       visit_PnAnno = visit_PnAnno,
       visit_PnConstr = visit_PnConstr,
+      visit_PnInj = visit_PnInj,
+      visit_PnUnfold = visit_PnUnfold,
+      visit_PnUnpackI = visit_PnUnpackI,
       visit_var = visit_var,
       visit_mtype = visit_mtype,
       visit_region = visit_noop,
@@ -218,6 +279,32 @@ fun remove_anno p =
     val visitor as (TyVisitor vtable) = new_remove_anno_ptrn_visitor ()
   in
     #visit_ptrn vtable visitor (env2ctx ()) p
+  end
+    
+(***************** the "shift_i_t" visitor  **********************)    
+    
+fun shift_i_ptrn_visitor_vtable cast (shift_mt, n) : ('this, int, 'var, 'mtype, 'var, 'mtype2) ptrn_visitor_vtable =
+  let
+    fun extend_i this env _ = env + 1
+    val extend_e = extend_noop
+    val visit_var = visit_noop
+    fun do_shift shift this env b = shift env n b
+  in
+    default_ptrn_visitor_vtable
+      cast
+      extend_i
+      extend_e
+      visit_var
+      (do_shift shift_mt)
+  end
+
+val new_shift_i_ptrn_visitor = new_ptrn_visitor shift_i_ptrn_visitor_vtable
+    
+fun shift_i_pn shift_mt x n b =
+  let
+    val visitor as (TyVisitor vtable) = new_shift_i_ptrn_visitor (shift_mt, n)
+  in
+    #visit_ptrn vtable visitor x b
   end
     
 end
