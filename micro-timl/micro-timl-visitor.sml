@@ -281,11 +281,11 @@ fun shift_i_ty_visitor_vtable cast (shift_i, shift_s, n) : ('this, int, int, 'bs
 
 val new_shift_i_ty_visitor = new_ty_visitor shift_i_ty_visitor_vtable
     
-fun shift_i_t shift_i shift_s x n e =
+fun shift_i_t shift_i shift_s x n b =
   let
     val visitor as (TyVisitor vtable) = new_shift_i_ty_visitor (shift_i, shift_s, n)
   in
-    #visit_ty vtable visitor x e
+    #visit_ty vtable visitor x b
   end
     
 (***************** the "shift_t_t" visitor  **********************)    
@@ -308,11 +308,11 @@ fun shift_t_ty_visitor_vtable cast n : ('this, int, int, 'bsort, 'idx, 'sort, in
 
 val new_shift_t_ty_visitor = new_ty_visitor shift_t_ty_visitor_vtable
     
-fun shift_t_t x n e =
+fun shift_t_t x n b =
   let
     val visitor as (TyVisitor vtable) = new_shift_t_ty_visitor n
   in
-    #visit_ty vtable visitor x e
+    #visit_ty vtable visitor x b
   end
     
 end

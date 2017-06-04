@@ -17,9 +17,11 @@ type 'env ctx = {outer : 'env, current : 'env ref}
 
 fun visit_pair visit_fst visit_snd env (a, b) =
   (visit_fst env a, visit_snd env b)
+    
+fun env2ctx env = {outer = env, current = ref env}
 
 fun visit_abs visit_'p env p1 =
-  visit_'p {outer = env, current = ref env} p1
+  visit_'p (env2ctx env) p1
 fun visit_binder extend (ctx : 'env ctx) x1 =
   let
     val env = !(#current ctx)

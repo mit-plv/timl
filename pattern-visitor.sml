@@ -4,7 +4,6 @@
 (* end *)
                              
 functor PatternVisitorFn (type iname
-                          type tname
                           type ename
                          ) = struct
 
@@ -12,6 +11,8 @@ open Util
 open Operators
 open Region
 open Unbound
+       
+type tname = unit
 structure Binders = BinderUtilFn (structure Binders = Unbound
                                   type iname = iname
                                   type tname = tname
@@ -52,6 +53,25 @@ type ('this, 'env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor_vtable =
 type ('this, 'env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor_interface =
      ('this, 'env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor_vtable
                                        
+fun override_visit_PnAnno (record : ('this, 'env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor_vtable) new : ('this, 'env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor_vtable =
+  {
+    visit_ptrn = #visit_ptrn record,
+    visit_PnVar = #visit_PnVar record,
+    visit_PnTT = #visit_PnTT record,
+    visit_PnPair = #visit_PnPair record,
+    visit_PnAlias = #visit_PnAlias record,
+    visit_PnAnno = new,
+    visit_PnConstr = #visit_PnConstr record,
+    visit_var = #visit_var record,
+    visit_mtype = #visit_mtype record,
+    visit_region = #visit_region record,
+    visit_bool = #visit_bool record,
+    visit_ibinder = #visit_ibinder record,
+    visit_ebinder = #visit_ebinder record,
+    extend_i = #extend_i record,
+    extend_e = #extend_e record
+  }
+
 (***************** the default visitor  **********************)    
 
 open VisitorUtil
@@ -148,4 +168,74 @@ fun default_ptrn_visitor_vtable
     }
   end
 
+datatype ('env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor =
+         TyVisitor of (('env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor, 'env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor_interface
+
+fun ptrn_visitor_impls_interface (this : ('env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor) :
+    (('env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor, 'env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor_interface =
+  let
+    val TyVisitor vtable = this
+  in
+    vtable
+  end
+
+fun new_ptrn_visitor vtable params =
+  let
+    val vtable = vtable ptrn_visitor_impls_interface params
+  in
+    TyVisitor vtable
+  end
+    
+(***************** the "remove_anno" visitor  **********************)    
+    
+fun remove_anno_ptrn_visitor_vtable cast ()
+    : ('this, 'env, 'var, 'mtype, 'var, 'mtype2) ptrn_visitor_vtable =
+  let
+    fun visit_PnAnno this env data = 
+      let
+        val vtable = cast this
+        val (p, t) = data
+        val p = #visit_ptrn vtable this env p
+      in
+        p
+      end
+    val vtable =
+        default_ptrn_visitor_vtable
+          cast
+          extend_noop
+          extend_noop
+          visit_noop
+          (visit_imposs "remove_anno_ptrn_visitor_vtable/visit_mtype()")
+    val vtable = override_visit_PnAnno vtable visit_PnAnno
+  in
+    vtable
+  end
+
+fun new_remove_anno_ptrn_visitor params = new_ptrn_visitor remove_anno_ptrn_visitor_vtable params
+    
+fun remove_anno p =
+  let
+    val visitor as (TyVisitor vtable) = new_remove_anno_ptrn_visitor ()
+  in
+    #visit_ptrn vtable visitor (env2ctx ()) p
+  end
+    
+end
+
+structure PatternVisitorFnUnitTest = struct
+type iname = string
+type ename = string
+structure Visitor = PatternVisitorFn (type iname = iname
+                                      type ename = ename
+                                     )
+open Visitor
+
+fun test () =
+  let
+    val p = PnAnno (PnPair (PnAnno (PnTT dummy, ()), PnAnno (PnTT dummy, ())), ())
+    val p1 = remove_anno p
+  in
+    (p, p1)
+  end
+    
 end
