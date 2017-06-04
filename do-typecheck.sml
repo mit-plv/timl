@@ -781,7 +781,7 @@ fun is_wf_return gctx (skctx as (sctx, _), return) =
        SOME (check_bsort gctx (sctx, d, Base Time)))
     | (NONE, NONE) => (NONE, NONE)
 
-fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext), (* pcovers, *) pn : U.mtype U.ptrn, t : mtype) : mtype ptrn * cover * context * int =
+fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext), (* pcovers, *) pn : U.ptrn, t : mtype) : ptrn * cover * context * int =
   let
     val match_ptrn = match_ptrn gctx
     val gctxn = gctx_names gctx

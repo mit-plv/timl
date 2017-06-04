@@ -1,7 +1,15 @@
-functor MicroTiMLFn (Params : BINDERS) = struct
+structure MicroTiML = struct
 
-structure Binders = Params
-open Params
+open Region
+type name = string * region
+                       
+structure Binders = BinderUtilFn (structure Binders = Unbound
+                                  type iname = name
+                                  type tname = name
+                                  type ename = name
+                                 )
+                                 
+open Binders
 open Operators
 
 (* kind *)
@@ -94,9 +102,3 @@ datatype ('var, 'bsort, 'idx, 'sort) expr =
          | ENever of ('var, 'bsort, 'idx, 'sort) ty
 
 end
-
-functor TestMicroTiMLFnSignatures (Params : BINDERS) = struct
-structure M : MICRO_TIML = MicroTiMLFn (Params)
-end
-
-                                                     

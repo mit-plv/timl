@@ -18,8 +18,6 @@ structure Datatype = DatatypeFn (structure Idx = Idx
                                  type var = var)
 open Datatype
        
-structure Pattern = PatternFn (structure Idx = Idx
-                               type var = var)
 open Pattern
 
 type kind = int (*number of type arguments*) * bsort list

@@ -66,15 +66,15 @@ structure Type = TypeFn (structure Idx = Idx
                         )
 open Type
 
-structure Pattern = PatternFn (structure Idx = Idx
-                               type var = long_id)
 open Pattern
+
+type ptrn = (long_id, mtype, name, region) ptrn
 
 type return = mtype option * idx option
                                  
 datatype stbind = 
          SortingST of name * sort
-         | TypingST of mtype ptrn
+         | TypingST of ptrn
 
 datatype expr =
 	 Var of long_id * bool(*explicit index arguments (EIA)*)
@@ -84,16 +84,16 @@ datatype expr =
 	 | TriOp of tri_op * expr * expr * expr
          | EEI of expr_EI * expr * idx
          | ET of expr_T * mtype * region
-	 | Abs of mtype ptrn * expr
+	 | Abs of ptrn * expr
 	 | AbsI of sort * (name * expr) ibind * region
 	 | AppConstr of (long_id * bool) * idx list * expr
-	 | Case of expr * return * (mtype ptrn * expr) list * region
+	 | Case of expr * return * (ptrn * expr) list * region
 	 | Let of return * decl list * expr * region
 	 | Ascription of expr * mtype
 
 
      and decl =
-         Val of name list * mtype ptrn * expr * region
+         Val of name list * ptrn * expr * region
          | Rec of name list * name * (stbind list * ((mtype * idx) * expr)) * region
 	 | Datatype of mtype datatype_def * region
          | IdxDef of name * sort * idx

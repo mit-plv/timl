@@ -1,4 +1,4 @@
-signature BINDERS = sig
+signature MICRO_TIML_BINDERS = sig
   type 't ibind
   type 't tbind
   type 't ebind
@@ -9,7 +9,7 @@ end
 
 signature MICRO_TIML = sig
 
-  structure Binders : BINDERS
+  structure Binders : MICRO_TIML_BINDERS
 
   (* The following definitions use type variables instead of abstract types to enable universal mappings between different AST instantiations. *)
                    
@@ -102,4 +102,8 @@ signature MICRO_TIML = sig
            | EAscType of ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) ty (* type ascription *)
            | ENever of ('var, 'bsort, 'idx, 'sort) ty
 
+end
+
+functor TestMicroTiMLFnSignatures (Params : MICRO_TIML_BINDERS) = struct
+structure M : MICRO_TIML = MicroTiMLFn (Params)
 end

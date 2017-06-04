@@ -141,26 +141,20 @@ end
 
 structure TiML2MicroTiML = struct
 
-structure MicroTiMLParams = struct
-type 't ibind = 't
-type 't tbind = 't
-type 't ebind = 't
-type ('anno, 't) ibind_anno = 'anno * 't
-type ('anno, 't) tbind_anno = 'anno * 't
-type ('anno, 't) ebind_anno = 'anno * 't
-end
-       
-type long_id = (string * unit) option * (int * unit)
+open BaseSorts
+open Region
+type name = string * region
+type long_id = (string * region) option * (int * region)
 structure LongIdVar = struct
 type var = long_id
 end
 structure Var = LongIdVar
-open BaseSorts
+open Var
 structure Idx = IdxFn (structure UVarI = UVar
                        type base_sort = base_sort
-                       type var = Var.var
-                       type name = unit
-                       type region = unit
+                       type var = var
+                       type name = name
+                       type region = region
                        type 'a exists_anno = unit
                       )
 structure TiMLType = TypeFn (structure Idx = Idx
@@ -171,7 +165,6 @@ structure TiML = TAst (structure Idx = Idx
                        structure Type = TiMLType
                        structure UVarT = NoUVar
                       )
-structure MicroTiML = MicroTiMLFn (MicroTiMLParams)
 
 structure LongIdShift = struct
 open ShiftUtil
@@ -195,7 +188,7 @@ structure TypeShift = TypeShiftFn (structure Type = TiMLType
 open TypeShift
        
 structure IdxUtil = IdxUtilFn (structure Idx = Idx
-                               val dummy = ()
+                               val dummy = dummy
                               )
 open IdxUtil
                                   
@@ -243,13 +236,13 @@ fun foldr' f init xs = foldl' f init $ rev xs
 
 fun combine_TSum ts = foldr' TSum TEmpty ts
 
-fun int2var x = (NONE, (x, ()))
+fun int2var x = (NONE, (x, dummy))
 
 fun PEqs pairs = combine_And $ map PEq pairs
   
 val BSUnit = Base UnitSort
 
-fun TExistsI (s, t) = TQuanI (Exists (), (s, t))
+fun TExistsI bind = TQuanI (Exists (), bind)
 fun TExistsIMany (ctx, t) = foldl TExistsI t ctx
 fun TAbsIMany (ctx, t) = foldl TAbsI t ctx
 fun TAbsTMany (ctx, t) = foldl TAbsT t ctx
@@ -261,15 +254,15 @@ fun on_mt (t : S.mtype) =
     | S.TyArray (t, i) => TArr (on_mt t, i)
     | S.Unit _ => TUnit
     | S.Prod (t1, t2) => TProd (on_mt t1, on_mt t2)
-    | S.UniI (s, Bind (_, t), r) => TQuanI (Forall, (s, on_mt t))
+    | S.UniI (s, Bind (name, t), r) => TQuanI (Forall, ((name, s), on_mt t))
     | S.MtVar x => TVar x
     | S.MtApp (t1, t2) => TAppT (on_mt t1, on_mt t2)
-    | S.MtAbs (k, Bind (_, t), _) => TAbsT (on_k k, on_mt t)
+    | S.MtAbs (k, Bind (name, t), _) => TAbsT ((name, on_k k), on_mt t)
     | S.MtAppI (t, i) => TAppI (on_mt t, i)
-    | S.MtAbsI (b, Bind (_, t), _) => TAbsI (b, on_mt t)
+    | S.MtAbsI (b, Bind (name, t), _) => TAbsI ((name, b), on_mt t)
     | S.BaseType t => TConst (on_base_type t)
     | S.UVar (x, _) => exfalso x
-    | S.TDatatype (Bind (_, tbinds), _) =>
+    | S.TDatatype (Bind (dt_name, tbinds), _) =>
       let
         val (tname_kinds, (bsorts, constrs)) = unfold_binds tbinds
         val tnames = map fst tname_kinds
@@ -284,10 +277,10 @@ fun on_mt (t : S.mtype) =
             val is = map (shiftx_i_i 0 1) is
             val formal_iargs = map (shiftx_i_i 0 (length name_sorts + 1)) formal_iargs
             val prop = PEqs $ zip (is, formal_iargs)
-            (* val extra_sort_name = "__datatype_constraint" *)
-            val extra_sort = Subset ((BSUnit, ()), Bind ((), prop), ())
+            val extra_sort_name = "__datatype_constraint"
+            val extra_sort = Subset ((BSUnit, dummy), Bind ((extra_sort_name, dummy), prop), dummy)
             val t = on_mt t
-            val t = TExistsIMany (extra_sort :: map snd (rev name_sorts), t)
+            val t = TExistsIMany (map (mapFst (attach_snd dummy)) $ (extra_sort_name, extra_sort) :: rev name_sorts, t)
           in
             t
           end
@@ -295,10 +288,11 @@ fun on_mt (t : S.mtype) =
         val k = KArrowTypes len_tnames $ KArrows bsorts KType
         val ts = map (fn (_, c, _) => on_constr c) constrs
         val t = combine_TSum ts
-        val t = TAbsIMany (rev bsorts, t)
-        val t = TAbsTMany (repeat len_tnames KType, t)
+        fun attach_names f ls = mapi (fn (n, b) => ((f n, dummy), b)) ls
+        val t = TAbsIMany (attach_names (fn n => "_i" ^ str_int n) $ rev bsorts, t)
+        val t = TAbsTMany (attach_names (fn n => "_t" ^ str_int n) $ repeat len_tnames KType, t)
       in
-        TRec (k, t)
+        TRec (((dt_name, dummy), k), t)
       end
 
 fun on_ptrn pn e =
@@ -331,7 +325,7 @@ fun on_e (e : S.expr) =
     (*   Case (e, return, map (f_rule x n) rules) *)
     (* | S.Abs (pn, e) => *)
     (*   Abs (pn, e) *)
-    | S.AbsI (s, Bind (_, e), _) => EAbsI (s, on_e e)
+    | S.AbsI (s, Bind (name, e), _) => EAbsI ((name, s), on_e e)
     (* | Let (return, decs, e, r) => *)
     (*   let  *)
     (*     val (decs, m) = f_decls x n decs *)
@@ -344,13 +338,13 @@ fun on_e (e : S.expr) =
 structure UnitTest = struct
 
 structure U = UnderscoredExpr
-fun trans_long_id (m, x) = (Option.map (mapSnd (const_fun ())) m, mapSnd (const_fun ()) x)
+val trans_long_id = id
 structure IdxTrans = IdxTransFn (structure Src = U
                                  structure Tgt = Idx
                                  val on_base_sort = id
                                  val on_var = trans_long_id
-                                 fun on_name _ = ()
-                                 fun on_r _ = ()
+                                 val on_name = id
+                                 val on_r = id
                                  fun on_exists_anno _ _ = ()
                                  fun on_uvar_bs _ _ = raise Impossible "IdxTrans/on_uvar_bs()"
                                  fun on_uvar_s _ _ _ = raise Impossible "IdxTrans/on_uvar_s()"
@@ -381,7 +375,7 @@ fun test filename =
     val (_, TopModBind (ModComponents (decls, _))) = hd prog
     val Datatype (dt, _) = hd decls
     val dt = TypeTrans.on_dt dt
-    val t = TiMLType.TDatatype (dt, ())
+    val t = TiMLType.TDatatype (dt, dummy)
     val t = on_mt t
 (* val () = println $ str_t ([], []) t *)
   in

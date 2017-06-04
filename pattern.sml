@@ -1,14 +1,11 @@
-functor PatternFn (structure Idx : IDX type var) = struct
+structure Pattern = struct
 
-open Idx
-open Region
-
-datatype 'mtype ptrn =
-	 ConstrP of (var * bool(*eia*)) * string list * 'mtype ptrn option * region (* eia : is explicit index arguments? *)                                         
-         | VarP of name
-         | PairP of 'mtype ptrn * 'mtype ptrn
-         | TTP of region
-         | AliasP of name * 'mtype ptrn * region
-         | AnnoP of 'mtype ptrn * 'mtype
+datatype ('var, 'mtype, 'name, 'region) ptrn =
+	 ConstrP of ('var * bool(*eia*)) * string list * ('var, 'mtype, 'name, 'region) ptrn option * 'region (* eia : is explicit index arguments? *)                                         
+         | VarP of 'name
+         | PairP of ('var, 'mtype, 'name, 'region) ptrn * ('var, 'mtype, 'name, 'region) ptrn
+         | TTP of 'region
+         | AliasP of 'name * ('var, 'mtype, 'name, 'region) ptrn * 'region
+         | AnnoP of ('var, 'mtype, 'name, 'region) ptrn * 'mtype
 
 end
