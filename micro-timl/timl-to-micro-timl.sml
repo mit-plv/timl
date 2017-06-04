@@ -254,12 +254,12 @@ fun on_mt (t : S.mtype) =
     | S.TyArray (t, i) => TArr (on_mt t, i)
     | S.Unit _ => TUnit
     | S.Prod (t1, t2) => TProd (on_mt t1, on_mt t2)
-    | S.UniI (s, Bind (name, t), r) => TQuanI (Forall, ((name, s), on_mt t))
+    | S.UniI (s, Bind (name, t), r) => TQuanI (Forall, ((IName name, s), on_mt t))
     | S.MtVar x => TVar x
     | S.MtApp (t1, t2) => TAppT (on_mt t1, on_mt t2)
-    | S.MtAbs (k, Bind (name, t), _) => TAbsT ((name, on_k k), on_mt t)
+    | S.MtAbs (k, Bind (name, t), _) => TAbsT ((TName name, on_k k), on_mt t)
     | S.MtAppI (t, i) => TAppI (on_mt t, i)
-    | S.MtAbsI (b, Bind (name, t), _) => TAbsI ((name, b), on_mt t)
+    | S.MtAbsI (b, Bind (name, t), _) => TAbsI ((IName name, b), on_mt t)
     | S.BaseType t => TConst (on_base_type t)
     | S.UVar (x, _) => exfalso x
     | S.TDatatype (Bind (dt_name, tbinds), _) =>
@@ -280,7 +280,7 @@ fun on_mt (t : S.mtype) =
             val extra_sort_name = "__datatype_constraint"
             val extra_sort = Subset ((BSUnit, dummy), Bind ((extra_sort_name, dummy), prop), dummy)
             val t = on_mt t
-            val t = TExistsIMany (map (mapFst (attach_snd dummy)) $ (extra_sort_name, extra_sort) :: rev name_sorts, t)
+            val t = TExistsIMany (map (mapFst (IName o attach_snd dummy)) $ (extra_sort_name, extra_sort) :: rev name_sorts, t)
           in
             t
           end
@@ -288,11 +288,11 @@ fun on_mt (t : S.mtype) =
         val k = KArrowTypes len_tnames $ KArrows bsorts KType
         val ts = map (fn (_, c, _) => on_constr c) constrs
         val t = combine_TSum ts
-        fun attach_names f ls = mapi (fn (n, b) => ((f n, dummy), b)) ls
-        val t = TAbsIMany (attach_names (fn n => "_i" ^ str_int n) $ rev bsorts, t)
-        val t = TAbsTMany (attach_names (fn n => "_t" ^ str_int n) $ repeat len_tnames KType, t)
+        fun attach_names namespace f ls = mapi (fn (n, b) => (namespace (f n, dummy), b)) ls
+        val t = TAbsIMany (attach_names IName (fn n => "_i" ^ str_int n) $ rev bsorts, t)
+        val t = TAbsTMany (attach_names TName (fn n => "_t" ^ str_int n) $ repeat len_tnames KType, t)
       in
-        TRec (((dt_name, dummy), k), t)
+        TRec ((TName (dt_name, dummy), k), t)
       end
 
 fun on_ptrn pn e =
@@ -325,7 +325,7 @@ fun on_e (e : S.expr) =
     (*   Case (e, return, map (f_rule x n) rules) *)
     (* | S.Abs (pn, e) => *)
     (*   Abs (pn, e) *)
-    | S.AbsI (s, Bind (name, e), _) => EAbsI ((name, s), on_e e)
+    | S.AbsI (s, Bind (name, e), _) => EAbsI ((IName name, s), on_e e)
     (* | Let (return, decs, e, r) => *)
     (*   let  *)
     (*     val (decs, m) = f_decls x n decs *)

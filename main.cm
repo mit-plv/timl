@@ -59,7 +59,8 @@ Group is
       micro-timl/timl-to-micro-timl.sml
       unbound.sml
       visitor.sml                                 
-      micro-timl/micro-timl-visitor.sml                                 
+      micro-timl/micro-timl-visitor.sml
+      pattern-visitor.sml
                                  
       $/basis.cm
       $/smlnj-lib.cm

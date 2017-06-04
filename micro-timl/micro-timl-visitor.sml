@@ -35,26 +35,24 @@ type ('this, 'env, 'var, 'bsort, 'idx, 'sort, 'var2, 'bsort2, 'idx2, 'sort2) ty_
        visit_ty_const : 'this -> 'env -> ty_const -> ty_const,
        visit_ty_bin_op : 'this -> 'env -> ty_bin_op -> ty_bin_op,
        visit_quan : 'this -> 'env -> unit quan -> unit quan,
-       visit_ibind_anno_bsort : 'this -> ('env -> 'bsort -> 'bsort2) -> ('env -> ('var, 'bsort, 'idx, 'sort) ty -> ('var2, 'bsort2, 'idx2, 'sort2) ty) -> ('env -> iname -> 'env) -> 'env -> ('bsort, ('var, 'bsort, 'idx, 'sort) ty) ibind_anno -> ('bsort2, ('var2, 'bsort2, 'idx2, 'sort2) ty) ibind_anno,
-       visit_ibind_anno_sort : 'this -> ('env -> 'sort -> 'sort2) -> ('env -> ('var, 'bsort, 'idx, 'sort) ty -> ('var2, 'bsort2, 'idx2, 'sort2) ty) -> ('env -> iname -> 'env) -> 'env -> ('sort, ('var, 'bsort, 'idx, 'sort) ty) ibind_anno -> ('sort2, ('var2, 'bsort2, 'idx2, 'sort2) ty) ibind_anno,
-       visit_tbind_anno : 'this -> ('env -> 'bsort kind -> 'bsort2 kind) -> ('env -> ('var, 'bsort, 'idx, 'sort) ty -> ('var2, 'bsort2, 'idx2, 'sort2) ty) -> ('env -> tname -> 'env) -> 'env -> ('bsort kind, ('var, 'bsort, 'idx, 'sort) ty) tbind_anno -> ('bsort2 kind, ('var2, 'bsort2, 'idx2, 'sort2) ty) tbind_anno,
-       extend_idx : 'this -> 'env -> iname -> 'env,
-       extend_ty : 'this -> 'env -> tname -> 'env
+       visit_ibind_anno_bsort : 'this -> ('env -> 'bsort -> 'bsort2) -> ('env -> ('var, 'bsort, 'idx, 'sort) ty -> ('var2, 'bsort2, 'idx2, 'sort2) ty) -> 'env -> ('bsort, ('var, 'bsort, 'idx, 'sort) ty) ibind_anno -> ('bsort2, ('var2, 'bsort2, 'idx2, 'sort2) ty) ibind_anno,
+       visit_ibind_anno_sort : 'this -> ('env -> 'sort -> 'sort2) -> ('env -> ('var, 'bsort, 'idx, 'sort) ty -> ('var2, 'bsort2, 'idx2, 'sort2) ty) -> 'env -> ('sort, ('var, 'bsort, 'idx, 'sort) ty) ibind_anno -> ('sort2, ('var2, 'bsort2, 'idx2, 'sort2) ty) ibind_anno,
+       visit_tbind_anno : 'this -> ('env -> 'bsort kind -> 'bsort2 kind) -> ('env -> ('var, 'bsort, 'idx, 'sort) ty -> ('var2, 'bsort2, 'idx2, 'sort2) ty) -> 'env -> ('bsort kind, ('var, 'bsort, 'idx, 'sort) ty) tbind_anno -> ('bsort2 kind, ('var2, 'bsort2, 'idx2, 'sort2) ty) tbind_anno,
+       extend_i : 'this -> 'env -> iname -> 'env,
+       extend_t : 'this -> 'env -> tname -> 'env
      }
        
 type ('this, 'env, 'var, 'bsort, 'idx, 'sort, 'var2, 'bsort2, 'idx2, 'sort2) ty_visitor_interface =
      ('this, 'env, 'var, 'bsort, 'idx, 'sort, 'var2, 'bsort2, 'idx2, 'sort2) ty_visitor_vtable
                                        
-fun extend_noop this env x1 = env
-val visit_noop = return3
-fun visit_imposs msg _ _ _ = raise Impossible ""
-                           
 (***************** the default visitor  **********************)    
-    
+
+open VisitorUtil
+       
 fun default_ty_visitor_vtable
       (cast : 'this -> ('this, 'env, 'var, 'bsort, 'idx, 'sort, 'var2, 'bsort2, 'idx2, 'sort2) ty_visitor_interface)
-      extend_idx
-      extend_ty
+      extend_i
+      extend_t
       visit_var
       visit_bsort
       visit_idx
@@ -123,28 +121,28 @@ fun default_ty_visitor_vtable
     fun visit_TBinOp this env data = 
       let
         val vtable = cast this
-        val (opr, e1, e2) = data
+        val (opr, t1, t2) = data
         val opr = #visit_ty_bin_op vtable this env opr
-        val e1 = #visit_ty vtable this env e1
-        val e2 = #visit_ty vtable this env e2
+        val t1 = #visit_ty vtable this env t1
+        val t2 = #visit_ty vtable this env t2
       in
-        TBinOp (opr, e1, e2)
+        TBinOp (opr, t1, t2)
       end
     fun visit_TArrow this env data = 
       let
         val vtable = cast this
-        val (e1, i, e2) = data
-        val e1 = #visit_ty vtable this env e1
+        val (t1, i, t2) = data
+        val t1 = #visit_ty vtable this env t1
         val i = #visit_idx vtable this env i
-        val e2 = #visit_ty vtable this env e2
+        val t2 = #visit_ty vtable this env t2
       in
-        TArrow (e1, i, e2)
+        TArrow (t1, i, t2)
       end
     fun visit_TAbsI this env data =
       let
         val vtable = cast this
       in
-        TAbsI $ #visit_ibind_anno_bsort vtable this (#visit_bsort vtable this) (#visit_ty vtable this) (#extend_idx vtable this) env data
+        TAbsI $ #visit_ibind_anno_bsort vtable this (#visit_bsort vtable this) (#visit_ty vtable this) env data
       end
     fun visit_TAppI this env data = 
       let
@@ -160,7 +158,7 @@ fun default_ty_visitor_vtable
         val (q, bind) = data
         val vtable = cast this
         val q = #visit_quan vtable this env q
-        val bind = #visit_tbind_anno vtable this (#visit_kind vtable this) (#visit_ty vtable this) (#extend_ty vtable this) env bind
+        val bind = #visit_tbind_anno vtable this (#visit_kind vtable this) (#visit_ty vtable this) env bind
       in
         TQuan (q, bind)
       end
@@ -169,7 +167,7 @@ fun default_ty_visitor_vtable
         val (q, bind) = data
         val vtable = cast this
         val q = #visit_quan vtable this env q
-        val bind = #visit_ibind_anno_sort vtable this (#visit_sort vtable this) (#visit_ty vtable this) (#extend_idx vtable this) env bind
+        val bind = #visit_ibind_anno_sort vtable this (#visit_sort vtable this) (#visit_ty vtable this) env bind
       in
         TQuanI (q, bind)
       end
@@ -177,7 +175,7 @@ fun default_ty_visitor_vtable
       let
         val vtable = cast this
       in
-        TRec $ #visit_tbind_anno vtable this (#visit_kind vtable this) (#visit_ty vtable this) (#extend_ty vtable this) env data
+        TRec $ #visit_tbind_anno vtable this (#visit_kind vtable this) (#visit_ty vtable this) env data
       end
     fun visit_TNat this env data = 
       let
@@ -198,7 +196,7 @@ fun default_ty_visitor_vtable
       let
         val vtable = cast this
       in
-        TAbsT $ #visit_tbind_anno vtable this (#visit_kind vtable this) (#visit_ty vtable this) (#extend_ty vtable this) env data
+        TAbsT $ #visit_tbind_anno vtable this (#visit_kind vtable this) (#visit_ty vtable this) env data
       end
     fun visit_TAppT this env data = 
       let
@@ -209,7 +207,7 @@ fun default_ty_visitor_vtable
       in
         TAppT (t1, t2)
       end
-    fun default_visit_bind_anno this = visit_bind_anno
+    fun default_visit_bind_anno extend this = visit_bind_anno (extend this)
   in
     {visit_kind = visit_kind,
      visit_KType = visit_KType,
@@ -236,11 +234,11 @@ fun default_ty_visitor_vtable
      visit_ty_const = visit_noop,
      visit_ty_bin_op = visit_noop,
      visit_quan = visit_noop,
-     visit_ibind_anno_bsort = default_visit_bind_anno,
-     visit_ibind_anno_sort = default_visit_bind_anno,
-     visit_tbind_anno = default_visit_bind_anno,
-     extend_idx = extend_idx,
-     extend_ty = extend_ty
+     visit_ibind_anno_bsort = default_visit_bind_anno extend_i,
+     visit_ibind_anno_sort = default_visit_bind_anno extend_i,
+     visit_tbind_anno = default_visit_bind_anno extend_t,
+     extend_i = extend_i,
+     extend_t = extend_t
     }
   end
 
@@ -262,19 +260,19 @@ fun new_ty_visitor vtable params =
     TyVisitor vtable
   end
     
-(***************** the "shift_i" visitor  **********************)    
+(***************** the "shift_i_t" visitor  **********************)    
     
 fun shift_i_ty_visitor_vtable cast (shift_i, shift_s, n) : ('this, int, int, 'bsort, 'idx, 'sort, int, 'bsort, 'idx2, 'sort2) ty_visitor_vtable =
   let
-    fun extend_idx this env _ = env + 1
-    val extend_ty = extend_noop
+    fun extend_i this env _ = env + 1
+    val extend_t = extend_noop
     val visit_var = visit_noop
     fun do_shift shift this env b = shift env n b
   in
     default_ty_visitor_vtable
       cast
-      extend_idx
-      extend_ty
+      extend_i
+      extend_t
       visit_var
       visit_noop
       (do_shift shift_i)
@@ -290,18 +288,18 @@ fun shift_i_t shift_i shift_s x n e =
     #visit_ty vtable visitor x e
   end
     
-(***************** the "shift_t" visitor  **********************)    
+(***************** the "shift_t_t" visitor  **********************)    
     
 fun shift_t_ty_visitor_vtable cast n : ('this, int, int, 'bsort, 'idx, 'sort, int, 'bsort, 'idx, 'sort) ty_visitor_vtable =
   let
-    val extend_idx = extend_noop
-    fun extend_ty this env _ = env + 1
+    val extend_i = extend_noop
+    fun extend_t this env _ = env + 1
     fun visit_var this env data = ShiftUtil.shiftx_int env n data
   in
     default_ty_visitor_vtable
       cast
-      extend_idx
-      extend_ty
+      extend_i
+      extend_t
       visit_var
       visit_noop
       visit_noop

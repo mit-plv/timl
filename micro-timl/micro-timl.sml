@@ -2,11 +2,20 @@ structure MicroTiML = struct
 
 open Region
 type name = string * region
+datatype idx_namespace = IdxNS
+datatype type_namespace = TypeNS
+datatype expr_namespace = ExprNS
+type iname = idx_namespace * name
+type tname = type_namespace * name
+type ename = expr_namespace * name
+fun IName name = (IdxNS, name)
+fun TName name = (TypeNS, name)
+fun EName name = (ExprNS, name)
                        
 structure Binders = BinderUtilFn (structure Binders = Unbound
-                                  type iname = name
-                                  type tname = name
-                                  type ename = name
+                                  type iname = iname
+                                  type tname = tname
+                                  type ename = ename
                                  )
                                  
 open Binders
