@@ -352,7 +352,40 @@ fun remove_constr p =
   in
     #visit_ptrn vtable visitor (env2ctx ()) p
   end
-    
+
+fun remove_deep matchees_and_ts patterns_and_expr_list =
+  case matchees_and_ts of
+      [] =>
+      (case patterns_and_expr_list of
+           [([], e)] => e
+         | _ => raise Impossible ""
+      )
+    | (matchee, t) :: matchees_and_ts =>
+      let
+        val patterns_and_expr_list = remove_alias matchee patterns_and_expr_list
+        val (pns, patterns_and_expr_list) = get_first_column patterns_and_expr_list
+      in
+        if all_wildcard pns then
+          remove_deep matchees_and_ts patterns_and_expr_list
+        else
+          case t of
+              TProd (t1, t2) =>
+              let
+                val (pns1, pns2) = split_pair pns
+                val _ = do_some_shifts
+              in
+                EMatchPair (matchee, remove_deep ((Var 1, t1) :: (Var 0, t2) :: matchees_and_ts) (pns1 :: pns2 :: patterns_and_expr_list))
+              end
+            | TSumMany ts => 
+              let
+                val pn_groups = group_inj (length ts) $ zip (pns, patterns_and_expr_list)
+                val _ = do_some_shifts
+                val cases = map (fn (t, pael) => remove_deep ((Var 0, t) :: matchees_and_ts) pael) $ zip (ts, pn_groups)                   
+              in
+                EMatchSum (matchee, cases)
+              end
+      end
+        
 end
 
 structure PatternVisitorFnUnitTest = struct
