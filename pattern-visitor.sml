@@ -247,6 +247,32 @@ fun new_ptrn_visitor vtable params =
     TyVisitor vtable
   end
     
+(***************** the "shift_i_t" visitor  **********************)    
+    
+fun shift_i_ptrn_visitor_vtable cast (shift_mt, n) : ('this, int, 'var, 'mtype, 'var, 'mtype2) ptrn_visitor_vtable =
+  let
+    fun extend_i this env _ = env + 1
+    val extend_e = extend_noop
+    val visit_var = visit_noop
+    fun do_shift shift this env b = shift env n b
+  in
+    default_ptrn_visitor_vtable
+      cast
+      extend_i
+      extend_e
+      visit_var
+      (do_shift shift_mt)
+  end
+
+val new_shift_i_ptrn_visitor = new_ptrn_visitor shift_i_ptrn_visitor_vtable
+    
+fun shift_i_pn shift_mt x n b =
+  let
+    val visitor as (TyVisitor vtable) = new_shift_i_ptrn_visitor (shift_mt, n)
+  in
+    #visit_ptrn vtable visitor x b
+  end
+    
 (***************** the "remove_anno" visitor  **********************)    
     
 fun remove_anno_ptrn_visitor_vtable cast ()
@@ -281,30 +307,50 @@ fun remove_anno p =
     #visit_ptrn vtable visitor (env2ctx ()) p
   end
     
-(***************** the "shift_i_t" visitor  **********************)    
+(***************** the "remove_constr" visitor  **********************)    
     
-fun shift_i_ptrn_visitor_vtable cast (shift_mt, n) : ('this, int, 'var, 'mtype, 'var, 'mtype2) ptrn_visitor_vtable =
+fun remove_constr_ptrn_visitor_vtable cast ()
+    : ('this, 'env, 'var, 'mtype, 'var, 'mtype2) ptrn_visitor_vtable =
   let
-    fun extend_i this env _ = env + 1
-    val extend_e = extend_noop
-    val visit_var = visit_noop
-    fun do_shift shift this env b = shift env n b
+    fun visit_PnConstr this env data =
+      let
+        val vtable = cast this
+        val (x, inames, p, r) = data
+        val () = env
+        val x = visit_outer (visit_pair (#visit_var vtable this) (#visit_bool vtable this)) env x
+        val inames = map (#visit_ibinder vtable this env) inames
+        val p = Option.map (#visit_ptrn vtable this env) p
+        val r = visit_outer (#visit_region vtable this) env r
+      in
+        PnConstr (x, inames, p, r)
+      end
+    fun visit_PnAnno this env data = 
+      let
+        val vtable = cast this
+        val (p, t) = data
+        val p = #visit_ptrn vtable this env p
+      in
+        p
+      end
+    val vtable =
+        default_ptrn_visitor_vtable
+          cast
+          extend_noop
+          extend_noop
+          (visit_imposs "remove_constr_ptrn_visitor_vtable/visit_var()")
+          (visit_imposs "remove_constr_ptrn_visitor_vtable/visit_mtype()")
+    val vtable = override_visit_PnAnno vtable visit_PnAnno
   in
-    default_ptrn_visitor_vtable
-      cast
-      extend_i
-      extend_e
-      visit_var
-      (do_shift shift_mt)
+    vtable
   end
 
-val new_shift_i_ptrn_visitor = new_ptrn_visitor shift_i_ptrn_visitor_vtable
+fun new_remove_constr_ptrn_visitor params = new_ptrn_visitor remove_constr_ptrn_visitor_vtable params
     
-fun shift_i_pn shift_mt x n b =
+fun remove_constr p =
   let
-    val visitor as (TyVisitor vtable) = new_shift_i_ptrn_visitor (shift_mt, n)
+    val visitor as (TyVisitor vtable) = new_remove_constr_ptrn_visitor ()
   in
-    #visit_ptrn vtable visitor x b
+    #visit_ptrn vtable visitor (env2ctx ()) p
   end
     
 end
