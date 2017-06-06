@@ -426,12 +426,13 @@ end
 
 structure PatternVisitorFnUnitTest = struct
 open Util
-open MicroTiML
+(* open MicroTiML *)
+(* val IName = fn s => IName (s, dummy) *)
 open Expr
 open Subst
-(* type iname = string *)
-(* type ename = string *)
-val IName = fn s => IName (s, dummy)
+type iname = string
+type ename = string
+val IName = id
                           
 structure Visitor = PatternVisitorFn (type iname = iname
                                       type ename = ename
@@ -439,14 +440,24 @@ structure Visitor = PatternVisitorFn (type iname = iname
                                      )
 open Visitor
 
+datatype expr =
+         EVar of int
+         | EAppI of expr * idx
+
+fun shift_i_e x n b =
+  case b of
+      EVar _ => b
+    | EAppI (e, i) => EAppI (shift_i_e x n e, shiftx_i_i x n i)
+                   
+(* fun EVar n = Var ((NONE, (n, dummy)), false) *)
+fun IVar n = VarI (NONE, (n, dummy))
+                  
 fun test () =
   let
     val p = PnAnno (PnPair (PnAnno (PnTT dummy, ()), PnAnno (PnTT dummy, ())), ())
     val p1 = remove_anno p
-    fun EVar n = Var ((NONE, (n, dummy)), false)
-    fun IVar n = VarI (NONE, (n, dummy))
-    val p2 = PnConstr ((5,1), [IName "a", IName "b"], PnPair (PnTT dummy, (* PnExpr (AppI (EVar 0, IVar 2)) *)PnTT dummy), dummy)
-    val p3 = remove_constr (* shiftx_i_e *)return3 p2
+    val p2 = PnConstr ((5,1), [IName "a", IName "b"], PnPair (PnTT dummy, PnExpr (EAppI (EVar 0, IVar 2))), dummy)
+    val p3 = remove_constr shift_i_e p2
   in
     (p, p1, p3)
   end

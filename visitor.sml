@@ -84,27 +84,6 @@ type ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable =
 type ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_interface =
      ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable
 
-(* fun override_visit_expr super visit_expr = *)
-(*   let *)
-(*     val ExprVisitor record = super *)
-(*   in *)
-(*     ExprVisitor {visit_expr = visit_expr, visit_EConst = #visit_EConst record, visit_EApp = #visit_EApp record, visit_'c = #visit_'c record, visit_'fn = #visit_'fn record} *)
-(*   end *)
-    
-(* fun override_visit_EConst super new = *)
-(*   let *)
-(*     val ExprVisitor record = super *)
-(*   in *)
-(*     ExprVisitor {visit_expr = #visit_expr record, visit_EConst = new, visit_EApp = #visit_EApp record, visit_'c = #visit_'c record, visit_'fn = #visit_'fn record} *)
-(*   end *)
-    
-(* fun override_visit_EApp super new = *)
-(*   let *)
-(*     val ExprVisitor record = super *)
-(*   in *)
-(*     ExprVisitor {visit_expr = #visit_expr record, visit_EConst = #visit_EConst record, visit_EApp = new, visit_'c = #visit_'c record, visit_'fn = #visit_'fn record} *)
-(*   end *)
-
 fun override_visit_EVar (record : ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable) new : ('this, 'c, 'fn, 'c2, 'fn2, 'env) expr_visitor_vtable =
   {visit_expr = #visit_expr record,
    visit_EConst = #visit_EConst record,
