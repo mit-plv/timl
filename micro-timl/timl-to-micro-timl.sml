@@ -234,7 +234,7 @@ fun TProd (t1, t2) = TBinOp (TBProd, t1, t2)
 
 fun foldr' f init xs = foldl' f init $ rev xs
 
-fun combine_TSum ts = foldr' TSum TEmpty ts
+fun TSums ts = foldr' TSum TEmpty ts
 
 fun int2var x = (NONE, (x, dummy))
 
@@ -287,7 +287,7 @@ fun on_mt (t : S.mtype) =
         val len_tnames = length tnames
         val k = KArrowTypes len_tnames $ KArrows bsorts KType
         val ts = map (fn (_, c, _) => on_constr c) constrs
-        val t = combine_TSum ts
+        val t = TSums ts
         fun attach_names namespace f ls = mapi (fn (n, b) => (namespace (f n, dummy), b)) ls
         val t = TAbsIMany (attach_names IName (fn n => "_i" ^ str_int n) $ rev bsorts, t)
         val t = TAbsTMany (attach_names TName (fn n => "_t" ^ str_int n) $ repeat len_tnames KType, t)

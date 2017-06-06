@@ -5,6 +5,7 @@
                              
 functor PatternVisitorFn (type iname
                           type ename
+                          val IName : string -> iname
                          ) = struct
 
 open Util
@@ -23,54 +24,58 @@ open Binders
 infixr 0 $
 infix 0 !!
 
-datatype ptrn_un_op =
-         PnUOInj of bool
-         | PnUOUnfold
+type inj = int * int
              
-datatype ('var, 'mtype) ptrn =
+(* datatype ptrn_un_op = *)
+(*          PnUOInj of inj *)
+(*          | PnUOUnfold *)
+             
+datatype ('expr, 'mtype) ptrn =
          PnVar of ename binder
          | PnTT of region outer
-         | PnPair of ('var, 'mtype) ptrn * ('var, 'mtype) ptrn
-         | PnAlias of ename binder * ('var, 'mtype) ptrn * region outer
-	 | PnConstr of ('var * bool) outer * iname binder list * ('var, 'mtype) ptrn option * region outer
-         | PnAnno of ('var, 'mtype) ptrn * 'mtype outer
-         (* | PnUnOp of ptrn_un_op outer * ('var, 'mtype) ptrn *)
-         | PnInj of bool outer * ('var, 'mtype) ptrn
-         | PnUnfold of ('var, 'mtype) ptrn
-         | PnUnpackI of iname binder * ('var, 'mtype) ptrn
+         | PnPair of ('expr, 'mtype) ptrn * ('expr, 'mtype) ptrn
+         | PnAlias of ename binder * ('expr, 'mtype) ptrn * region outer
+	 | PnConstr of inj outer * iname binder list * ('expr, 'mtype) ptrn * region outer
+         | PnAnno of ('expr, 'mtype) ptrn * 'mtype outer
+         (* | PnUnOp of ptrn_un_op outer * ('expr, 'mtype) ptrn *)
+         | PnInj of inj outer * ('expr, 'mtype) ptrn
+         | PnUnfold of ('expr, 'mtype) ptrn
+         | PnUnpackI of iname binder * ('expr, 'mtype) ptrn
+         | PnExpr of 'expr inner
 
 (* fun PnInj (inj, p) = PnUnOp (PnUOInj inj, p) *)
 (* fun PnInl p = PnInj (true, p) *)
 (* fun PnInr p = PnInj (false, p) *)
 (* fun PnUnfold p = PnUnOp (PnUOUnfold, p) *)
 
-type ('this, 'env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor_vtable =
+type ('this, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_vtable =
      {
-       visit_ptrn : 'this -> 'env ctx -> ('var, 'mtype) ptrn -> ('var2, 'mtype2) ptrn,
-       visit_PnVar : 'this -> 'env ctx -> ename binder -> ('var2, 'mtype2) ptrn,
-       visit_PnTT : 'this -> 'env ctx -> region outer -> ('var2, 'mtype2) ptrn,
-       visit_PnPair : 'this -> 'env ctx -> ('var, 'mtype) ptrn * ('var, 'mtype) ptrn -> ('var2, 'mtype2) ptrn,
-       visit_PnAlias : 'this -> 'env ctx -> ename binder * ('var, 'mtype) ptrn * region outer -> ('var2, 'mtype2) ptrn,
-       visit_PnConstr : 'this -> 'env ctx -> ('var * bool) outer * iname binder list * ('var, 'mtype) ptrn option * region outer -> ('var2, 'mtype2) ptrn,
-       visit_PnAnno : 'this -> 'env ctx -> ('var, 'mtype) ptrn * 'mtype outer -> ('var2, 'mtype2) ptrn,
-       (* visit_PnUnOp : 'this -> 'env ctx -> ptrn_un_op outer * ('var, 'mtype) ptrn -> ('var2, 'mtype2) ptrn, *)
-       visit_PnUnpackI : 'this -> 'env ctx -> iname binder * ('var, 'mtype) ptrn -> ('var2, 'mtype2) ptrn,
-       visit_PnInj : 'this -> 'env ctx -> bool outer * ('var, 'mtype) ptrn -> ('var2, 'mtype2) ptrn,
-       visit_PnUnfold : 'this -> 'env ctx -> ('var, 'mtype) ptrn -> ('var2, 'mtype2) ptrn,
-       visit_var : 'this -> 'env -> 'var -> 'var2,
+       visit_ptrn : 'this -> 'env ctx -> ('expr, 'mtype) ptrn -> ('expr2, 'mtype2) ptrn,
+       visit_PnVar : 'this -> 'env ctx -> ename binder -> ('expr2, 'mtype2) ptrn,
+       visit_PnTT : 'this -> 'env ctx -> region outer -> ('expr2, 'mtype2) ptrn,
+       visit_PnPair : 'this -> 'env ctx -> ('expr, 'mtype) ptrn * ('expr, 'mtype) ptrn -> ('expr2, 'mtype2) ptrn,
+       visit_PnAlias : 'this -> 'env ctx -> ename binder * ('expr, 'mtype) ptrn * region outer -> ('expr2, 'mtype2) ptrn,
+       visit_PnConstr : 'this -> 'env ctx -> inj outer * iname binder list * ('expr, 'mtype) ptrn * region outer -> ('expr2, 'mtype2) ptrn,
+       visit_PnAnno : 'this -> 'env ctx -> ('expr, 'mtype) ptrn * 'mtype outer -> ('expr2, 'mtype2) ptrn,
+       (* visit_PnUnOp : 'this -> 'env ctx -> ptrn_un_op outer * ('expr, 'mtype) ptrn -> ('expr2, 'mtype2) ptrn, *)
+       visit_PnUnpackI : 'this -> 'env ctx -> iname binder * ('expr, 'mtype) ptrn -> ('expr2, 'mtype2) ptrn,
+       visit_PnInj : 'this -> 'env ctx -> inj outer * ('expr, 'mtype) ptrn -> ('expr2, 'mtype2) ptrn,
+       visit_PnExpr : 'this -> 'env ctx -> 'expr inner -> ('expr2, 'mtype2) ptrn,
+       visit_PnUnfold : 'this -> 'env ctx -> ('expr, 'mtype) ptrn -> ('expr2, 'mtype2) ptrn,
+       visit_expr : 'this -> 'env -> 'expr -> 'expr2,
        visit_mtype : 'this -> 'env -> 'mtype -> 'mtype2,
        visit_region : 'this -> 'env -> region -> region,
-       visit_bool : 'this -> 'env -> bool -> bool,
+       visit_inj : 'this -> 'env -> inj -> inj,
        visit_ibinder : 'this -> 'env ctx -> iname binder -> iname binder,
        visit_ebinder : 'this -> 'env ctx -> ename binder -> ename binder,
        extend_i : 'this -> 'env -> iname -> 'env,
        extend_e : 'this -> 'env -> ename -> 'env
      }
        
-type ('this, 'env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor_interface =
-     ('this, 'env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor_vtable
+type ('this, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_interface =
+     ('this, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_vtable
                                        
-fun override_visit_PnAnno (record : ('this, 'env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor_vtable) new : ('this, 'env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor_vtable =
+fun override_visit_PnAnno (record : ('this, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_vtable) new : ('this, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_vtable =
   {
     visit_ptrn = #visit_ptrn record,
     visit_PnVar = #visit_PnVar record,
@@ -82,10 +87,34 @@ fun override_visit_PnAnno (record : ('this, 'env, 'var, 'mtype, 'var2, 'mtype2) 
     visit_PnInj = #visit_PnInj record,
     visit_PnUnfold = #visit_PnUnfold record,
     visit_PnUnpackI = #visit_PnUnpackI record,
-    visit_var = #visit_var record,
+    visit_PnExpr = #visit_PnExpr record,
+    visit_expr = #visit_expr record,
     visit_mtype = #visit_mtype record,
     visit_region = #visit_region record,
-    visit_bool = #visit_bool record,
+    visit_inj = #visit_inj record,
+    visit_ibinder = #visit_ibinder record,
+    visit_ebinder = #visit_ebinder record,
+    extend_i = #extend_i record,
+    extend_e = #extend_e record
+  }
+
+fun override_visit_PnConstr (record : ('this, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_vtable) new : ('this, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_vtable =
+  {
+    visit_ptrn = #visit_ptrn record,
+    visit_PnVar = #visit_PnVar record,
+    visit_PnTT = #visit_PnTT record,
+    visit_PnPair = #visit_PnPair record,
+    visit_PnAlias = #visit_PnAlias record,
+    visit_PnConstr = new,
+    visit_PnAnno = #visit_PnAnno record,
+    visit_PnInj = #visit_PnInj record,
+    visit_PnUnfold = #visit_PnUnfold record,
+    visit_PnUnpackI = #visit_PnUnpackI record,
+    visit_PnExpr = #visit_PnExpr record,
+    visit_expr = #visit_expr record,
+    visit_mtype = #visit_mtype record,
+    visit_region = #visit_region record,
+    visit_inj = #visit_inj record,
     visit_ibinder = #visit_ibinder record,
     visit_ebinder = #visit_ebinder record,
     extend_i = #extend_i record,
@@ -97,12 +126,12 @@ fun override_visit_PnAnno (record : ('this, 'env, 'var, 'mtype, 'var2, 'mtype2) 
 open VisitorUtil
        
 fun default_ptrn_visitor_vtable
-      (cast : 'this -> ('this, 'env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor_interface)
+      (cast : 'this -> ('this, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_interface)
       extend_i
       extend_e
-      visit_var
+      visit_expr
       visit_mtype
-    : ('this, 'env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor_vtable =
+    : ('this, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_vtable =
   let
     fun visit_ptrn this env data =
       let
@@ -119,6 +148,7 @@ fun default_ptrn_visitor_vtable
           | PnUnpackI data => #visit_PnUnpackI vtable this env data
           | PnInj data => #visit_PnInj vtable this env data
           | PnUnfold data => #visit_PnUnfold vtable this env data
+          | PnExpr data => #visit_PnExpr vtable this env data
       end
     fun visit_PnVar this env data =
       let
@@ -164,9 +194,9 @@ fun default_ptrn_visitor_vtable
       let
         val vtable = cast this
         val (x, inames, p, r) = data
-        val x = visit_outer (visit_pair (#visit_var vtable this) (#visit_bool vtable this)) env x
+        val x = visit_outer (#visit_inj vtable this) env x
         val inames = map (#visit_ibinder vtable this env) inames
-        val p = Option.map (#visit_ptrn vtable this env) p
+        val p = #visit_ptrn vtable this env p
         val r = visit_outer (#visit_region vtable this) env r
       in
         PnConstr (x, inames, p, r)
@@ -193,7 +223,7 @@ fun default_ptrn_visitor_vtable
       let
         val vtable = cast this
         val (inj, p) = data
-        val inj = visit_outer (#visit_bool vtable this) env inj
+        val inj = visit_outer (#visit_inj vtable this) env inj
         val p = #visit_ptrn vtable this env p
       in
         PnInj (inj, p)
@@ -204,6 +234,13 @@ fun default_ptrn_visitor_vtable
         val data = #visit_ptrn vtable this env data
       in
         PnUnfold data
+      end
+    fun visit_PnExpr this env data =
+      let
+        val vtable = cast this
+        val data = visit_inner (#visit_expr vtable this) env data
+      in
+        PnExpr data
       end
     fun default_visit_binder extend this = visit_binder (extend this)
   in
@@ -218,10 +255,11 @@ fun default_ptrn_visitor_vtable
       visit_PnInj = visit_PnInj,
       visit_PnUnfold = visit_PnUnfold,
       visit_PnUnpackI = visit_PnUnpackI,
-      visit_var = visit_var,
+      visit_PnExpr = visit_PnExpr,
+      visit_expr = visit_expr,
       visit_mtype = visit_mtype,
       visit_region = visit_noop,
-      visit_bool = visit_noop,
+      visit_inj = visit_noop,
       visit_ibinder = default_visit_binder extend_i,
       visit_ebinder = default_visit_binder extend_e,
       extend_i = extend_i,
@@ -229,11 +267,11 @@ fun default_ptrn_visitor_vtable
     }
   end
 
-datatype ('env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor =
-         TyVisitor of (('env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor, 'env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor_interface
+datatype ('env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor =
+         TyVisitor of (('env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_interface
 
-fun ptrn_visitor_impls_interface (this : ('env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor) :
-    (('env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor, 'env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor_interface =
+fun ptrn_visitor_impls_interface (this : ('env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor) :
+    (('env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_interface =
   let
     val TyVisitor vtable = this
   in
@@ -249,34 +287,33 @@ fun new_ptrn_visitor vtable params =
     
 (***************** the "shift_i_t" visitor  **********************)    
     
-fun shift_i_ptrn_visitor_vtable cast (shift_mt, n) : ('this, int, 'var, 'mtype, 'var, 'mtype2) ptrn_visitor_vtable =
+fun shift_i_ptrn_visitor_vtable cast (shift_e, shift_mt, n) : ('this, int, 'expr, 'mtype, 'expr, 'mtype2) ptrn_visitor_vtable =
   let
     fun extend_i this env _ = env + 1
     val extend_e = extend_noop
-    val visit_var = visit_noop
     fun do_shift shift this env b = shift env n b
   in
     default_ptrn_visitor_vtable
       cast
       extend_i
       extend_e
-      visit_var
+      (do_shift shift_e)
       (do_shift shift_mt)
   end
 
-val new_shift_i_ptrn_visitor = new_ptrn_visitor shift_i_ptrn_visitor_vtable
+fun new_shift_i_ptrn_visitor params = new_ptrn_visitor shift_i_ptrn_visitor_vtable params
     
-fun shift_i_pn shift_mt x n b =
+fun shift_i_pn shift_e shift_mt x n b =
   let
-    val visitor as (TyVisitor vtable) = new_shift_i_ptrn_visitor (shift_mt, n)
+    val visitor as (TyVisitor vtable) = new_shift_i_ptrn_visitor (shift_e, shift_mt, n)
   in
-    #visit_ptrn vtable visitor x b
+    #visit_ptrn vtable visitor (env2ctx x) b
   end
     
 (***************** the "remove_anno" visitor  **********************)    
     
 fun remove_anno_ptrn_visitor_vtable cast ()
-    : ('this, 'env, 'var, 'mtype, 'var, 'mtype2) ptrn_visitor_vtable =
+    : ('this, 'env, 'expr, 'mtype, 'expr, 'mtype2) ptrn_visitor_vtable =
   let
     fun visit_PnAnno this env data = 
       let
@@ -308,27 +345,24 @@ fun remove_anno p =
   end
     
 (***************** the "remove_constr" visitor  **********************)    
-    
-fun remove_constr_ptrn_visitor_vtable cast ()
-    : ('this, 'env, 'var, 'mtype, 'var, 'mtype2) ptrn_visitor_vtable =
+
+fun shift_imposs msg _ _ _ = raise Impossible msg
+
+fun PnUnpackIMany (names, p) = foldr PnUnpackI p names
+                                    
+fun remove_constr_ptrn_visitor_vtable cast shift_i_e
+    : ('this, 'env, 'expr, 'mtype, 'expr, 'mtype2) ptrn_visitor_vtable =
   let
     fun visit_PnConstr this env data =
       let
         val vtable = cast this
         val (x, inames, p, r) = data
-        val () = env
-        val x = visit_outer (visit_pair (#visit_var vtable this) (#visit_bool vtable this)) env x
-        val inames = map (#visit_ibinder vtable this env) inames
-        val p = Option.map (#visit_ptrn vtable this env) p
-        val r = visit_outer (#visit_region vtable this) env r
-      in
-        PnConstr (x, inames, p, r)
-      end
-    fun visit_PnAnno this env data = 
-      let
-        val vtable = cast this
-        val (p, t) = data
+        val p = shift_i_pn shift_i_e (shift_imposs "remove_constr/shift_i_mt()") 0 1 p
         val p = #visit_ptrn vtable this env p
+        val p = PnUnpackI (IName "__datatype_constraint", p)
+        val p = PnUnpackIMany (inames, p)
+        val p = PnUnfold p
+        val p = PnInj (x, p)
       in
         p
       end
@@ -337,62 +371,71 @@ fun remove_constr_ptrn_visitor_vtable cast ()
           cast
           extend_noop
           extend_noop
-          (visit_imposs "remove_constr_ptrn_visitor_vtable/visit_var()")
+          visit_noop
           (visit_imposs "remove_constr_ptrn_visitor_vtable/visit_mtype()")
-    val vtable = override_visit_PnAnno vtable visit_PnAnno
+    val vtable = override_visit_PnConstr vtable visit_PnConstr
   in
     vtable
   end
 
 fun new_remove_constr_ptrn_visitor params = new_ptrn_visitor remove_constr_ptrn_visitor_vtable params
     
-fun remove_constr p =
+fun remove_constr shift_i_e p =
   let
-    val visitor as (TyVisitor vtable) = new_remove_constr_ptrn_visitor ()
+    val visitor as (TyVisitor vtable) = new_remove_constr_ptrn_visitor shift_i_e
   in
     #visit_ptrn vtable visitor (env2ctx ()) p
   end
 
-fun remove_deep matchees_and_ts patterns_and_expr_list =
-  case matchees_and_ts of
-      [] =>
-      (case patterns_and_expr_list of
-           [([], e)] => e
-         | _ => raise Impossible ""
-      )
-    | (matchee, t) :: matchees_and_ts =>
-      let
-        val patterns_and_expr_list = remove_alias matchee patterns_and_expr_list
-        val (pns, patterns_and_expr_list) = get_first_column patterns_and_expr_list
-      in
-        if all_wildcard pns then
-          remove_deep matchees_and_ts patterns_and_expr_list
-        else
-          case t of
-              TProd (t1, t2) =>
-              let
-                val (pns1, pns2) = split_pair pns
-                val _ = do_some_shifts
-              in
-                EMatchPair (matchee, remove_deep ((Var 1, t1) :: (Var 0, t2) :: matchees_and_ts) (pns1 :: pns2 :: patterns_and_expr_list))
-              end
-            | TSumMany ts => 
-              let
-                val pn_groups = group_inj (length ts) $ zip (pns, patterns_and_expr_list)
-                val _ = do_some_shifts
-                val cases = map (fn (t, pael) => remove_deep ((Var 0, t) :: matchees_and_ts) pael) $ zip (ts, pn_groups)                   
-              in
-                EMatchSum (matchee, cases)
-              end
-      end
+(***************** the "remove_deep" visitor  **********************)    
+    
+(* fun remove_deep matchees patterns_and_expr_list = *)
+(*   case matchees of *)
+(*       [] => *)
+(*       (case patterns_and_expr_list of *)
+(*            [([], e)] => e *)
+(*          | _ => raise Impossible "" *)
+(*       ) *)
+(*     | matchee :: matchees => *)
+(*       let *)
+(*         val patterns_and_expr_list = remove_alias matchee patterns_and_expr_list *)
+(*         val (pns, patterns_and_expr_list) = get_first_column patterns_and_expr_list *)
+(*       in *)
+(*         case all_wildcard pns of *)
+(*             NONE => remove_deep matchees patterns_and_expr_list *)
+(*           | SOME shape => *)
+(*             (case shape of *)
+(*               ShPair => *)
+(*               let *)
+(*                 val (pns1, pns2) = split_pair pns *)
+(*                 val _ = do_some_shifts *)
+(*               in *)
+(*                 EMatchPair (matchee, remove_deep (Var 1 :: Var 0 :: matchees) (pns1 :: pns2 :: patterns_and_expr_list)) *)
+(*               end *)
+(*             | ShInj n =>  *)
+(*               let *)
+(*                 val pn_groups = group_inj n $ zip (pns, patterns_and_expr_list) *)
+(*                 val _ = do_some_shifts *)
+(*                 val cases = map (fn pael => remove_deep (Var 0 :: matchees) pael) $ pn_groups *)
+(*               in *)
+(*                 EMatchSum (matchee, cases) *)
+(*               end *)
+(*       end *)
         
 end
 
 structure PatternVisitorFnUnitTest = struct
-type iname = string
-type ename = string
+open Util
+open MicroTiML
+open Expr
+open Subst
+(* type iname = string *)
+(* type ename = string *)
+val IName = fn s => IName (s, dummy)
+                          
 structure Visitor = PatternVisitorFn (type iname = iname
                                       type ename = ename
+                                      val IName = IName
                                      )
 open Visitor
 
@@ -400,8 +443,12 @@ fun test () =
   let
     val p = PnAnno (PnPair (PnAnno (PnTT dummy, ()), PnAnno (PnTT dummy, ())), ())
     val p1 = remove_anno p
+    fun EVar n = Var ((NONE, (n, dummy)), false)
+    fun IVar n = VarI (NONE, (n, dummy))
+    val p2 = PnConstr ((5,1), [IName "a", IName "b"], PnPair (PnTT dummy, (* PnExpr (AppI (EVar 0, IVar 2)) *)PnTT dummy), dummy)
+    val p3 = remove_constr (* shiftx_i_e *)return3 p2
   in
-    (p, p1)
+    (p, p1, p3)
   end
     
 end

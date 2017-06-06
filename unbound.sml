@@ -61,3 +61,15 @@ type ('anno, 't) ibind_anno = (iname, 'anno, 't) Binders.bind_anno
 type ('anno, 't) tbind_anno = (tname, 'anno, 't) Binders.bind_anno
 type ('anno, 't) ebind_anno = (ename, 'anno, 't) Binders.bind_anno
 end
+
+functor NamespacesFn (type name) = struct
+datatype idx_namespace = IdxNS
+datatype type_namespace = TypeNS
+datatype expr_namespace = ExprNS
+type iname = idx_namespace * name
+type tname = type_namespace * name
+type ename = expr_namespace * name
+fun IName name = (IdxNS, name)
+fun TName name = (TypeNS, name)
+fun EName name = (ExprNS, name)
+end
