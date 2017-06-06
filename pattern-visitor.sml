@@ -307,7 +307,7 @@ fun shift_i_pn shift_e shift_mt x n b =
   let
     val visitor as (TyVisitor vtable) = new_shift_i_ptrn_visitor (shift_e, shift_mt, n)
   in
-    #visit_ptrn vtable visitor (env2ctx x) b
+    visit_abs (#visit_ptrn vtable visitor) x b
   end
     
 (***************** the "remove_anno" visitor  **********************)    
@@ -341,7 +341,7 @@ fun remove_anno p =
   let
     val visitor as (TyVisitor vtable) = new_remove_anno_ptrn_visitor ()
   in
-    #visit_ptrn vtable visitor (env2ctx ()) p
+    visit_abs (#visit_ptrn vtable visitor) () p
   end
     
 (***************** the "remove_constr" visitor  **********************)    
@@ -384,7 +384,7 @@ fun remove_constr shift_i_e p =
   let
     val visitor as (TyVisitor vtable) = new_remove_constr_ptrn_visitor shift_i_e
   in
-    #visit_ptrn vtable visitor (env2ctx ()) p
+    visit_abs (#visit_ptrn vtable visitor) () p
   end
 
 (***************** the "remove_deep" visitor  **********************)    
@@ -458,8 +458,10 @@ fun test () =
     val p1 = remove_anno p
     val p2 = PnConstr ((5,1), [IName "a", IName "b"], PnPair (PnTT dummy, PnExpr (EAppI (EVar 0, IVar 2))), dummy)
     val p3 = remove_constr shift_i_e p2
+    val p4 = PnPair (PnConstr ((5,1), [IName "a", IName "b"], PnTT dummy, dummy), PnExpr (EAppI (EVar 0, IVar 2)))
+    val p5 = remove_constr shift_i_e p4
   in
-    (p, p1, p3)
+    (p, p1, p3, p5)
   end
     
 end
