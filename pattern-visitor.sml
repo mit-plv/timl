@@ -491,38 +491,40 @@ fun remove_constr shift_i_e p = fst $ remove_constr_k shift_i_e (p, PnTT dummy)
     
 (***************** the "remove_deep" visitor  **********************)    
     
-(* fun remove_deep matchees patterns_and_expr_list = *)
-(*   case matchees of *)
-(*       [] => *)
-(*       (case patterns_and_expr_list of *)
-(*            [([], e)] => e *)
-(*          | _ => raise Impossible "remove_deep()" *)
-(*       ) *)
-(*     | matchee :: matchees => *)
-(*       let *)
-(*         val patterns_and_expr_list = remove_alias matchee patterns_and_expr_list *)
-(*         val (pns, patterns_and_expr_list) = get_first_column patterns_and_expr_list *)
-(*       in *)
-(*         case all_wildcard pns of *)
-(*             NONE => remove_deep matchees patterns_and_expr_list *)
-(*           | SOME shape => *)
-(*             (case shape of *)
-(*               ShPair => *)
-(*               let *)
-(*                 val (pns1, pns2) = split_pair pns *)
-(*                 val _ = do_some_shifts *)
-(*               in *)
-(*                 EMatchPair (matchee, remove_deep (Var 1 :: Var 0 :: matchees) (pns1 :: pns2 :: patterns_and_expr_list)) *)
-(*               end *)
-(*             | ShInj n => *)
-(*               let *)
-(*                 val pn_groups = group_inj n $ zip (pns, patterns_and_expr_list) *)
-(*                 val _ = do_some_shifts *)
-(*                 val cases = map (fn pael => remove_deep (Var 0 :: matchees) pael) $ pn_groups *)
-(*               in *)
-(*                 EMatchSum (matchee, cases) *)
-(*               end *)
-(*       end *)
+fun remove_deep matchees pks =
+  case matchees of
+      [] =>
+      (case pks of
+           [([], e)] => e
+         | _ => raise Impossible "remove_deep()"
+      )
+    | matchee :: matchees =>
+      let
+        val pks = remove_top_aliases matchee pks
+      in
+        case all_wildcard $ get_first_column pks of
+            NONE => remove_deep matchees pks
+          | SOME shape =>
+            (case shape of
+              ShPair =>
+              let
+                val matchees = map (shift_e_e 0 2) matchees
+                val pks = map (shift_e_pael 0 2) pks
+                val (pns, pks) = split_first_column pks
+                val (pns1, pns2) = split_pair pns
+              in
+                EMatchPair (matchee, remove_deep (Var 1 :: Var 0 :: matchees) (add_column pns1 $ add_column pns2 pks))
+              end
+            | ShInj n =>
+              let
+                val matchees = map (shift_e_e 0 1) matchees
+                val pks = map (shift_e_pael 0 1) pks
+                val pn_groups = group_inj n pks
+                val cases = map (fn pael => remove_deep (Var 0 :: matchees) pael) $ pn_groups
+              in
+                EMatchSum (matchee, cases)
+              end
+      end
         
 end
 
