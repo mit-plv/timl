@@ -75,6 +75,29 @@ type ('this, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_vtable =
 type ('this, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_interface =
      ('this, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_vtable
                                        
+fun override_visit_PnPair (record : ('this, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_vtable) new : ('this, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_vtable =
+  {
+    visit_ptrn = #visit_ptrn record,
+    visit_PnVar = #visit_PnVar record,
+    visit_PnTT = #visit_PnTT record,
+    visit_PnAnno = #visit_PnAnno record,
+    visit_PnAlias = #visit_PnAlias record,
+    visit_PnPair = new,
+    visit_PnConstr = #visit_PnConstr record,
+    visit_PnInj = #visit_PnInj record,
+    visit_PnUnfold = #visit_PnUnfold record,
+    visit_PnUnpackI = #visit_PnUnpackI record,
+    visit_PnExpr = #visit_PnExpr record,
+    visit_expr = #visit_expr record,
+    visit_mtype = #visit_mtype record,
+    visit_region = #visit_region record,
+    visit_inj = #visit_inj record,
+    visit_ibinder = #visit_ibinder record,
+    visit_ebinder = #visit_ebinder record,
+    extend_i = #extend_i record,
+    extend_e = #extend_e record
+  }
+
 fun override_visit_PnAnno (record : ('this, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_vtable) new : ('this, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_vtable =
   {
     visit_ptrn = #visit_ptrn record,
@@ -346,18 +369,22 @@ fun remove_anno p =
     
 (***************** the "remove_constr" visitor  **********************)    
 
+fun unop_ref f r = r := f (!r)
+                             
 fun shift_imposs msg _ _ _ = raise Impossible msg
 
 fun PnUnpackIMany (names, p) = foldr PnUnpackI p names
                                     
 fun remove_constr_ptrn_visitor_vtable cast shift_i_e
-    : ('this, 'env, 'expr, 'mtype, 'expr, 'mtype2) ptrn_visitor_vtable =
+    : ('this, ('expr, 'mtype) ptrn ref, 'expr, 'mtype, 'expr, 'mtype2) ptrn_visitor_vtable =
   let
+    fun shift_i p = shift_i_pn shift_i_e (shift_imposs "remove_constr/shift_i_mt()") 0 1 p
     fun visit_PnConstr this env data =
       let
         val vtable = cast this
         val (x, inames, p, r) = data
-        val p = shift_i_pn shift_i_e (shift_imposs "remove_constr/shift_i_mt()") 0 1 p
+        val p = shift_i p
+        val () = unop_ref shift_i $ #outer env
         val p = #visit_ptrn vtable this env p
         val p = PnUnpackI (IName "__datatype_constraint", p)
         val p = PnUnpackIMany (inames, p)
@@ -365,6 +392,21 @@ fun remove_constr_ptrn_visitor_vtable cast shift_i_e
         val p = PnInj (x, p)
       in
         p
+      end
+    fun visit_PnPair this env data = 
+      let
+        val vtable = cast this
+        val (p1, p2) = data
+        val pk = !(#outer env)
+        val () = #outer env := PnPair (p2, pk)
+        val p1 = #visit_ptrn vtable this env p1
+        val (p2, pk) = case !(#outer env) of
+                           PnPair a => a
+                         | _ => raise Impossible "remove_constr/visit_PnPair()"
+        val () = #outer env := pk
+        val p2 = #visit_ptrn vtable this env p2
+      in
+        PnPair (p1, p2)
       end
     val vtable =
         default_ptrn_visitor_vtable
@@ -374,19 +416,26 @@ fun remove_constr_ptrn_visitor_vtable cast shift_i_e
           visit_noop
           (visit_imposs "remove_constr_ptrn_visitor_vtable/visit_mtype()")
     val vtable = override_visit_PnConstr vtable visit_PnConstr
+    val vtable = override_visit_PnPair vtable visit_PnPair
   in
     vtable
   end
 
 fun new_remove_constr_ptrn_visitor params = new_ptrn_visitor remove_constr_ptrn_visitor_vtable params
-    
-fun remove_constr shift_i_e p =
+
+(* with the 'continuation pattern' *)                                                             
+fun remove_constr_k shift_i_e (p, pk) =
   let
     val visitor as (TyVisitor vtable) = new_remove_constr_ptrn_visitor shift_i_e
+    val env = ref pk
+    val p = visit_abs (#visit_ptrn vtable visitor) env p
+    val pk = !env
   in
-    visit_abs (#visit_ptrn vtable visitor) () p
+    (p, pk)
   end
 
+fun remove_constr shift_i_e p = fst $ remove_constr_k shift_i_e (p, PnTT dummy) 
+    
 (***************** the "remove_deep" visitor  **********************)    
     
 (* fun remove_deep matchees patterns_and_expr_list = *)
