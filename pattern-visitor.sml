@@ -491,40 +491,129 @@ fun remove_constr shift_i_e p = fst $ remove_constr_k shift_i_e (p, PnTT dummy)
     
 (***************** the "remove_deep" visitor  **********************)    
     
-fun remove_deep matchees pks =
-  case matchees of
-      [] =>
-      (case pks of
-           [([], e)] => e
-         | _ => raise Impossible "remove_deep()"
-      )
-    | matchee :: matchees =>
+fun remove_deep fresh_name matchees pks =
+  let
+    val remove_deep = remove_deep fresh_name
+    fun remove_top_aliases e p =
+      case p of
+          PnPair (p, pk) =>
+          (case p of
+               PnAlias (_, p) => remove_top_aliases e $ subst0_e_pn e (PnPair (p, pk))
+             | _ => p
+          )
+        | _ => p
+    fun get_pn_alias p =
+      case p of
+          PnAlias (name, _) => SOME name
+        | _ => NONE
+    val get_alias = firstSuccess get_pn_alias
+    fun get_top_alias p =
+      case p of
+          PnPair (p, _) => get_alias p
+        | _ => NONE
+    fun get_shape p =
+      case p of
+          PnWildcard => NONE
+        | PnTT _ => SOME ShTT
+        | PnPair _ => SOME ShPair
+        | PnInj ((n, _), _) => SOME $ ShInj n
+        | PnUnfold _ => SOME ShUnfold
+        | PnUnpackI (iname, _) => SOME $ ShUnpackI iname
+    val is_all_Wildcard = firstSuccess get_shape
+    fun is_all_TT ps = app (fn p => case p of PnTT _ => () | PnWildcard => () | _ => raise Impossible "is_all_TT()") ps
+    fun is_all_Pair ps = map (fn p => case p of PnPair p => p | PnWildcard => (PnWildcard, PnWildcard) | _ => raise Impossible "is_all_Pair()") ps
+    fun is_all_Unfold ps = map (fn p => case p of PnUnfold p => p | PnWildcard => PnWildcard | _ => raise Impossible "is_all_Unfold()") ps
+    fun is_all_UnpackI ps = map (fn p => case p of PnUnpackI (_, p) => p | PnWildcard => PnWildcard | _ => raise Impossible "is_all_UnpackI()") ps
+    fun group_inj n ps =
       let
-        val pks = remove_top_aliases matchee pks
+        fun do_group (p, acc) =
+          let
+            val (p, pk) =
+                case p of
+                    PnPair data => data
+                  | _ => raise Impossible "do_group()/PnPair"
+          in
+            case p of
+                PnInj ((n', i), p) =>
+                let
+                  val () = assert (fn () => n' = n) "n' = n"
+                  val () = assert (fn () => i < n) "i < n"
+                in
+                  add_to i (PnPair (p, pk)) acc
+                end
+              | PnWildcard => map (curry Cons $ PnPair (PnWildcard, pk)) acc
+              | _ => raise Impossible "do_group()"
+          end
+        val groups = map rev $ foldl do_group (repeat n []) ps
       in
-        case all_wildcard $ get_first_column pks of
-            NONE => remove_deep matchees pks
-          | SOME shape =>
-            (case shape of
-              ShPair =>
-              let
-                val matchees = map (shift_e_e 0 2) matchees
-                val pks = map (shift_e_pael 0 2) pks
-                val (pns, pks) = split_first_column pks
-                val (pns1, pns2) = split_pair pns
-              in
-                EMatchPair (matchee, remove_deep (Var 1 :: Var 0 :: matchees) (add_column pns1 $ add_column pns2 pks))
-              end
-            | ShInj n =>
-              let
-                val matchees = map (shift_e_e 0 1) matchees
-                val pks = map (shift_e_pael 0 1) pks
-                val pn_groups = group_inj n pks
-                val cases = map (fn pael => remove_deep (Var 0 :: matchees) pael) $ pn_groups
-              in
-                EMatchSum (matchee, cases)
-              end
+        groups
       end
+  in
+    case matchees of
+        [] =>
+        (case pks of
+             [PnExpr e] => e
+           | _ => raise Impossible "remove_deep()"
+        )
+      | matchee :: matchees =>
+        let
+          val pks = remove_top_aliases matchee pks
+          val (pns, pks') = split_first_column pks
+        in
+          case is_all_Wildcard pns of
+              NONE => remove_deep matchees pks'
+            | SOME shape =>
+              case shape of
+                  ShTT =>
+                  let
+                    val () = is_all_TT pns
+                  in
+                    remove_deep matchees pks'
+                  end
+                | ShPair =>
+                  let
+                    val matchees = map (shift_e_e 0 2) matchees
+                    val pks = map (shift_e_pn 0 2) pks
+                    val (pns, pks) = split_first_column pks
+                    val (pns1, pns2) = is_all_Pair pns
+                    val ename1 = lazy_default fresh_name $ get_alias pns1
+                    val ename2 = lazy_default fresh_name $ get_alias pns2
+                  in
+                    EMatchPair (matchee, (ename1, (ename2, remove_deep (Var 1 :: Var 0 :: matchees) (add_column pns1 $ add_column pns2 pks))))
+                  end
+                | ShInj n =>
+                  let
+                    val matchees = map (shift_e_e 0 1) matchees
+                    val pks = map (shift_e_pn 0 1) pks
+                    val pn_groups = group_inj n pks
+                    val cases = map (remove_deep (Var 0 :: matchees)) $ pn_groups
+                    val enames = map (lazy_default fresh_name o get_top_alias) pn_groups
+                  in
+                    EMatchSum (matchee, zip (enames, cases))
+                  end
+                | ShUnfold =>
+                  let
+                    val matchees = map (shift_e_e 0 1) matchees
+                    val pks = map (shift_e_pn 0 1) pks
+                    val (pns, pks) = split_first_column pks
+                    val pns = is_all_Unfold pns
+                    val ename = lazy_default fresh_name $ get_alias pns
+                  in
+                    EMatchUnfold (matchee, (ename, remove_deep (Var 0 :: matchees) (add_column pns pks)))
+                  end
+                | ShUnpackI iname =>
+                  let
+                    val matchees = map (shift_e_e 0 1) matchees
+                    val matchees = map (shift_i_e 0 1) matchees
+                    val pks = map (shift_e_pn 0 1) pks
+                    val (pns, pks) = split_first_column pks
+                    val pns = is_all_UnpackI pns
+                    val ename = lazy_default fresh_name $ get_alias pns
+                  in
+                    EMatchUnPackI (matchee, (iname, (ename, remove_deep (Var 0 :: matchees) (add_column pns pks))))
+                  end
+        end
+  end
         
 end
 
