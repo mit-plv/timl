@@ -511,6 +511,12 @@ fun remove_deep fresh_name matchees pks =
       case p of
           PnPair (p, _) => get_alias p
         | _ => NONE
+    datatype shape =
+             ShTT
+             | ShPair
+             | ShUnfold
+             | ShInj of int
+             | ShUnpackI of iname
     fun get_shape p =
       case p of
           PnWildcard => NONE
@@ -548,6 +554,8 @@ fun remove_deep fresh_name matchees pks =
       in
         groups
       end
+    fun split_first_column ps = map (fn p => case p of PnPair p => p | _ => raise Impossible "split_first_column()") ps
+    fun add_column ps pks = map PnPair $ zip (ps, pks)
   in
     case matchees of
         [] =>
@@ -579,14 +587,14 @@ fun remove_deep fresh_name matchees pks =
                     val ename1 = lazy_default fresh_name $ get_alias pns1
                     val ename2 = lazy_default fresh_name $ get_alias pns2
                   in
-                    EMatchPair (matchee, (ename1, (ename2, remove_deep (Var 1 :: Var 0 :: matchees) (add_column pns1 $ add_column pns2 pks))))
+                    EMatchPair (matchee, (ename1, (ename2, remove_deep (EVar 1 :: EVar 0 :: matchees) (add_column pns1 $ add_column pns2 pks))))
                   end
                 | ShInj n =>
                   let
                     val matchees = map (shift_e_e 0 1) matchees
                     val pks = map (shift_e_pn 0 1) pks
                     val pn_groups = group_inj n pks
-                    val cases = map (remove_deep (Var 0 :: matchees)) $ pn_groups
+                    val cases = map (remove_deep (EVar 0 :: matchees)) $ pn_groups
                     val enames = map (lazy_default fresh_name o get_top_alias) pn_groups
                   in
                     EMatchSum (matchee, zip (enames, cases))
@@ -599,7 +607,7 @@ fun remove_deep fresh_name matchees pks =
                     val pns = is_all_Unfold pns
                     val ename = lazy_default fresh_name $ get_alias pns
                   in
-                    EMatchUnfold (matchee, (ename, remove_deep (Var 0 :: matchees) (add_column pns pks)))
+                    EMatchUnfold (matchee, (ename, remove_deep (EVar 0 :: matchees) (add_column pns pks)))
                   end
                 | ShUnpackI iname =>
                   let
@@ -610,7 +618,7 @@ fun remove_deep fresh_name matchees pks =
                     val pns = is_all_UnpackI pns
                     val ename = lazy_default fresh_name $ get_alias pns
                   in
-                    EMatchUnPackI (matchee, (iname, (ename, remove_deep (Var 0 :: matchees) (add_column pns pks))))
+                    EMatchUnPackI (matchee, (iname, (ename, remove_deep (EVar 0 :: matchees) (add_column pns pks))))
                   end
         end
   end
