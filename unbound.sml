@@ -2,6 +2,8 @@
 
 structure Unbound = struct
 
+open VisitorUtil
+       
 type 'p abs = 'p
 type 'name binder = 'name
 type 't outer = 't
@@ -14,9 +16,6 @@ type ('name, 't) bind_simp = ('name binder, 't) bind
 type ('name, 'anno, 't) bind_anno = ('name binder * 'anno outer, 't) bind
 
 type 'env ctx = {outer : 'env, current : 'env ref}
-
-fun visit_pair visit_fst visit_snd env (a, b) =
-  (visit_fst env a, visit_snd env b)
 
 local    
   fun env2ctx env = {outer = env, current = ref env}
@@ -35,11 +34,11 @@ fun visit_binder extend (ctx : 'env ctx) x1 =
 fun visit_outer visit_'t (ctx : 'env ctx) t1 = visit_'t (#outer ctx) t1
 fun visit_rebind visit_'p (ctx : 'env ctx) p1 = visit_'p {outer = !(#current ctx), current = #current ctx} p1
     
-fun visit_inner visit_'t = visit_rebind (visit_outer visit_'t)
-fun visit_bind visit_'p visit_'t = visit_abs (visit_pair visit_'p (visit_inner visit_'t))
+fun visit_inner x = (visit_rebind o visit_outer) x
+fun visit_bind visit_'p = visit_abs o visit_pair visit_'p o visit_inner
                                              
-fun visit_bind_simp extend visit_'t = visit_bind (visit_binder extend) visit_'t
-fun visit_bind_anno extend visit_'anno visit_'t = visit_bind (visit_pair (visit_binder extend) (visit_outer visit_'anno)) visit_'t
+fun visit_bind_simp extend = visit_bind (visit_binder extend)
+fun visit_bind_anno extend visit_'anno = visit_bind (visit_pair (visit_binder extend) (visit_outer visit_'anno))
 
 end
 
@@ -75,3 +74,11 @@ fun IName name = (IdxNS, name)
 fun TName name = (TypeNS, name)
 fun EName name = (ExprNS, name)
 end
+
+structure Namespaces = NamespacesFn (type name = string * Region.region)
+structure Binders = BinderUtilFn (structure Binders = Unbound
+                                  type iname = Namespaces.iname
+                                  type tname = Namespaces.tname
+                                  type ename = Namespaces.ename
+                                 )
+                                     

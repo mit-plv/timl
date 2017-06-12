@@ -3,23 +3,18 @@
 (*   val visit_bind_anno : ('env -> 'anno -> 'anno2) -> ('env -> 't -> 't2) -> ('env -> 'name -> 'env) -> 'env -> ('name, 'anno, 't) Binders.bind_anno -> ('name, 'anno2, 't2) Binders.bind_anno         *)
 (* end *)
                              
-functor PatternVisitorFn (type iname
-                          type ename
-                          val IName : string -> iname
-                         ) = struct
+structure PatternVisitor = struct
 
-open Util
 open Operators
-open Region
-open Unbound
+open Util
        
-type tname = unit
-structure Binders = BinderUtilFn (structure Binders = Unbound
-                                  type iname = iname
-                                  type tname = tname
-                                  type ename = ename
-                                 )
+open Region
+type name = string * region
+open Namespaces
 open Binders
+open Unbound
+
+val IName = fn s => IName (s, dummy)
        
 infixr 0 $
 infix 0 !!
@@ -385,9 +380,6 @@ fun shift_e_pn shift_e x n b =
     
 (***************** the "subst_e_pn" visitor  **********************)    
 
-fun mapPair2 f1 f2 (a1, a2) (b1, b2) = (f1 (a1, b1), f2 (a2, b2))
-fun add_pair a b = mapPair2 op+ op+ a b
-                            
 fun subst_e_ptrn_visitor_vtable cast (subst_e, d, x, v) : ('this, int * int, 'expr, 'mtype, 'expr2, 'mtype) ptrn_visitor_vtable =
   let
     fun extend_i this (di, de) _ = (di + 1, de)
@@ -559,25 +551,11 @@ fun remove_constr shift_i_e p = fst $ remove_constr_k shift_i_e (p, PnTT dummy)
 (*       EVar _ => b *)
 (*     | EAppI (e, i) => EAppI (shift_i_e x n e, shiftx_i_i x n i) *)
 
-datatype ('var, 'bsort, 'idx, 'sort) expr =
-         EVar of 'var
-         | EAppI of ('var, 'bsort, 'idx, 'sort) expr * 'idx
-         | EMatchSum of ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) expr ebind list
-         | EMatchPair of ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) expr ebind ebind
-         | EMatchUnfold of ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) expr ebind
-         | EMatchUnpackI of ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) expr ebind ibind
-
-fun shift_e_e x n b = b
-fun shift_i_e x n b = b
-fun subst_e_e d x v b = b
+open MicroTiMLEx
 
 val shift_e_pn = fn a => shift_e_pn shift_e_e a
 val subst0_e_pn = fn a => subst0_e_pn subst_e_e a
 
-val Cons = op::
-
-fun update i f ls = mapi (fn (i', a) => if i' = i then f a else a) ls
-             
 fun remove_deep fresh_name matchees pks =
   let
     val remove_deep = remove_deep fresh_name
@@ -725,20 +703,12 @@ end
 
 structure PatternVisitorFnUnitTest = struct
 open Util
-(* open MicroTiML *)
-(* val IName = fn s => IName (s, dummy) *)
-type iname = string
-type ename = string
-val IName = id
-                          
-structure Visitor = PatternVisitorFn (type iname = iname
-                                      type ename = ename
-                                      val IName = IName
-                                     )
-open Visitor
+open PatternVisitor
 
 open Expr
               
+val IName = fn s => IName (s, dummy)
+       
 (* fun EVar n = Var ((NONE, (n, dummy)), false) *)
 fun IVar n = VarI (NONE, (n, dummy))
                   

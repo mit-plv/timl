@@ -2,15 +2,8 @@ structure MicroTiML = struct
 
 open Region
 type name = string * region
-structure Namespaces = NamespacesFn (type name = name)
 open Namespaces
                        
-structure Binders = BinderUtilFn (structure Binders = Unbound
-                                  type iname = iname
-                                  type tname = tname
-                                  type ename = ename
-                                 )
-                                 
 open Binders
 open Operators
 

@@ -57,9 +57,11 @@ Group is
       nouvar-expr.sml
       t-ast.sml
       micro-timl/timl-to-micro-timl.sml
+      visitor-util.sml                                 
       unbound.sml
       visitor.sml                                 
       micro-timl/micro-timl-visitor.sml
+      micro-timl/micro-timl-ex.sml
       pattern-visitor.sml
                                  
       $/basis.cm

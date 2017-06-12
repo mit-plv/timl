@@ -1,15 +1,8 @@
 (* inspired by the ICFP 2017 paper "Visitors Unchained" by FRANÇOIS POTTIER *)
 
-structure VisitorUtil = struct
-open Util
-       
-fun extend_noop this env x1 = env
-val visit_noop = return3
-fun visit_imposs msg _ _ _ = raise Impossible msg
-end
-                          
 structure Visitor = struct
 
+open VisitorUtil
 open Util
        
 infixr 0 $
@@ -51,7 +44,6 @@ fun visit_inner visit_'t = visit_rebind (visit_outer visit_'t)
 fun visit_bind visit_'p visit_'t = visit_abs (visit_pair visit_'p (visit_inner visit_'t))
 fun visit_anno_bind visit_'bn visit_'anno visit_'t = visit_bind (visit_pair (visit_binder visit_'bn) (visit_outer visit_'anno)) visit_'t
 
-open VisitorUtil
 fun extend_noop this env x1 = (env, x1)
                            
 datatype ('c, 'fn) expr =

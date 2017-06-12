@@ -24,6 +24,7 @@ fun isPrefix eq xs ys =
       ([], _) => true
     | (x :: xs, y :: ys) => eq (x, y) andalso isPrefix eq xs ys
     | _ => false
+val Cons = op::
 
 fun sprintf s ls =
     String.concat (interleave (String.fields (fn c => c = #"$") s) ls)
@@ -94,8 +95,9 @@ fun flip f a b = f b a
 fun upd4 f (a, b, c, d) = (a, b, c, f d)
 fun attach_fst a b = (a, b)
 fun attach_snd b a = (a, b)
-
 (* fun add_idx ls = ListPair.zip (range (length ls), ls) *)
+fun mapPair2 f1 f2 (a1, a2) (b1, b2) = (f1 (a1, b1), f2 (a2, b2))
+fun add_pair a b = mapPair2 op+ op+ a b
 
 fun findWithIdx f xs =
     let
@@ -150,6 +152,8 @@ fun mapWithIdx f ls = rev $ foldlWithIdx (fn (x, acc, n) => f (n, x) :: acc) [] 
 val mapi = mapWithIdx
 fun enumerate c : ('a, 'b) Enum.enum = fn f => (fn init => List.foldl f init c)
                                  
+fun update i f ls = mapi (fn (i', a) => if i' = i then f a else a) ls
+                         
 (* fun find_idx (x : string) ctx = find_by_snd_eq op= x (add_idx ctx) *)
 fun is_eq_snd (x : string) (i, y) = if y = x then SOME i else NONE
 fun find_idx x ctx = findOptionWithIdx (is_eq_snd x) ctx
