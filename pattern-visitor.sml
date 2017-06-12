@@ -25,17 +25,17 @@ type inj = int * int
 (*          PnUOInj of inj *)
 (*          | PnUOUnfold *)
              
-datatype ('expr, 'mtype) ptrn =
+datatype ('mtype, 'expr) ptrn =
          PnVar of ename binder
          | PnTT of region outer
-         | PnPair of ('expr, 'mtype) ptrn * ('expr, 'mtype) ptrn
-         | PnAlias of ename binder * ('expr, 'mtype) ptrn * region outer
-	 | PnConstr of inj outer * iname binder list * ('expr, 'mtype) ptrn * region outer
-         | PnAnno of ('expr, 'mtype) ptrn * 'mtype outer
-         (* | PnUnOp of ptrn_un_op outer * ('expr, 'mtype) ptrn *)
-         | PnInj of inj outer * ('expr, 'mtype) ptrn
-         | PnUnfold of ('expr, 'mtype) ptrn
-         | PnUnpackI of iname binder * ('expr, 'mtype) ptrn
+         | PnPair of ('mtype, 'expr) ptrn * ('mtype, 'expr) ptrn
+         | PnAlias of ename binder * ('mtype, 'expr) ptrn * region outer
+	 | PnConstr of inj outer * iname binder list * ('mtype, 'expr) ptrn * region outer
+         | PnAnno of ('mtype, 'expr) ptrn * 'mtype outer
+         (* | PnUnOp of ptrn_un_op outer * ('mtype, 'expr) ptrn *)
+         | PnInj of inj outer * ('mtype, 'expr) ptrn
+         | PnUnfold of ('mtype, 'expr) ptrn
+         | PnUnpackI of iname binder * ('mtype, 'expr) ptrn
          | PnExpr of 'expr inner
          | PnWildcard
 
@@ -44,20 +44,20 @@ datatype ('expr, 'mtype) ptrn =
 (* fun PnInr p = PnInj (false, p) *)
 (* fun PnUnfold p = PnUnOp (PnUOUnfold, p) *)
 
-type ('this, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_vtable =
+type ('this, 'env, 'mtype, 'expr, 'mtype2, 'expr2) ptrn_visitor_vtable =
      {
-       visit_ptrn : 'this -> 'env ctx -> ('expr, 'mtype) ptrn -> ('expr2, 'mtype2) ptrn,
-       visit_PnVar : 'this -> 'env ctx -> ename binder -> ('expr2, 'mtype2) ptrn,
-       visit_PnTT : 'this -> 'env ctx -> region outer -> ('expr2, 'mtype2) ptrn,
-       visit_PnPair : 'this -> 'env ctx -> ('expr, 'mtype) ptrn * ('expr, 'mtype) ptrn -> ('expr2, 'mtype2) ptrn,
-       visit_PnAlias : 'this -> 'env ctx -> ename binder * ('expr, 'mtype) ptrn * region outer -> ('expr2, 'mtype2) ptrn,
-       visit_PnConstr : 'this -> 'env ctx -> inj outer * iname binder list * ('expr, 'mtype) ptrn * region outer -> ('expr2, 'mtype2) ptrn,
-       visit_PnAnno : 'this -> 'env ctx -> ('expr, 'mtype) ptrn * 'mtype outer -> ('expr2, 'mtype2) ptrn,
-       (* visit_PnUnOp : 'this -> 'env ctx -> ptrn_un_op outer * ('expr, 'mtype) ptrn -> ('expr2, 'mtype2) ptrn, *)
-       visit_PnUnpackI : 'this -> 'env ctx -> iname binder * ('expr, 'mtype) ptrn -> ('expr2, 'mtype2) ptrn,
-       visit_PnInj : 'this -> 'env ctx -> inj outer * ('expr, 'mtype) ptrn -> ('expr2, 'mtype2) ptrn,
-       visit_PnExpr : 'this -> 'env ctx -> 'expr inner -> ('expr2, 'mtype2) ptrn,
-       visit_PnUnfold : 'this -> 'env ctx -> ('expr, 'mtype) ptrn -> ('expr2, 'mtype2) ptrn,
+       visit_ptrn : 'this -> 'env ctx -> ('mtype, 'expr) ptrn -> ('mtype2, 'expr2) ptrn,
+       visit_PnVar : 'this -> 'env ctx -> ename binder -> ('mtype2, 'expr2) ptrn,
+       visit_PnTT : 'this -> 'env ctx -> region outer -> ('mtype2, 'expr2) ptrn,
+       visit_PnPair : 'this -> 'env ctx -> ('mtype, 'expr) ptrn * ('mtype, 'expr) ptrn -> ('mtype2, 'expr2) ptrn,
+       visit_PnAlias : 'this -> 'env ctx -> ename binder * ('mtype, 'expr) ptrn * region outer -> ('mtype2, 'expr2) ptrn,
+       visit_PnConstr : 'this -> 'env ctx -> inj outer * iname binder list * ('mtype, 'expr) ptrn * region outer -> ('mtype2, 'expr2) ptrn,
+       visit_PnAnno : 'this -> 'env ctx -> ('mtype, 'expr) ptrn * 'mtype outer -> ('mtype2, 'expr2) ptrn,
+       (* visit_PnUnOp : 'this -> 'env ctx -> ptrn_un_op outer * ('mtype, 'expr) ptrn -> ('mtype2, 'expr2) ptrn, *)
+       visit_PnUnpackI : 'this -> 'env ctx -> iname binder * ('mtype, 'expr) ptrn -> ('mtype2, 'expr2) ptrn,
+       visit_PnInj : 'this -> 'env ctx -> inj outer * ('mtype, 'expr) ptrn -> ('mtype2, 'expr2) ptrn,
+       visit_PnExpr : 'this -> 'env ctx -> 'expr inner -> ('mtype2, 'expr2) ptrn,
+       visit_PnUnfold : 'this -> 'env ctx -> ('mtype, 'expr) ptrn -> ('mtype2, 'expr2) ptrn,
        visit_expr : 'this -> 'env -> 'expr -> 'expr2,
        visit_mtype : 'this -> 'env -> 'mtype -> 'mtype2,
        visit_region : 'this -> 'env -> region -> region,
@@ -68,10 +68,10 @@ type ('this, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_vtable =
        extend_e : 'this -> 'env -> ename -> 'env
      }
        
-type ('this, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_interface =
-     ('this, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_vtable
+type ('this, 'env, 'mtype, 'expr, 'mtype2, 'expr2) ptrn_visitor_interface =
+     ('this, 'env, 'mtype, 'expr, 'mtype2, 'expr2) ptrn_visitor_vtable
                                        
-fun override_visit_PnVar (record : ('this, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_vtable) new : ('this, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_vtable =
+fun override_visit_PnVar (record : ('this, 'env, 'mtype, 'expr, 'mtype2, 'expr2) ptrn_visitor_vtable) new : ('this, 'env, 'mtype, 'expr, 'mtype2, 'expr2) ptrn_visitor_vtable =
   {
     visit_ptrn = #visit_ptrn record,
     visit_PnPair = #visit_PnPair record,
@@ -94,7 +94,7 @@ fun override_visit_PnVar (record : ('this, 'env, 'expr, 'mtype, 'expr2, 'mtype2)
     extend_e = #extend_e record
   }
 
-fun override_visit_PnPair (record : ('this, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_vtable) new : ('this, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_vtable =
+fun override_visit_PnPair (record : ('this, 'env, 'mtype, 'expr, 'mtype2, 'expr2) ptrn_visitor_vtable) new : ('this, 'env, 'mtype, 'expr, 'mtype2, 'expr2) ptrn_visitor_vtable =
   {
     visit_ptrn = #visit_ptrn record,
     visit_PnVar = #visit_PnVar record,
@@ -117,7 +117,7 @@ fun override_visit_PnPair (record : ('this, 'env, 'expr, 'mtype, 'expr2, 'mtype2
     extend_e = #extend_e record
   }
 
-fun override_visit_PnAnno (record : ('this, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_vtable) new : ('this, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_vtable =
+fun override_visit_PnAnno (record : ('this, 'env, 'mtype, 'expr, 'mtype2, 'expr2) ptrn_visitor_vtable) new : ('this, 'env, 'mtype, 'expr, 'mtype2, 'expr2) ptrn_visitor_vtable =
   {
     visit_ptrn = #visit_ptrn record,
     visit_PnVar = #visit_PnVar record,
@@ -140,7 +140,7 @@ fun override_visit_PnAnno (record : ('this, 'env, 'expr, 'mtype, 'expr2, 'mtype2
     extend_e = #extend_e record
   }
 
-fun override_visit_PnConstr (record : ('this, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_vtable) new : ('this, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_vtable =
+fun override_visit_PnConstr (record : ('this, 'env, 'mtype, 'expr, 'mtype2, 'expr2) ptrn_visitor_vtable) new : ('this, 'env, 'mtype, 'expr, 'mtype2, 'expr2) ptrn_visitor_vtable =
   {
     visit_ptrn = #visit_ptrn record,
     visit_PnVar = #visit_PnVar record,
@@ -168,12 +168,12 @@ fun override_visit_PnConstr (record : ('this, 'env, 'expr, 'mtype, 'expr2, 'mtyp
 open VisitorUtil
        
 fun default_ptrn_visitor_vtable
-      (cast : 'this -> ('this, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_interface)
+      (cast : 'this -> ('this, 'env, 'mtype, 'expr, 'mtype2, 'expr2) ptrn_visitor_interface)
       extend_i
       extend_e
       visit_expr
       visit_mtype
-    : ('this, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_vtable =
+    : ('this, 'env, 'mtype, 'expr, 'mtype2, 'expr2) ptrn_visitor_vtable =
   let
     fun visit_ptrn this env data =
       let
@@ -355,7 +355,7 @@ fun shift_i_pn shift_e shift_mt x n b =
     
 (***************** the "shift_e_pn" visitor  **********************)    
     
-fun shift_e_ptrn_visitor_vtable cast (shift_e, n) : ('this, int, 'expr, 'mtype, 'expr2, 'mtype) ptrn_visitor_vtable =
+fun shift_e_ptrn_visitor_vtable cast (shift_e, n) : ('this, int, 'mtype, 'expr, 'mtype, 'expr2) ptrn_visitor_vtable =
   let
     val extend_i = extend_noop
     fun extend_e this env _ = env + 1
@@ -380,7 +380,7 @@ fun shift_e_pn shift_e x n b =
     
 (***************** the "subst_e_pn" visitor  **********************)    
 
-fun subst_e_ptrn_visitor_vtable cast (subst_e, d, x, v) : ('this, idepth * edepth, 'expr, 'mtype, 'expr2, 'mtype) ptrn_visitor_vtable =
+fun subst_e_ptrn_visitor_vtable cast (subst_e, d, x, v) : ('this, idepth * edepth, 'mtype, 'expr, 'mtype, 'expr2) ptrn_visitor_vtable =
   let
     fun extend_i this env _ = mapFst idepth_inc env
     fun extend_e this env _ = mapSnd edepth_inc env
@@ -410,7 +410,7 @@ fun subst0_e_pn subst_e v b = substx_e_pn subst_e 0 v b
 (***************** the "remove_anno" visitor  **********************)    
     
 fun remove_anno_ptrn_visitor_vtable cast ()
-    : ('this, 'env, 'expr, 'mtype, 'expr, 'mtype2) ptrn_visitor_vtable =
+    : ('this, 'env, 'mtype, 'expr, 'mtype2, 'expr) ptrn_visitor_vtable =
   let
     fun visit_PnAnno this env data = 
       let
@@ -478,7 +478,7 @@ fun shift_imposs msg _ _ _ = raise Impossible msg
 fun PnUnpackIMany (names, p) = foldr PnUnpackI p names
                                     
 fun remove_constr_ptrn_visitor_vtable cast shift_i_e
-    : ('this, ('expr, 'mtype) ptrn ref, 'expr, 'mtype, 'expr, 'mtype2) ptrn_visitor_vtable =
+    : ('this, ('mtype, 'expr) ptrn ref, 'mtype, 'expr, 'mtype2, 'expr) ptrn_visitor_vtable =
   let
     fun shift_i p = shift_i_pn shift_i_e (shift_imposs "remove_constr/shift_i_mt()") 0 1 p
     fun visit_PnConstr this env data =
