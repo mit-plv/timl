@@ -316,12 +316,12 @@ fun default_ptrn_visitor_vtable
   end
 
 datatype ('env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor =
-         TyVisitor of (('env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_interface
+         PtrnVisitor of (('env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_interface
 
 fun ptrn_visitor_impls_interface (this : ('env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor) :
     (('env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor, 'env, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_interface =
   let
-    val TyVisitor vtable = this
+    val PtrnVisitor vtable = this
   in
     vtable
   end
@@ -330,12 +330,12 @@ fun new_ptrn_visitor vtable params =
   let
     val vtable = vtable ptrn_visitor_impls_interface params
   in
-    TyVisitor vtable
+    PtrnVisitor vtable
   end
     
-(***************** the "shift_i_t" visitor  **********************)    
+(***************** the "shift_i_pn" visitor  **********************)    
     
-fun shift_i_ptrn_visitor_vtable cast (shift_e, shift_mt, n) : ('this, int, 'expr, 'mtype, 'expr, 'mtype2) ptrn_visitor_vtable =
+fun shift_i_ptrn_visitor_vtable cast (shift_e, shift_mt, n) : ('this, int, 'expr, 'mtype, 'expr2, 'mtype2) ptrn_visitor_vtable =
   let
     fun extend_i this env _ = env + 1
     val extend_e = extend_noop
@@ -353,11 +353,66 @@ fun new_shift_i_ptrn_visitor params = new_ptrn_visitor shift_i_ptrn_visitor_vtab
     
 fun shift_i_pn shift_e shift_mt x n b =
   let
-    val visitor as (TyVisitor vtable) = new_shift_i_ptrn_visitor (shift_e, shift_mt, n)
+    val visitor as (PtrnVisitor vtable) = new_shift_i_ptrn_visitor (shift_e, shift_mt, n)
   in
     visit_abs (#visit_ptrn vtable visitor) x b
   end
     
+(***************** the "shift_e_pn" visitor  **********************)    
+    
+fun shift_e_ptrn_visitor_vtable cast (shift_e, n) : ('this, int, 'expr, 'mtype, 'expr2, 'mtype) ptrn_visitor_vtable =
+  let
+    val extend_i = extend_noop
+    fun extend_e this env _ = env + 1
+    fun do_shift shift this env b = shift env n b
+  in
+    default_ptrn_visitor_vtable
+      cast
+      extend_i
+      extend_e
+      (do_shift shift_e)
+      return3
+  end
+
+fun new_shift_e_ptrn_visitor params = new_ptrn_visitor shift_e_ptrn_visitor_vtable params
+    
+fun shift_e_pn shift_e x n b =
+  let
+    val visitor as (PtrnVisitor vtable) = new_shift_e_ptrn_visitor (shift_e, n)
+  in
+    visit_abs (#visit_ptrn vtable visitor) x b
+  end
+    
+(***************** the "subst_e_pn" visitor  **********************)    
+
+fun mapPair2 f1 f2 (a1, a2) (b1, b2) = (f1 (a1, b1), f2 (a2, b2))
+fun add_pair a b = mapPair2 op+ op+ a b
+                            
+fun subst_e_ptrn_visitor_vtable cast (subst_e, d, x, v) : ('this, int * int, 'expr, 'mtype, 'expr2, 'mtype) ptrn_visitor_vtable =
+  let
+    fun extend_i this (di, de) _ = (di + 1, de)
+    fun extend_e this (di, de) _ = (di, de + 1)
+    fun visit_expr this env b = subst_e (add_pair d env) (x + snd env) v b
+  in
+    default_ptrn_visitor_vtable
+      cast
+      extend_i
+      extend_e
+      visit_expr
+      return3
+  end
+
+fun new_subst_e_ptrn_visitor params = new_ptrn_visitor subst_e_ptrn_visitor_vtable params
+    
+fun subst_e_pn subst_e d x v b =
+  let
+    val visitor as (PtrnVisitor vtable) = new_subst_e_ptrn_visitor (subst_e, d, x, v)
+  in
+    visit_abs (#visit_ptrn vtable visitor) (0, 0) b
+  end
+
+fun subst0_e_pn subst_e v b = subst_e_pn subst_e (0, 0) 0 v b
+
 (***************** the "remove_anno" visitor  **********************)    
     
 fun remove_anno_ptrn_visitor_vtable cast ()
@@ -387,7 +442,7 @@ fun new_remove_anno_ptrn_visitor params = new_ptrn_visitor remove_anno_ptrn_visi
     
 fun remove_anno p =
   let
-    val visitor as (TyVisitor vtable) = new_remove_anno_ptrn_visitor ()
+    val visitor as (PtrnVisitor vtable) = new_remove_anno_ptrn_visitor ()
   in
     visit_abs (#visit_ptrn vtable visitor) () p
   end
@@ -415,7 +470,7 @@ fun new_remove_var_ptrn_visitor params = new_ptrn_visitor remove_var_ptrn_visito
     
 fun remove_var p =
   let
-    val visitor as (TyVisitor vtable) = new_remove_var_ptrn_visitor ()
+    val visitor as (PtrnVisitor vtable) = new_remove_var_ptrn_visitor ()
   in
     visit_abs (#visit_ptrn vtable visitor) () p
   end
@@ -479,7 +534,7 @@ fun new_remove_constr_ptrn_visitor params = new_ptrn_visitor remove_constr_ptrn_
 (* with the 'continuation pattern' *)                                                             
 fun remove_constr_k shift_i_e (p, pk) =
   let
-    val visitor as (TyVisitor vtable) = new_remove_constr_ptrn_visitor shift_i_e
+    val visitor as (PtrnVisitor vtable) = new_remove_constr_ptrn_visitor shift_i_e
     val env = ref pk
     val p = visit_abs (#visit_ptrn vtable visitor) env p
     val pk = !env
@@ -490,7 +545,39 @@ fun remove_constr_k shift_i_e (p, pk) =
 fun remove_constr shift_i_e p = fst $ remove_constr_k shift_i_e (p, PnTT dummy) 
     
 (***************** the "remove_deep" visitor  **********************)    
-    
+
+(* open Expr *)
+(* open Subst *)
+
+(* datatype expr = *)
+(*          EVar of int *)
+(*          | EAppI of expr * idx *)
+(*          | EMatchSum of expr * list *)
+
+(* fun shift_i_e x n b = *)
+(*   case b of *)
+(*       EVar _ => b *)
+(*     | EAppI (e, i) => EAppI (shift_i_e x n e, shiftx_i_i x n i) *)
+
+datatype ('var, 'bsort, 'idx, 'sort) expr =
+         EVar of 'var
+         | EAppI of ('var, 'bsort, 'idx, 'sort) expr * 'idx
+         | EMatchSum of ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) expr ebind list
+         | EMatchPair of ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) expr ebind ebind
+         | EMatchUnfold of ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) expr ebind
+         | EMatchUnpackI of ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) expr ebind ibind
+
+fun shift_e_e x n b = b
+fun shift_i_e x n b = b
+fun subst_e_e d x v b = b
+
+val shift_e_pn = fn a => shift_e_pn shift_e_e a
+val subst0_e_pn = fn a => subst0_e_pn subst_e_e a
+
+val Cons = op::
+
+fun update i f ls = mapi (fn (i', a) => if i' = i then f a else a) ls
+             
 fun remove_deep fresh_name matchees pks =
   let
     val remove_deep = remove_deep fresh_name
@@ -498,19 +585,22 @@ fun remove_deep fresh_name matchees pks =
       case p of
           PnPair (p, pk) =>
           (case p of
-               PnAlias (_, p) => remove_top_aliases e $ subst0_e_pn e (PnPair (p, pk))
+               PnAlias (_, p, _) => remove_top_aliases e $ subst0_e_pn e (PnPair (p, pk))
              | _ => p
           )
         | _ => p
-    fun get_pn_alias p =
-      case p of
-          PnAlias (name, _) => SOME name
-        | _ => NONE
-    val get_alias = firstSuccess get_pn_alias
+    local
+      fun get_pn_alias p =
+        case p of
+            PnAlias (name, _, _) => SOME name
+          | _ => NONE
+    in
     fun get_top_alias p =
       case p of
-          PnPair (p, _) => get_alias p
+          PnPair (p, _) => get_pn_alias p
         | _ => NONE
+    end
+    val get_alias = firstSuccess get_top_alias
     datatype shape =
              ShTT
              | ShPair
@@ -525,9 +615,10 @@ fun remove_deep fresh_name matchees pks =
         | PnInj ((n, _), _) => SOME $ ShInj n
         | PnUnfold _ => SOME ShUnfold
         | PnUnpackI (iname, _) => SOME $ ShUnpackI iname
+        | _ => raise Impossible "get_shape()"
     val is_all_Wildcard = firstSuccess get_shape
     fun is_all_TT ps = app (fn p => case p of PnTT _ => () | PnWildcard => () | _ => raise Impossible "is_all_TT()") ps
-    fun is_all_Pair ps = map (fn p => case p of PnPair p => p | PnWildcard => (PnWildcard, PnWildcard) | _ => raise Impossible "is_all_Pair()") ps
+    fun is_all_Pair ps = unzip $ map (fn p => case p of PnPair p => p | PnWildcard => (PnWildcard, PnWildcard) | _ => raise Impossible "is_all_Pair()") ps
     fun is_all_Unfold ps = map (fn p => case p of PnUnfold p => p | PnWildcard => PnWildcard | _ => raise Impossible "is_all_Unfold()") ps
     fun is_all_UnpackI ps = map (fn p => case p of PnUnpackI (_, p) => p | PnWildcard => PnWildcard | _ => raise Impossible "is_all_UnpackI()") ps
     fun group_inj n ps =
@@ -538,6 +629,12 @@ fun remove_deep fresh_name matchees pks =
                 case p of
                     PnPair data => data
                   | _ => raise Impossible "do_group()/PnPair"
+            fun add_to i a ls =
+              let
+                val () = assert (fn () => i < length ls) ("i < length ls")
+              in
+                update i (curry Cons a) ls
+              end
           in
             case p of
                 PnInj ((n', i), p) =>
@@ -554,7 +651,7 @@ fun remove_deep fresh_name matchees pks =
       in
         groups
       end
-    fun split_first_column ps = map (fn p => case p of PnPair p => p | _ => raise Impossible "split_first_column()") ps
+    fun split_first_column ps = unzip $ map (fn p => case p of PnPair p => p | _ => raise Impossible "split_first_column()") ps
     fun add_column ps pks = map PnPair $ zip (ps, pks)
   in
     case matchees of
@@ -565,7 +662,8 @@ fun remove_deep fresh_name matchees pks =
         )
       | matchee :: matchees =>
         let
-          val pks = remove_top_aliases matchee pks
+          val pks = map (remove_top_aliases matchee) pks
+          val () = assert (fn () => isNone $ get_alias pks) "get_alias pks = NONE"
           val (pns, pks') = split_first_column pks
         in
           case is_all_Wildcard pns of
@@ -595,7 +693,7 @@ fun remove_deep fresh_name matchees pks =
                     val pks = map (shift_e_pn 0 1) pks
                     val pn_groups = group_inj n pks
                     val cases = map (remove_deep (EVar 0 :: matchees)) $ pn_groups
-                    val enames = map (lazy_default fresh_name o get_top_alias) pn_groups
+                    val enames = map (lazy_default fresh_name o get_alias) pn_groups
                   in
                     EMatchSum (matchee, zip (enames, cases))
                   end
@@ -618,7 +716,7 @@ fun remove_deep fresh_name matchees pks =
                     val pns = is_all_UnpackI pns
                     val ename = lazy_default fresh_name $ get_alias pns
                   in
-                    EMatchUnPackI (matchee, (iname, (ename, remove_deep (EVar 0 :: matchees) (add_column pns pks))))
+                    EMatchUnpackI (matchee, (iname, (ename, remove_deep (EVar 0 :: matchees) (add_column pns pks))))
                   end
         end
   end
@@ -629,8 +727,6 @@ structure PatternVisitorFnUnitTest = struct
 open Util
 (* open MicroTiML *)
 (* val IName = fn s => IName (s, dummy) *)
-open Expr
-open Subst
 type iname = string
 type ename = string
 val IName = id
@@ -641,15 +737,8 @@ structure Visitor = PatternVisitorFn (type iname = iname
                                      )
 open Visitor
 
-datatype expr =
-         EVar of int
-         | EAppI of expr * idx
-
-fun shift_i_e x n b =
-  case b of
-      EVar _ => b
-    | EAppI (e, i) => EAppI (shift_i_e x n e, shiftx_i_i x n i)
-                   
+open Expr
+              
 (* fun EVar n = Var ((NONE, (n, dummy)), false) *)
 fun IVar n = VarI (NONE, (n, dummy))
                   
