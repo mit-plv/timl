@@ -199,6 +199,7 @@ structure Op = Operators
 open Util
 open Bind
 open ShiftUtil
+open Unbound
        
 infixr 0 $
 
@@ -243,9 +244,9 @@ fun PEqs pairs = combine_And $ map PEq pairs
 val BSUnit = Base UnitSort
 
 fun TExistsI bind = TQuanI (Exists (), bind)
-fun TExistsIMany (ctx, t) = foldl TExistsI t ctx
-fun TAbsIMany (ctx, t) = foldl TAbsI t ctx
-fun TAbsTMany (ctx, t) = foldl TAbsT t ctx
+fun TExistsIMany (ctx, t) = foldl (TExistsI o BindAnno) t ctx
+fun TAbsIMany (ctx, t) = foldl (TAbsI o BindAnno) t ctx
+fun TAbsTMany (ctx, t) = foldl (TAbsT o BindAnno) t ctx
                   
 fun on_mt (t : S.mtype) =
   case t of
@@ -254,15 +255,15 @@ fun on_mt (t : S.mtype) =
     | S.TyArray (t, i) => TArr (on_mt t, i)
     | S.Unit _ => TUnit
     | S.Prod (t1, t2) => TProd (on_mt t1, on_mt t2)
-    | S.UniI (s, Bind (name, t), r) => TQuanI (Forall, ((IName name, s), on_mt t))
+    | S.UniI (s, S.Bind (name, t), r) => TQuanI (Forall, BindAnno ((IName name, s), on_mt t))
     | S.MtVar x => TVar x
     | S.MtApp (t1, t2) => TAppT (on_mt t1, on_mt t2)
-    | S.MtAbs (k, Bind (name, t), _) => TAbsT ((TName name, on_k k), on_mt t)
+    | S.MtAbs (k, S.Bind (name, t), _) => TAbsT $ BindAnno ((TName name, on_k k), on_mt t)
     | S.MtAppI (t, i) => TAppI (on_mt t, i)
-    | S.MtAbsI (b, Bind (name, t), _) => TAbsI ((IName name, b), on_mt t)
+    | S.MtAbsI (b, S.Bind (name, t), _) => TAbsI $ BindAnno ((IName name, b), on_mt t)
     | S.BaseType t => TConst (on_base_type t)
     | S.UVar (x, _) => exfalso x
-    | S.TDatatype (Bind (dt_name, tbinds), _) =>
+    | S.TDatatype (S.Bind (dt_name, tbinds), _) =>
       let
         val (tname_kinds, (bsorts, constrs)) = unfold_binds tbinds
         val tnames = map fst tname_kinds
@@ -278,7 +279,7 @@ fun on_mt (t : S.mtype) =
             val formal_iargs = map (shiftx_i_i 0 (length name_sorts + 1)) formal_iargs
             val prop = PEqs $ zip (is, formal_iargs)
             val extra_sort_name = "__datatype_constraint"
-            val extra_sort = Subset ((BSUnit, dummy), Bind ((extra_sort_name, dummy), prop), dummy)
+            val extra_sort = Subset ((BSUnit, dummy), S.Bind ((extra_sort_name, dummy), prop), dummy)
             val t = on_mt t
             val t = TExistsIMany (map (mapFst (IName o attach_snd dummy)) $ (extra_sort_name, extra_sort) :: rev name_sorts, t)
           in
@@ -292,7 +293,7 @@ fun on_mt (t : S.mtype) =
         val t = TAbsIMany (attach_names IName (fn n => "_i" ^ str_int n) $ rev bsorts, t)
         val t = TAbsTMany (attach_names TName (fn n => "_t" ^ str_int n) $ repeat len_tnames KType, t)
       in
-        TRec ((TName (dt_name, dummy), k), t)
+        TRec $ BindAnno ((TName (dt_name, dummy), k), t)
       end
 
 fun on_ptrn pn e =
@@ -325,7 +326,7 @@ fun on_e (e : S.expr) =
     (*   Case (e, return, map (f_rule x n) rules) *)
     (* | S.Abs (pn, e) => *)
     (*   Abs (pn, e) *)
-    | S.AbsI (s, Bind (name, e), _) => EAbsI ((IName name, s), on_e e)
+    | S.AbsI (s, S.Bind (name, e), _) => EAbsI $ BindAnno ((IName name, s), on_e e)
     (* | Let (return, decs, e, r) => *)
     (*   let  *)
     (*     val (decs, m) = f_decls x n decs *)

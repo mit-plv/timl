@@ -2,37 +2,43 @@
 
 structure Unbound = struct
 
+open Util
 open VisitorUtil
        
-type 'p abs = 'p
-type 'name binder = 'name
-type 't outer = 't
-type 'p rebind = 'p
+infixr 0 $
+         
+datatype 'p abs = Abs of 'p
+datatype 'name binder = Binder of 'name
+datatype 't outer = Outer of 't
+datatype 'p rebind = Rebind of 'p
            
 type 't inner = ('t outer) rebind
+fun Inner t = Rebind (Outer t)
 type ('p, 't) bind = ('p * 't inner) abs
+fun Bind (p, t) = Abs (p, Inner t)
 
 type ('name, 't) bind_simp = ('name binder, 't) bind
+fun BindSimp (name, t) = Bind (Binder name, t)
 type ('name, 'anno, 't) bind_anno = ('name binder * 'anno outer, 't) bind
+fun BindAnno ((name, anno), t) = Bind ((Binder name, Outer anno), t)
 
 type 'env ctx = {outer : 'env, current : 'env ref}
 
-local    
-  fun env2ctx env = {outer = env, current = ref env}
-in
-fun visit_abs visit_'p env p1 =
-  visit_'p (env2ctx env) p1
-end
-fun visit_binder extend (ctx : 'env ctx) x1 =
+fun env2ctx env = {outer = env, current = ref env}
+
+fun visit_abs visit_'p env (Abs p1) =
+  Abs $ visit_'p (env2ctx env) p1
+
+fun visit_binder extend (ctx : 'env ctx) (Binder x1) =
   let
     val env = !(#current ctx)
     val env = extend env x1
     val () = #current ctx := env
   in
-    x1
+    Binder x1
   end
-fun visit_outer visit_'t (ctx : 'env ctx) t1 = visit_'t (#outer ctx) t1
-fun visit_rebind visit_'p (ctx : 'env ctx) p1 = visit_'p {outer = !(#current ctx), current = #current ctx} p1
+fun visit_outer visit_'t (ctx : 'env ctx) (Outer t1) = Outer $ visit_'t (#outer ctx) t1
+fun visit_rebind visit_'p (ctx : 'env ctx) (Rebind p1) = Rebind $ visit_'p {outer = !(#current ctx), current = #current ctx} p1
     
 fun visit_inner x = (visit_rebind o visit_outer) x
 fun visit_bind visit_'p = visit_abs o visit_pair visit_'p o visit_inner

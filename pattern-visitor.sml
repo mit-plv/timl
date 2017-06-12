@@ -350,7 +350,7 @@ fun shift_i_pn shift_e shift_mt x n b =
   let
     val visitor as (PtrnVisitor vtable) = new_shift_i_ptrn_visitor (shift_e, shift_mt, n)
   in
-    visit_abs (#visit_ptrn vtable visitor) x b
+    #visit_ptrn vtable visitor (env2ctx x) b
   end
     
 (***************** the "shift_e_pn" visitor  **********************)    
@@ -375,7 +375,7 @@ fun shift_e_pn shift_e x n b =
   let
     val visitor as (PtrnVisitor vtable) = new_shift_e_ptrn_visitor (shift_e, n)
   in
-    visit_abs (#visit_ptrn vtable visitor) x b
+    #visit_ptrn vtable visitor (env2ctx x) b
   end
     
 (***************** the "subst_e_pn" visitor  **********************)    
@@ -401,7 +401,7 @@ fun subst_e_pn subst_e d x v b =
   let
     val visitor as (PtrnVisitor vtable) = new_subst_e_ptrn_visitor (subst_e, d, x, v)
   in
-    visit_abs (#visit_ptrn vtable visitor) (IDepth 0, EDepth 0) b
+    #visit_ptrn vtable visitor (env2ctx (IDepth 0, EDepth 0)) b
   end
 
 fun substx_e_pn subst_e x v b = subst_e_pn subst_e (IDepth 0, EDepth 0) x v b
@@ -438,7 +438,7 @@ fun remove_anno p =
   let
     val visitor as (PtrnVisitor vtable) = new_remove_anno_ptrn_visitor ()
   in
-    visit_abs (#visit_ptrn vtable visitor) () p
+    #visit_ptrn vtable visitor (env2ctx ()) p
   end
     
 (***************** the "remove_var" visitor  **********************)    
@@ -447,7 +447,7 @@ fun remove_var_ptrn_visitor_vtable cast ()
     : ('this, 'env, 'expr, 'mtype, 'expr, 'mtype) ptrn_visitor_vtable =
   let
     fun visit_PnVar this env data =
-      PnAlias (data, PnWildcard, dummy)
+      PnAlias (data, PnWildcard, Outer dummy)
     val vtable =
         default_ptrn_visitor_vtable
           cast
@@ -466,7 +466,7 @@ fun remove_var p =
   let
     val visitor as (PtrnVisitor vtable) = new_remove_var_ptrn_visitor ()
   in
-    visit_abs (#visit_ptrn vtable visitor) () p
+    #visit_ptrn vtable visitor (env2ctx ()) p
   end
     
 (***************** the "remove_constr" visitor  **********************)    
@@ -477,25 +477,25 @@ fun shift_imposs msg _ _ _ = raise Impossible msg
 
 fun PnUnpackIMany (names, p) = foldr PnUnpackI p names
                                     
-fun remove_constr_ptrn_visitor_vtable cast shift_i_e
+fun remove_constr_ptrn_visitor_vtable (cast : 'this -> ('this, ('mtype, 'expr) ptrn ref, 'mtype, 'expr, 'mtype2, 'expr) ptrn_visitor_interface) shift_i_e
     : ('this, ('mtype, 'expr) ptrn ref, 'mtype, 'expr, 'mtype2, 'expr) ptrn_visitor_vtable =
   let
     fun shift_i p = shift_i_pn shift_i_e (shift_imposs "remove_constr/shift_i_mt()") 0 1 p
-    fun visit_PnConstr this env data =
+    fun visit_PnConstr this (env : ('mtype, 'expr) ptrn ref ctx) data =
       let
         val vtable = cast this
         val (x, inames, p, r) = data
         val p = shift_i p
         val () = unop_ref shift_i $ #outer env
         val p = #visit_ptrn vtable this env p
-        val p = PnUnpackI (IName "__datatype_constraint", p)
+        val p = PnUnpackI (Binder $ IName "__datatype_constraint", p)
         val p = PnUnpackIMany (inames, p)
         val p = PnUnfold p
         val p = PnInj (x, p)
       in
         p
       end
-    fun visit_PnPair this env data = 
+    fun visit_PnPair this (env : ('mtype, 'expr) ptrn ref ctx) data = 
       let
         val vtable = cast this
         val (p1, p2) = data
@@ -530,13 +530,13 @@ fun remove_constr_k shift_i_e (p, pk) =
   let
     val visitor as (PtrnVisitor vtable) = new_remove_constr_ptrn_visitor shift_i_e
     val env = ref pk
-    val p = visit_abs (#visit_ptrn vtable visitor) env p
+    val p = #visit_ptrn vtable visitor (env2ctx env) p
     val pk = !env
   in
     (p, pk)
   end
 
-fun remove_constr shift_i_e p = fst $ remove_constr_k shift_i_e (p, PnTT dummy) 
+fun remove_constr shift_i_e p = fst $ remove_constr_k shift_i_e (p, PnTT $ Outer dummy) 
     
 (***************** the "remove_deep" visitor  **********************)    
 
@@ -574,7 +574,7 @@ fun remove_deep fresh_name matchees pks =
     local
       fun get_pn_alias p =
         case p of
-            PnAlias (name, _, _) => SOME name
+            PnAlias (Binder name, _, _) => SOME name
           | _ => NONE
     in
     fun get_top_alias p =
@@ -594,9 +594,9 @@ fun remove_deep fresh_name matchees pks =
           PnWildcard => NONE
         | PnTT _ => SOME ShTT
         | PnPair _ => SOME ShPair
-        | PnInj ((n, _), _) => SOME $ ShInj n
+        | PnInj (Outer (n, _), _) => SOME $ ShInj n
         | PnUnfold _ => SOME ShUnfold
-        | PnUnpackI (iname, _) => SOME $ ShUnpackI iname
+        | PnUnpackI (Binder iname, _) => SOME $ ShUnpackI iname
         | _ => raise Impossible "get_shape()"
     val is_all_Wildcard = firstSuccess get_shape
     fun is_all_TT ps = app (fn p => case p of PnTT _ => () | PnWildcard => () | _ => raise Impossible "is_all_TT()") ps
@@ -619,7 +619,7 @@ fun remove_deep fresh_name matchees pks =
               end
           in
             case p of
-                PnInj ((n', i), p) =>
+                PnInj (Outer (n', i), p) =>
                 let
                   val () = assert (fn () => n' = n) "n' = n"
                   val () = assert (fn () => i < n) "i < n"
@@ -639,7 +639,7 @@ fun remove_deep fresh_name matchees pks =
     case matchees of
         [] =>
         (case pks of
-             [PnExpr e] => e
+             [PnExpr (Rebind (Outer e))] => e
            | _ => raise Impossible "remove_deep()"
         )
       | matchee :: matchees =>
@@ -667,7 +667,7 @@ fun remove_deep fresh_name matchees pks =
                     val ename1 = lazy_default fresh_name $ get_alias pns1
                     val ename2 = lazy_default fresh_name $ get_alias pns2
                   in
-                    EMatchPair (matchee, (ename1, (ename2, remove_deep (EVar 1 :: EVar 0 :: matchees) (add_column pns1 $ add_column pns2 pks))))
+                    EMatchPair (matchee, BindSimp (ename1, BindSimp (ename2, remove_deep (EVar 1 :: EVar 0 :: matchees) (add_column pns1 $ add_column pns2 pks))))
                   end
                 | ShInj n =>
                   let
@@ -677,7 +677,7 @@ fun remove_deep fresh_name matchees pks =
                     val cases = map (remove_deep (EVar 0 :: matchees)) $ pn_groups
                     val enames = map (lazy_default fresh_name o get_alias) pn_groups
                   in
-                    EMatchSum (matchee, zip (enames, cases))
+                    EMatchSum (matchee, map BindSimp $ zip (enames, cases))
                   end
                 | ShUnfold =>
                   let
@@ -687,7 +687,7 @@ fun remove_deep fresh_name matchees pks =
                     val pns = is_all_Unfold pns
                     val ename = lazy_default fresh_name $ get_alias pns
                   in
-                    EMatchUnfold (matchee, (ename, remove_deep (EVar 0 :: matchees) (add_column pns pks)))
+                    EMatchUnfold (matchee, BindSimp (ename, remove_deep (EVar 0 :: matchees) (add_column pns pks)))
                   end
                 | ShUnpackI iname =>
                   let
@@ -698,7 +698,7 @@ fun remove_deep fresh_name matchees pks =
                     val pns = is_all_UnpackI pns
                     val ename = lazy_default fresh_name $ get_alias pns
                   in
-                    EMatchUnpackI (matchee, (iname, (ename, remove_deep (EVar 0 :: matchees) (add_column pns pks))))
+                    EMatchUnpackI (matchee, BindSimp (iname, BindSimp (ename, remove_deep (EVar 0 :: matchees) (add_column pns pks))))
                   end
         end
   end
@@ -711,18 +711,21 @@ open PatternVisitor
 
 open Expr
               
+infixr 0 $
+         
 val IName = fn s => IName (s, dummy)
        
 (* fun EVar n = Var ((NONE, (n, dummy)), false) *)
 fun IVar n = VarI (NONE, (n, dummy))
+val dummy = Outer dummy
                   
 fun test () =
   let
-    val p = PnAnno (PnPair (PnAnno (PnTT dummy, ()), PnAnno (PnTT dummy, ())), ())
+    val p = PnAnno (PnPair (PnAnno (PnTT dummy, Outer ()), PnAnno (PnTT dummy, Outer ())), Outer ())
     val p1 = remove_anno p
-    val p2 = PnConstr ((5,1), [IName "a", IName "b"], PnPair (PnTT dummy, PnExpr (EAppI (EVar 0, IVar 2))), dummy)
+    val p2 = PnConstr (Outer (5,1), [Binder $ IName "a", Binder $ IName "b"], PnPair (PnTT dummy, PnExpr $ Inner (EAppI (EVar 0, IVar 2))), dummy)
     val p3 = remove_constr shift_i_e p2
-    val p4 = PnPair (PnConstr ((5,1), [IName "a", IName "b"], PnTT dummy, dummy), PnExpr (EAppI (EVar 0, IVar 2)))
+    val p4 = PnPair (PnConstr (Outer (5,1), [Binder $ IName "a", Binder $ IName "b"], PnTT dummy, dummy), PnExpr $ Inner (EAppI (EVar 0, IVar 2)))
     val p5 = remove_constr shift_i_e p4
   in
     (p, p1, p3, p5)
