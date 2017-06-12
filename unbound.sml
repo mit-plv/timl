@@ -73,9 +73,22 @@ type ename = expr_namespace * name
 fun IName name = (IdxNS, name)
 fun TName name = (TypeNS, name)
 fun EName name = (ExprNS, name)
+                   
+type idepth = idx_namespace * int
+type edepth = expr_namespace * int
+fun IDepth n = (IdxNS, n)
+fun EDepth n = (ExprNS, n)
+fun idepth_inc (IdxNS, n) = (IdxNS, n + 1)
+fun edepth_inc (ExprNS, n) = (ExprNS, n + 1)
+fun idepth_add ((IdxNS, a), (IdxNS, b)) = (IdxNS, a + b)
+fun edepth_add ((ExprNS, a), (ExprNS, b)) = (ExprNS, a + b)
+fun open_idepth (IdxNS, n) = n
+fun open_edepth (ExprNS, n) = n
+                              
 end
 
 structure Namespaces = NamespacesFn (type name = string * Region.region)
+                                    
 structure Binders = BinderUtilFn (structure Binders = Unbound
                                   type iname = Namespaces.iname
                                   type tname = Namespaces.tname

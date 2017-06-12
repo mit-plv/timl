@@ -383,10 +383,9 @@ fun subst_expr_visitor_vtable cast (d, x, v) : ('this, 'c, int, 'c, int, int) ex
     fun visit_EVar this env y =
       let
         val x = x + env
-        val d = d + env
       in
         if y = x then
-          shift 0 d v
+          shift 0 (d + env) v
         else if y > x then
           EVar (y - 1)
         else

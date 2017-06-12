@@ -366,7 +366,7 @@ fun shift_e_ptrn_visitor_vtable cast (shift_e, n) : ('this, int, 'expr, 'mtype, 
       extend_i
       extend_e
       (do_shift shift_e)
-      return3
+      visit_noop
   end
 
 fun new_shift_e_ptrn_visitor params = new_ptrn_visitor shift_e_ptrn_visitor_vtable params
@@ -380,18 +380,19 @@ fun shift_e_pn shift_e x n b =
     
 (***************** the "subst_e_pn" visitor  **********************)    
 
-fun subst_e_ptrn_visitor_vtable cast (subst_e, d, x, v) : ('this, int * int, 'expr, 'mtype, 'expr2, 'mtype) ptrn_visitor_vtable =
+fun subst_e_ptrn_visitor_vtable cast (subst_e, d, x, v) : ('this, idepth * edepth, 'expr, 'mtype, 'expr2, 'mtype) ptrn_visitor_vtable =
   let
-    fun extend_i this (di, de) _ = (di + 1, de)
-    fun extend_e this (di, de) _ = (di, de + 1)
-    fun visit_expr this env b = subst_e (add_pair d env) (x + snd env) v b
+    fun extend_i this env _ = mapFst idepth_inc env
+    fun extend_e this env _ = mapSnd edepth_inc env
+    val add_depth = mapPair2 idepth_add edepth_add
+    fun visit_expr this env b = subst_e (add_depth d env) (x + open_edepth (snd env)) v b
   in
     default_ptrn_visitor_vtable
       cast
       extend_i
       extend_e
       visit_expr
-      return3
+      visit_noop
   end
 
 fun new_subst_e_ptrn_visitor params = new_ptrn_visitor subst_e_ptrn_visitor_vtable params
@@ -400,10 +401,11 @@ fun subst_e_pn subst_e d x v b =
   let
     val visitor as (PtrnVisitor vtable) = new_subst_e_ptrn_visitor (subst_e, d, x, v)
   in
-    visit_abs (#visit_ptrn vtable visitor) (0, 0) b
+    visit_abs (#visit_ptrn vtable visitor) (IDepth 0, EDepth 0) b
   end
 
-fun subst0_e_pn subst_e v b = subst_e_pn subst_e (0, 0) 0 v b
+fun substx_e_pn subst_e x v b = subst_e_pn subst_e (IDepth 0, EDepth 0) x v b
+fun subst0_e_pn subst_e v b = substx_e_pn subst_e 0 v b
 
 (***************** the "remove_anno" visitor  **********************)    
     
@@ -538,8 +540,8 @@ fun remove_constr shift_i_e p = fst $ remove_constr_k shift_i_e (p, PnTT dummy)
     
 (***************** the "remove_deep" visitor  **********************)    
 
-(* open Expr *)
-(* open Subst *)
+open Expr
+open Subst
 
 (* datatype expr = *)
 (*          EVar of int *)
@@ -553,6 +555,8 @@ fun remove_constr shift_i_e p = fst $ remove_constr_k shift_i_e (p, PnTT dummy)
 
 open MicroTiMLEx
 
+val shift_i_e = fn a => shift_i_e shiftx_i_i a
+val subst_e_e = fn a => subst_e_e shiftx_i_i a
 val shift_e_pn = fn a => shift_e_pn shift_e_e a
 val subst0_e_pn = fn a => subst0_e_pn subst_e_e a
 
