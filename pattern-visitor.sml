@@ -747,7 +747,7 @@ fun remove_deep params matchee =
     remove_deep_many fresh_name params [matchee]
   end
   
-fun to_expr (shift_i_e, shift_e_e, subst_e_e, EV) matchee branches : ('var, 'bsort, 'idx, 'sort) expr =
+fun to_expr (shift_i_e, shift_e_e, subst_e_e, EV) matchee branches : ('var, 'bsort, 'idx, 'sort, 'ty) expr =
   let
     val branches = map remove_anno branches
     val branches = map (remove_constr shift_i_e) branches

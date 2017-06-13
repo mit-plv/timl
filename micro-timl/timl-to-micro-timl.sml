@@ -352,7 +352,7 @@ fun on_e (e : S.expr) =
         val pn = shift_e_pn shift_e_e 0 1 pn
         val e = to_expr (shift_i_e, shift_e_e, subst_e_e, EV) (EV 0) [pn]
       in
-        EAbs $ BindSimp (name, e)
+        EAbs $ BindAnno ((name, t), e)
       end
     | S.AbsI (s, S.Bind (name, e), _) => EAbsI $ BindAnno ((IName name, s), on_e e)
     (* | Let (return, decs, e, r) => *)
