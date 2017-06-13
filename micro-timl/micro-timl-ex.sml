@@ -444,11 +444,11 @@ fun shift_i_e shift_i x n b =
     
 (***************** the "shift_e_e" visitor  **********************)    
     
-fun shift_e_expr_visitor_vtable cast n : ('this, int, int, 'bsort, 'idx, 'sort, int, 'bsort2, 'idx, 'sort2) expr_visitor_vtable =
+fun shift_e_expr_visitor_vtable cast (shift_var, n) : ('this, int, 'var, 'bsort, 'idx, 'sort, 'var2, 'bsort2, 'idx, 'sort2) expr_visitor_vtable =
   let
     val extend_i = extend_noop
     fun extend_e this env _ = env + 1
-    fun visit_var this env data = ShiftUtil.shiftx_int env n data
+    fun visit_var this env data = shift_var env n data
   in
     default_expr_visitor_vtable
       cast
@@ -460,16 +460,21 @@ fun shift_e_expr_visitor_vtable cast n : ('this, int, int, 'bsort, 'idx, 'sort, 
 
 fun new_shift_e_expr_visitor params = new_expr_visitor shift_e_expr_visitor_vtable params
     
-fun shift_e_e x n b =
+fun shift_e_e shift_var x n b =
   let
-    val visitor as (ExprVisitor vtable) = new_shift_e_expr_visitor n
+    val visitor as (ExprVisitor vtable) = new_shift_e_expr_visitor (shift_var, n)
   in
     #visit_expr vtable visitor x b
   end
     
 (***************** the "subst_e_e" visitor  **********************)    
 
-fun subst_e_expr_visitor_vtable cast (shift_i_i, d, x, v) : ('this, idepth * edepth, int, 'bsort, 'idx, 'sort, int, 'bsort2, 'idx, 'sort2) expr_visitor_vtable =
+datatype 'a cmp_var =
+         CmpEq
+         | CmpGreater of 'a
+         | CmpOther
+             
+fun subst_e_expr_visitor_vtable cast (shift_var, compare_var, shift_i_i, d, x, v) : ('this, idepth * edepth, 'var, 'bsort, 'idx, 'sort, 'var, 'bsort2, 'idx, 'sort2) expr_visitor_vtable =
   let
     fun extend_i this env _ = mapFst idepth_inc env
     fun extend_e this env _ = mapSnd edepth_inc env
@@ -478,16 +483,17 @@ fun subst_e_expr_visitor_vtable cast (shift_i_i, d, x, v) : ('this, idepth * ede
       let
         val x = x + open_edepth (snd env)
       in
-        if y = x then
-          let
-            val (di, de) = add_depth d env
-          in
-            shift_i_e shift_i_i 0 (open_idepth di) $ shift_e_e 0 (open_edepth de) v
-          end
-        else if y > x then
-          EVar (y - 1)
-        else
-          EVar y
+        case compare_var y x of
+            CmpEq =>
+            let
+              val (di, de) = add_depth d env
+            in
+              shift_i_e shift_i_i 0 (open_idepth di) $ shift_e_e shift_var 0 (open_edepth de) v
+            end
+          | CmpGreater y' =>
+            EVar y'
+          | _ =>
+            EVar y
       end
     val vtable = 
         default_expr_visitor_vtable
@@ -503,9 +509,9 @@ fun subst_e_expr_visitor_vtable cast (shift_i_i, d, x, v) : ('this, idepth * ede
 
 fun new_subst_e_expr_visitor params = new_expr_visitor subst_e_expr_visitor_vtable params
     
-fun subst_e_e shift_i_i d x v b =
+fun subst_e_e shift_var compare_var shift_i_i d x v b =
   let
-    val visitor as (ExprVisitor vtable) = new_subst_e_expr_visitor (shift_i_i, d, x, v)
+    val visitor as (ExprVisitor vtable) = new_subst_e_expr_visitor (shift_var, compare_var, shift_i_i, d, x, v)
   in
     #visit_expr vtable visitor (IDepth 0, EDepth 0) b
   end

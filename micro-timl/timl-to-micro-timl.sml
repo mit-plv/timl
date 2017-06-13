@@ -170,11 +170,11 @@ structure LongIdShift = struct
 open ShiftUtil
 open LongIdUtil
 type var = long_id
-val shiftx_v = shiftx_int
-fun shiftx_long_id x n b = on_v_long_id shiftx_v x n b
+val shift_v = shiftx_int
+fun shift_long_id x n b = on_v_long_id shift_v x n b
 val forget_v = forget_int ForgetError
 fun forget_long_id x n b = on_v_long_id forget_v x n b
-val shiftx_var = shiftx_long_id
+val shiftx_var = shift_long_id
 val forget_var = forget_long_id
 end
 
@@ -330,12 +330,29 @@ fun on_e (e : S.expr) =
         val e = on_e e
         open PatternVisitor
         val pn = from_TiML_ptrn pn
-        val name = default (Binder $ EName ("__x", dummy)) $ get_pn_alias pn
+        val name = default (EName ("__x", dummy)) $ get_pn_alias pn
         val pn = PnBind (pn, e)
+        val shift_var = LongIdShift.shiftx_var
+        fun compare_var (m, (y, r)) x =
+          let
+            open MicroTiMLEx
+          in
+            case m of
+                SOME _ => CmpOther
+              | NONE =>
+                if y = x then CmpEq
+                else if y > x then
+                  CmpGreater (m, (y - 1, r))
+                else CmpOther
+          end
+        val shift_i_e = fn a => shift_i_e shiftx_i_i a
+        val shift_e_e = fn a => shift_e_e shift_var a
+        val subst_e_e = fn a => subst_e_e shift_var compare_var shiftx_i_i a
+        fun EV n = EVar (NONE, (n, dummy))
         val pn = shift_e_pn shift_e_e 0 1 pn
-        val e = to_expr (shift_i_e shiftx_i_i) (EVar 0) [pn]
+        val e = to_expr (shift_i_e, shift_e_e, subst_e_e, EV) (EV 0) [pn]
       in
-        EAbs (name, e)
+        EAbs $ BindSimp (name, e)
       end
     | S.AbsI (s, S.Bind (name, e), _) => EAbsI $ BindAnno ((IName name, s), on_e e)
     (* | Let (return, decs, e, r) => *)

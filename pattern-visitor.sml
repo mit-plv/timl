@@ -39,22 +39,19 @@ datatype ('mtype, 'expr) ptrn =
          | PnExpr of 'expr inner
          | PnWildcard
 
-local
-  structure S =
-in
 fun from_TiML_ptrn p =
   let
+    open Pattern
     val f = from_TiML_ptrn
   in
     case p of
-        S.VarP name => PnVar (Binder name)
+        VarP name => PnVar (Binder $ EName name)
       | TTP r => PnTT (Outer r)
       | PairP (p1, p2) => PnPair (f p1, f p2)
       | AnnoP (p, t) => PnAnno (f p, Outer t)
-      | AliasP (name, p, r) => PnAlias (Binder name, f p, Outer r)
-      | S.Constr => _
+      | AliasP (name, p, r) => PnAlias (Binder $ EName name, f p, Outer r)
+      | ConstrP ((inj, _), inames, p, r) => PnConstr (Outer inj, map (Binder o IName) inames, f (p !! (fn () => raise Impossible "from_TiML_ptrn")), Outer r)
   end
-end      
 
 local
   fun get_name (Binder (_, (name, _))) = name
@@ -583,16 +580,13 @@ fun get_pn_alias p =
     | PnAnno (p, _) => get_pn_alias p
     | _ => NONE
              
-fun remove_deep_many fresh_name matchees pks =
+open MicroTiMLEx
+       
+fun remove_deep_many fresh_name (params as (shift_i_e, shift_e_e, subst_e_e, EV)) matchees pks =
   let
-    open Expr
-    open Subst
-    open MicroTiMLEx
-    val shift_i_e = fn a => shift_i_e shiftx_i_i a
-    val subst_e_e = fn a => subst_e_e shiftx_i_i a
     val shift_e_pn = fn a => shift_e_pn shift_e_e a
     val subst0_e_pn = fn a => subst0_e_pn subst_e_e a
-    val remove_deep_many = remove_deep_many fresh_name
+    val remove_deep_many = remove_deep_many fresh_name params
     fun remove_top_aliases e p =
       case p of
           PnPair (p1, pk) =>
@@ -695,14 +689,14 @@ fun remove_deep_many fresh_name matchees pks =
                         val ename1 = lazy_default fresh_name $ get_alias pns1
                         val ename2 = lazy_default fresh_name $ get_alias pns2
                       in
-                        EMatchPair (matchee, BindSimp (ename1, BindSimp (ename2, remove_deep_many (EVar 1 :: EVar 0 :: matchees) (add_column pns1 $ add_column pns2 pks))))
+                        EMatchPair (matchee, BindSimp (ename1, BindSimp (ename2, remove_deep_many (EV 1 :: EV 0 :: matchees) (add_column pns1 $ add_column pns2 pks))))
                       end
                     | ShInj n =>
                       let
                         val matchees = map (shift_e_e 0 1) matchees
                         val pks = map (shift_e_pn 0 1) pks
                         val pn_groups = group_inj n pks
-                        val cases = map (remove_deep_many (EVar 0 :: matchees)) $ pn_groups
+                        val cases = map (remove_deep_many (EV 0 :: matchees)) $ pn_groups
                         val enames = map (lazy_default fresh_name o get_alias) pn_groups
                       in
                         EMatchSum (matchee, map BindSimp $ zip (enames, cases))
@@ -715,7 +709,7 @@ fun remove_deep_many fresh_name matchees pks =
                         val pns = is_all_Unfold pns
                         val ename = lazy_default fresh_name $ get_alias pns
                       in
-                        EMatchUnfold (matchee, BindSimp (ename, remove_deep_many (EVar 0 :: matchees) (add_column pns pks)))
+                        EMatchUnfold (matchee, BindSimp (ename, remove_deep_many (EV 0 :: matchees) (add_column pns pks)))
                       end
                     | ShUnpackI iname =>
                       let
@@ -726,7 +720,7 @@ fun remove_deep_many fresh_name matchees pks =
                         val pns = is_all_UnpackI pns
                         val ename = lazy_default fresh_name $ get_alias pns
                       in
-                        EMatchUnpackI (matchee, BindSimp (iname, BindSimp (ename, remove_deep_many (EVar 0 :: matchees) (add_column pns pks))))
+                        EMatchUnpackI (matchee, BindSimp (iname, BindSimp (ename, remove_deep_many (EV 0 :: matchees) (add_column pns pks))))
                       end
             end
     (* val () = println $ "after " ^ str_int (length matchees) *)
@@ -742,24 +736,23 @@ fun get_and_inc r =
     v
   end
     
-val EName = fn s => EName (s, dummy)
-                          
 fun PnBind (p, e) = PnPair (p, PnExpr $ Inner e)
                            
-fun remove_deep matchee branches =
+fun remove_deep params matchee =
   let
     val counter = ref 0
+    val EName = fn s => EName (s, dummy)
     fun fresh_name () = EName $ prefix "__x" $ str_int $ get_and_inc counter
   in
-    remove_deep_many fresh_name [matchee] branches
+    remove_deep_many fresh_name params [matchee]
   end
   
-fun to_expr shift_i_e matchee branches =
+fun to_expr (shift_i_e, shift_e_e, subst_e_e, EV) matchee branches : ('var, 'bsort, 'idx, 'sort) expr =
   let
     val branches = map remove_anno branches
     val branches = map (remove_constr shift_i_e) branches
     val branches = map remove_var branches
-    val e = remove_deep matchee branches
+    val e = remove_deep (shift_i_e, shift_e_e, subst_e_e, EV) matchee branches
   in
     e
   end
@@ -772,6 +765,17 @@ open PatternVisitor
 
 infixr 0 $
          
+val shift_var = ShiftUtil.shiftx_int  
+fun compare_var y x =
+  let
+    open MicroTiMLEx
+  in
+    if y = x then CmpEq
+    else if y > x then
+      CmpGreater (y - 1)
+    else CmpOther
+  end
+    
 fun test () =
   let
     open MicroTiMLEx
@@ -779,7 +783,6 @@ fun test () =
     open Subst
            
     val shift_i_e = fn a => shift_i_e shiftx_i_i a
-    val subst_e_e = fn a => subst_e_e shiftx_i_i a
                                       
     val IName = fn s => IName (s, dummy)
                               
@@ -810,6 +813,8 @@ fun test2 () =
     val dummy = Outer dummy
 
     val shift_i_e = fn a => shift_i_e shiftx_i_i a
+    val shift_e_e = fn a => shift_e_e shift_var a
+    val subst_e_e = fn a => subst_e_e shift_var compare_var shiftx_i_i a
                                       
     val branches =
         [
@@ -817,16 +822,16 @@ fun test2 () =
           (PnConstr (Outer (2, 1), [Binder $ IName "n"], PnPair (PnVar $ Binder $ EName "x", PnVar $ Binder $ EName "xs"), dummy), EAppI (EV 2, IVar 0))
         ]
     val branches = map PnBind branches
-    val e = to_expr shift_i_e (EV 0) branches
+    val e = to_expr (shift_i_e, shift_e_e, subst_e_e, EV) (EV 0) branches
     val () = pp_e str_int str_raw_i e
                   
-    val branches = map remove_anno branches
-    val branches = map (remove_constr shift_i_e) branches
-    (* val () = app (fn p => println $ PatternVisitor.str_pn p) branches *)
-    val branches = map remove_var branches
-    val e = remove_deep (EV 0) branches
-    (* val () = println $ str_e str_int str_raw_i e *)
-    val () = pp_e str_int str_raw_i e
+    (* val branches = map remove_anno branches *)
+    (* val branches = map (remove_constr shift_i_e) branches *)
+    (* (* val () = app (fn p => println $ PatternVisitor.str_pn p) branches *) *)
+    (* val branches = map remove_var branches *)
+    (* val e = remove_deep (shift_var, compare_var) (EV 0) branches *)
+    (* (* val () = println $ str_e str_int str_raw_i e *) *)
+    (* val () = pp_e str_int str_raw_i e *)
   in
     ()
   end
