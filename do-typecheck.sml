@@ -839,12 +839,12 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
           val () = open_ctx ctxd
           val () = open_premises ps
           val ctx = add_ctx_skc ctxd ctx
-          val pn1 = default (U.TTP dummy) opn
+          val pn1 = opn
           val (pn1, cover, ctxd', nps) = match_ptrn (ctx, pn1, t1)
           val ctxd = add_ctx ctxd' ctxd
           val cover = ConstrC (cx, cover)
         in
-	  (ConstrP ((cx, eia), inames, SOME pn1, r), cover, ctxd, length ps + nps)
+	  (ConstrP ((cx, eia), inames, pn1, r), cover, ctxd, length ps + nps)
 	end
       | U.VarP (name, r) =>
         let
@@ -955,7 +955,7 @@ fun expand_rules gctx (ctx as (sctx, kctx, cctx), rules, t, r) =
                                               (* else *)
                                               (*   VarP ("_", dummy) *)
                                    in
-                                     ConstrP ((x, true), repeat (length name_sorts) "_", SOME pn', dummy)
+                                     ConstrP ((x, true), repeat (length name_sorts) "_", pn', dummy)
                                    end
                                  | NONE => default ()
                               )
@@ -982,7 +982,7 @@ fun expand_rules gctx (ctx as (sctx, kctx, cctx), rules, t, r) =
                       (* open UnderscoredExpr *)
                     in
                       case pn of
-                          ConstrP ((x, _), _, pn, _) => ConstrC (x, default TrueC $ Option.map ptrn_to_cover pn)
+                          ConstrP ((x, _), _, pn, _) => ConstrC (x, ptrn_to_cover pn)
                         | VarP _ => TrueC
                         | PairP (pn1, pn2) => PairC (ptrn_to_cover pn1, ptrn_to_cover pn2)
                         | TTP _ => TTC
@@ -993,7 +993,7 @@ fun expand_rules gctx (ctx as (sctx, kctx, cctx), rules, t, r) =
                     case pn of
                         TTP a => U.TTP a
                       | PairP (pn1, pn2) => U.PairP (convert_pn pn1, convert_pn pn2)
-                      | ConstrP (x, inames, opn, r) => U.ConstrP (x, inames, Option.map convert_pn opn, r) 
+                      | ConstrP (x, inames, opn, r) => U.ConstrP (x, inames, convert_pn opn, r) 
                       | VarP a => U.VarP a
                       | AliasP (name, pn, r) => U.AliasP (name, convert_pn pn, r)
                       | AnnoP _ => raise Impossible "convert_pn can't convert AnnoP"

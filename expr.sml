@@ -890,7 +890,7 @@ fun ptrn_names pn : string list * string list =
       ConstrP (_, inames, pn, _) =>
       let 
         (* val () = println "ConstrP" *)
-        val (inames', enames) = ptrn_names (default (TTP dummy) pn)
+        val (inames', enames) = ptrn_names pn
       in
         (inames' @ rev inames, enames)
       end
@@ -922,7 +922,7 @@ fun str_pn gctx (ctx as (sctx, kctx, cctx)) pn =
     val str_pn = str_pn gctx
   in
     case pn of
-        ConstrP ((x, eia), inames, pn, _) => sprintf "$$$" [decorate_var eia $ str_long_id #3 gctx cctx x, join_prefix " " $ map (surround "{" "}") inames, str_opt (fn pn => " " ^ str_pn ctx pn) pn]
+        ConstrP ((x, eia), inames, pn, _) => sprintf "$$$" [decorate_var eia $ str_long_id #3 gctx cctx x, join_prefix " " $ map (surround "{" "}") inames, " " ^ str_pn ctx pn]
       | VarP (name, _) => name
       | PairP (pn1, pn2) => sprintf "($, $)" [str_pn ctx pn1, str_pn ctx pn2]
       | TTP _ => "()"
@@ -2528,7 +2528,7 @@ local
 	ConstrP ((x, eia), inames, pn, r) =>
         let
           val acc = on_long_id acc x
-          val acc = on_option f acc pn
+          val acc = f acc pn
         in
           acc
         end

@@ -187,7 +187,7 @@ local
   fun elab_pn pn =
       case pn of
           S.ConstrP (cname, inames, pn, r) =>
-          ConstrP (cname, inames, Option.map elab_pn pn, r)
+          ConstrP (cname, inames, default (TTP r) $ Option.map elab_pn pn, r)
         | S.TupleP (pns, r) =>
           (case pns of
                [] => TTP r

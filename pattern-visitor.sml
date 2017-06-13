@@ -50,7 +50,7 @@ fun from_TiML_ptrn p =
       | PairP (p1, p2) => PnPair (f p1, f p2)
       | AnnoP (p, t) => PnAnno (f p, Outer t)
       | AliasP (name, p, r) => PnAlias (Binder $ EName name, f p, Outer r)
-      | ConstrP ((inj, _), inames, p, r) => PnConstr (Outer inj, map (Binder o IName) inames, f (p !! (fn () => raise Impossible "from_TiML_ptrn")), Outer r)
+      | ConstrP ((inj, _), inames, p, r) => PnConstr (Outer inj, map (Binder o IName) inames, f p, Outer r)
   end
 
 local

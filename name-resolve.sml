@@ -199,7 +199,7 @@ fun on_ptrn gctx (ctx as (sctx, kctx, cctx)) pn =
                        if length inames = 0 then map (prefix "__") c_inames
                        else raise Error (r, "Constructor pattern can't have explicit index pattern arguments. Use [@constructor_name] if you want to write explict index pattern arguments.")
                in
-                 ConstrP ((x, true), inames, Option.map (on_ptrn ctx) pn, r)
+                 ConstrP ((x, true), inames, on_ptrn ctx pn, r)
                end
 	     | NONE =>
                (case (fst x, eia, inames, pn) of
