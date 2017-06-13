@@ -3,7 +3,8 @@
 structure MicroTiMLEx = struct
 
 open MicroTiML
-
+open Unbound
+       
 infixr 0 $
          
 datatype ('var, 'bsort, 'idx, 'sort) expr =
@@ -14,6 +15,238 @@ datatype ('var, 'bsort, 'idx, 'sort) expr =
          | EMatchUnfold of ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) expr ebind
          | EMatchUnpackI of ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) expr ebind ibind
 
+fun get_bind (Abs (Binder name, Rebind (Outer t))) = (name, t)
+fun get_name s = fst $ snd s
+                 
+structure TextToken =
+  struct
+    type token = string
+    type style = unit
+    fun string t = t
+    fun style t = ()
+    fun size t = String.size t
+  end
+
+(* structure PP = PPDebugFn(PPStreamFn( *)
+(*     structure Token = TextToken *)
+(*     structure Device = SimpleTextIODev)) *)
+
+structure PP = PPStreamFn(
+  structure Token = TextToken
+  structure Device = SimpleTextIODev)
+
+fun withPP (name, wid, dst) ppFn = let
+      (* val saveStrm = !PP.debugStrm *)
+      (* val _ = PP.debugStrm := TextIO.openAppend("debug-out.txt") *)
+      val ppStrm =
+	  PP.openStream(SimpleTextIODev.openDev{dst=dst, wid=wid})
+      in
+	(* print(concat[name, ": width = ", Int.toString wid, "\n"]); *)
+	ppFn ppStrm;
+	PP.closeStream ppStrm;
+	TextIO.output (dst, "\n")
+	(* TextIO.closeOut (!PP.debugStrm); *)
+	(* PP.debugStrm := saveStrm *)
+end
+
+fun t40 () = withPP ("Test 20 [C code]", 20, TextIO.stdOut) (fn strm => (
+      PP.openHBox strm;
+	PP.string strm "if";
+	PP.space strm 1;
+	PP.string strm "(x < y)";
+	PP.space strm 1;
+	PP.string strm "{";
+	PP.openHVBox strm (PP.Abs 2);
+	  PP.space strm 1;
+	  PP.string strm "stmt1;"; PP.space strm 1;
+	  PP.openHBox strm;
+	    PP.string strm "if";
+	    PP.space strm 1;
+	    PP.string strm "(w < z)";
+	    PP.space strm 1;
+	    PP.string strm "{";
+	    PP.openHVBox strm (PP.Abs 4);
+	      PP.space strm 1; PP.string strm "stmt2;";
+	      PP.space strm 1; PP.string strm "stmt3;";
+	      PP.space strm 1; PP.string strm "stmt4;";
+	    PP.closeBox strm; PP.newline strm;
+	    PP.string strm "}";
+	  PP.closeBox strm;
+	  PP.space strm 1; PP.string strm "stmt5;";
+	  PP.space strm 1; PP.string strm "stmt6;";
+	PP.closeBox strm; PP.newline strm;
+	PP.string strm "}";
+        PP.closeBox strm))
+
+fun pp_e str_var str_i s e =
+  let
+    val pp_e = pp_e str_var str_i s
+    fun space () = PP.space s 1
+    fun add_space a = (space (); a)
+    fun str v = PP.string s v
+    fun comma () = (str ","; space ())
+    fun open_hbox () = PP.openHBox s
+    fun open_vbox () = PP.openVBox s (PP.Abs 2)
+    (* fun open_vbox () = PP.openVBox s (PP.Rel 2) *)
+    fun close_box () = PP.closeBox s
+    fun pp_pair (fa, fb) (a, b) =
+      (
+        open_hbox ();
+        str "(";
+        fa a;
+        comma ();
+        fb b;
+        str ")";
+        close_box ()
+      )
+    fun pp_list f ls =
+      case ls of
+          [] => ()
+        | [x] => f x
+        | x :: xs =>
+          (
+            f x;
+            comma ();
+            pp_list f xs
+          )
+  in
+    case e of
+        EVar x =>
+        (
+          open_hbox ();
+          str "EVar";
+          space ();
+          str $ str_var x;
+          close_box ()
+        )
+      | EAppI (e, i) =>
+        (
+          open_hbox ();
+          str "EAppI";
+          space ();
+          str "(";
+          pp_e e;
+          comma ();
+          str $ str_i i;
+          str ")";
+          close_box ()
+        )
+      | EMatchSum (e, branches) =>
+        (
+          open_hbox ();
+          str "EMatchSum";
+          space ();
+          str "(";
+          pp_e e;
+          comma ();
+          str "[";
+	  open_vbox ();
+          space ();
+          pp_list (pp_pair (str o get_name, pp_e) o get_bind) branches;
+	  close_box ();
+          str "]";
+          str ")";
+          close_box ()
+        )
+      | EMatchPair (e, branch) =>
+        let
+          val (name1, branch) = get_bind branch
+          val (name2, branch) = get_bind branch
+        in
+          open_hbox ();
+          str "EMatchPair";
+          space ();
+          str "(";
+          pp_e e;
+          comma ();
+	  open_vbox ();
+          space ();
+	  open_hbox ();
+          str "(";
+          str $ get_name name1;
+          comma ();
+          str $ get_name name2;
+          comma ();
+          pp_e branch;          
+          str ")";
+	  close_box ();
+	  close_box ();
+          str ")";
+          close_box ()
+        end
+      | EMatchUnfold (e, branch) =>
+        (
+          open_hbox ();
+          str "EMatchUnfold";
+          space ();
+          str "(";
+          pp_e e;
+          comma ();
+	  open_vbox ();
+          space ();
+          pp_pair (str o get_name, pp_e) o get_bind $ branch;
+	  close_box ();
+          str ")";
+          close_box ()
+        )
+      | EMatchUnpackI (e, branch) =>
+        let
+          val (name1, branch) = get_bind branch
+          val (name2, branch) = get_bind branch
+        in
+          open_hbox ();
+          str "EMatchUnpackI";
+          space ();
+          str "(";
+          pp_e e;
+          comma ();
+	  open_vbox ();
+          space ();
+	  open_hbox ();
+          str "(";
+          str $ get_name name1;
+          comma ();
+          str $ get_name name2;
+          comma ();
+          pp_e branch;          
+          str ")";
+	  close_box ();
+	  close_box ();
+          str ")";
+          close_box ()
+                    
+          (* sprintf "EMatchUnpackI ($, ($, $, $))" [pp_e e, get_name name1, get_name name2, pp_e branch] *)
+        end
+  end
+
+fun pprint_e str_var str_i e = withPP ("", 80, TextIO.stdOut) (fn s => pp_e str_var str_i s e)
+val pp_e = pprint_e
+
+(* fun str_e str_var str_i e = *)
+(*   let *)
+(*     val str_e = str_e str_var str_i *)
+(*   in *)
+(*     case e of *)
+(*         EVar x => sprintf "EVar $" [str_var x] *)
+(*       | EAppI (e, i) => sprintf "EAppI ($, $)" [str_e e, str_i i] *)
+(*       | EMatchSum (e, branches) => sprintf "EMatchSum ($, $)" [str_e e, str_ls (str_pair (get_name, str_e) o get_bind) branches] *)
+(*       | EMatchPair (e, branch) => *)
+(*         let *)
+(*           val (name1, branch) = get_bind branch *)
+(*           val (name2, branch) = get_bind branch *)
+(*         in *)
+(*           sprintf "EMatchPair ($, ($, $, $))" [str_e e, get_name name1, get_name name2, str_e branch] *)
+(*         end *)
+(*       | EMatchUnfold (e, branch) => sprintf "EMatchUnfold ($, $)" [str_e e, str_pair (get_name, str_e) $ get_bind branch] *)
+(*       | EMatchUnpackI (e, branch) => *)
+(*         let *)
+(*           val (name1, branch) = get_bind branch *)
+(*           val (name2, branch) = get_bind branch *)
+(*         in *)
+(*           sprintf "EMatchUnpackI ($, ($, $, $))" [str_e e, get_name name1, get_name name2, str_e branch] *)
+(*         end *)
+(*   end *)
+    
 type ('this, 'env, 'var, 'bsort, 'idx, 'sort, 'var2, 'bsort2, 'idx2, 'sort2) expr_visitor_vtable =
      {
        visit_expr : 'this -> 'env -> ('var, 'bsort, 'idx, 'sort) expr -> ('var2, 'bsort2, 'idx2, 'sort2) expr,

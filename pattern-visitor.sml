@@ -488,7 +488,8 @@ fun remove_constr_ptrn_visitor_vtable (cast : 'this -> ('this, ('mtype, 'expr) p
         val p = shift_i p
         val () = unop_ref shift_i $ #outer env
         val p = #visit_ptrn vtable this env p
-        val p = PnUnpackI (Binder $ IName "__datatype_constraint", p)
+        val extra_name = "__VC"
+        val p = PnUnpackI (Binder $ IName extra_name, p)
         val p = PnUnpackIMany (inames, p)
         val p = PnUnfold p
         val p = PnInj (x, p)
@@ -565,9 +566,9 @@ fun remove_deep_many fresh_name matchees pks =
     val remove_deep_many = remove_deep_many fresh_name
     fun remove_top_aliases e p =
       case p of
-          PnPair (p, pk) =>
-          (case p of
-               PnAlias (_, p, _) => remove_top_aliases e $ subst0_e_pn e (PnPair (p, pk))
+          PnPair (p1, pk) =>
+          (case p1 of
+               PnAlias (_, p1, _) => remove_top_aliases e $ subst0_e_pn e (PnPair (p1, pk))
              | _ => p
           )
         | _ => p
@@ -635,7 +636,7 @@ fun remove_deep_many fresh_name matchees pks =
       end
     fun split_first_column ps = unzip $ map (fn p => case p of PnPair p => p | _ => raise Impossible "split_first_column()") ps
     fun add_column ps pks = map PnPair $ zip (ps, pks)
-    val () = println $ "before " ^ str_int (length matchees)
+    (* val () = println $ "before " ^ str_int (length matchees) *)
     val result =
         case matchees of
             [] =>
@@ -660,13 +661,13 @@ fun remove_deep_many fresh_name matchees pks =
                   | PnExpr _ => "PnExpr <expr>"
                   | PnWildcard => "PnWildcard"
 
-              val () = app (fn p => println $ str_pn p) pks
+              (* val () = app (fn p => println $ str_pn p) pks *)
               val pks = map (remove_top_aliases matchee) pks
-              val () = app (fn p => println $ str_pn p) pks
+              (* val () = app (fn p => println $ str_pn p) pks *)
               val () = assert (fn () => isNone $ get_alias pks) "get_alias pks = NONE"
-              val () = println "before"
+              (* val () = println "before" *)
               val (pns, pks') = split_first_column pks
-              val () = println "after"
+              (* val () = println "after" *)
             in
               case is_all_Wildcard pns of
                   NONE => remove_deep_many matchees pks'
@@ -721,7 +722,7 @@ fun remove_deep_many fresh_name matchees pks =
                         EMatchUnpackI (matchee, BindSimp (iname, BindSimp (ename, remove_deep_many (EVar 0 :: matchees) (add_column pns pks))))
                       end
             end
-    val () = println $ "after " ^ str_int (length matchees)
+    (* val () = println $ "after " ^ str_int (length matchees) *)
   in
     result
   end
@@ -775,6 +776,10 @@ fun test () =
     
 fun test2 () =
   let
+    open Expr
+    open Subst
+    fun IVar n = VarI (NONE, (n, dummy))
+                      
     open MicroTiMLEx
            
     val IName = fn s => IName (s, dummy)
@@ -784,14 +789,17 @@ fun test2 () =
 
     val branches =
         [
-          (PnConstr (Outer (2, 0), [], PnTT dummy, dummy), EV 0),
-          (PnConstr (Outer (2, 1), [Binder $ IName "n"], PnPair (PnVar $ Binder $ EName "x", PnVar $ Binder $ EName "xs"), dummy), EV 2)
+          (PnConstr (Outer (2, 0), [], PnTT dummy, dummy), EAppI (EV 0, IVar 0)),
+          (PnConstr (Outer (2, 1), [Binder $ IName "n"], PnPair (PnVar $ Binder $ EName "x", PnVar $ Binder $ EName "xs"), dummy), EAppI (EV 2, IVar 1))
         ]
+    val branches = map (mapFst $ remove_constr $ shift_i_e shiftx_i_i) branches
     val branches = map (mapFst remove_var) branches
-    val p = remove_deep (EV 0) branches
+    val e = remove_deep (EV 0) branches
+    (* val () = println $ str_e str_int str_raw_i e *)
+    val () = pp_e str_int str_raw_i e
   in
-    p
+    ()
   end
-  handle Util.Impossible msg => (Util.println ("Impossible: " ^ msg); MicroTiMLEx.EVar 0)
+  (* handle Util.Impossible msg => (Util.println ("Impossible: " ^ msg); raise Impossible "") *)
                                   
 end
