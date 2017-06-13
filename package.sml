@@ -81,7 +81,7 @@ local
       | MtAppI (t, i) => MtAppI (f x v t, package_i_i x v i)
       | BaseType a => BaseType a
       | UVar a => b
-      | TDatatype _ => raise Unimplemented "package_i_mt()/TDatatype"
+      | TDatatype _ => raise Unimpl "package_i_mt()/TDatatype"
 in
 fun package_i_mt x v (b : mtype) : mtype = f x v b
 end
@@ -117,7 +117,7 @@ local
       | MtAppI (t, i) => MtAppI (f x v t, i)
       | BaseType a => BaseType a
       | UVar a => b
-      | TDatatype _ => raise Unimplemented "package_t_mt()/TDatatype"
+      | TDatatype _ => raise Unimpl "package_t_mt()/TDatatype"
 in
 fun package_t_mt x v (b : mtype) : mtype = f x v b
 end

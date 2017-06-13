@@ -51,7 +51,7 @@ fun collect_uvar_t_mt t =
       | MtAbsI (_, Bind (_, t), _) => collect_uvar_t_mt t
       | MtAppI (t, i) => collect_uvar_t_mt t
       | BaseType _ => []
-      | TDatatype _ => raise Unimplemented "collect_uvar_t_mt()/TDatatype"
+      | TDatatype _ => raise Unimpl "collect_uvar_t_mt()/TDatatype"
       | UVar (x, r) =>
         case !x of
             Refined a => collect_uvar_t_mt a

@@ -193,8 +193,8 @@ structure IdxUtil = IdxUtilFn (structure Idx = Idx
 open IdxUtil
                                   
 structure S = TiML
-structure T = MicroTiML
-open T
+open MicroTiML
+open MicroTiMLEx
 structure Op = Operators
 open Util
 open Bind
@@ -304,7 +304,7 @@ fun on_ptrn pn e =
       | S.VarP name => e
       | S.PairP (pn1, pn2) => e
       | S.AnnoP (pn, t) => e
-      
+
 fun on_e (e : S.expr) =
   case e of
       S.Var (x, _) => EVar x
@@ -324,8 +324,19 @@ fun on_e (e : S.expr) =
       )
     (* | S.Case (e, return, rules, _) => *)
     (*   Case (e, return, map (f_rule x n) rules) *)
-    (* | S.Abs (pn, e) => *)
-    (*   Abs (pn, e) *)
+    | S.Abs (pn, t, e) =>
+      let
+        val t = on_mt t
+        val e = on_e e
+        open PatternVisitor
+        val pn = from_TiML_ptrn pn
+        val name = default (Binder $ EName ("__x", dummy)) $ get_pn_alias pn
+        val pn = PnBind (pn, e)
+        val pn = shift_e_pn shift_e_e 0 1 pn
+        val e = to_expr (shift_i_e shiftx_i_i) (EVar 0) [pn]
+      in
+        EAbs (name, e)
+      end
     | S.AbsI (s, S.Bind (name, e), _) => EAbsI $ BindAnno ((IName name, s), on_e e)
     (* | Let (return, decs, e, r) => *)
     (*   let  *)

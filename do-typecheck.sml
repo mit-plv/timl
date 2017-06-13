@@ -557,7 +557,7 @@ fun get_higher_kind gctx (ctx as (sctx : scontext, kctx : kcontext), c : U.mtype
                 end
               | _ => error (get_region_mt t, str_mt gctxn ctxn t, "<sort> => <kind>", str_hk, k)
           end
-        | U.TDatatype _ => raise Unimplemented "get_higher_kind()/TDatatype"
+        | U.TDatatype _ => raise Unimpl "get_higher_kind()/TDatatype"
     val ret =
         main ()
         handle
@@ -1540,7 +1540,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
               | MtAbsI (k, bind, r) => MtAbsI (k, substu_ibind substu x v bind, r)
               | MtAppI (t, i) => MtAppI (substu x v t, i)
 	      | BaseType a => BaseType a
-              | TDatatype _ => raise Unimplemented "check_decl()/substu()/TDatatype"
+              | TDatatype _ => raise Unimpl "check_decl()/substu()/TDatatype"
           fun evar_name n =
             if n < 26 then
               "'_" ^ (str o chr) (ord #"a" + n)

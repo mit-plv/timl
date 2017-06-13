@@ -171,7 +171,7 @@ fun on_mtype gctx (ctx as (sctx, kctx)) t =
         | S.MtAbsI (b, bind, r_all) => MtAbsI (on_bsort b, on_ibind (fn sctx => on_mtype (sctx, kctx)) sctx bind, r_all)
 	| S.BaseType (bt, r) => BaseType (bt, r)
         | S.UVar u => UVar u
-        | S.TDatatype _ => raise Unimplemented "name-resolve/on_mtype()/TDatatype"
+        | S.TDatatype _ => raise Unimpl "name-resolve/on_mtype()/TDatatype"
     end
 
 fun on_type gctx (ctx as (sctx, kctx)) t =

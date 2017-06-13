@@ -49,7 +49,7 @@ datatype expr =
 	 | TriOp of tri_op * expr * expr * expr
          | EEI of expr_EI * expr * idx
          | ET of expr_T * mtype * region
-	 (* | Abs of mtype ptrn * expr *)
+	 | Abs of mtype ptrn * mtype * expr
 	 | AbsI of sort * (name * expr) ibind * region
 	 (* | AppConstr of (long_id * bool) * idx list * expr *)
 	 (* | Case of expr * return * (mtype ptrn * expr) list * region *)

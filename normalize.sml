@@ -77,7 +77,7 @@ fun update_mt t =
     | MtAbsI (s, Bind (name, t), r) => MtAbsI (update_bs s, Bind (name, update_mt t), r)
     | MtAppI (t, i) => MtAppI (update_mt t, update_i i)
     | BaseType a => BaseType a
-    | TDatatype _ => raise Unimplemented "undate_mt()/TDatatype"
+    | TDatatype _ => raise Unimpl "undate_mt()/TDatatype"
 
 fun update_t t =
   case t of
@@ -307,7 +307,7 @@ fun normalize_mt gctx kctx t =
                 | _ => MtApp (t1, t2)
             end
           | BaseType a => BaseType a
-          | TDatatype _ => raise Unimplemented "normalize_mt()/TDatatype"
+          | TDatatype _ => raise Unimpl "normalize_mt()/TDatatype"
     (* val () = println $ "end normalize_mt()" *)
   in
     ret

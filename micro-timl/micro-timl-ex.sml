@@ -9,7 +9,25 @@ infixr 0 $
          
 datatype ('var, 'bsort, 'idx, 'sort) expr =
          EVar of 'var
+         | EConst of Operators.expr_const
+         | ELoc of loc
+         | EUnOp of expr_un_op * ('var, 'bsort, 'idx, 'sort) expr
+         | EBinOp of expr_bin_op * ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) expr
+         | EWrite of ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) expr
+         | ECase of ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) expr ebind * ('var, 'bsort, 'idx, 'sort) expr ebind
+         | EAbs of ('var, 'bsort, 'idx, 'sort) expr ebind
+         | ERec of ('var, 'bsort, 'idx, 'sort) expr ebind
+         | EAbsT of ('var, 'bsort, 'idx, 'sort) expr tbind
+         | EAppT of ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) ty
+         | EAbsI of ('sort, ('var, 'bsort, 'idx, 'sort) expr) ibind_anno
          | EAppI of ('var, 'bsort, 'idx, 'sort) expr * 'idx
+         | EPack of ('var, 'bsort, 'idx, 'sort) ty * ('var, 'bsort, 'idx, 'sort) expr
+         | EUnpack of ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) expr ebind tbind
+         | EPackI of 'idx * ('var, 'bsort, 'idx, 'sort) expr
+         | EUnpackI of ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) expr ebind ibind
+         | EAscTime of ('var, 'bsort, 'idx, 'sort) expr * 'idx (* time ascription *)
+         | EAscType of ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) ty (* type ascription *)
+         | ENever of ('var, 'bsort, 'idx, 'sort) ty
          | EMatchSum of ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) expr ebind list
          | EMatchPair of ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) expr ebind ebind
          | EMatchUnfold of ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) expr ebind
@@ -214,9 +232,8 @@ fun pp_e str_var str_i s e =
 	  close_box ();
           str ")";
           close_box ()
-                    
-          (* sprintf "EMatchUnpackI ($, ($, $, $))" [pp_e e, get_name name1, get_name name2, pp_e branch] *)
         end
+      | _ => raise Unimpl ""
   end
 
 fun pprint_e str_var str_i e = withPP ("", 80, TextIO.stdOut) (fn s => pp_e str_var str_i s e)
@@ -310,6 +327,7 @@ fun default_expr_visitor_vtable
           | EMatchPair data => #visit_EMatchPair vtable this env data
           | EMatchUnfold data => #visit_EMatchUnfold vtable this env data
           | EMatchUnpackI data => #visit_EMatchUnpackI vtable this env data
+          | _ => raise Unimpl ""
       end
     fun visit_EVar this env data =
       let

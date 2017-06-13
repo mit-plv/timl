@@ -40,6 +40,23 @@ datatype ('mtype, 'expr) ptrn =
          | PnWildcard
 
 local
+  structure S =
+in
+fun from_TiML_ptrn p =
+  let
+    val f = from_TiML_ptrn
+  in
+    case p of
+        S.VarP name => PnVar (Binder name)
+      | TTP r => PnTT (Outer r)
+      | PairP (p1, p2) => PnPair (f p1, f p2)
+      | AnnoP (p, t) => PnAnno (f p, Outer t)
+      | AliasP (name, p, r) => PnAlias (Binder name, f p, Outer r)
+      | S.Constr => _
+  end
+end      
+
+local
   fun get_name (Binder (_, (name, _))) = name
 in
 fun str_pn p =
@@ -559,6 +576,13 @@ fun remove_constr shift_i_e p = fst $ remove_constr_k shift_i_e (p, PnTT $ Outer
     
 (***************** the "remove_deep" visitor  **********************)    
 
+fun get_pn_alias p =
+  case p of
+      PnAlias (Binder name, _, _) => SOME name
+    | PnVar (Binder name) => SOME name
+    | PnAnno (p, _) => get_pn_alias p
+    | _ => NONE
+             
 fun remove_deep_many fresh_name matchees pks =
   let
     open Expr
@@ -577,17 +601,10 @@ fun remove_deep_many fresh_name matchees pks =
              | _ => p
           )
         | _ => p
-    local
-      fun get_pn_alias p =
-        case p of
-            PnAlias (Binder name, _, _) => SOME name
-          | _ => NONE
-    in
     fun get_top_alias p =
       case p of
           PnPair (p, _) => get_pn_alias p
         | _ => NONE
-    end
     val get_alias = firstSuccess get_top_alias
     datatype shape =
              ShTT
@@ -737,6 +754,16 @@ fun remove_deep matchee branches =
     remove_deep_many fresh_name [matchee] branches
   end
   
+fun to_expr shift_i_e matchee branches =
+  let
+    val branches = map remove_anno branches
+    val branches = map (remove_constr shift_i_e) branches
+    val branches = map remove_var branches
+    val e = remove_deep matchee branches
+  in
+    e
+  end
+
 end
 
 structure PatternVisitorUnitTest = struct
@@ -782,13 +809,19 @@ fun test2 () =
     fun EV n = EVar n
     val dummy = Outer dummy
 
+    val shift_i_e = fn a => shift_i_e shiftx_i_i a
+                                      
     val branches =
         [
           (PnConstr (Outer (2, 0), [], PnTT dummy, dummy), EAppI (EV 0, IVar 0)),
           (PnConstr (Outer (2, 1), [Binder $ IName "n"], PnPair (PnVar $ Binder $ EName "x", PnVar $ Binder $ EName "xs"), dummy), EAppI (EV 2, IVar 0))
         ]
     val branches = map PnBind branches
-    val branches = map (remove_constr $ shift_i_e shiftx_i_i) branches
+    val e = to_expr shift_i_e (EV 0) branches
+    val () = pp_e str_int str_raw_i e
+                  
+    val branches = map remove_anno branches
+    val branches = map (remove_constr shift_i_e) branches
     (* val () = app (fn p => println $ PatternVisitor.str_pn p) branches *)
     val branches = map remove_var branches
     val e = remove_deep (EV 0) branches
