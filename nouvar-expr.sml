@@ -16,4 +16,8 @@ fun eq_uvar_mt (u : ('sort, 'kind, 'mtype) uvar_mt, _) = exfalso u
 
 end
 
-structure NoUVarExpr = ExprFn (structure Var = IntVar structure UVarI = NoUVar structure UVarT = NoUVar)
+structure NoUVarExpr = ExprFn (structure Var = IntVar
+                               structure UVarI = NoUVar
+                               structure UVarT = NoUVar
+                               type ptrn_constr_tag = int * int
+                              )

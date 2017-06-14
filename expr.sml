@@ -30,6 +30,7 @@ signature EXPR_PARAMS = sig
   structure Var : VAR
   structure UVarI : UVAR_I
   structure UVarT : UVAR_T
+  type ptrn_constr_tag
 end
                           
 functor ExprFn (Params : EXPR_PARAMS) = struct
@@ -68,7 +69,7 @@ open Type
 
 open Pattern
 
-type ptrn = (long_id, mtype, name, region) ptrn
+type ptrn = (long_id * ptrn_constr_tag, mtype, name, region) ptrn
 
 type return = mtype option * idx option
                                  
@@ -922,7 +923,7 @@ fun str_pn gctx (ctx as (sctx, kctx, cctx)) pn =
     val str_pn = str_pn gctx
   in
     case pn of
-        ConstrP ((x, eia), inames, pn, _) => sprintf "$$$" [decorate_var eia $ str_long_id #3 gctx cctx x, join_prefix " " $ map (surround "{" "}") inames, " " ^ str_pn ctx pn]
+        ConstrP (((x, _), eia), inames, pn, _) => sprintf "$$$" [decorate_var eia $ str_long_id #3 gctx cctx x, join_prefix " " $ map (surround "{" "}") inames, " " ^ str_pn ctx pn]
       | VarP (name, _) => name
       | PairP (pn1, pn2) => sprintf "($, $)" [str_pn ctx pn1, str_pn ctx pn2]
       | TTP _ => "()"
@@ -2525,7 +2526,7 @@ fun on_option f acc a =
 local
   fun f acc b =
     case b of
-	ConstrP ((x, eia), inames, pn, r) =>
+	ConstrP (((x, _), eia), inames, pn, r) =>
         let
           val acc = on_long_id acc x
           val acc = f acc pn
@@ -2878,6 +2879,14 @@ fun eq_uvar_s (_, _) = false
 fun eq_uvar_mt (_, _) = false
 end
 
-structure NamefulExpr = ExprFn (structure Var = StringVar structure UVarI = Underscore structure UVarT = Underscore)
-structure UnderscoredExpr = ExprFn (structure Var = IntVar structure UVarI = Underscore structure UVarT = Underscore)
+structure NamefulExpr = ExprFn (structure Var = StringVar
+                                structure UVarI = Underscore
+                                structure UVarT = Underscore
+                                type ptrn_constr_tag = unit
+                               )
+structure UnderscoredExpr = ExprFn (structure Var = IntVar
+                                    structure UVarI = Underscore
+                                    structure UVarT = Underscore
+                                    type ptrn_constr_tag = unit
+                                   )
 

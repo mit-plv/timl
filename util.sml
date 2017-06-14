@@ -114,6 +114,7 @@ fun findWithIdx f xs =
     end
       
 fun findi f xs = findWithIdx (fn (_, x) => f x) xs
+fun index f = Option.map fst o findi f
                              
 fun findOptionWithIdx f xs =
     let

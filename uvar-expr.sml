@@ -76,4 +76,8 @@ fun get_uvar_info x =
                        
 end
                        
-structure Expr = ExprFn (structure Var = IntVar structure UVarI = UVar structure UVarT = UVar)
+structure Expr = ExprFn (structure Var = IntVar
+                         structure UVarI = UVar
+                         structure UVarT = UVar
+                         type ptrn_constr_tag = int * int
+                        )

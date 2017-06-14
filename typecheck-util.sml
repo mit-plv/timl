@@ -408,6 +408,26 @@ fun fetch_constr a = generic_fetch (package0_snd package0_c) do_fetch_constr #3 
 fun fetch_constr_type gctx (ctx : ccontext, x) =
   constr_type VarT shiftx_long_id $ snd $ fetch_constr gctx (ctx, x)
 
+fun get_family (c : mtype constr) = #1 c
+                                 
+fun get_family_siblings gctx cctx cx =
+  let
+    val family = get_family $ snd $ fetch_constr gctx (cctx, cx)
+    (* val () = println $ sprintf "family: $" [str_mt (gctx_names gctx) (sctx_names sctx, names kctx) (MtVar family)] *)
+    fun do_fetch_family (cctx, (_, r)) =
+      let
+        fun iter (n, (_, c)) =
+          ((* println (str_mt (gctx_names gctx) (sctx_names sctx, names kctx) (MtVar (get_family c)));  *)
+            (* println (str_raw_long_id $ get_family c);  *)
+            if eq_id (snd $ get_family c, snd family) then SOME (NONE, (n, r)) else NONE)
+      in
+        rev $ map snd $ mapPartialWithIdx iter cctx
+      end
+    fun fetch_family a = generic_fetch (package0_list (package_long_id 0)) do_fetch_family #3 a
+  in
+    fetch_family gctx (cctx, cx)
+  end
+    
 fun do_fetch_constr_by_name (ctx, (name, r)) =
   case find_idx_value name ctx of
       SOME (i, c) => ((i, r), c)

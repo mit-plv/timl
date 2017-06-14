@@ -790,9 +790,11 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
     (* val () = println $ "sctxn=" ^ (str_ls id sctxn) *)
   in
     case pn of
-	U.ConstrP ((cx, eia), inames, opn, r) =>
+	U.ConstrP (((cx, ()), eia), inames, opn, r) =>
  	let 
           val c as (family, tbinds) = snd $ fetch_constr gctx (cctx, cx)
+          val siblings = get_family_siblings gctx cctx cx
+          val pos_in_family = index (curry eq_long_id cx) siblings !! (fn () => raise Impossible "family_pos")
           val (tname_kinds, ibinds) = unfold_binds tbinds
           val tnames = map fst tname_kinds
           val (name_sorts, (t1, is')) = unfold_binds ibinds
@@ -844,7 +846,7 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
           val ctxd = add_ctx ctxd' ctxd
           val cover = ConstrC (cx, cover)
         in
-	  (ConstrP ((cx, eia), inames, pn1, r), cover, ctxd, length ps + nps)
+	  (ConstrP (((cx, (length siblings, pos_in_family)), eia), inames, pn1, r), cover, ctxd, length ps + nps)
 	end
       | U.VarP (name, r) =>
         let
@@ -955,7 +957,7 @@ fun expand_rules gctx (ctx as (sctx, kctx, cctx), rules, t, r) =
                                               (* else *)
                                               (*   VarP ("_", dummy) *)
                                    in
-                                     ConstrP ((x, true), repeat (length name_sorts) "_", pn', dummy)
+                                     ConstrP (((x, ()), true), repeat (length name_sorts) "_", pn', dummy)
                                    end
                                  | NONE => default ()
                               )
@@ -982,7 +984,7 @@ fun expand_rules gctx (ctx as (sctx, kctx, cctx), rules, t, r) =
                       (* open UnderscoredExpr *)
                     in
                       case pn of
-                          ConstrP ((x, _), _, pn, _) => ConstrC (x, ptrn_to_cover pn)
+                          ConstrP (((x, ()), _), _, pn, _) => ConstrC (x, ptrn_to_cover pn)
                         | VarP _ => TrueC
                         | PairP (pn1, pn2) => PairC (ptrn_to_cover pn1, ptrn_to_cover pn2)
                         | TTP _ => TTC
@@ -1394,7 +1396,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
             val () = close_n nps
             val () = close_ctx ctxd
           in
-	    (Abs (pn, e), Arrow (t, d, t1), T0 dummy)
+	    (Abs (AnnoP (pn, t), e), Arrow (t, d, t1), T0 dummy)
 	  end
 	| U.Let (return, decls, e, r) => 
 	  let

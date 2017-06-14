@@ -334,8 +334,9 @@ fun on_e (e : S.expr) =
            Op.ETNever => ENever (on_mt t)
          | Op.ETBuiltin => raise Error "can't translate builtin expression"
       )
-    | S.Abs (pn, t, e) =>
+    | S.Abs (pn, e) =>
       let
+        val (pn, t) = case pn of S.AnnoP a => a | _ => raise Impossible "must be AnnoP"
         val t = on_mt t
         val e = on_e e
         val pn = from_TiML_ptrn pn

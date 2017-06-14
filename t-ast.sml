@@ -40,7 +40,9 @@ type kind = int (*number of type arguments*) * bsort list
 (*          | TDatatype of mtype datatype_def *)
 
 type return = mtype option * idx option
-                                 
+
+type ptrn = (int * int, mtype, name, region) ptrn
+                                             
 datatype expr =
 	 Var of var * bool
          | EConst of expr_const * region
@@ -49,10 +51,10 @@ datatype expr =
 	 | TriOp of tri_op * expr * expr * expr
          | EEI of expr_EI * expr * idx
          | ET of expr_T * mtype * region
-	 | Abs of (int * int, mtype, name, region) ptrn * mtype * expr
+	 | Abs of ptrn * expr
 	 | AbsI of sort * (name * expr) ibind * region
 	 (* | AppConstr of (long_id * bool) * idx list * expr *)
-	 | Case of expr * return * ((int * int, mtype, name, region) ptrn * expr) list * region
+	 | Case of expr * return * (ptrn * expr) list * region
 	 (* | Let of return * decl list * expr * region *)
 	 | Ascription of expr * mtype
 

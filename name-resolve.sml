@@ -188,7 +188,7 @@ fun on_ptrn gctx (ctx as (sctx, kctx, cctx)) pn =
       val on_ptrn = on_ptrn gctx
     in
       case pn of
-	  S.ConstrP ((x, eia), inames, pn, r) =>
+	  S.ConstrP (((x, ()), eia), inames, pn, r) =>
           (case find_constr gctx cctx x of
 	       SOME (x, c_inames) =>
                let
@@ -199,7 +199,7 @@ fun on_ptrn gctx (ctx as (sctx, kctx, cctx)) pn =
                        if length inames = 0 then map (prefix "__") c_inames
                        else raise Error (r, "Constructor pattern can't have explicit index pattern arguments. Use [@constructor_name] if you want to write explict index pattern arguments.")
                in
-                 ConstrP ((x, true), inames, on_ptrn ctx pn, r)
+                 ConstrP (((x, ()), true), inames, on_ptrn ctx pn, r)
                end
 	     | NONE =>
                raise Error (S.get_region_long_id x, "Unknown constructor " ^ S.str_long_id #1 empty [] x)
@@ -211,7 +211,7 @@ fun on_ptrn gctx (ctx as (sctx, kctx, cctx)) pn =
                  val r = snd name
                  val inames = map (prefix "__") c_inames
                in
-                 ConstrP ((x, true), inames, TTP r, r)
+                 ConstrP (((x, ()), true), inames, TTP r, r)
                end
 	     | NONE =>
                VarP name
