@@ -202,14 +202,20 @@ fun on_ptrn gctx (ctx as (sctx, kctx, cctx)) pn =
                  ConstrP ((x, true), inames, on_ptrn ctx pn, r)
                end
 	     | NONE =>
-               (case (fst x, eia, inames, pn) of
-                    (NONE, false, [], NONE) => VarP $ snd x
-                  | _ =>
-                    raise Error (S.get_region_long_id x, "Unknown constructor " ^ S.str_long_id #1 empty [] x)
-               )
+               raise Error (S.get_region_long_id x, "Unknown constructor " ^ S.str_long_id #1 empty [] x)
           )
         | S.VarP name =>
-          VarP name
+          (case find_constr gctx cctx (NONE, name) of
+	       SOME (x, c_inames) =>
+               let
+                 val r = snd name
+                 val inames = map (prefix "__") c_inames
+               in
+                 ConstrP ((x, true), inames, TTP r, r)
+               end
+	     | NONE =>
+               VarP name
+          )
         | S.PairP (pn1, pn2) =>
           PairP (on_ptrn ctx pn1, on_ptrn ctx pn2)
         | S.TTP r =>
