@@ -378,7 +378,7 @@ fun shift_i_ptrn_visitor_vtable cast (shift_e, shift_mt, n) : ('this, int, 'expr
 
 fun new_shift_i_ptrn_visitor params = new_ptrn_visitor shift_i_ptrn_visitor_vtable params
     
-fun shift_i_pn shift_e shift_mt x n b =
+fun shift_i_pn_fn shift_e shift_mt x n b =
   let
     val visitor as (PtrnVisitor vtable) = new_shift_i_ptrn_visitor (shift_e, shift_mt, n)
   in
@@ -403,7 +403,7 @@ fun shift_e_ptrn_visitor_vtable cast (shift_e, n) : ('this, int, 'mtype, 'expr, 
 
 fun new_shift_e_ptrn_visitor params = new_ptrn_visitor shift_e_ptrn_visitor_vtable params
     
-fun shift_e_pn shift_e x n b =
+fun shift_e_pn_fn shift_e x n b =
   let
     val visitor as (PtrnVisitor vtable) = new_shift_e_ptrn_visitor (shift_e, n)
   in
@@ -429,15 +429,15 @@ fun subst_e_ptrn_visitor_vtable cast (subst_e, d, x, v) : ('this, idepth * edept
 
 fun new_subst_e_ptrn_visitor params = new_ptrn_visitor subst_e_ptrn_visitor_vtable params
     
-fun subst_e_pn subst_e d x v b =
+fun subst_e_pn_fn subst_e d x v b =
   let
     val visitor as (PtrnVisitor vtable) = new_subst_e_ptrn_visitor (subst_e, d, x, v)
   in
     #visit_ptrn vtable visitor (env2ctx (IDepth 0, EDepth 0)) b
   end
 
-fun substx_e_pn subst_e x v b = subst_e_pn subst_e (IDepth 0, EDepth 0) x v b
-fun subst0_e_pn subst_e v b = substx_e_pn subst_e 0 v b
+fun substx_e_pn_fn subst_e x v b = subst_e_pn_fn subst_e (IDepth 0, EDepth 0) x v b
+fun subst0_e_pn_fn subst_e v b = substx_e_pn_fn subst_e 0 v b
 
 (***************** the "remove_anno" visitor  **********************)    
     
@@ -512,7 +512,7 @@ fun PnUnpackIMany (names, p) = foldr PnUnpackI p names
 fun remove_constr_ptrn_visitor_vtable (cast : 'this -> ('this, ('mtype, 'expr) ptrn ref, 'mtype, 'expr, 'mtype2, 'expr) ptrn_visitor_interface) shift_i_e
     : ('this, ('mtype, 'expr) ptrn ref, 'mtype, 'expr, 'mtype2, 'expr) ptrn_visitor_vtable =
   let
-    fun shift_i p = shift_i_pn shift_i_e (shift_imposs "remove_constr/shift_i_mt()") 0 1 p
+    fun shift_i p = shift_i_pn_fn shift_i_e (shift_imposs "remove_constr/shift_i_mt()") 0 1 p
     fun visit_PnConstr this (env : ('mtype, 'expr) ptrn ref ctx) data =
       let
         val vtable = cast this
@@ -584,8 +584,8 @@ open MicroTiMLEx
        
 fun remove_deep_many fresh_name (params as (shift_i_e, shift_e_e, subst_e_e, EV)) matchees pks =
   let
-    val shift_e_pn = fn a => shift_e_pn shift_e_e a
-    val subst0_e_pn = fn a => subst0_e_pn subst_e_e a
+    fun shift_e_pn a = shift_e_pn_fn shift_e_e a
+    fun subst0_e_pn a = subst0_e_pn_fn subst_e_e a
     val remove_deep_many = remove_deep_many fresh_name params
     fun remove_top_aliases e p =
       case p of
@@ -782,7 +782,7 @@ fun test () =
     open Expr
     open Subst
            
-    val shift_i_e = fn a => shift_i_e shiftx_i_i a
+    fun shift_i_e a = shift_i_e_fn shiftx_i_i a
                                       
     val IName = fn s => IName (s, dummy)
                               
@@ -812,9 +812,9 @@ fun test2 () =
     fun EV n = EVar n
     val dummy = Outer dummy
 
-    val shift_i_e = fn a => shift_i_e shiftx_i_i a
-    val shift_e_e = fn a => shift_e_e shift_var a
-    val subst_e_e = fn a => subst_e_e shift_var compare_var shiftx_i_i a
+    fun shift_i_e a = shift_i_e_fn shiftx_i_i a
+    fun shift_e_e a = shift_e_e_fn shift_var a
+    fun subst_e_e a = subst_e_e_fn shift_var compare_var shiftx_i_i a
                                       
     val branches =
         [

@@ -28,6 +28,7 @@ datatype ('var, 'bsort, 'idx, 'sort, 'ty) expr =
          | EAscTime of ('var, 'bsort, 'idx, 'sort, 'ty) expr * 'idx (* time ascription *)
          | EAscType of ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort) ty (* type ascription *)
          | ENever of ('var, 'bsort, 'idx, 'sort) ty
+         | ELet of ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind
          | EMatchSum of ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind list
          | EMatchPair of ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind ebind
          | EMatchUnfold of ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind
@@ -435,7 +436,7 @@ fun shift_i_expr_visitor_vtable cast (shift_i, n) : ('this, int, 'var, 'bsort2, 
 
 fun new_shift_i_expr_visitor params = new_expr_visitor shift_i_expr_visitor_vtable params
     
-fun shift_i_e shift_i x n b =
+fun shift_i_e_fn shift_i x n b =
   let
     val visitor as (ExprVisitor vtable) = new_shift_i_expr_visitor (shift_i, n)
   in
@@ -460,7 +461,7 @@ fun shift_e_expr_visitor_vtable cast (shift_var, n) : ('this, int, 'var, 'bsort,
 
 fun new_shift_e_expr_visitor params = new_expr_visitor shift_e_expr_visitor_vtable params
     
-fun shift_e_e shift_var x n b =
+fun shift_e_e_fn shift_var x n b =
   let
     val visitor as (ExprVisitor vtable) = new_shift_e_expr_visitor (shift_var, n)
   in
@@ -488,7 +489,7 @@ fun subst_e_expr_visitor_vtable cast (shift_var, compare_var, shift_i_i, d, x, v
             let
               val (di, de) = add_depth d env
             in
-              shift_i_e shift_i_i 0 (open_idepth di) $ shift_e_e shift_var 0 (open_edepth de) v
+              shift_i_e_fn shift_i_i 0 (open_idepth di) $ shift_e_e_fn shift_var 0 (open_edepth de) v
             end
           | CmpGreater y' =>
             EVar y'
@@ -509,7 +510,7 @@ fun subst_e_expr_visitor_vtable cast (shift_var, compare_var, shift_i_i, d, x, v
 
 fun new_subst_e_expr_visitor params = new_expr_visitor subst_e_expr_visitor_vtable params
     
-fun subst_e_e shift_var compare_var shift_i_i d x v b =
+fun subst_e_e_fn shift_var compare_var shift_i_i d x v b =
   let
     val visitor as (ExprVisitor vtable) = new_subst_e_expr_visitor (shift_var, compare_var, shift_i_i, d, x, v)
   in

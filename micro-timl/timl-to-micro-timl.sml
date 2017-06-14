@@ -296,15 +296,27 @@ fun on_mt (t : S.mtype) =
         TRec $ BindAnno ((TName (dt_name, dummy), k), t)
       end
 
-fun on_ptrn pn e =
-    case pn of
-        S.TTP _ => e
-      | S.AliasP (_, pn, _) => e
-      | S.ConstrP ((x, eia), inames, pn, r) => e
-      | S.VarP name => e
-      | S.PairP (pn1, pn2) => e
-      | S.AnnoP (pn, t) => e
-
+val shift_var = LongIdShift.shiftx_var
+fun compare_var (m, (y, r)) x =
+  let
+    open MicroTiMLEx
+  in
+    case m of
+        SOME _ => CmpOther
+      | NONE =>
+        if y = x then CmpEq
+        else if y > x then
+          CmpGreater (m, (y - 1, r))
+        else CmpOther
+  end
+fun shift_i_e a = shift_i_e_fn shiftx_i_i a
+fun shift_e_e a = shift_e_e_fn shift_var a
+fun subst_e_e a = subst_e_e_fn shift_var compare_var shiftx_i_i a
+fun EV n = EVar (NONE, (n, dummy))
+                
+open PatternVisitor
+fun shift_e_pn a = shift_e_pn_fn shift_e_e a
+                                 
 fun on_e (e : S.expr) =
   case e of
       S.Var (x, _) => EVar x
@@ -322,37 +334,28 @@ fun on_e (e : S.expr) =
            Op.ETNever => ENever (on_mt t)
          | Op.ETBuiltin => raise Error "can't translate builtin expression"
       )
-    (* | S.Case (e, return, rules, _) => *)
-    (*   Case (e, return, map (f_rule x n) rules) *)
     | S.Abs (pn, t, e) =>
       let
         val t = on_mt t
         val e = on_e e
-        open PatternVisitor
         val pn = from_TiML_ptrn pn
         val name = default (EName ("__x", dummy)) $ get_pn_alias pn
         val pn = PnBind (pn, e)
-        val shift_var = LongIdShift.shiftx_var
-        fun compare_var (m, (y, r)) x =
-          let
-            open MicroTiMLEx
-          in
-            case m of
-                SOME _ => CmpOther
-              | NONE =>
-                if y = x then CmpEq
-                else if y > x then
-                  CmpGreater (m, (y - 1, r))
-                else CmpOther
-          end
-        val shift_i_e = fn a => shift_i_e shiftx_i_i a
-        val shift_e_e = fn a => shift_e_e shift_var a
-        val subst_e_e = fn a => subst_e_e shift_var compare_var shiftx_i_i a
-        fun EV n = EVar (NONE, (n, dummy))
-        val pn = shift_e_pn shift_e_e 0 1 pn
+        val pn = shift_e_pn 0 1 pn
         val e = to_expr (shift_i_e, shift_e_e, subst_e_e, EV) (EV 0) [pn]
       in
         EAbs $ BindAnno ((name, t), e)
+      end
+    | S.Case (e, return, rules, r) =>
+      let
+        val e = on_e e
+        val rules = map (mapPair (from_TiML_ptrn, on_e)) rules
+        val name = default (EName ("__x", dummy)) $ firstSuccess get_pn_alias $ map fst rules
+        val pns = map PnBind rules
+        val pns = map (shift_e_pn 0 1) pns
+        val e2 = to_expr (shift_i_e, shift_e_e, subst_e_e, EV) (EV 0) pns
+      in
+        ELet (e, BindSimp (name, e2))
       end
     | S.AbsI (s, S.Bind (name, e), _) => EAbsI $ BindAnno ((IName name, s), on_e e)
     (* | Let (return, decs, e, r) => *)

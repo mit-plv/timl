@@ -52,7 +52,7 @@ datatype expr =
 	 | Abs of (int * int, mtype, name, region) ptrn * mtype * expr
 	 | AbsI of sort * (name * expr) ibind * region
 	 (* | AppConstr of (long_id * bool) * idx list * expr *)
-	 (* | Case of expr * return * (mtype ptrn * expr) list * region *)
+	 | Case of expr * return * ((int * int, mtype, name, region) ptrn * expr) list * region
 	 (* | Let of return * decl list * expr * region *)
 	 | Ascription of expr * mtype
 
