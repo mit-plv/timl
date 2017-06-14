@@ -314,7 +314,7 @@ fun shift_e_e a = shift_e_e_fn shift_var a
 fun subst_e_e a = subst_e_e_fn shift_var compare_var shiftx_i_i a
 fun EV n = EVar (NONE, (n, dummy))
                 
-open PatternVisitor
+open PatternEx
 fun shift_e_pn a = shift_e_pn_fn shift_e_e a
                                  
 fun on_e (e : S.expr) =

@@ -3,7 +3,7 @@
 (*   val visit_bind_anno : ('env -> 'anno -> 'anno2) -> ('env -> 't -> 't2) -> ('env -> 'name -> 'env) -> 'env -> ('name, 'anno, 't) Binders.bind_anno -> ('name, 'anno2, 't2) Binders.bind_anno         *)
 (* end *)
                              
-structure PatternVisitor = struct
+structure PatternEx = struct
 
 open Operators
 open Util
@@ -759,9 +759,9 @@ fun to_expr (shift_i_e, shift_e_e, subst_e_e, EV) matchee branches : ('var, 'bso
 
 end
 
-structure PatternVisitorUnitTest = struct
+structure PatternExUnitTest = struct
 open Util
-open PatternVisitor
+open PatternEx
 
 infixr 0 $
          
@@ -827,7 +827,7 @@ fun test2 () =
                   
     (* val branches = map remove_anno branches *)
     (* val branches = map (remove_constr shift_i_e) branches *)
-    (* (* val () = app (fn p => println $ PatternVisitor.str_pn p) branches *) *)
+    (* (* val () = app (fn p => println $ PatternEx.str_pn p) branches *) *)
     (* val branches = map remove_var branches *)
     (* val e = remove_deep (shift_var, compare_var) (EV 0) branches *)
     (* (* val () = println $ str_e str_int str_raw_i e *) *)
