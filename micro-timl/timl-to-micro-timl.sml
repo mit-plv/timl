@@ -141,58 +141,61 @@ end
 
 structure TiML2MicroTiML = struct
 
-open BaseSorts
-open Region
-type name = string * region
-type long_id = (string * region) option * (int * region)
-structure LongIdVar = struct
-type var = long_id
-end
-structure Var = LongIdVar
-open Var
-structure Idx = IdxFn (structure UVarI = UVar
-                       type base_sort = base_sort
-                       type var = var
-                       type name = name
-                       type region = region
-                       type 'a exists_anno = unit
-                      )
-structure TiMLType = TypeFn (structure Idx = Idx
-                             structure UVarT = NoUVar
-                             type base_type = BaseTypes.base_type
-                            )
-structure TiML = TAst (structure Idx = Idx
-                       structure Type = TiMLType
-                       structure UVarT = NoUVar
-                      )
+(* open BaseSorts *)
+(* open Region *)
+(* type name = string * region *)
+(* type long_id = (string * region) option * (int * region) *)
+(* structure LongIdVar = struct *)
+(* type var = long_id *)
+(* end *)
+(* structure Var = LongIdVar *)
+(* open Var *)
+(* structure Idx = IdxFn (structure UVarI = UVar *)
+(*                        type base_sort = base_sort *)
+(*                        type var = var *)
+(*                        type name = name *)
+(*                        type region = region *)
+(*                        type 'a exists_anno = unit *)
+(*                       ) *)
+(* structure TiMLType = TypeFn (structure Idx = Idx *)
+(*                              structure UVarT = NoUVar *)
+(*                              type base_type = BaseTypes.base_type *)
+(*                             ) *)
+(* structure TiML = TAst (structure Idx = Idx *)
+(*                        structure Type = TiMLType *)
+(*                        structure UVarT = NoUVar *)
+(*                       ) *)
 
-structure LongIdShift = struct
-open ShiftUtil
-open LongIdUtil
-type var = long_id
-val shift_v = shiftx_int
-fun shift_long_id x n b = on_v_long_id shift_v x n b
-val forget_v = forget_int ForgetError
-fun forget_long_id x n b = on_v_long_id forget_v x n b
-val shiftx_var = shift_long_id
-val forget_var = forget_long_id
-end
+(* structure LongIdShift = struct *)
+(* open ShiftUtil *)
+(* open LongIdUtil *)
+(* type var = long_id *)
+(* val shift_v = shiftx_int *)
+(* fun shift_long_id x n b = on_v_long_id shift_v x n b *)
+(* val forget_v = forget_int ForgetError *)
+(* fun forget_long_id x n b = on_v_long_id forget_v x n b *)
+(* val shiftx_var = shift_long_id *)
+(* val forget_var = forget_long_id *)
+(* end *)
 
-structure IdxShift = IdxShiftFn (structure Idx = Idx
-                                 structure ShiftableVar = LongIdShift)
-open IdxShift       
-structure TypeShift = TypeShiftFn (structure Type = TiMLType
-                                  structure ShiftableVar = LongIdShift
-                                  structure ShiftableIdx = IdxShift
-                                 )
-open TypeShift
+(* structure IdxShift = IdxShiftFn (structure Idx = Idx *)
+(*                                  structure ShiftableVar = LongIdShift) *)
+(* open IdxShift        *)
+(* structure TypeShift = TypeShiftFn (structure Type = TiMLType *)
+(*                                   structure ShiftableVar = LongIdShift *)
+(*                                   structure ShiftableIdx = IdxShift *)
+(*                                  ) *)
+(* open TypeShift *)
        
-structure IdxUtil = IdxUtilFn (structure Idx = Idx
-                               val dummy = dummy
-                              )
-open IdxUtil
-                                  
+(* structure IdxUtil = IdxUtilFn (structure Idx = Idx *)
+(*                                val dummy = dummy *)
+(*                               ) *)
+(* open IdxUtil *)
+
+structure TiML = Expr
 structure S = TiML
+open S
+open Subst
 open MicroTiML
 open MicroTiMLEx
 structure Op = Operators
@@ -261,8 +264,10 @@ fun on_mt (t : S.mtype) =
     | S.MtAbs (k, S.Bind (name, t), _) => TAbsT $ BindAnno ((TName name, on_k k), on_mt t)
     | S.MtAppI (t, i) => TAppI (on_mt t, i)
     | S.MtAbsI (b, S.Bind (name, t), _) => TAbsI $ BindAnno ((IName name, b), on_mt t)
-    | S.BaseType t => TConst (on_base_type t)
-    | S.UVar (x, _) => exfalso x
+    | S.BaseType (t, r) => TConst (on_base_type t)
+    | S.UVar (x, _) =>
+    (* exfalso x *)
+      raise Impossible "UVar"
     | S.TDatatype (S.Bind (dt_name, tbinds), _) =>
       let
         val (tname_kinds, (bsorts, constrs)) = unfold_binds tbinds
@@ -366,30 +371,32 @@ fun on_e (e : S.expr) =
     (*     Let (return, decs, f (x + m) n e, r) *)
     (*   end *)
     | S.Ascription (e, t) => EAscType (on_e e, on_mt t)
-    (* | AppConstr (cx, is, e) => AppConstr (cx, is, f x n e) *)
+(* | AppConstr (cx, is, e) => AppConstr (cx, is, f x n e) *)
+    | _ => raise Unimpl ""
 
 structure UnitTest = struct
 
 structure U = UnderscoredExpr
-val trans_long_id = id
-structure IdxTrans = IdxTransFn (structure Src = U
-                                 structure Tgt = Idx
-                                 val on_base_sort = id
-                                 val on_var = trans_long_id
-                                 val on_name = id
-                                 val on_r = id
-                                 fun on_exists_anno _ _ = ()
-                                 fun on_uvar_bs _ _ = raise Impossible "IdxTrans/on_uvar_bs()"
-                                 fun on_uvar_s _ _ _ = raise Impossible "IdxTrans/on_uvar_s()"
-                                 fun on_uvar_i _ _ _ = raise Impossible "IdxTrans/on_uvar_i()"
-                                )
-structure TypeTrans = TypeTransFn (structure Src = U
-                                   structure Tgt = TiMLType
-                                   structure IdxTrans = IdxTrans
-                                   val on_base_type = id
-                                   fun on_k k = mapSnd (map IdxTrans.on_b) k
-                                   fun on_uvar_mt _ _ _ _ = raise Impossible "TypeTrans/on_uvar_mt()"
-                                  )
+                
+(* val trans_long_id = id *)
+(* structure IdxTrans = IdxTransFn (structure Src = U *)
+(*                                  structure Tgt = Idx *)
+(*                                  val on_base_sort = id *)
+(*                                  val on_var = trans_long_id *)
+(*                                  val on_name = id *)
+(*                                  val on_r = id *)
+(*                                  fun on_exists_anno _ _ = () *)
+(*                                  fun on_uvar_bs _ _ = raise Impossible "IdxTrans/on_uvar_bs()" *)
+(*                                  fun on_uvar_s _ _ _ = raise Impossible "IdxTrans/on_uvar_s()" *)
+(*                                  fun on_uvar_i _ _ _ = raise Impossible "IdxTrans/on_uvar_i()" *)
+(*                                 ) *)
+(* structure TypeTrans = TypeTransFn (structure Src = U *)
+(*                                    structure Tgt = TiMLType *)
+(*                                    structure IdxTrans = IdxTrans *)
+(*                                    val on_base_type = id *)
+(*                                    fun on_k k = mapSnd (map IdxTrans.on_b) k *)
+(*                                    fun on_uvar_mt _ _ _ _ = raise Impossible "TypeTrans/on_uvar_mt()" *)
+(*                                   ) *)
 
 open Parser
 open Elaborate
@@ -407,12 +414,12 @@ fun test filename =
     val (prog, _, _) = resolve_prog empty prog
     val (_, TopModBind (ModComponents (decls, _))) = hd prog
     val Datatype (dt, _) = hd decls
-    val dt = TypeTrans.on_dt dt
-    val t = TiMLType.TDatatype (dt, dummy)
-    val t = on_mt t
+    (* val dt = TypeTrans.on_dt dt *)
+    (* val t = TiML.TDatatype (dt, dummy) *)
+    (* val t = on_mt t *)
 (* val () = println $ str_t ([], []) t *)
   in
-    t
+    ()
   end
                           
 end
