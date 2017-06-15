@@ -13,15 +13,33 @@ datatype 't outer = Outer of 't
 datatype 'p rebind = Rebind of 'p
            
 type 't inner = ('t outer) rebind
-fun Inner t = Rebind (Outer t)
 type ('p, 't) bind = ('p * 't inner) abs
-fun Bind (p, t) = Abs (p, Inner t)
+
+datatype 'p tele =
+         TeleNil
+         | TeleCons of 'p * 'p tele rebind
 
 type ('name, 't) bind_simp = ('name binder, 't) bind
-fun BindSimp (name, t) = Bind (Binder name, t)
 type ('name, 'anno, 't) bind_anno = ('name binder * 'anno outer, 't) bind
+
+fun Inner t = Rebind (Outer t)
+fun Bind (p, t) = Abs (p, Inner t)
+fun BindSimp (name, t) = Bind (Binder name, t)
 fun BindAnno ((name, anno), t) = Bind ((Binder name, Outer anno), t)
 
+fun unfold_Binder (Binder n) = n
+fun unfold_Bind (Abs (p, Rebind (Outer t))) = (p, t)
+fun unfold_Tele t =
+  case t of
+      TeleNil => []
+    | TeleCons (p, Rebind t) => p :: unfold_Tele t
+fun unfold_BindAnno t =
+  let
+    val ((Binder name, Outer anno), t) = unfold_Bind t
+  in
+    ((name, anno), t)
+  end
+                                      
 type 'env ctx = {outer : 'env, current : 'env ref}
 
 fun env2ctx env = {outer = env, current = ref env}
@@ -54,13 +72,14 @@ signature BINDERS = sig
 end
 
 functor BinderUtilFn (structure Binders : BINDERS
-                      type iname
-                      type tname
-                      type ename
+                      structure Names : sig
+                                  type iname
+                                  type tname
+                                  type cname
+                                  type ename
+                                end
                      ) = struct
-type iname = iname
-type tname = tname
-type ename = ename
+open Names
 type 't ibind = (iname, 't) Binders.bind_simp
 type 't tbind = (tname, 't) Binders.bind_simp
 type 't ebind = (ename, 't) Binders.bind_simp
@@ -72,13 +91,17 @@ end
 functor NamespacesFn (type name) = struct
 datatype idx_namespace = IdxNS
 datatype type_namespace = TypeNS
+datatype constr_namespace = ConstrNS
 datatype expr_namespace = ExprNS
 type iname = idx_namespace * name
 type tname = type_namespace * name
+type cname = constr_namespace * name
 type ename = expr_namespace * name
 fun IName name = (IdxNS, name)
 fun TName name = (TypeNS, name)
+fun CName name = (ConstrNS, name)
 fun EName name = (ExprNS, name)
+val unfold_Name = Util.snd
                    
 type idepth = idx_namespace * int
 type edepth = expr_namespace * int
@@ -88,16 +111,14 @@ fun idepth_inc (IdxNS, n) = (IdxNS, n + 1)
 fun edepth_inc (ExprNS, n) = (ExprNS, n + 1)
 fun idepth_add ((IdxNS, a), (IdxNS, b)) = (IdxNS, a + b)
 fun edepth_add ((ExprNS, a), (ExprNS, b)) = (ExprNS, a + b)
-fun open_idepth (IdxNS, n) = n
-fun open_edepth (ExprNS, n) = n
+fun unfold_idepth (IdxNS, n) = n
+fun unfold_edepth (ExprNS, n) = n
                               
 end
 
 structure Namespaces = NamespacesFn (type name = string * Region.region)
                                     
 structure Binders = BinderUtilFn (structure Binders = Unbound
-                                  type iname = Namespaces.iname
-                                  type tname = Namespaces.tname
-                                  type ename = Namespaces.ename
+                                  structure Names = Namespaces
                                  )
                                      

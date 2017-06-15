@@ -69,15 +69,15 @@ open Type
 
 open Pattern
 
-type ptrn = (long_id * ptrn_constr_tag, mtype, name, region) ptrn
+type ptrn = (long_id * ptrn_constr_tag, mtype, region) ptrn
 
 type return = mtype option * idx option
                                  
 datatype stbind = 
-         SortingST of name * sort
+         SortingST of iname binder * sort outer
          | TypingST of ptrn
 
-type scoping_ctx = string list * string list * string list * string list
+type scoping_ctx = iname binder list * tname binder list * cname binder list * ename binder list
      
 datatype expr =
 	 Var of long_id * bool(*explicit index arguments (EIA)*)
@@ -87,23 +87,23 @@ datatype expr =
 	 | TriOp of tri_op * expr * expr * expr
          | EEI of expr_EI * expr * idx
          | ET of expr_T * mtype * region
-	 | Abs of ptrn * expr
-	 | AbsI of sort * (name * expr) ibind * region
+	 | Abs of (ptrn, expr) bind
+	 | AbsI of (sort, expr) ibind_anno * region
 	 | AppConstr of (long_id * bool) * idx list * expr
-	 | Case of expr * return * (ptrn * expr) list * region
-	 | Let of return * decl list * expr * region
+	 | Case of expr * return * (ptrn, expr) bind list * region
+	 | Let of return * (decl tele, expr) bind * region
 	 | Ascription of expr * mtype
 
 
      and decl =
-         Val of name list * ptrn * expr * region
-         | Rec of name list * name * (stbind list * ((mtype * idx) * expr)) * region
-	 | Datatype of mtype datatype_def * region
-         | IdxDef of name * sort * idx
-         | AbsIdx2 of name * sort * idx
-         | AbsIdx of (name * sort * idx) * decl list * region
-         | TypeDef of name * mtype
-         | Open of mod_projectible * scoping_ctx option
+         Val of tname binder list * (ptrn * expr outer) rebind * region outer
+         | Rec of ename binder * (tname binder list * stbind list, (mtype * idx) * expr) bind inner * region outer
+	 | Datatype of mtype datatype_def * region outer
+         | IdxDef of iname binder * sort outer * idx outer
+         | AbsIdx2 of iname binder * sort outer * idx outer
+         | AbsIdx of (iname binder * sort outer * idx outer) * decl tele rebind * region
+         | TypeDef of tname binder * mtype outer
+         | Open of mod_projectible outer * scoping_ctx option
 
 datatype spec =
          SpecVal of name * ty
@@ -186,7 +186,9 @@ infixr 1 -->
 infix 1 <->
         
 (* useful functions *)
-                      
+
+open Bind
+       
 fun collect_UniI t =
   case t of
       UniI (s, Bind ((name, _), t), _) =>
@@ -889,20 +891,26 @@ fun str_t gctx (ctx as (sctx, kctx)) (t : ty) : string =
       Mono t => str_mt gctx ctx t
     | Uni _ => str_uni gctx ctx (collect_Uni_UniI t)
 
+fun Name2str n = fst $ unfold_Name n
+fun binder2str b = Name2str $ unfold_Binder b
+fun str2binder2 ns s = Binder (ns, (s, dummy))
+fun str2ibinder s = str2binder2 Namespaces.IdxNS s
+
 fun ptrn_names pn : string list * string list =
   case pn of
       ConstrP (_, inames, pn, _) =>
-      let 
+      let
+        val inames = map binder2str inames
         (* val () = println "ConstrP" *)
         val (inames', enames) = ptrn_names pn
       in
         (inames' @ rev inames, enames)
       end
-    | VarP (name, _) =>
+    | VarP name =>
       let
         (* val () = println $ sprintf "VarP: $" [name] *)
       in
-        ([], [name])
+        ([], [binder2str name])
       end
     | PairP (pn1, pn2) =>
       let val (inames1, enames1) = ptrn_names pn1
@@ -912,10 +920,10 @@ fun ptrn_names pn : string list * string list =
       end
     | TTP _ =>
       ([], [])
-    | AliasP ((name, _), pn, _) =>
+    | AliasP (name, pn, _) =>
       let val (inames, enames) = ptrn_names pn
       in
-        (inames, enames @ [name])
+        (inames, enames @ [binder2str name])
       end
     | AnnoP (pn, t) => ptrn_names pn
 
@@ -926,12 +934,12 @@ fun str_pn gctx (ctx as (sctx, kctx, cctx)) pn =
     val str_pn = str_pn gctx
   in
     case pn of
-        ConstrP (((x, _), eia), inames, pn, _) => sprintf "$$$" [decorate_var eia $ str_long_id #3 gctx cctx x, join_prefix " " $ map (surround "{" "}") inames, " " ^ str_pn ctx pn]
-      | VarP (name, _) => name
+        ConstrP (Outer ((x, _), eia), inames, pn, _) => sprintf "$$$" [decorate_var eia $ str_long_id #3 gctx cctx x, join_prefix " " $ map (surround "{" "}" o binder2str) inames, " " ^ str_pn ctx pn]
+      | VarP name => binder2str name
       | PairP (pn1, pn2) => sprintf "($, $)" [str_pn ctx pn1, str_pn ctx pn2]
       | TTP _ => "()"
-      | AliasP ((name, _), pn, _) => sprintf "$ as $" [name, str_pn ctx pn]
-      | AnnoP (pn, t) => sprintf "($ : $)" [str_pn ctx pn, str_mt gctx (sctx, kctx) t]
+      | AliasP (name, pn, _) => sprintf "$ as $" [binder2str name, str_pn ctx pn]
+      | AnnoP (pn, Outer t) => sprintf "($ : $)" [str_pn ctx pn, str_mt gctx (sctx, kctx) t]
   end
 
 fun str_return gctx (skctx as (sctx, _)) return =
@@ -990,8 +998,9 @@ fun str_e gctx (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
              ETNever => sprintf "(never [$])" [str_mt gctx skctx t]
            | ETBuiltin => sprintf "(builtin [$])" [str_mt gctx skctx t]
         )
-      | Abs (pn, e) => 
-        let 
+      | Abs bind => 
+        let
+          val (pn, e) = unfold_Bind bind
           val (inames, enames) = ptrn_names pn
           val pn = str_pn gctx (sctx, kctx, cctx) pn
           val ctx = (inames @ sctx, kctx, cctx, enames @ tctx)
@@ -999,9 +1008,17 @@ fun str_e gctx (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
         in
           sprintf "(fn $ => $)" [pn, e]
         end
-      | AbsI (s, Bind ((name, _), e), _) => sprintf "(fn {$ : $} => $)" [name, str_s gctx sctx s, str_e (name :: sctx, kctx, cctx, tctx) e]
-      | Let (return, decls, e, _) => 
+      | AbsI (bind, _) =>
         let
+          val ((name, s), e) = unfold_BindAnno bind
+          val name = Name2str name
+        in
+          sprintf "(fn {$ : $} => $)" [name, str_s gctx sctx s, str_e (name :: sctx, kctx, cctx, tctx) e]
+        end
+      | Let (return, bind, _) => 
+        let
+          val (decls, e) = unfold_Bind bind
+          val decls = unfold_Tele decls
           val return = str_return gctx (sctx, kctx) return
           val (decls, ctx) = str_decls gctx ctx decls
         in
@@ -1030,10 +1047,11 @@ and str_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
       val str_decl = str_decl gctx
     in
       case decl of
-          Val (tnames, pn, e, _) =>
-          let 
-            val ctx' as (sctx', kctx', cctx', _) = (sctx, (rev o map fst) tnames @ kctx, cctx, tctx)
-            val tnames = (join "" o map (fn nm => sprintf " [$]" [nm]) o map fst) tnames
+          Val (tnames, Rebind (pn, Outer e), _) =>
+          let
+            val tnames = map binder2str tnames
+            val ctx' as (sctx', kctx', cctx', _) = (sctx, rev tnames @ kctx, cctx, tctx)
+            val tnames = (join "" o map (fn nm => sprintf " [$]" [nm])) tnames
             val (inames, enames) = ptrn_names pn
             val pn = str_pn gctx (sctx', kctx', cctx') pn
             val e = str_e gctx ctx' e

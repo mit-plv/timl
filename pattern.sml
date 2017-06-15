@@ -1,11 +1,15 @@
 structure Pattern = struct
 
-datatype ('var, 'mtype, 'name, 'region) ptrn =
-	 ConstrP of ('var * bool(*eia*)) * string list * ('var, 'mtype, 'name, 'region) ptrn * 'region (* eia : is explicit index arguments? *)                                         
-         | VarP of 'name
-         | PairP of ('var, 'mtype, 'name, 'region) ptrn * ('var, 'mtype, 'name, 'region) ptrn
-         | TTP of 'region
-         | AliasP of 'name * ('var, 'mtype, 'name, 'region) ptrn * 'region
-         | AnnoP of ('var, 'mtype, 'name, 'region) ptrn * 'mtype
+open Namespaces
+open Binders
+open Unbound
+       
+datatype ('var, 'mtype, 'region) ptrn =
+	 ConstrP of ('var * bool(*eia*)) outer * iname binder list * ('var, 'mtype, 'region) ptrn * 'region outer (* eia : is explicit index arguments? *)                                         
+         | VarP of ename binder
+         | PairP of ('var, 'mtype, 'region) ptrn * ('var, 'mtype, 'region) ptrn
+         | TTP of 'region outer
+         | AliasP of ename binder * ('var, 'mtype, 'region) ptrn * 'region outer
+         | AnnoP of ('var, 'mtype, 'region) ptrn * 'mtype outer
 
 end

@@ -17,7 +17,7 @@ type kind = int (*number of type arguments*) * bsort list
 type 'mtype constr_core = (sort, string, 'mtype * idx list) ibinds
 type 'mtype constr_decl = string * 'mtype constr_core * region
 
-type 'mtype datatype_def = (string * (unit, string, bsort list * 'mtype constr_decl list) tbinds) tbind(*for datatype self-reference*)
+type 'mtype datatype_def = Namespaces.tname Unbound.binder(*for datatype self-reference*) * (unit, string, bsort list * 'mtype constr_decl list) tbinds Unbound.inner
 
 (* monotypes *)
 datatype mtype = 
@@ -34,7 +34,7 @@ datatype mtype =
          | MtAbsI of bsort * (name * mtype) ibind  * region
          | MtAppI of mtype * idx
          | UVar of (bsort, kind, mtype) uvar_mt * region
-         | TDatatype of mtype datatype_def * region
+         | TDatatype of mtype datatype_def Unbound.abs * region
 
 datatype ty = 
 	 Mono of mtype
@@ -72,6 +72,14 @@ open ShiftUtil
 
 infixr 0 $
          
+local
+  open Unbound
+  open Namespaces
+in
+fun from_Unbound (Abs (Binder (TypeNS, (name, _)), Rebind (Outer t))) = Bind.Bind (name, t)
+fun to_Unbound (Bind.Bind (name, t)) = Abs (Binder (TypeNS, (name, Region.dummy)), Rebind (Outer t))
+end
+                                                       
 fun on_i_mt on_i on_s x n b =
   let
     fun f x n b =
@@ -92,7 +100,9 @@ fun on_i_mt on_i on_s x n b =
         | TDatatype (dt, r) =>
           let
             fun on_constr_decl x n (name, c, r) = (name, on_i_constr_core on_i on_s f x n c, r)
+            val dt = from_Unbound dt
             val dt = on_i_tbind (on_i_tbinds return3 (on_pair (return3, on_list on_constr_decl))) x n dt
+            val dt = to_Unbound dt
           in
             TDatatype (dt, r)
           end
@@ -132,7 +142,9 @@ fun on_t_mt on_v x n b =
         | TDatatype (dt, r) =>
           let
             fun on_constr_decl x n (name, c, r) = (name, on_t_constr_core f x n c, r)
+            val dt = from_Unbound dt
             val dt = on_t_tbind (on_t_tbinds return3 (on_pair (return3, on_list on_constr_decl))) x n dt
+            val dt = to_Unbound dt
           in
             TDatatype (dt, r)
           end
