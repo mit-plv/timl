@@ -206,7 +206,7 @@ open Unbound
        
 infixr 0 $
 
-exception Error of string
+exception T2MTError of string
 
 fun on_expr_un_op opr =
   case opr of
@@ -301,6 +301,8 @@ fun on_mt (t : S.mtype) =
         TRec $ BindAnno ((TName (dt_name, dummy), k), t)
       end
 
+val trans_mt = on_mt
+                 
 val shift_var = LongIdShift.shiftx_var
 fun compare_var (m, (y, r)) x =
   let
@@ -337,7 +339,7 @@ fun on_e (e : S.expr) =
     | S.ET (opr, t, r) =>
       (case opr of
            Op.ETNever => ENever (on_mt t)
-         | Op.ETBuiltin => raise Error "can't translate builtin expression"
+         | Op.ETBuiltin => raise T2MTError "can't translate builtin expression"
       )
     | S.Abs (pn, e) =>
       let
@@ -374,6 +376,8 @@ fun on_e (e : S.expr) =
 (* | AppConstr (cx, is, e) => AppConstr (cx, is, f x n e) *)
     | _ => raise Unimpl ""
 
+val trans_e = on_e
+
 structure UnitTest = struct
 
 structure U = UnderscoredExpr
@@ -398,10 +402,6 @@ structure U = UnderscoredExpr
 (*                                    fun on_uvar_mt _ _ _ _ = raise Impossible "TypeTrans/on_uvar_mt()" *)
 (*                                   ) *)
 
-open Parser
-open Elaborate
-open NameResolve
-       
 (* val SNat = Basic (Base Nat, ()) *)
 (* val nil = fold_ibinds ([], (S.Unit (), [N0])) *)
 (* val cons = fold_ibinds ([("n", SNat)], (S.Prod (), [V0 %+ N1])) *)
@@ -409,18 +409,31 @@ open NameResolve
 
 fun test filename =
   let
+    open Parser
     val prog = parse_file filename
+    open Elaborate
     val prog = elaborate_prog prog
+    open NameResolve
     val (prog, _, _) = resolve_prog empty prog
     val (_, TopModBind (ModComponents (decls, _))) = hd prog
+    open TypeCheck
+    val ((decls, _, _, _), _) = typecheck_decls empty empty_ctx decls
     val Datatype (dt, _) = hd decls
+    val Val (_, _, e, _) = nth (decls, 1)
     (* val dt = TypeTrans.on_dt dt *)
-    (* val t = TiML.TDatatype (dt, dummy) *)
-    (* val t = on_mt t *)
-(* val () = println $ str_t ([], []) t *)
+    val t = TiML.TDatatype (dt, dummy)
+    val t = trans_mt t
+    (* val () = println $ str_t empty ([], []) t *)
+    (* val e = simp_e e *)
+    val () = println $ str_e empty ([], ["'a", "list"], ["Cons", "Nil"], []) e
+    (* val e = trans_e e *)
   in
-    ()
+    (* (t, e) *)
+      ()
   end
+  handle NameResolve.Error (_, msg) => (println $ "NRError: " ^ msg; raise Impossible "End")
+       | TypeCheck.Error (_, msgs) => (app println $ "TCError: " :: msgs; raise Impossible "End")
+       | T2MTError msg => (println $ "T2MTError: " ^ msg; raise Impossible "End")
                           
 end
                              

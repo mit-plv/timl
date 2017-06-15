@@ -761,7 +761,8 @@ fun str_sortings gctx ctx binds =
     (binds, fst ctx)
   end
 
-val str_Type = "*"
+(* val str_Type = "*" *)
+val str_Type = "Type"
                  
 fun str_k ((n, sorts) : kind) : string =
   if n = 0 andalso null sorts then str_Type
@@ -817,7 +818,7 @@ fun str_mt gctx (ctx as (sctx, kctx)) (t : mtype) : string =
         (* val () = println $ str_int (length binds) *)
         fun iter ((c, name), (acc, (sctx, kctx))) =
           case c of
-              inl s => (sprintf "{$ : $}" [name, (* str_s gctx sctx s *)"..."] :: acc, (name :: sctx, kctx))
+              inl s => (sprintf "{$ : $}" [name, str_bs s(* "..." *)] :: acc, (name :: sctx, kctx))
             | inr k => (sprintf "[$ : $]" [name, str_k k] :: acc, (sctx, name :: kctx))
         val (binds, (sctx, kctx)) = foldl iter ([], (sctx, kctx)) binds
         val binds = rev binds
@@ -827,9 +828,9 @@ fun str_mt gctx (ctx as (sctx, kctx)) (t : mtype) : string =
         sprintf "(fn$ => $)" [join_prefix " " binds, t]
       end
   in
-    case is_MtApp_UVar t of
-        SOME ((x, _), i_args, t_args) => sprintf "($ ...)" [str_uvar_mt (str_raw_bs, str_raw_k, str_mt ([], [])) x]
-      | NONE =>
+    (* case is_MtApp_UVar t of *)
+    (*     SOME ((x, _), i_args, t_args) => sprintf "($ ...)" [str_uvar_mt (str_raw_bs, str_raw_k, str_mt ([], [])) x] *)
+    (*   | NONE => *)
     case t of
         Arrow (t1, d, t2) =>
         if eq_i d (T0 dummy) then
