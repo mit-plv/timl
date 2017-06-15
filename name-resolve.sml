@@ -507,7 +507,7 @@ and on_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
           in
             (TypeDef ((name, r), t), add_kinding_skct name ctx)
           end
-        | S.Open (m, r) =>
+        | S.Open ((m, r), _) =>
           let
             val (m, ctxd) =
                 case lookup_module gctx m of
@@ -515,7 +515,7 @@ and on_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
                   | NONE => raise Error (r, "Unbound module " ^ m)
             val ctx = add_ctx ctxd ctx
           in
-            (Open (m, r), ctx)
+            (Open ((m, r), SOME $ map3_4 (map fst) ctxd), ctx)
           end
     end
 

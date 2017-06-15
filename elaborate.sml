@@ -370,7 +370,7 @@ local
             AbsIdx (((name, r1), s, i), map elab_decl decls, r)
           end
         | S.TypeDef (name, t) => TypeDef (name, elab_mt t)
-        | S.Open name => Open name
+        | S.Open name => Open (name, NONE)
 
   fun elab_spec spec =
       case spec of

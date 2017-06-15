@@ -77,6 +77,8 @@ datatype stbind =
          SortingST of name * sort
          | TypingST of ptrn
 
+type scoping_ctx = string list * string list * string list * string list
+     
 datatype expr =
 	 Var of long_id * bool(*explicit index arguments (EIA)*)
          | EConst of expr_const * region
@@ -101,7 +103,7 @@ datatype expr =
          | AbsIdx2 of name * sort * idx
          | AbsIdx of (name * sort * idx) * decl list * region
          | TypeDef of name * mtype
-         | Open of mod_projectible
+         | Open of mod_projectible * scoping_ctx option
 
 datatype spec =
          SpecVal of name * ty
@@ -1096,7 +1098,7 @@ and str_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
           end
         | TypeDef ((name, _), t) =>
           (sprintf "type $ = $" [name, str_mt gctx (sctx, kctx) t], add_kinding name ctx)
-        | Open (m, r) =>
+        | Open ((m, r), _) =>
           let
             val (m, ctxd) = lookup_module gctx m
             val ctx = add_ctx ctxd ctx
@@ -1223,7 +1225,7 @@ fun get_region_dec dec =
     | AbsIdx2 ((_, r), _, i) => combine_region r (get_region_i i)
     | AbsIdx (_, _, r) => r
     | TypeDef ((_, r), t) => combine_region r $ get_region_mt t
-    | Open (_, r) => r
+    | Open ((_, r), _) => r
 
 fun get_region_sig (_, r) = r
 
@@ -1385,7 +1387,10 @@ fun on_e_e on_v =
               (AbsIdx (a, decls, r), m)
             end
           | TypeDef (name, t) => (TypeDef (name, t), 0)
-          | Open m => (Open m, 0)
+          | Open (m, octx) =>
+            case octx of
+                NONE => raise Impossible "ctx can't be NONE"
+              | SOME ctx => (Open (m, octx), length $ #4 ctx)
 
     and f_rule x n (pn, e) =
 	let 
@@ -2680,7 +2685,7 @@ local
             acc
           end
         | TypeDef ((name, r), t) => on_mt acc t
-        | Open (m, r) => m :: acc
+        | Open ((m, r), _) => m :: acc
 
 in
 val on_e = f

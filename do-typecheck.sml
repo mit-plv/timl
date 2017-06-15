@@ -1705,7 +1705,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
             in
               (AbsIdx (((name, r1), s, i), decls, r), ctxd, 0, ds)
             end
-          | U.Open (m, r) =>
+          | U.Open ((m, r), octx) =>
             let
               fun link_module (m, r) (sctx, kctx, cctx, tctx) =
                 let
@@ -1728,7 +1728,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
               val ctxd = clone_module gctx (m, r)
               val () = open_ctx ctxd
             in
-              (Open (m, r), ctxd, 0, [])
+              (Open ((m, r), octx), ctxd, 0, [])
             end
       fun extra_msg () = ["when type-checking declaration "] @ indent [fst $ U.str_decl (gctx_names gctx) (ctx_names ctx) decl]
       val ret as (decl, ctxd, nps, ds) =
@@ -1758,7 +1758,7 @@ and check_decls gctx (ctx, decls) : decl list * context * int * idx list * conte
         end
       val (decls, ctxd, nps, ds, ctx) = foldl f ([], empty_ctx, 0, [], ctx) decls
       val decls = rev decls
-      val ctxd = (upd4 o map o mapSnd) (simp_t o update_t) ctxd
+      val ctxd = (map4 o map o mapSnd) (simp_t o update_t) ctxd
       val ds = map simp_i $ map update_i $ rev ds
                    (* val () = println "Typed Decls:" *)
                    (* val () = app println $ str_typing_info (gctx_names gctx) skctxn_old (ctxd, ds) *)
