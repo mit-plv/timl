@@ -778,8 +778,8 @@ fun compare_var y x =
     
 fun test () =
   let
-    open MicroTiMLEx
     open Expr
+    open MicroTiMLEx
     open Subst
            
     fun shift_i_e a = shift_i_e_fn shiftx_i_i a

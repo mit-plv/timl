@@ -269,7 +269,7 @@ local
       case e of
 	  S.Var (id as (m, (x, r)), eia) =>
           let
-            fun def () = Var (id, eia)
+            fun def () = EVar (id, eia)
           in
             case m of
                 NONE =>
@@ -290,10 +290,10 @@ local
             fun f (b, e) =
 		case b of
 		    Typing pn => EAbs $ Unbound.Bind (elab_pn pn, e)
-		  | TBind (name, s, _) => AbsI (BindAnno ((IName name, elab_s s), e), r)
+		  | TBind (name, s, _) => EAbsI (BindAnno ((IName name, elab_s s), e), r)
             val e = elab e
             val e = case d of SOME d => AscriptionTime (e, elab_i d) | _ => e
-            val e = case t of SOME t => Ascription (e, elab_mt t) | _ => e
+            val e = case t of SOME t => EAscription (e, elab_mt t) | _ => e
 	  in
 	    foldr f e binds
 	  end
@@ -318,17 +318,17 @@ local
 	  let
             (* val rules = map (mapSnd (copy_anno return)) rules *)
 	  in
-	    Case (elab e, elab_return return, map (fn (pn, e) => Unbound.Bind (elab_pn pn, elab e)) rules, r)
+	    ECase (elab e, elab_return return, map (fn (pn, e) => Unbound.Bind (elab_pn pn, elab e)) rules, r)
 	  end
 	| S.Ascription (e, t, _) =>
-	  Ascription (elab e, elab_mt t)
+	  EAscription (elab e, elab_mt t)
 	| S.AscriptionTime (e, i, _) =>
 	  AscriptionTime (elab e, elab_i i)
 	| S.Let (return, decs, e, r) =>
-          Let (elab_return return, Unbound.Bind (Teles $ map elab_decl decs, elab e), r)
+          ELet (elab_return return, Unbound.Bind (Teles $ map elab_decl decs, elab e), r)
 	| S.Const n => ConstInt n
 	| S.ConstNat n => ConstNat n
-        | S.BinOp (opr, e1, e2, _) => BinOp (opr, elab e1, elab e2)
+        | S.BinOp (opr, e1, e2, _) => EBinOp (opr, elab e1, elab e2)
 
   and elab_decl decl =
       case decl of
@@ -337,11 +337,11 @@ local
             val pn = elab_pn pn
           in
             if null tnames then
-              ValPtrn (pn, Outer $ elab e, Outer r)
+              DValPtrn (pn, Outer $ elab e, Outer r)
             else
               case pn of
                   VarP name =>
-                  Val (name, Outer $ Unbound.Bind (map (Binder o TName) tnames, elab e), Outer r)
+                  DVal (name, Outer $ Unbound.Bind (map (Binder o TName) tnames, elab e), Outer r)
                 | _ => raise Error (r, "compound pattern can't be generalized, so can't have explicit type variables")
           end
 	| S.Rec (tnames, name, binds, (t, d), e, r) =>
@@ -357,21 +357,21 @@ local
             val d = default (UVarI ((), r)) (Option.map elab_i d)
             val e = elab e
           in
-	    Rec (Binder $ EName name, Inner $ Unbound.Bind ((map (Binder o TName) tnames, Rebind $ Teles binds), ((t, d), e)), Outer r)
+	    DRec (Binder $ EName name, Inner $ Unbound.Bind ((map (Binder o TName) tnames, Rebind $ Teles binds), ((t, d), e)), Outer r)
           end
         | S.Datatype a =>
-          Datatype $ mapSnd Outer $ elab_datatype a
+          DDatatype $ mapSnd Outer $ elab_datatype a
         | S.IdxDef ((name, r), s, i) =>
           let
             val s = default (UVarS ((), r)) $ Option.map elab_s s
           in
-            IdxDef (Binder $ IName (name, r), Outer s, Outer $ elab_i i)
+            DIdxDef (Binder $ IName (name, r), Outer s, Outer $ elab_i i)
           end
         | S.AbsIdx2 ((name, r), s, i) =>
           let
             val s = default (UVarS ((), r)) $ Option.map elab_s s
           in
-            AbsIdx2 (Binder $ IName (name, r), Outer s, Outer $ elab_i i)
+            DAbsIdx2 (Binder $ IName (name, r), Outer s, Outer $ elab_i i)
           end
         | S.AbsIdx ((name, r1), s, i, decls, r) =>
           let
@@ -380,10 +380,10 @@ local
                         SOME i => elab_i i
                       | NONE => UVarI ((), r1)
           in
-            AbsIdx ((Binder $ IName (name, r1), Outer s, Outer i), Rebind $ Teles $ map elab_decl decls, Outer r)
+            DAbsIdx ((Binder $ IName (name, r1), Outer s, Outer i), Rebind $ Teles $ map elab_decl decls, Outer r)
           end
-        | S.TypeDef (name, t) => TypeDef (Binder $ TName name, Outer $ elab_mt t)
-        | S.Open name => Open (Outer name, NONE)
+        | S.TypeDef (name, t) => DTypeDef (Binder $ TName name, Outer $ elab_mt t)
+        | S.Open name => DOpen (Outer name, NONE)
 
   fun elab_spec spec =
       case spec of

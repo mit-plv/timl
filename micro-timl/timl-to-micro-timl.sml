@@ -331,11 +331,11 @@ fun shift_e_pn a = shift_e_pn_fn shift_e_e a
                                  
 fun on_e (e : S.expr) =
   case e of
-      S.Var (x, _) => EVar x
+      S.EVar (x, _) => EVar x
     | S.EConst (c, _) => EConst c
     | S.EUnOp (opr, e, _) => EUnOp (on_expr_un_op opr, on_e e)
-    | S.BinOp (opr, e1, e2) => EBinOp (on_bin_op opr, on_e e1, on_e e2)
-    | S.TriOp (Op.Write, e1, e2, e3) => EWrite (on_e e1, on_e e2, on_e e3)
+    | S.EBinOp (opr, e1, e2) => EBinOp (on_bin_op opr, on_e e1, on_e e2)
+    | S.ETriOp (Op.Write, e1, e2, e3) => EWrite (on_e e1, on_e e2, on_e e3)
     | S.EEI (opr, e, i) =>
       (case opr of
            Op.EEIAppI => EAppI (on_e e, i)
@@ -360,7 +360,7 @@ fun on_e (e : S.expr) =
       in
         EAbs $ BindAnno ((name, t), e)
       end
-    | S.Case (e, return, rules, r) =>
+    | S.ECase (e, return, rules, r) =>
       let
         val e = on_e e
         val rules = map (mapPair (from_TiML_ptrn, on_e) o unBind) rules
@@ -371,7 +371,7 @@ fun on_e (e : S.expr) =
       in
         ELet (e, BindSimp (name, e2))
       end
-    | S.AbsI (bind, _) =>
+    | S.EAbsI (bind, _) =>
       let
         val ((name, s), e) = unBindAnno bind
       in
@@ -383,7 +383,7 @@ fun on_e (e : S.expr) =
     (*   in *)
     (*     Let (return, decs, f (x + m) n e, r) *)
     (*   end *)
-    | S.Ascription (e, t) => EAscType (on_e e, on_mt t)
+    | S.EAscription (e, t) => EAscType (on_e e, on_mt t)
 (* | AppConstr (cx, is, e) => AppConstr (cx, is, f x n e) *)
     | _ => raise Unimpl ""
 
@@ -429,8 +429,8 @@ fun test filename =
     val (_, TopModBind (ModComponents (decls, _))) = hd prog
     open TypeCheck
     val ((decls, _, _, _), _) = typecheck_decls empty empty_ctx decls
-    val Datatype (dt, _) = hd decls
-    val ValPtrn (_, Outer e, _) = nth (decls, 1)
+    val DDatatype (dt, _) = hd decls
+    val DValPtrn (_, Outer e, _) = nth (decls, 1)
     (* val dt = TypeTrans.on_dt dt *)
     val t = TiML.TDatatype (Abs dt, dummy)
     val t = trans_mt t

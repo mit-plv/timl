@@ -80,31 +80,31 @@ datatype stbind =
 type scoping_ctx = iname binder list * tname binder list * cname binder list * ename binder list
      
 datatype expr =
-	 Var of long_id * bool(*explicit index arguments (EIA)*)
+	 EVar of long_id * bool(*explicit index arguments (EIA)*)
          | EConst of expr_const * region
          | EUnOp of expr_un_op * expr * region
-         | BinOp of bin_op * expr * expr
-	 | TriOp of tri_op * expr * expr * expr
+         | EBinOp of bin_op * expr * expr
+	 | ETriOp of tri_op * expr * expr * expr
          | EEI of expr_EI * expr * idx
          | ET of expr_T * mtype * region
 	 | EAbs of (ptrn, expr) bind
-	 | AbsI of (sort, expr) ibind_anno * region
-	 | AppConstr of (long_id * bool) * idx list * expr
-	 | Case of expr * return * (ptrn, expr) bind list * region
-	 | Let of return * (decl tele, expr) bind * region
-	 | Ascription of expr * mtype
+	 | EAbsI of (sort, expr) ibind_anno * region
+	 | EAppConstr of (long_id * bool) * idx list * expr
+	 | ECase of expr * return * (ptrn, expr) bind list * region
+	 | ELet of return * (decl tele, expr) bind * region
+	 | EAscription of expr * mtype
 
 
      and decl =
-         Val of ename binder * (tname binder list, expr) bind outer * region outer
-         | ValPtrn of ptrn * expr outer * region outer
-         | Rec of ename binder * (tname binder list * stbind tele rebind, (mtype * idx) * expr) bind inner * region outer
-	 | Datatype of mtype datatype_def * region outer
-         | IdxDef of iname binder * sort outer * idx outer
-         | AbsIdx2 of iname binder * sort outer * idx outer
-         | AbsIdx of (iname binder * sort outer * idx outer) * decl tele rebind * region outer
-         | TypeDef of tname binder * mtype outer
-         | Open of mod_projectible outer * scoping_ctx option
+         DVal of ename binder * (tname binder list, expr) bind outer * region outer
+         | DValPtrn of ptrn * expr outer * region outer
+         | DRec of ename binder * (tname binder list * stbind tele rebind, (mtype * idx) * expr) bind inner * region outer
+	 | DDatatype of mtype datatype_def * region outer
+         | DIdxDef of iname binder * sort outer * idx outer
+         | DAbsIdx2 of iname binder * sort outer * idx outer
+         | DAbsIdx of (iname binder * sort outer * idx outer) * decl tele rebind * region outer
+         | DTypeDef of tname binder * mtype outer
+         | DOpen of mod_projectible outer * scoping_ctx option
 
 datatype spec =
          SpecVal of name * ty
@@ -163,8 +163,8 @@ fun ConstInt (n, r) = EConst (ECInt n, r)
 fun ConstNat (n, r) = EConst (ECNat n, r)
 fun Fst (e, r) = EUnOp (EUFst, e, r)
 fun Snd (e, r) = EUnOp (EUSnd, e, r)
-fun App (e1, e2) = BinOp (EBApp, e1, e2)
-fun Pair (e1, e2) = BinOp (EBPair, e1, e2)
+fun App (e1, e2) = EBinOp (EBApp, e1, e2)
+fun Pair (e1, e2) = EBinOp (EBPair, e1, e2)
 fun AppI (e, i) = EEI (EEIAppI, e, i)
 fun AscriptionTime (e, i) = EEI (EEIAscriptionTime, e, i)
 fun Never (t, r) = ET (ETNever, t, r)
@@ -228,7 +228,7 @@ fun collect_BinOpI_left opr i =
              
 fun collect_Pair e =
   case e of
-      BinOp (EBPair, e1, e2) =>
+      EBinOp (EBPair, e1, e2) =>
       collect_Pair e1 @ [e2]
     | _ => [e]
              
@@ -643,8 +643,8 @@ fun str_expr_EI opr =
 
 fun str_raw_e e =
   case e of
-      AppConstr _ => "AppConstr (...)"
-    | BinOp _ => "BinOp (...)"
+      EAppConstr _ => "AppConstr (...)"
+    | EBinOp _ => "BinOp (...)"
     | EEI (opr, e, i) => sprintf "EEI ($, $, $)" [str_expr_EI opr, str_raw_e e, str_raw_i i]
     | _ => "<exp>"
 
@@ -965,7 +965,7 @@ fun str_e gctx (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
     val skctx = (sctx, kctx) 
   in
     case e of
-	Var (x, b) => decorate_var b $ str_long_id #4 gctx tctx x
+	EVar (x, b) => decorate_var b $ str_long_id #4 gctx tctx x
       | EConst (c, _) =>
         (case c of
              ECTT => "()"
@@ -977,7 +977,7 @@ fun str_e gctx (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
              EUFst => sprintf "(fst $)" [str_e ctx e]
            | EUSnd => sprintf "(snd $)" [str_e ctx e]
         )
-      | BinOp (opr, e1, e2) =>
+      | EBinOp (opr, e1, e2) =>
         (case opr of
              EBApp => sprintf "($ $)" [str_e ctx e1, str_e ctx e2]
            | EBPair =>
@@ -990,7 +990,7 @@ fun str_e gctx (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
            | Read => sprintf "(read $ $)" [str_e ctx e1, str_e ctx e2]
            | Add => sprintf "($ $ $)" [str_e ctx e1, str_bin_op opr, str_e ctx e2]
         )
-      | TriOp (Write, e1, e2, e3) => sprintf "(write $ $ $)" [str_e ctx e1, str_e ctx e2, str_e ctx e3]
+      | ETriOp (Write, e1, e2, e3) => sprintf "(write $ $ $)" [str_e ctx e1, str_e ctx e2, str_e ctx e3]
       | EEI (opr, e, i) =>
         (case opr of
            EEIAppI => sprintf "($ {$})" [str_e ctx e, str_i gctx sctx i]
@@ -1011,14 +1011,14 @@ fun str_e gctx (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
         in
           sprintf "(fn $ => $)" [pn, e]
         end
-      | AbsI (bind, _) =>
+      | EAbsI (bind, _) =>
         let
           val ((name, s), e) = unBindAnno bind
           val name = Name2str name
         in
           sprintf "(fn {$ : $} => $)" [name, str_s gctx sctx s, str_e (name :: sctx, kctx, cctx, tctx) e]
         end
-      | Let (return, bind, _) => 
+      | ELet (return, bind, _) => 
         let
           val (decls, e) = unBind bind
           val decls = unTeles decls
@@ -1027,9 +1027,9 @@ fun str_e gctx (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
         in
           sprintf "let $$ in $ end" [return, join_prefix " " decls, str_e ctx e]
         end
-      | Ascription (e, t) => sprintf "($ : $)" [str_e ctx e, str_mt gctx skctx t]
-      | AppConstr ((x, b), is, e) => sprintf "($$ $)" [decorate_var b $ str_long_id #3 gctx cctx x, (join "" o map (prefix " ") o map (fn i => sprintf "{$}" [str_i gctx sctx i])) is, str_e ctx e]
-      | Case (e, return, rules, _) => sprintf "(case $ $of $)" [str_e ctx e, str_return gctx skctx return, join " | " (map (str_rule gctx ctx) rules)]
+      | EAscription (e, t) => sprintf "($ : $)" [str_e ctx e, str_mt gctx skctx t]
+      | EAppConstr ((x, b), is, e) => sprintf "($$ $)" [decorate_var b $ str_long_id #3 gctx cctx x, (join "" o map (prefix " ") o map (fn i => sprintf "{$}" [str_i gctx sctx i])) is, str_e ctx e]
+      | ECase (e, return, rules, _) => sprintf "(case $ $of $)" [str_e ctx e, str_return gctx skctx return, join " | " (map (str_rule gctx ctx) rules)]
   end
 
 and str_decls gctx (ctx as (sctx, kctx, cctx, tctx)) decls =
@@ -1050,7 +1050,7 @@ and str_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
       val str_decl = str_decl gctx
     in
       case decl of
-          Val (name, Outer bind, _) =>
+          DVal (name, Outer bind, _) =>
           let
             val pn = VarP name
             val (tnames, e) = unBind bind
@@ -1064,7 +1064,7 @@ and str_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
           in
             (sprintf "val$ $ = $" [tnames, pn, e], ctx)
           end
-        | ValPtrn (pn, Outer e, _) =>
+        | DValPtrn (pn, Outer e, _) =>
           let
             val (inames, enames) = ptrn_names pn
             val e = str_e gctx ctx e
@@ -1073,7 +1073,7 @@ and str_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
           in
             (sprintf "val $ = $" [pn, e], ctx)
           end
-        | Rec (name, bind, _) =>
+        | DRec (name, bind, _) =>
           let
             val name = binder2str name
             val ((tnames, Rebind binds), ((t, d), e)) = unBind $ unInner bind
@@ -1106,7 +1106,7 @@ and str_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
           in
             (sprintf "rec$ $$ : $ |> $ = $" [tnames, name, binds, t, d, e], ctx_ret)
           end
-        | Datatype ((name, tbinds), _) =>
+        | DDatatype ((name, tbinds), _) =>
           let
             val name = binder2str name
             val tbinds = unInner tbinds
@@ -1127,19 +1127,19 @@ and str_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
           in
             (s, ctx)
           end
-        | IdxDef (name, Outer s, Outer i) =>
+        | DIdxDef (name, Outer s, Outer i) =>
           let
             val name = binder2str name
           in
             (sprintf "idx $ : $ = $" [name, str_s gctx sctx s, str_i gctx sctx i], (name :: sctx, kctx, cctx, tctx))
           end
-        | AbsIdx2 (name, Outer s, Outer i) =>
+        | DAbsIdx2 (name, Outer s, Outer i) =>
           let
             val name = binder2str name
           in
             (sprintf "absidx $ : $ = $" [name, str_s gctx sctx s, str_i gctx sctx i], (name :: sctx, kctx, cctx, tctx))
           end
-        | AbsIdx ((name, Outer s, Outer i), Rebind decls, _) =>
+        | DAbsIdx ((name, Outer s, Outer i), Rebind decls, _) =>
           let
             val name = binder2str name
             val decls = unTeles decls
@@ -1148,13 +1148,13 @@ and str_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
           in
             (sprintf "absidx $ : $ = $ with$ end" [name, str_s gctx sctx s, str_i gctx sctx i, join_prefix " " decls], ctx')
           end
-        | TypeDef (name, Outer t) =>
+        | DTypeDef (name, Outer t) =>
           let
             val name = binder2str name
           in
             (sprintf "type $ = $" [name, str_mt gctx (sctx, kctx) t], add_kinding name ctx)
           end
-        | Open (Outer (m, r), _) =>
+        | DOpen (Outer (m, r), _) =>
           let
             val (m, ctxd) = lookup_module gctx m
             val ctx = add_ctx ctxd ctx
@@ -1267,33 +1267,33 @@ fun get_region_bind fp ft bind =
     
 fun get_region_e e = 
   case e of
-      Var (x, _) => get_region_long_id x
+      EVar (x, _) => get_region_long_id x
     | EConst (_, r) => r
     | EUnOp (_, _, r) => r
-    | BinOp (_, e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
-    | TriOp (_, e1, _, e3) => combine_region (get_region_e e1) (get_region_e e3)
+    | EBinOp (_, e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
+    | ETriOp (_, e1, _, e3) => combine_region (get_region_e e1) (get_region_e e3)
     | EEI (_, e, i) => combine_region (get_region_e e) (get_region_i i)
     | ET (_, _, r) => r
     | EAbs bind => get_region_bind get_region_pn get_region_e bind
-    | AbsI (_, r) => r
-    | AppConstr ((x, _), _, e) => combine_region (get_region_long_id x) (get_region_e e)
-    | Case (_, _, _, r) => r
-    | Let (_, _, r) => r
-    | Ascription (e, t) => combine_region (get_region_e e) (get_region_mt t)
+    | EAbsI (_, r) => r
+    | EAppConstr ((x, _), _, e) => combine_region (get_region_long_id x) (get_region_e e)
+    | ECase (_, _, _, r) => r
+    | ELet (_, _, r) => r
+    | EAscription (e, t) => combine_region (get_region_e e) (get_region_mt t)
                                               
 fun get_region_rule (pn, e) = combine_region (get_region_pn pn) (get_region_e e)
 
 fun get_region_dec dec =
   case dec of
-      Val (_, _, Outer r) => r
-    | ValPtrn (_, _, Outer r) => r
-    | Rec (_, _, Outer r) => r
-    | Datatype (_, Outer r) => r
-    | IdxDef (name, _, Outer i) => combine_region (get_region_binder name) (get_region_i i)
-    | AbsIdx2 (name, _, Outer i) => combine_region (get_region_binder name) (get_region_i i)
-    | AbsIdx (_, _, Outer r) => r
-    | TypeDef (name, Outer t) => combine_region (get_region_binder name) (get_region_mt t)
-    | Open (Outer (_, r), _) => r
+      DVal (_, _, Outer r) => r
+    | DValPtrn (_, _, Outer r) => r
+    | DRec (_, _, Outer r) => r
+    | DDatatype (_, Outer r) => r
+    | DIdxDef (name, _, Outer i) => combine_region (get_region_binder name) (get_region_i i)
+    | DAbsIdx2 (name, _, Outer i) => combine_region (get_region_binder name) (get_region_i i)
+    | DAbsIdx (_, _, Outer r) => r
+    | DTypeDef (name, Outer t) => combine_region (get_region_binder name) (get_region_mt t)
+    | DOpen (Outer (_, r), _) => r
 
 fun get_region_sig (_, r) = r
 
@@ -1305,7 +1305,7 @@ fun get_region_m m =
 
 fun is_value (e : expr) : bool =
   case e of
-      Var _ => true
+      EVar _ => true
     | EConst (c, _) =>
       (case c of
            ECTT => true
@@ -1317,7 +1317,7 @@ fun is_value (e : expr) : bool =
            EUFst => false
          | EUSnd => false
       )
-    | BinOp (opr, e1, e2) =>
+    | EBinOp (opr, e1, e2) =>
       (case opr of
            EBApp => false
          | EBPair => is_value e1 andalso is_value e2
@@ -1325,7 +1325,7 @@ fun is_value (e : expr) : bool =
          | Read => false
          | Add => false
       )
-    | TriOp _ => false
+    | ETriOp _ => false
     | EEI (opr, e, i) =>
       (case opr of
            EEIAppI => false
@@ -1337,11 +1337,11 @@ fun is_value (e : expr) : bool =
          | ETBuiltin => true
       )
     | EAbs _ => true
-    | AbsI _ => true
-    | Let _ => false
-    | Ascription _ => false
-    | AppConstr (_, _, e) => is_value e
-    | Case _ => false
+    | EAbsI _ => true
+    | ELet _ => false
+    | EAscription _ => false
+    | EAppConstr (_, _, e) => is_value e
+    | ECase _ => false
 
 datatype ('var, 'prop) hyp = 
          VarH of 'var
@@ -1387,11 +1387,11 @@ fun on_e_e on_v =
   let
     fun f x n b =
       case b of
-	  Var (y, b) => Var (on_v_long_id on_v x n y, b)
+	  EVar (y, b) => EVar (on_v_long_id on_v x n y, b)
         | EConst _ => b
 	| EUnOp (opr, e, r) => EUnOp (opr, f x n e, r)
-	| BinOp (opr, e1, e2) => BinOp (opr, f x n e1, f x n e2)
-	| TriOp (opr, e1, e2, e3) => TriOp (opr, f x n e1, f x n e2, f x n e3)
+	| EBinOp (opr, e1, e2) => EBinOp (opr, f x n e1, f x n e2)
+	| ETriOp (opr, e1, e2, e3) => ETriOp (opr, f x n e1, f x n e2, f x n e3)
 	| EEI (opr, e, i) => EEI (opr, f x n e, i)
 	| ET (opr, t, r) => ET (opr, t, r)
 	| EAbs bind =>
@@ -1400,27 +1400,27 @@ fun on_e_e on_v =
           in
             EAbs $ Unbound.Bind (pn, f (x + (length $ snd $ ptrn_names pn)) n e)
           end
-	| AbsI (bind, r) =>
+	| EAbsI (bind, r) =>
           let
             val ((name, s), e) = unBindAnno bind
             val bind = Bind (name, e)
             val Bind (name, e) = on_e_ibind f x n bind
             val bind = BindAnno ((name, s), e)
           in
-            AbsI (bind, r)
+            EAbsI (bind, r)
           end
-	| Let (return, bind, r) =>
+	| ELet (return, bind, r) =>
 	  let
             val (decls, e) = unBind bind
             val decls = unTeles decls
 	    val (decls, m) = f_decls x n decls
             val decls = Teles decls
 	  in
-	    Let (return, Unbound.Bind (decls, f (x + m) n e), r)
+	    ELet (return, Unbound.Bind (decls, f (x + m) n e), r)
 	  end
-	| Ascription (e, t) => Ascription (f x n e, t)
-	| AppConstr (cx, is, e) => AppConstr (cx, is, f x n e)
-	| Case (e, return, rules, r) => Case (f x n e, return, map (f_rule x n) rules, r)
+	| EAscription (e, t) => EAscription (f x n e, t)
+	| EAppConstr (cx, is, e) => EAppConstr (cx, is, f x n e)
+	| ECase (e, return, rules, r) => ECase (f x n e, return, map (f_rule x n) rules, r)
 
     and f_decls x n decls =
 	let 
@@ -1438,19 +1438,19 @@ fun on_e_e on_v =
 
     and f_dec x n dec =
 	case dec of
-	    Val (name, Outer bind, r) => 
+	    DVal (name, Outer bind, r) => 
 	    let
               val (tnames, e) = unBind bind
 	    in
-              (Val (name, Outer $ Unbound.Bind (tnames, f x n e), r), 1)
+              (DVal (name, Outer $ Unbound.Bind (tnames, f x n e), r), 1)
             end
-	  | ValPtrn (pn, Outer e, r) => 
+	  | DValPtrn (pn, Outer e, r) => 
 	    let 
               val (_, enames) = ptrn_names pn 
 	    in
-              (ValPtrn (pn, Outer $ f x n e, r), length enames)
+              (DValPtrn (pn, Outer $ f x n e, r), length enames)
             end
-          | Rec (name, bind, r) => 
+          | DRec (name, bind, r) => 
             let
               val ((tnames, Rebind binds), ((t, d), e)) = unBind $ unInner bind
               val binds = unTeles binds
@@ -1466,23 +1466,23 @@ fun on_e_e on_v =
               val m = foldl g 0 binds
               val e = f (x + 1 + m) n e
             in
-              (Rec (name, Inner $ Unbound.Bind ((tnames, Rebind $ Teles binds), ((t, d), e)), r), 1)
+              (DRec (name, Inner $ Unbound.Bind ((tnames, Rebind $ Teles binds), ((t, d), e)), r), 1)
             end
-          | Datatype a => (Datatype a, 0)
-          | IdxDef a => (IdxDef a, 0)
-          | AbsIdx2 a => (AbsIdx2 a, 0)
-          | AbsIdx (a, Rebind decls, r) => 
+          | DDatatype a => (DDatatype a, 0)
+          | DIdxDef a => (DIdxDef a, 0)
+          | DAbsIdx2 a => (DAbsIdx2 a, 0)
+          | DAbsIdx (a, Rebind decls, r) => 
             let
               val decls = unTeles decls
               val (decls, m) = f_decls x n decls
             in
-              (AbsIdx (a, Rebind $ Teles decls, r), m)
+              (DAbsIdx (a, Rebind $ Teles decls, r), m)
             end
-          | TypeDef (name, t) => (TypeDef (name, t), 0)
-          | Open (m, octx) =>
+          | DTypeDef (name, t) => (DTypeDef (name, t), 0)
+          | DOpen (m, octx) =>
             case octx of
                 NONE => raise Impossible "ctx can't be NONE"
-              | SOME ctx => (Open (m, octx), length $ #4 ctx)
+              | SOME ctx => (DOpen (m, octx), length $ #4 ctx)
 
     and f_rule x n bind =
 	let
@@ -2670,17 +2670,17 @@ fun on_return x = on_pair (on_option on_mt, on_option on_i) x
 local
   fun f acc b =
       case b of
-	  Var (x, _) => collect_mod_long_id x @ acc
+	  EVar (x, _) => collect_mod_long_id x @ acc
 	| EConst c => acc
 	| EUnOp (opr, e, r) => f acc e
-	| BinOp (opr, e1, e2) =>
+	| EBinOp (opr, e1, e2) =>
           let
             val acc = f acc e1
             val acc = f acc e2
           in
             acc
           end
-	| TriOp (opr, e1, e2, e3) =>
+	| ETriOp (opr, e1, e2, e3) =>
           let
             val acc = f acc e1
             val acc = f acc e2
@@ -2704,7 +2704,7 @@ local
           in
             acc
           end
-	| AbsI (bind, r) =>
+	| EAbsI (bind, r) =>
           let
             val ((name, s), e) = unBindAnno bind
             val acc = on_s acc s
@@ -2712,14 +2712,14 @@ local
           in
             acc
           end
-	| Ascription (e, t) =>
+	| EAscription (e, t) =>
           let
             val acc = f acc e
             val acc = on_mt acc t
           in
             acc
           end
-	| AppConstr ((x, ie), is, e) =>
+	| EAppConstr ((x, ie), is, e) =>
           let
             val acc = on_long_id acc x
             val acc = on_list on_i acc is
@@ -2727,7 +2727,7 @@ local
           in
             acc
           end
-	| Case (e, return, rules, r) =>
+	| ECase (e, return, rules, r) =>
           let
             val acc = f acc e
             val acc = on_return acc return
@@ -2736,7 +2736,7 @@ local
           in
             acc
           end
-	| Let (return, bind, r) =>
+	| ELet (return, bind, r) =>
           let
             val (decls, e) = unBind bind
             val decls = unTeles decls
@@ -2749,7 +2749,7 @@ local
 
   and on_decl acc b =
       case b of
-          Val (name, Outer bind, r) =>
+          DVal (name, Outer bind, r) =>
           let
             val (tnames, e) = unBind bind
             val pn = VarP name
@@ -2758,14 +2758,14 @@ local
           in
             acc
           end
-        | ValPtrn (pn, Outer e, r) =>
+        | DValPtrn (pn, Outer e, r) =>
           let 
             val acc = f acc e
             val acc = on_ptrn acc pn
           in
             acc
           end
-        | Rec (name, bind, r) =>
+        | DRec (name, bind, r) =>
           let
             val ((tnames, Rebind binds), ((t, i), e)) = unBind $ unInner bind
             val binds = unTeles binds
@@ -2780,22 +2780,22 @@ local
           in
             acc
           end
-        | Datatype (a, r) => on_datatype acc a
-        | IdxDef (name, Outer s, Outer i) =>
+        | DDatatype (a, r) => on_datatype acc a
+        | DIdxDef (name, Outer s, Outer i) =>
           let 
             val acc = on_s acc s
             val acc = on_i acc i
           in
             acc
           end
-        | AbsIdx2 (name, Outer s, Outer i) =>
+        | DAbsIdx2 (name, Outer s, Outer i) =>
           let 
             val acc = on_s acc s
             val acc = on_i acc i
           in
             acc
           end
-        | AbsIdx ((name, Outer s, Outer i), Rebind decls, r) =>
+        | DAbsIdx ((name, Outer s, Outer i), Rebind decls, r) =>
           let 
             val acc = on_s acc s
             val acc = on_i acc i
@@ -2804,8 +2804,8 @@ local
           in
             acc
           end
-        | TypeDef (name, Outer t) => on_mt acc t
-        | Open (Outer (m, r), _) => m :: acc
+        | DTypeDef (name, Outer t) => on_mt acc t
+        | DOpen (Outer (m, r), _) => m :: acc
 
 in
 val on_e = f

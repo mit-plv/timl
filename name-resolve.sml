@@ -278,21 +278,21 @@ fun copy_anno gctx (anno as (t, d)) e =
                        | SOME _ => a
     in
       case e of
-          Case (e, (t', d'), es, r) =>
+          ECase (e, (t', d'), es, r) =>
           let
             fun is_tuple_value e =
                 case e of
-                    Var _ => true
-                  | BinOp (EBPair, e1, e2) => is_tuple_value e1 andalso is_tuple_value e2
+                    EVar _ => true
+                  | EBinOp (EBPair, e1, e2) => is_tuple_value e1 andalso is_tuple_value e2
                   | _ => false
             (* if e is tuple value, we are sure it doesn't cost time, so we can copy time annotation *)
             val d = if is_tuple_value e then d else NONE
             val (t, d) = (copy t' t, copy d' d)
             val es = map (copy_anno_rule (t, d)) es
           in
-            Case (e, (t, d), es, r)
+            ECase (e, (t, d), es, r)
           end
-        | Let ((t', d'), bind, r) =>
+        | ELet ((t', d'), bind, r) =>
           let
             val (decls, e) = unBind bind
             val decls = unTeles decls
@@ -301,26 +301,26 @@ fun copy_anno gctx (anno as (t, d)) e =
             val (sctxn, kctxn) = (length sctx, length kctx)
             fun is_match_var decl =
                 case decl of
-                    ValPtrn (_, Outer (Var _), _) => true
-                  | Val (_, Outer bind, _) =>
+                    DValPtrn (_, Outer (EVar _), _) => true
+                  | DVal (_, Outer bind, _) =>
                     let
                       val (_, e) = unBind bind
                     in
                       case e of
-                          Var _ => true
+                          EVar _ => true
                         | _ => false
                     end
                   | _ => false
             val d' = if List.all is_match_var decls then d else NONE
           in
-            Let ((t, d), Unbound.Bind (Teles decls, copy_anno (shift_return (sctxn, kctxn) (t, d')) e), r)
+            ELet ((t, d), Unbound.Bind (Teles decls, copy_anno (shift_return (sctxn, kctxn) (t, d')) e), r)
           end
-        | Ascription (e, t') =>
+        | EAscription (e, t') =>
           let
             val t = SOME t'
             val e = copy_anno (t, d) e
           in
-            Ascription (e, t')
+            EAscription (e, t')
           end
         | EEI (EEIAscriptionTime, e, d') =>
           let
@@ -332,7 +332,7 @@ fun copy_anno gctx (anno as (t, d)) e =
         | ET (ETNever, _, _) => e
         | _ =>
           case t of
-              SOME t => Ascription (e, t)
+              SOME t => EAscription (e, t)
             | NONE => e
     end
       
@@ -359,14 +359,14 @@ fun on_expr gctx (ctx as (sctx, kctx, cctx, tctx)) e =
       val skctx = (sctx, kctx)
     in
       case e of
-	  S.Var (x, b) => 
+	  S.EVar (x, b) => 
 	  (case find_constr gctx cctx x of
-	       SOME (x, _) => AppConstr ((x, b), [], TT $ get_region_long_id x)
-	     | NONE => Var ((on_long_id gctx #4 tctx x), b)
+	       SOME (x, _) => EAppConstr ((x, b), [], TT $ get_region_long_id x)
+	     | NONE => EVar ((on_long_id gctx #4 tctx x), b)
           )
         | S.EConst c => EConst c
 	| S.EUnOp (opr, e, r) => EUnOp (opr, on_expr ctx e, r)
-	| S.BinOp (opr, e1, e2) =>
+	| S.EBinOp (opr, e1, e2) =>
           (case opr of
 	       EBApp => 
 	       let
@@ -376,15 +376,15 @@ fun on_expr gctx (ctx as (sctx, kctx, cctx, tctx)) e =
 	         val (e1, is) = S.collect_AppI e1 
 	       in
 	         case e1 of
-		     S.Var (x, b) =>
+		     S.EVar (x, b) =>
 		     (case find_constr gctx cctx x of
-		          SOME (x, _) => AppConstr ((x, b), map (on_idx gctx sctx) is, e2)
+		          SOME (x, _) => EAppConstr ((x, b), map (on_idx gctx sctx) is, e2)
 		        | NONE => default ())
 	           | _ => default ()
 	       end
-	     | _ => BinOp (opr, on_expr ctx e1, on_expr ctx e2)
+	     | _ => EBinOp (opr, on_expr ctx e1, on_expr ctx e2)
           )
-	| S.TriOp (opr, e1, e2, e3) => TriOp (opr, on_expr ctx e1, on_expr ctx e2, on_expr ctx e3)
+	| S.ETriOp (opr, e1, e2, e3) => ETriOp (opr, on_expr ctx e1, on_expr ctx e2, on_expr ctx e3)
 	| S.EEI (opr, e, i) =>
           (case opr of
 	       EEIAppI => 
@@ -395,9 +395,9 @@ fun on_expr gctx (ctx as (sctx, kctx, cctx, tctx)) e =
                  val is = is @ [i]
 	       in
 	         case e of
-		     S.Var (x, b) =>
+		     S.EVar (x, b) =>
 		     (case find_constr gctx cctx x of
-		          SOME (x, _) => AppConstr ((x, b), map (on_idx gctx sctx) is, TT (S.get_region_i i))
+		          SOME (x, _) => EAppConstr ((x, b), map (on_idx gctx sctx) is, TT (S.get_region_i i))
 		        | NONE => default ())
 	           | _ => default ()
 	       end
@@ -421,38 +421,38 @@ fun on_expr gctx (ctx as (sctx, kctx, cctx, tctx)) e =
           in
             EAbs $ Unbound.Bind (pn, e)
           end
-	| S.AbsI (bind, r_all) =>
+	| S.EAbsI (bind, r_all) =>
           let
             val ((name, s), e) = unBindAnno bind
             val (name, r) = unName name
           in
-            AbsI (BindAnno ((IName (name, r), on_sort gctx sctx s), on_expr (add_sorting_skct name ctx) e), r_all)
+            EAbsI (BindAnno ((IName (name, r), on_sort gctx sctx s), on_expr (add_sorting_skct name ctx) e), r_all)
           end
-	| S.Let (return, bind, r) =>
+	| S.ELet (return, bind, r) =>
           let
             val (decls, e) = unBind bind
             val decls = unTeles decls
             val return = on_return gctx skctx return
             val (decls, ctx) = on_decls gctx ctx decls
           in
-            Let (return, Unbound.Bind (Teles decls, on_expr ctx e), r)
+            ELet (return, Unbound.Bind (Teles decls, on_expr ctx e), r)
           end
-	| S.Ascription (e, t) =>
+	| S.EAscription (e, t) =>
           let
             val t = on_mtype gctx skctx t
             val e = on_expr ctx e
             val e = copy_anno (gctx_names gctx) (SOME t, NONE) e
           in
-            Ascription (e, t)
+            EAscription (e, t)
           end
-	| S.AppConstr ((x, b), is, e) => AppConstr ((on_long_id gctx (map fst o #3) (map fst cctx) x, b), map (on_idx gctx sctx) is, on_expr ctx e)
-	| S.Case (e, return, rules, r) =>
+	| S.EAppConstr ((x, b), is, e) => EAppConstr ((on_long_id gctx (map fst o #3) (map fst cctx) x, b), map (on_idx gctx sctx) is, on_expr ctx e)
+	| S.ECase (e, return, rules, r) =>
           let
             val return = on_return gctx skctx return
             val rules = map (on_rule gctx ctx) rules
             val rules = map (copy_anno_rule (gctx_names gctx) return) rules
           in
-            Case (on_expr ctx e, return, rules, r)
+            ECase (on_expr ctx e, return, rules, r)
           end
     end
 
@@ -474,7 +474,7 @@ and on_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
       val on_decl = on_decl gctx
     in
       case decl of
-          S.Val (name, Outer bind, Outer r) =>
+          S.DVal (name, Outer bind, Outer r) =>
           let
             val (tnames, e) = unBind bind
             val tnames = map unBinderName tnames
@@ -485,18 +485,18 @@ and on_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
             val (inames, enames) = ptrn_names pn
             val ctx = (inames @ sctx, kctx, cctx, enames @ tctx)
           in
-            (Val (name, Outer $ Unbound.Bind (map (Binder o TName) tnames, e), Outer r), ctx)
+            (DVal (name, Outer $ Unbound.Bind (map (Binder o TName) tnames, e), Outer r), ctx)
           end
-        | S.ValPtrn (pn, Outer e, Outer r) =>
+        | S.DValPtrn (pn, Outer e, Outer r) =>
           let 
             val pn = on_ptrn gctx (sctx, kctx, cctx) pn
             val e = on_expr gctx ctx e
             val (inames, enames) = ptrn_names pn
             val ctx = (inames @ sctx, kctx, cctx, enames @ tctx)
           in
-            (ValPtrn (pn, Outer e, Outer r), ctx)
+            (DValPtrn (pn, Outer e, Outer r), ctx)
           end
-	| S.Rec (name, bind, Outer r) => 
+	| S.DRec (name, bind, Outer r) => 
 	  let
             val (name, r1) = unBinderName name
             val ((tnames, Rebind binds), ((t, d), e)) = unBind $ unInner bind
@@ -522,21 +522,21 @@ and on_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
             val d = on_idx gctx sctx d
             val e = on_expr gctx ctx e
             val e = copy_anno (gctx_names gctx) (SOME t, SOME d) e
-            val decl = Rec (Binder $ EName (name, r1), Inner $ Unbound.Bind ((map (Binder o TName) tnames, Rebind $ Teles binds), ((t, d), e)), Outer r)
+            val decl = DRec (Binder $ EName (name, r1), Inner $ Unbound.Bind ((map (Binder o TName) tnames, Rebind $ Teles binds), ((t, d), e)), Outer r)
           in
             (decl, ctx_ret)
           end
-        | S.Datatype (dt, Outer r) =>
+        | S.DDatatype (dt, Outer r) =>
           let
             val (dt, ctx) = on_datatype gctx ctx (dt, r)
           in
-            (Datatype (dt, Outer r), ctx)
+            (DDatatype (dt, Outer r), ctx)
           end
-        | S.IdxDef (name, Outer s, Outer i) =>
-          (IdxDef (name, Outer $ on_sort gctx sctx s, Outer $ on_idx gctx sctx i), add_sorting_skct (binder2str name) ctx)
-        | S.AbsIdx2 (name, Outer s, Outer i) =>
-          (AbsIdx2 (name, Outer $ on_sort gctx sctx s, Outer $ on_idx gctx sctx i), add_sorting_skct (binder2str name) ctx)
-        | S.AbsIdx ((name, Outer s, Outer i), Rebind decls, Outer r) =>
+        | S.DIdxDef (name, Outer s, Outer i) =>
+          (DIdxDef (name, Outer $ on_sort gctx sctx s, Outer $ on_idx gctx sctx i), add_sorting_skct (binder2str name) ctx)
+        | S.DAbsIdx2 (name, Outer s, Outer i) =>
+          (DAbsIdx2 (name, Outer $ on_sort gctx sctx s, Outer $ on_idx gctx sctx i), add_sorting_skct (binder2str name) ctx)
+        | S.DAbsIdx ((name, Outer s, Outer i), Rebind decls, Outer r) =>
           let
             val (name, r1) = unBinderName name
             val decls = unTeles decls
@@ -544,17 +544,17 @@ and on_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
             val i = on_idx gctx sctx i
             val ctx = add_sorting_skct name ctx
             val (decls, ctx) = on_decls gctx ctx decls
-            val decl = AbsIdx ((Binder $ IName (name, r1), Outer s, Outer i), Rebind $ Teles decls, Outer r)
+            val decl = DAbsIdx ((Binder $ IName (name, r1), Outer s, Outer i), Rebind $ Teles decls, Outer r)
           in
             (decl, ctx)
           end
-        | S.TypeDef (name, Outer t) =>
+        | S.DTypeDef (name, Outer t) =>
           let
             val t = on_mtype gctx (sctx, kctx) t
           in
-            (TypeDef (name, Outer t), add_kinding_skct (binder2str name) ctx)
+            (DTypeDef (name, Outer t), add_kinding_skct (binder2str name) ctx)
           end
-        | S.Open (Outer (m, r), _) =>
+        | S.DOpen (Outer (m, r), _) =>
           let
             val (m, ctxd) =
                 case lookup_module gctx m of
@@ -568,7 +568,7 @@ and on_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
                                      map (Binder o EName o attach_snd r) tctx
                                     )
           in
-            (Open (Outer (m, r), SOME ctxd), ctx)
+            (DOpen (Outer (m, r), SOME ctxd), ctx)
           end
     end
 
