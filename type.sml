@@ -45,7 +45,19 @@ end
 functor TestTypeFnSignatures (Params : TYPE_PARAMS) = struct
 structure M : TYPE = TypeFn (Params)
 end
-  
+
+structure TypeUtil = struct
+
+local
+  open Unbound
+  open Namespaces
+in
+fun from_Unbound (Abs (Binder (TypeNS, (name, _)), Rebind (Outer t))) = Bind.Bind (name, t)
+fun to_Unbound (Bind.Bind (name, t)) = Abs (Binder (TypeNS, (name, Region.dummy)), Rebind (Outer t))
+end
+                                                       
+end
+                       
 signature SHIFTABLE_IDX = sig
 
   type idx
@@ -69,17 +81,10 @@ open Type
 open ShiftableVar
 open ShiftableIdx
 open ShiftUtil
-
+open TypeUtil
+       
 infixr 0 $
          
-local
-  open Unbound
-  open Namespaces
-in
-fun from_Unbound (Abs (Binder (TypeNS, (name, _)), Rebind (Outer t))) = Bind.Bind (name, t)
-fun to_Unbound (Bind.Bind (name, t)) = Abs (Binder (TypeNS, (name, Region.dummy)), Rebind (Outer t))
-end
-                                                       
 fun on_i_mt on_i on_s x n b =
   let
     fun f x n b =

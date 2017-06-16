@@ -24,15 +24,17 @@ type ('name, 'anno, 't) bind_anno = ('name binder * 'anno outer, 't) bind
 
 fun Inner t = Rebind (Outer t)
 fun Bind (p, t) = Abs (p, Inner t)
+fun Teles ps = foldr (TeleCons o mapSnd Rebind) TeleNil ps
 fun BindSimp (name, t) = Bind (Binder name, t)
 fun BindAnno ((name, anno), t) = Bind ((Binder name, Outer anno), t)
 
 fun unfold_Binder (Binder n) = n
 fun unfold_Bind (Abs (p, Rebind (Outer t))) = (p, t)
-fun unfold_Tele t =
+fun unfold_Inner (Rebind (Outer t)) = t
+fun unfold_Teles t =
   case t of
       TeleNil => []
-    | TeleCons (p, Rebind t) => p :: unfold_Tele t
+    | TeleCons (p, Rebind t) => p :: unfold_Teles t
 fun unfold_BindAnno t =
   let
     val ((Binder name, Outer anno), t) = unfold_Bind t

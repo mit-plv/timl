@@ -87,7 +87,7 @@ datatype expr =
 	 | TriOp of tri_op * expr * expr * expr
          | EEI of expr_EI * expr * idx
          | ET of expr_T * mtype * region
-	 | Abs of (ptrn, expr) bind
+	 | EAbs of (ptrn, expr) bind
 	 | AbsI of (sort, expr) ibind_anno * region
 	 | AppConstr of (long_id * bool) * idx list * expr
 	 | Case of expr * return * (ptrn, expr) bind list * region
@@ -96,12 +96,13 @@ datatype expr =
 
 
      and decl =
-         Val of tname binder list * (ptrn * expr outer) rebind * region outer
-         | Rec of ename binder * (tname binder list * stbind list, (mtype * idx) * expr) bind inner * region outer
+         Val of ename binder * (tname binder list, expr) bind outer * region outer
+         | ValPtrn of ptrn * expr outer * region outer
+         | Rec of ename binder * (tname binder list * stbind tele rebind, (mtype * idx) * expr) bind inner * region outer
 	 | Datatype of mtype datatype_def * region outer
          | IdxDef of iname binder * sort outer * idx outer
          | AbsIdx2 of iname binder * sort outer * idx outer
-         | AbsIdx of (iname binder * sort outer * idx outer) * decl tele rebind * region
+         | AbsIdx of (iname binder * sort outer * idx outer) * decl tele rebind * region outer
          | TypeDef of tname binder * mtype outer
          | Open of mod_projectible outer * scoping_ctx option
 
@@ -892,9 +893,10 @@ fun str_t gctx (ctx as (sctx, kctx)) (t : ty) : string =
     | Uni _ => str_uni gctx ctx (collect_Uni_UniI t)
 
 fun Name2str n = fst $ unfold_Name n
-fun binder2str b = Name2str $ unfold_Binder b
+fun binder2str (Binder n) = Name2str n
 fun str2binder2 ns s = Binder (ns, (s, dummy))
 fun str2ibinder s = str2binder2 Namespaces.IdxNS s
+fun str2ebinder s = str2binder2 Namespaces.ExprNS s
 
 fun ptrn_names pn : string list * string list =
   case pn of
@@ -998,7 +1000,7 @@ fun str_e gctx (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
              ETNever => sprintf "(never [$])" [str_mt gctx skctx t]
            | ETBuiltin => sprintf "(builtin [$])" [str_mt gctx skctx t]
         )
-      | Abs bind => 
+      | EAbs bind => 
         let
           val (pn, e) = unfold_Bind bind
           val (inames, enames) = ptrn_names pn
@@ -1018,7 +1020,7 @@ fun str_e gctx (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
       | Let (return, bind, _) => 
         let
           val (decls, e) = unfold_Bind bind
-          val decls = unfold_Tele decls
+          val decls = unfold_Teles decls
           val return = str_return gctx (sctx, kctx) return
           val (decls, ctx) = str_decls gctx ctx decls
         in
@@ -1047,8 +1049,10 @@ and str_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
       val str_decl = str_decl gctx
     in
       case decl of
-          Val (tnames, Rebind (pn, Outer e), _) =>
+          Val (name, Outer bind, _) =>
           let
+            val pn = VarP name
+            val (tnames, e) = unfold_Bind bind
             val tnames = map binder2str tnames
             val ctx' as (sctx', kctx', cctx', _) = (sctx, rev tnames @ kctx, cctx, tctx)
             val tnames = (join "" o map (fn nm => sprintf " [$]" [nm])) tnames
@@ -1059,16 +1063,33 @@ and str_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
           in
             (sprintf "val$ $ = $" [tnames, pn, e], ctx)
           end
-        | Rec (tnames, (name, _), (binds, ((t, d), e)), _) =>
-          let 
+        | ValPtrn (pn, Outer e, _) =>
+          let
+            val (inames, enames) = ptrn_names pn
+            val e = str_e gctx ctx e
+            val pn = str_pn gctx (sctx, kctx, cctx) pn
+	    val ctx = (inames @ sctx, kctx, cctx, enames @ tctx)
+          in
+            (sprintf "val $ = $" [pn, e], ctx)
+          end
+        | Rec (name, bind, _) =>
+          let
+            val name = binder2str name
+            val ((tnames, Rebind binds), ((t, d), e)) = unfold_Bind $ unfold_Inner bind
+            val binds = unfold_Teles binds
+            val tnames = map binder2str tnames
 	    val ctx as (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx)
             val ctx_ret = ctx
-            val ctx as (sctx, kctx, cctx, tctx) = (sctx, (rev o map fst) tnames @ kctx, cctx, tctx)
-            val tnames = (join "" o map (fn nm => sprintf " [$]" [nm]) o map fst) tnames
+            val ctx as (sctx, kctx, cctx, tctx) = (sctx, rev tnames @ kctx, cctx, tctx)
+            val tnames = (join "" o map (fn nm => sprintf " [$]" [nm])) tnames
             fun f (bind, (binds, ctx as (sctx, kctx, cctx, tctx))) =
               case bind of
-                  SortingST ((name, _), s) => 
-                  (sprintf "{$ : $}" [name, str_s gctx sctx s] :: binds, (name :: sctx, kctx, cctx, tctx))
+                  SortingST (name, Outer s) =>
+                  let
+                    val name = binder2str name
+                  in
+                    (sprintf "{$ : $}" [name, str_s gctx sctx s] :: binds, (name :: sctx, kctx, cctx, tctx))
+                  end
                 | TypingST pn =>
                   let
                     val (inames, enames) = ptrn_names pn
@@ -1084,8 +1105,10 @@ and str_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
           in
             (sprintf "rec$ $$ : $ |> $ = $" [tnames, name, binds, t, d, e], ctx_ret)
           end
-        | Datatype (Bind (name, tbinds), _) =>
+        | Datatype ((name, tbinds), _) =>
           let
+            val name = binder2str name
+            val tbinds = unfold_Inner tbinds
             val (tname_kinds, (sorts, constrs)) = unfold_binds tbinds
             val tnames = map fst tname_kinds
             val str_tnames = (join_prefix " " o rev) tnames
@@ -1103,20 +1126,34 @@ and str_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
           in
             (s, ctx)
           end
-        | IdxDef ((name, r), s, i) =>
-          (sprintf "idx $ : $ = $" [name, str_s gctx sctx s, str_i gctx sctx i], (name :: sctx, kctx, cctx, tctx))
-        | AbsIdx2 ((name, r), s, i) =>
-          (sprintf "absidx $ : $ = $" [name, str_s gctx sctx s, str_i gctx sctx i], (name :: sctx, kctx, cctx, tctx))
-        | AbsIdx (((name, r1), s, i), decls, _) =>
+        | IdxDef (name, Outer s, Outer i) =>
           let
+            val name = binder2str name
+          in
+            (sprintf "idx $ : $ = $" [name, str_s gctx sctx s, str_i gctx sctx i], (name :: sctx, kctx, cctx, tctx))
+          end
+        | AbsIdx2 (name, Outer s, Outer i) =>
+          let
+            val name = binder2str name
+          in
+            (sprintf "absidx $ : $ = $" [name, str_s gctx sctx s, str_i gctx sctx i], (name :: sctx, kctx, cctx, tctx))
+          end
+        | AbsIdx ((name, Outer s, Outer i), Rebind decls, _) =>
+          let
+            val name = binder2str name
+            val decls = unfold_Teles decls
             val ctx' = (name :: sctx, kctx, cctx, tctx)
             val (decls, ctx') = str_decls gctx ctx' decls
           in
             (sprintf "absidx $ : $ = $ with$ end" [name, str_s gctx sctx s, str_i gctx sctx i, join_prefix " " decls], ctx')
           end
-        | TypeDef ((name, _), t) =>
-          (sprintf "type $ = $" [name, str_mt gctx (sctx, kctx) t], add_kinding name ctx)
-        | Open ((m, r), _) =>
+        | TypeDef (name, Outer t) =>
+          let
+            val name = binder2str name
+          in
+            (sprintf "type $ = $" [name, str_mt gctx (sctx, kctx) t], add_kinding name ctx)
+          end
+        | Open (Outer (m, r), _) =>
           let
             val (m, ctxd) = lookup_module gctx m
             val ctx = add_ctx ctxd ctx
@@ -1125,9 +1162,11 @@ and str_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
           end
     end
       
-and str_rule gctx (ctx as (sctx, kctx, cctx, tctx)) (pn, e) =
-    let val (inames, enames) = ptrn_names pn
-	val ctx' = (inames @ sctx, kctx, cctx, enames @ tctx)
+and str_rule gctx (ctx as (sctx, kctx, cctx, tctx)) bind =
+    let
+      val (pn, e) = unfold_Bind bind
+      val (inames, enames) = ptrn_names pn
+      val ctx' = (inames @ sctx, kctx, cctx, enames @ tctx)
     in
       sprintf "$ => $" [str_pn gctx (sctx, kctx, cctx) pn, str_e gctx ctx' e]
     end
@@ -1207,15 +1246,24 @@ fun get_region_t t =
       Mono t => get_region_mt t
     | Uni (_, r) => r
 
+fun get_region_binder (Binder (_, (_, r))) = r
+                                             
 fun get_region_pn pn = 
   case pn of
-      ConstrP (_, _, _, r) => r
-    | VarP (_, r) => r
+      ConstrP (_, _, _, Outer r) => r
+    | VarP name => get_region_binder name
     | PairP (pn1, pn2) => combine_region (get_region_pn pn1) (get_region_pn pn2)
-    | TTP r => r
-    | AliasP (_, _, r) => r
-    | AnnoP (pn, t) => combine_region (get_region_pn pn) (get_region_mt t)
+    | TTP (Outer r) => r
+    | AliasP (_, _, Outer r) => r
+    | AnnoP (pn, Outer t) => combine_region (get_region_pn pn) (get_region_mt t)
 
+fun get_region_bind fp ft bind =
+  let
+    val (p, t) = unfold_Bind bind
+  in
+    combine_region (fp p) (ft t)
+  end
+    
 fun get_region_e e = 
   case e of
       Var (x, _) => get_region_long_id x
@@ -1225,25 +1273,26 @@ fun get_region_e e =
     | TriOp (_, e1, _, e3) => combine_region (get_region_e e1) (get_region_e e3)
     | EEI (_, e, i) => combine_region (get_region_e e) (get_region_i i)
     | ET (_, _, r) => r
-    | Abs (pn, e) => combine_region (get_region_pn pn) (get_region_e e)
-    | AbsI (_, _, r) => r
+    | EAbs bind => get_region_bind get_region_pn get_region_e bind
+    | AbsI (_, r) => r
     | AppConstr ((x, _), _, e) => combine_region (get_region_long_id x) (get_region_e e)
     | Case (_, _, _, r) => r
-    | Let (_, _, _, r) => r
+    | Let (_, _, r) => r
     | Ascription (e, t) => combine_region (get_region_e e) (get_region_mt t)
                                               
 fun get_region_rule (pn, e) = combine_region (get_region_pn pn) (get_region_e e)
 
 fun get_region_dec dec =
   case dec of
-      Val (_, _, _, r) => r
-    | Rec (_, _, _, r) => r
-    | Datatype (_, r) => r
-    | IdxDef ((_, r), _, i) => combine_region r (get_region_i i)
-    | AbsIdx2 ((_, r), _, i) => combine_region r (get_region_i i)
-    | AbsIdx (_, _, r) => r
-    | TypeDef ((_, r), t) => combine_region r $ get_region_mt t
-    | Open ((_, r), _) => r
+      Val (_, _, Outer r) => r
+    | ValPtrn (_, _, Outer r) => r
+    | Rec (_, _, Outer r) => r
+    | Datatype (_, Outer r) => r
+    | IdxDef (name, _, Outer i) => combine_region (get_region_binder name) (get_region_i i)
+    | AbsIdx2 (name, _, Outer i) => combine_region (get_region_binder name) (get_region_i i)
+    | AbsIdx (_, _, Outer r) => r
+    | TypeDef (name, Outer t) => combine_region (get_region_binder name) (get_region_mt t)
+    | Open (Outer (_, r), _) => r
 
 fun get_region_sig (_, r) = r
 
@@ -1286,7 +1335,7 @@ fun is_value (e : expr) : bool =
            ETNever => true
          | ETBuiltin => true
       )
-    | Abs _ => true
+    | EAbs _ => true
     | AbsI _ => true
     | Let _ => false
     | Ascription _ => false
@@ -1344,20 +1393,35 @@ fun on_e_e on_v =
 	| TriOp (opr, e1, e2, e3) => TriOp (opr, f x n e1, f x n e2, f x n e3)
 	| EEI (opr, e, i) => EEI (opr, f x n e, i)
 	| ET (opr, t, r) => ET (opr, t, r)
-	| Abs (pn, e) =>
-          Abs (pn, f (x + (length $ snd $ ptrn_names pn)) n e)
-	| AbsI (s, bind, r) => AbsI (s, on_e_ibind f x n bind, r)
-	| Let (return, decs, e, r) =>
-	  let 
-	    val (decs, m) = f_decls x n decs
+	| EAbs bind =>
+          let
+            val (pn, e) = unfold_Bind bind
+          in
+            EAbs $ Unbound.Bind (pn, f (x + (length $ snd $ ptrn_names pn)) n e)
+          end
+	| AbsI (bind, r) =>
+          let
+            val ((name, s), e) = unfold_BindAnno bind
+            val bind = Bind (name, e)
+            val Bind (name, e) = on_e_ibind f x n bind
+            val bind = BindAnno ((name, s), e)
+          in
+            AbsI (bind, r)
+          end
+	| Let (return, bind, r) =>
+	  let
+            val (decls, e) = unfold_Bind bind
+            val decls = unfold_Teles decls
+	    val (decls, m) = f_decls x n decls
+            val decls = Teles decls
 	  in
-	    Let (return, decs, f (x + m) n e, r)
+	    Let (return, Unbound.Bind (decls, f (x + m) n e), r)
 	  end
 	| Ascription (e, t) => Ascription (f x n e, t)
 	| AppConstr (cx, is, e) => AppConstr (cx, is, f x n e)
 	| Case (e, return, rules, r) => Case (f x n e, return, map (f_rule x n) rules, r)
 
-    and f_decls x n decs =
+    and f_decls x n decls =
 	let 
           fun g (dec, (acc, m)) =
 	    let
@@ -1365,22 +1429,30 @@ fun on_e_e on_v =
 	    in
 	      (dec :: acc, m' + m)
 	    end
-	  val (decs, m) = foldl g ([], 0) decs
-	  val decs = rev decs
+	  val (decls, m) = foldl g ([], 0) decls
+	  val decls = rev decls
 	in
-          (decs, m)
+          (decls, m)
         end
 
     and f_dec x n dec =
 	case dec of
-	    Val (tnames, pn, e, r) => 
+	    Val (name, Outer bind, r) => 
+	    let
+              val (tnames, e) = unfold_Bind bind
+	    in
+              (Val (name, Outer $ Unbound.Bind (tnames, f x n e), r), 1)
+            end
+	  | ValPtrn (pn, Outer e, r) => 
 	    let 
               val (_, enames) = ptrn_names pn 
 	    in
-              (Val (tnames, pn, f x n e, r), length enames)
+              (ValPtrn (pn, Outer $ f x n e, r), length enames)
             end
-          | Rec (tnames, name, (binds, ((t, d), e)), r) => 
+          | Rec (name, bind, r) => 
             let
+              val ((tnames, Rebind binds), ((t, d), e)) = unfold_Bind $ unfold_Inner bind
+              val binds = unfold_Teles binds
               fun g (bind, m) =
                 case bind of
                     SortingST _ => m
@@ -1393,16 +1465,17 @@ fun on_e_e on_v =
               val m = foldl g 0 binds
               val e = f (x + 1 + m) n e
             in
-              (Rec (tnames, name, (binds, ((t, d), e)), r), 1)
+              (Rec (name, Inner $ Unbound.Bind ((tnames, Rebind $ Teles binds), ((t, d), e)), r), 1)
             end
           | Datatype a => (Datatype a, 0)
           | IdxDef a => (IdxDef a, 0)
           | AbsIdx2 a => (AbsIdx2 a, 0)
-          | AbsIdx (a, decls, r) => 
+          | AbsIdx (a, Rebind decls, r) => 
             let
+              val decls = unfold_Teles decls
               val (decls, m) = f_decls x n decls
             in
-              (AbsIdx (a, decls, r), m)
+              (AbsIdx (a, Rebind $ Teles decls, r), m)
             end
           | TypeDef (name, t) => (TypeDef (name, t), 0)
           | Open (m, octx) =>
@@ -1410,11 +1483,12 @@ fun on_e_e on_v =
                 NONE => raise Impossible "ctx can't be NONE"
               | SOME ctx => (Open (m, octx), length $ #4 ctx)
 
-    and f_rule x n (pn, e) =
-	let 
+    and f_rule x n bind =
+	let
+          val (pn, e) = unfold_Bind bind
           val (_, enames) = ptrn_names pn 
 	in
-	  (pn, f (x + length enames) n e)
+	  Unbound.Bind (pn, f (x + length enames) n e)
 	end
   in
     f
@@ -1570,7 +1644,9 @@ local
         let
           fun on_constr d x v b = substx_i_ibinds substx_i_s (substx_pair (f, substx_list substx_i_i)) d x v b
           fun on_constr_decl d x v (name, c, r) = (name, on_constr d x v c, r)
+          val dt = from_Unbound dt
           val dt = substx_i_tbind (substx_i_tbinds return4 (substx_pair (return4, substx_list on_constr_decl))) d x v dt
+          val dt = to_Unbound dt
         in
           TDatatype (dt, r)
         end
@@ -1629,7 +1705,9 @@ local
         let
           fun on_constr d x v b = substx_t_ibinds return4 (substx_pair (f, return4)) d x v b
           fun on_constr_decl d x v (name, c, r) = (name, on_constr d x v c, r)
+          val dt = from_Unbound dt
           val dt = substx_t_tbind (substx_t_tbinds return4 (substx_pair (return4, substx_list on_constr_decl))) d x v dt
+          val dt = to_Unbound dt
         in
           TDatatype (dt, r)
         end
@@ -2228,6 +2306,8 @@ fun simp_s s =
           | _ => SApp (s, i)
       end
 
+open TypeUtil
+       
 fun simp_mt t =
   case t of
       Arrow (t1, d, t2) => Arrow (simp_mt t1, simp_i d, simp_mt t2)
@@ -2255,7 +2335,9 @@ fun simp_mt t =
       let
         fun simp_constr c = simp_binds simp_s (mapPair (simp_mt, map simp_i)) c
         fun simp_constr_decl ((name, c, r) : mtype constr_decl) : mtype constr_decl = (name, simp_constr c, r)
+        val dt = from_Unbound dt
         val dt = simp_bind (simp_binds id (mapPair (id, map simp_constr_decl))) dt
+        val dt = to_Unbound dt
       in
         TDatatype (dt, r)
       end
@@ -2452,6 +2534,8 @@ fun on_pair (f, g) acc (a, b) =
     acc
   end
   
+open TypeUtil
+       
 fun on_mt acc b =
   let
     val f = on_mt
@@ -2507,7 +2591,7 @@ fun on_mt acc b =
       | MtAbsI (b, bind, r) => on_ibind f acc bind
       | BaseType _ => acc
       | UVar _ => acc
-      | TDatatype dt => on_datatype acc dt
+      | TDatatype (Abs dt, r) => on_datatype acc dt
   end
     
 and on_constr_core acc ibinds =
@@ -2520,8 +2604,9 @@ and on_constr_core acc ibinds =
     acc
   end
     
-and on_datatype acc (Bind (_, tbinds), r) =
+and on_datatype acc dt =
     let
+      val Bind (_, tbinds) = from_Unbound $ Abs dt
       val (_, (_, constr_decls)) = unfold_binds tbinds
       fun on_constr_decl acc (name, core, r) = on_constr_core acc core
       val acc = on_list on_constr_decl acc constr_decls
@@ -2550,7 +2635,7 @@ fun on_option f acc a =
 local
   fun f acc b =
     case b of
-	ConstrP (((x, _), eia), inames, pn, r) =>
+	ConstrP (Outer ((x, _), eia), inames, pn, r) =>
         let
           val acc = on_long_id acc x
           val acc = f acc pn
@@ -2567,7 +2652,7 @@ local
         end
       | TTP r => acc
       | AliasP (name, pn, r) => f acc pn
-      | AnnoP (pn, t) =>
+      | AnnoP (pn, Outer t) =>
         let
           val acc = f acc pn
           val acc = on_mt acc t
@@ -2610,15 +2695,17 @@ local
             acc
           end
 	| ET (opr, t, r) => on_mt acc t
-	| Abs (pn, e) =>
+	| EAbs bind =>
           let
+            val (pn, e) = unfold_Bind bind
             val acc = on_ptrn acc pn
             val acc = f acc e
           in
             acc
           end
-	| AbsI (s, Bind (name, e), r) =>
+	| AbsI (bind, r) =>
           let
+            val ((name, s), e) = unfold_BindAnno bind
             val acc = on_s acc s
             val acc = f acc e
           in
@@ -2644,12 +2731,14 @@ local
             val acc = f acc e
             val acc = on_return acc return
             val on_rule = on_pair (on_ptrn, f)
-            val acc = on_list on_rule acc rules
+            val acc = on_list (on_rule) acc $ map unfold_Bind rules
           in
             acc
           end
-	| Let (return, decls, e, r) =>
+	| Let (return, bind, r) =>
           let
+            val (decls, e) = unfold_Bind bind
+            val decls = unfold_Teles decls
             val acc = on_return acc return
             val acc = on_list on_decl acc decls
             val acc = f acc e
@@ -2659,18 +2748,29 @@ local
 
   and on_decl acc b =
       case b of
-          Val (tnames, pn, e, r) =>
-          let 
+          Val (name, Outer bind, r) =>
+          let
+            val (tnames, e) = unfold_Bind bind
+            val pn = VarP name
             val acc = on_ptrn acc pn
             val acc = f acc e
           in
             acc
           end
-        | Rec (tnames, (name, r1), (binds, ((t, i), e)), r) =>
+        | ValPtrn (pn, Outer e, r) =>
+          let 
+            val acc = f acc e
+            val acc = on_ptrn acc pn
+          in
+            acc
+          end
+        | Rec (name, bind, r) =>
           let
+            val ((tnames, Rebind binds), ((t, i), e)) = unfold_Bind $ unfold_Inner bind
+            val binds = unfold_Teles binds
             fun on_stbind acc b =
               case b of
-                  SortingST (name, s) => on_s acc s
+                  SortingST (name, Outer s) => on_s acc s
                 | TypingST pn => on_ptrn acc pn
             val acc = on_list on_stbind acc binds
             val acc = on_mt acc t
@@ -2679,31 +2779,32 @@ local
           in
             acc
           end
-        | Datatype a => on_datatype acc a
-        | IdxDef ((name, r), s, i) =>
+        | Datatype (a, r) => on_datatype acc a
+        | IdxDef (name, Outer s, Outer i) =>
           let 
             val acc = on_s acc s
             val acc = on_i acc i
           in
             acc
           end
-        | AbsIdx2 ((name, r), s, i) =>
+        | AbsIdx2 (name, Outer s, Outer i) =>
           let 
             val acc = on_s acc s
             val acc = on_i acc i
           in
             acc
           end
-        | AbsIdx (((name, r1), s, i), decls, r) =>
+        | AbsIdx ((name, Outer s, Outer i), Rebind decls, r) =>
           let 
             val acc = on_s acc s
             val acc = on_i acc i
+            val decls = unfold_Teles decls
             val acc = on_list on_decl acc decls
           in
             acc
           end
-        | TypeDef ((name, r), t) => on_mt acc t
-        | Open ((m, r), _) => m :: acc
+        | TypeDef (name, Outer t) => on_mt acc t
+        | Open (Outer (m, r), _) => m :: acc
 
 in
 val on_e = f
@@ -2721,7 +2822,7 @@ local
       | SpecIdx (name, s) => on_s acc s
       | SpecType (name, k) => []
       | SpecTypeDef (name, t) => on_mt acc t
-      | SpecDatatype a => on_datatype acc a
+      | SpecDatatype (a, r) => on_datatype acc a
 in
 val on_spec = f
 fun collect_mod_spec b = f [] b

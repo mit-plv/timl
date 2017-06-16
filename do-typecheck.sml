@@ -790,8 +790,9 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
     (* val () = println $ "sctxn=" ^ (str_ls id sctxn) *)
   in
     case pn of
-	U.ConstrP (((cx, ()), eia), inames, opn, r) =>
- 	let 
+	U.ConstrP (Outer ((cx, ()), eia), inames, opn, Outer r) =>
+ 	let
+          val inames = map binder2str inames
           val c as (family, tbinds) = snd $ fetch_constr gctx (cctx, cx)
           val siblings = get_family_siblings gctx cctx cx
           val pos_in_family = index (curry eq_long_id cx) siblings !! (fn () => raise Impossible "family_pos")
@@ -846,10 +847,11 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
           val ctxd = add_ctx ctxd' ctxd
           val cover = ConstrC (cx, cover)
         in
-	  (ConstrP (((cx, (length siblings, pos_in_family)), eia), inames, pn1, r), cover, ctxd, length ps + nps)
+	  (ConstrP (Outer ((cx, (length siblings, pos_in_family)), eia), map str2ibinder inames, pn1, Outer r), cover, ctxd, length ps + nps)
 	end
-      | U.VarP (name, r) =>
+      | U.VarP ename =>
         let
+          val name = binder2str ename
           (* val pcover = combine_covers pcovers *)
           (* val cover = cover_neg cctx t pcover *)
           fun is_first_capital s =
@@ -857,7 +859,7 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
           val () = if is_first_capital name then println $ sprintf "Warning: pattern $ is treated as a wildcard (did you misspell a constructor name?)" [name]
                    else ()
         in
-          (VarP (name, r), TrueC, ctx_from_typing (name, Mono t), 0)
+          (VarP ename, TrueC, ctx_from_typing (name, Mono t), 0)
         end
       | U.PairP (pn1, pn2) =>
         let 
@@ -874,26 +876,28 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
         in
           (PairP (pn1, pn2), PairC (cover1, cover2), ctxd, nps1 + nps2)
         end
-      | U.TTP r =>
+      | U.TTP (Outer r) =>
         let
           val () = unify_mt r gctx (sctx, kctx) (t, Unit dummy)
         in
-          (TTP r, TTC, empty_ctx, 0)
+          (TTP $ Outer r, TTC, empty_ctx, 0)
         end
-      | U.AliasP ((pname, r1), pn, r) =>
-        let val ctxd = ctx_from_typing (pname, Mono t)
-            val (pn, cover, ctxd', nps) = match_ptrn (ctx, pn, t)
-            val ctxd = add_ctx ctxd' ctxd
+      | U.AliasP (ename, pn, r) =>
+        let
+          val pname = binder2str ename
+          val ctxd = ctx_from_typing (pname, Mono t)
+          val (pn, cover, ctxd', nps) = match_ptrn (ctx, pn, t)
+          val ctxd = add_ctx ctxd' ctxd
         in
-          (AliasP ((pname, r1), pn, r), cover, ctxd, nps)
+          (AliasP (ename, pn, r), cover, ctxd, nps)
         end
-      | U.AnnoP (pn1, t') =>
+      | U.AnnoP (pn1, Outer t') =>
         let
           val t' = check_kind_Type gctx ((sctx, kctx), t')
           val () = unify_mt (U.get_region_pn pn) gctx (sctx, kctx) (t, t')
           val (pn1, cover, ctxd, nps) = match_ptrn (ctx, pn1, t')
         in
-          (AnnoP (pn1, t'), cover, ctxd, nps)
+          (AnnoP (pn1, Outer t'), cover, ctxd, nps)
         end
   end
 
@@ -957,14 +961,14 @@ fun expand_rules gctx (ctx as (sctx, kctx, cctx), rules, t, r) =
                                               (* else *)
                                               (*   VarP ("_", dummy) *)
                                    in
-                                     ConstrP (((x, ()), true), repeat (length name_sorts) "_", pn', dummy)
+                                     ConstrP (Outer ((x, ()), true), repeat (length name_sorts) $ str2ibinder "_", pn', Outer dummy)
                                    end
                                  | NONE => default ()
                               )
                             | TTH =>
                               (case t of
                                    Unit _ =>
-                                   TTP dummy
+                                   TTP $ Outer dummy
                                  | _ => default ()
                               )
                             | PairH (h1, h2) =>
@@ -973,7 +977,7 @@ fun expand_rules gctx (ctx as (sctx, kctx, cctx), rules, t, r) =
                                    PairP (loop (* cutoff *) t1 h1, loop (* cutoff *) t2 h2)
                                  | _ => default ()
                               )
-                            | TrueH => VarP ("_", dummy)
+                            | TrueH => VarP $ str2ebinder "_"
                         end
                     in
                       (* runError (fn () => loop t hab) () *)
@@ -984,7 +988,7 @@ fun expand_rules gctx (ctx as (sctx, kctx, cctx), rules, t, r) =
                       (* open UnderscoredExpr *)
                     in
                       case pn of
-                          ConstrP (((x, ()), _), _, pn, _) => ConstrC (x, ptrn_to_cover pn)
+                          ConstrP (Outer ((x, ()), _), _, pn, _) => ConstrC (x, ptrn_to_cover pn)
                         | VarP _ => TrueC
                         | PairP (pn1, pn2) => PairC (ptrn_to_cover pn1, ptrn_to_cover pn2)
                         | TTP _ => TTC
@@ -1382,8 +1386,9 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	         (Builtin (t, r), t, T0 r)
                end
           )
-	| U.Abs (pn, e) => 
+	| U.EAbs bind => 
 	  let
+            val (pn, e) = unfold_Bind bind
             val r = U.get_region_pn pn
             val t = fresh_mt gctx (sctx, kctx) r
             val skcctx = (sctx, kctx, cctx) 
@@ -1396,10 +1401,12 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
             val () = close_n nps
             val () = close_ctx ctxd
           in
-	    (Abs (AnnoP (pn, t), e), Arrow (t, d, t1), T0 dummy)
+	    (EAbs $ Unbound.Bind (AnnoP (pn, Outer t), e), Arrow (t, d, t1), T0 dummy)
 	  end
-	| U.Let (return, decls, e, r) => 
+	| U.Let (return, bind, r) => 
 	  let
+            val (decls, e) = unfold_Bind bind
+            val decls = unfold_Teles decls
             val return = is_wf_return gctx (skctx, return)
             val (decls, ctxd as (sctxd, kctxd, _, _), nps, ds, ctx) = check_decls (ctx, decls)
 	    val (e, t, d) = get_mtype (ctx, e)
@@ -1412,10 +1419,12 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
             val () = close_n nps
             val () = close_ctx ctxd
           in
-	    (Let (return, decls, e, r), t, d)
+	    (Let (return, Unbound.Bind (Teles decls, e), r), t, d)
 	  end
-	| U.AbsI (s, Bind ((name, r), e), r_all) => 
+	| U.AbsI (bind, r_all) => 
 	  let 
+            val ((iname, s), e) = unfold_BindAnno bind
+            val (name, r) = unfold_Name iname
 	    val () = if U.is_value e then ()
 		     else raise Error (U.get_region_e e, ["The body of a universal abstraction must be a value"])
             val s = is_wf_sort gctx (sctx, s)
@@ -1425,7 +1434,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	    val (e, t, _) = get_mtype (ctx, e) 
             val () = close_ctx ctxd
           in
-	    (AbsI (s, Bind ((name, r), e), r_all), UniI (s, Bind ((name, r), t), r_all), T0 r_all)
+	    (AbsI (BindAnno ((iname, s), e), r_all), UniI (s, Bind ((name, r), t), r_all), T0 r_all)
 	  end 
 	| U.Ascription (e, t) => 
 	  let val t = check_kind_Type gctx (skctx, t)
