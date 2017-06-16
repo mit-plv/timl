@@ -61,50 +61,15 @@ fun default_expr_visitor_vtable
         case data of
             EVar data => #visit_EVar vtable this env data
           | EAppI data => #visit_EAppI vtable this env data
-          | EMatchSum data => #visit_EMatchSum vtable this env data
-          | EMatchPair data => #visit_EMatchPair vtable this env data
-          | EMatchUnfold data => #visit_EMatchUnfold vtable this env data
-          | EMatchUnpackI data => #visit_EMatchUnpackI vtable this env data
           | _ => raise Unimpl ""
       end
-datatype expr =
-	 Var of long_id * bool(*explicit index arguments (EIA)*)
-         | EConst of expr_const * region
-         | EUnOp of expr_un_op * expr * region
-         | BinOp of bin_op * expr * expr
-	 | TriOp of tri_op * expr * expr * expr
-         | EEI of expr_EI * expr * idx
-         | ET of expr_T * mtype * region
-	 | Abs of ptrn * expr
-	 | AbsI of sort * (name * expr) ibind * region
-	 | AppConstr of (long_id * bool) * idx list * expr
-	 | Case of expr * return * (ptrn * expr) list * region
-	 | Let of return * decl list * expr * region
-	 | Ascription of expr * mtype
-     and decl =
-         Val of name list * ptrn * expr * region
-         | Rec of name list * name * (stbind list * ((mtype * idx) * expr)) * region
-	 | Datatype of mtype datatype_def * region
-         | IdxDef of name * sort * idx
-         | AbsIdx2 of name * sort * idx
-         | AbsIdx of (name * sort * idx) * decl list * region
-         | TypeDef of name * mtype
-         | Open of mod_projectible
-
-    fun visit_AbsI this env data =
+    fun visit_EVar this env data =
       let
         val vtable = cast this
-        val (s, bind, r) = data
-        val s = #visit_sort vtable this env s
-        val bind = visit_ibind (#extend_i vtable this) (#visit_expr vtable this) env e
+        val (var, eia) = data
+        val var = #visit_var vtable this var
       in
-        AbsI (opr, e, r)
-      end
-    fun visit_Var this env data =
-      let
-        val vtable = cast this
-      in
-        EVar data
+        EVar (var, eia)
       end
     fun visit_EConst this env data =
       let
@@ -120,16 +85,16 @@ datatype expr =
       in
         EUnOp (opr, e, r)
       end
-    fun visit_BinOp this env data =
+    fun visit_EBinOp this env data =
       let
         val vtable = cast this
         val (opr, e1, e2) = data
         val e1 = #visit_expr vtable this env e1
         val e2 = #visit_expr vtable this env e2
       in
-        BinOp (opr, e1, e2)
+        EBinOp (opr, e1, e2)
       end
-    fun visit_TriOp this env data =
+    fun visit_ETriOp this env data =
       let
         val vtable = cast this
         val (opr, e1, e2, e3) = data
@@ -137,7 +102,7 @@ datatype expr =
         val e2 = #visit_expr vtable this env e2
         val e3 = #visit_expr vtable this env e3
       in
-        TriOp (opr, e1, e2, e3)
+        ETriOp (opr, e1, e2, e3)
       end
     fun visit_EEI this env data = 
       let
@@ -147,6 +112,49 @@ datatype expr =
         val i = #visit_idx vtable this env i
       in
         EEI (opr, e, i)
+      end
+    fun visit_EAbsI this env data =
+      let
+        val vtable = cast this
+        val (bind, r) = data
+        val bind = visit_bind_anno (#extend_i vtable this) (#visit_sort vtable this env) (#visit_expr vtable this) env bind
+      in
+        EAbsI (bind, r)
+      end
+datatype expr =
+	 EVar of long_id * bool(*explicit index arguments (EIA)*)
+         | EConst of expr_const * region
+         | EUnOp of expr_un_op * expr * region
+         | EBinOp of bin_op * expr * expr
+	 | ETriOp of tri_op * expr * expr * expr
+         | EEI of expr_EI * expr * idx
+         | ET of expr_T * mtype * region
+	 | EAbs of (ptrn, expr) bind
+	 | EAbsI of (sort, expr) ibind_anno * region
+	 | EAppConstr of (long_id * bool) * idx list * expr
+	 | ECase of expr * return * (ptrn, expr) bind list * region
+	 | ELet of return * (decl tele, expr) bind * region
+	 | EAscription of expr * mtype
+
+
+     and decl =
+         DVal of ename binder * (tname binder list, expr) bind outer * region outer
+         | DValPtrn of ptrn * expr outer * region outer
+         | DRec of ename binder * (tname binder list * stbind tele rebind, (mtype * idx) * expr) bind inner * region outer
+	 | DDatatype of mtype datatype_def * region outer
+         | DIdxDef of iname binder * sort outer * idx outer
+         | DAbsIdx2 of iname binder * sort outer * idx outer
+         | DAbsIdx of (iname binder * sort outer * idx outer) * decl tele rebind * region outer
+         | DTypeDef of tname binder * mtype outer
+         | DOpen of mod_projectible outer * scoping_ctx option
+
+    fun visit_EAbs this env data =
+      let
+        val vtable = cast this
+        val (bind, r) = data
+        val bind = visit_bind_anno (#extend_i vtable this) (#visit_sort vtable this env) (#visit_expr vtable this) env bind
+      in
+        EAbs (bind, r)
       end
     (* fun default_visit_binder extend this = visit_binder (extend this) *)
     val visit_ebind = fn this => visit_ebind (#extend_e (cast this) this)
