@@ -52,8 +52,8 @@ local
   open Unbound
   open Namespaces
 in
-fun from_Unbound (Abs (Binder (TypeNS, (name, _)), Rebind (Outer t))) = Bind.Bind (name, t)
-fun to_Unbound (Bind.Bind (name, t)) = Abs (Binder (TypeNS, (name, Region.dummy)), Rebind (Outer t))
+fun from_Unbound (Binder (TypeNS, (name, _)), Rebind (Outer t)) = (name, t)
+fun to_Unbound (name, t) = (Binder (TypeNS, (name, Region.dummy)), Rebind (Outer t))
 end
                                                        
 end
@@ -102,14 +102,14 @@ fun on_i_mt on_i on_s x n b =
         | MtAbsI (b, bind, r) => MtAbsI (b, on_i_ibind f x n bind, r)
 	| BaseType a => BaseType a
         | UVar a => b
-        | TDatatype (dt, r) =>
+        | TDatatype (Unbound.Abs dt, r) =>
           let
             fun on_constr_decl x n (name, c, r) = (name, on_i_constr_core on_i on_s f x n c, r)
-            val dt = from_Unbound dt
-            val dt = on_i_tbind (on_i_tbinds return3 (on_pair (return3, on_list on_constr_decl))) x n dt
+            val dt = Bind $ from_Unbound dt
+            val Bind dt = on_i_tbind (on_i_tbinds return3 (on_pair (return3, on_list on_constr_decl))) x n dt
             val dt = to_Unbound dt
           in
-            TDatatype (dt, r)
+            TDatatype (Unbound.Abs dt, r)
           end
   in
     f x n b
@@ -144,14 +144,14 @@ fun on_t_mt on_v x n b =
         | MtAbsI (s, bind, r) => MtAbsI (s, on_t_ibind f x n bind, r)
 	| BaseType a => BaseType a
         | UVar a => b
-        | TDatatype (dt, r) =>
+        | TDatatype (Unbound.Abs dt, r) =>
           let
             fun on_constr_decl x n (name, c, r) = (name, on_t_constr_core f x n c, r)
-            val dt = from_Unbound dt
-            val dt = on_t_tbind (on_t_tbinds return3 (on_pair (return3, on_list on_constr_decl))) x n dt
+            val dt = Bind $ from_Unbound dt
+            val Bind dt = on_t_tbind (on_t_tbinds return3 (on_pair (return3, on_list on_constr_decl))) x n dt
             val dt = to_Unbound dt
           in
-            TDatatype (dt, r)
+            TDatatype (Unbound.Abs dt, r)
           end
   in
     f x n b

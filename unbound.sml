@@ -28,16 +28,16 @@ fun Teles ps = foldr (TeleCons o mapSnd Rebind) TeleNil ps
 fun BindSimp (name, t) = Bind (Binder name, t)
 fun BindAnno ((name, anno), t) = Bind ((Binder name, Outer anno), t)
 
-fun unfold_Binder (Binder n) = n
-fun unfold_Bind (Abs (p, Rebind (Outer t))) = (p, t)
-fun unfold_Inner (Rebind (Outer t)) = t
-fun unfold_Teles t =
+fun unBinder (Binder n) = n
+fun unBind (Abs (p, Rebind (Outer t))) = (p, t)
+fun unInner (Rebind (Outer t)) = t
+fun unTeles t =
   case t of
       TeleNil => []
-    | TeleCons (p, Rebind t) => p :: unfold_Teles t
-fun unfold_BindAnno t =
+    | TeleCons (p, Rebind t) => p :: unTeles t
+fun unBindAnno t =
   let
-    val ((Binder name, Outer anno), t) = unfold_Bind t
+    val ((Binder name, Outer anno), t) = unBind t
   in
     ((name, anno), t)
   end
@@ -103,7 +103,7 @@ fun IName name = (IdxNS, name)
 fun TName name = (TypeNS, name)
 fun CName name = (ConstrNS, name)
 fun EName name = (ExprNS, name)
-val unfold_Name = Util.snd
+val unName = Util.snd
                    
 type idepth = idx_namespace * int
 type edepth = expr_namespace * int
@@ -113,8 +113,8 @@ fun idepth_inc (IdxNS, n) = (IdxNS, n + 1)
 fun edepth_inc (ExprNS, n) = (ExprNS, n + 1)
 fun idepth_add ((IdxNS, a), (IdxNS, b)) = (IdxNS, a + b)
 fun edepth_add ((ExprNS, a), (ExprNS, b)) = (ExprNS, a + b)
-fun unfold_idepth (IdxNS, n) = n
-fun unfold_edepth (ExprNS, n) = n
+fun unIDepth (IdxNS, n) = n
+fun unEDepth (ExprNS, n) = n
                               
 end
 

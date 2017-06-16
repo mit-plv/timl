@@ -482,14 +482,14 @@ fun subst_e_expr_visitor_vtable cast (shift_var, compare_var, shift_i_i, d, x, v
     val add_depth = mapPair2 idepth_add edepth_add
     fun visit_EVar this env y =
       let
-        val x = x + open_edepth (snd env)
+        val x = x + unEDepth (snd env)
       in
         case compare_var y x of
             CmpEq =>
             let
               val (di, de) = add_depth d env
             in
-              shift_i_e_fn shift_i_i 0 (open_idepth di) $ shift_e_e_fn shift_var 0 (open_edepth de) v
+              shift_i_e_fn shift_i_i 0 (unIDepth di) $ shift_e_e_fn shift_var 0 (unEDepth de) v
             end
           | CmpGreater y' =>
             EVar y'

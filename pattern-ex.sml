@@ -45,12 +45,12 @@ fun from_TiML_ptrn p =
     val f = from_TiML_ptrn
   in
     case p of
-        VarP name => PnVar (Binder $ EName name)
-      | TTP r => PnTT (Outer r)
+        VarP name => PnVar name
+      | TTP r => PnTT r
       | PairP (p1, p2) => PnPair (f p1, f p2)
-      | AnnoP (p, t) => PnAnno (f p, Outer t)
-      | AliasP (name, p, r) => PnAlias (Binder $ EName name, f p, Outer r)
-      | ConstrP (((_, inj), _), inames, p, r) => PnConstr (Outer inj, map (Binder o IName) inames, f p, Outer r)
+      | AnnoP (p, t) => PnAnno (f p, t)
+      | AliasP (name, p, r) => PnAlias (name, f p, r)
+      | ConstrP (Outer ((_, inj), _), inames, p, r) => PnConstr (Outer inj, inames, f p, r)
   end
 
 local
@@ -417,7 +417,7 @@ fun subst_e_ptrn_visitor_vtable cast (subst_e, d, x, v) : ('this, idepth * edept
     fun extend_i this env _ = mapFst idepth_inc env
     fun extend_e this env _ = mapSnd edepth_inc env
     val add_depth = mapPair2 idepth_add edepth_add
-    fun visit_expr this env b = subst_e (add_depth d env) (x + open_edepth (snd env)) v b
+    fun visit_expr this env b = subst_e (add_depth d env) (x + unEDepth (snd env)) v b
   in
     default_ptrn_visitor_vtable
       cast

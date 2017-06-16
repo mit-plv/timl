@@ -93,6 +93,7 @@ functor TypeTransFn (structure Src : TYPE
 struct
 
 open Util
+open Unbound
 open Bind
 structure S = Src
 open Tgt
@@ -115,10 +116,12 @@ fun on_mt t =
     | S.MtAbsI (b, Bind (name, t), r) => MtAbsI (on_b b, Bind (on_name name, on_mt t), on_r r)
     | S.BaseType (t, r) => BaseType (on_base_type t, on_r r)
     | S.UVar (x, r) => UVar (on_uvar_mt on_b on_k on_mt x, on_r r)
-    | S.TDatatype (dt, r) => TDatatype (on_dt dt, on_r r)
+    | S.TDatatype (Abs dt, r) => TDatatype (Abs $ on_dt dt, on_r r)
 
-and on_dt (Bind (name, tbinds)) =
+and on_dt dt =
     let
+      open TypeUtil
+      val (name, tbinds) = from_Unbound dt
       val (tname_kinds, (bsorts, constrs)) = unfold_binds tbinds
       val bsorts = map on_b bsorts
       fun on_constr_core ibinds =
@@ -134,7 +137,7 @@ and on_dt (Bind (name, tbinds)) =
       val constrs = map (fn (name, c, r) => (name, on_constr_core c, on_r r)) constrs
       val tbinds = fold_binds (tname_kinds, (bsorts, constrs))
     in
-      Bind (name, tbinds)
+      to_Unbound (name, tbinds)
     end
 
 end
@@ -268,8 +271,10 @@ fun on_mt (t : S.mtype) =
     | S.UVar (x, _) =>
     (* exfalso x *)
       raise Impossible "UVar"
-    | S.TDatatype (S.Bind (dt_name, tbinds), _) =>
+    | S.TDatatype (Abs bind, _) =>
       let
+        open TypeUtil
+        val (dt_name, tbinds) = from_Unbound bind
         val (tname_kinds, (bsorts, constrs)) = unfold_binds tbinds
         val tnames = map fst tname_kinds
         fun on_constr (ibinds : S.mtype S.constr_core) =
@@ -341,9 +346,10 @@ fun on_e (e : S.expr) =
            Op.ETNever => ENever (on_mt t)
          | Op.ETBuiltin => raise T2MTError "can't translate builtin expression"
       )
-    | S.Abs (pn, e) =>
+    | S.EAbs bind =>
       let
-        val (pn, t) = case pn of S.AnnoP a => a | _ => raise Impossible "must be AnnoP"
+        val (pn, e) = unBind bind
+        val (pn, Outer t) = case pn of S.AnnoP a => a | _ => raise Impossible "must be AnnoP"
         val t = on_mt t
         val e = on_e e
         val pn = from_TiML_ptrn pn
@@ -357,7 +363,7 @@ fun on_e (e : S.expr) =
     | S.Case (e, return, rules, r) =>
       let
         val e = on_e e
-        val rules = map (mapPair (from_TiML_ptrn, on_e)) rules
+        val rules = map (mapPair (from_TiML_ptrn, on_e) o unBind) rules
         val name = default (EName ("__x", dummy)) $ firstSuccess get_pn_alias $ map fst rules
         val pns = map PnBind rules
         val pns = map (shift_e_pn 0 1) pns
@@ -365,7 +371,12 @@ fun on_e (e : S.expr) =
       in
         ELet (e, BindSimp (name, e2))
       end
-    | S.AbsI (s, S.Bind (name, e), _) => EAbsI $ BindAnno ((IName name, s), on_e e)
+    | S.AbsI (bind, _) =>
+      let
+        val ((name, s), e) = unBindAnno bind
+      in
+        EAbsI $ BindAnno ((name, s), on_e e)
+      end
     (* | Let (return, decs, e, r) => *)
     (*   let  *)
     (*     val (decs, m) = f_decls x n decs *)
@@ -419,9 +430,9 @@ fun test filename =
     open TypeCheck
     val ((decls, _, _, _), _) = typecheck_decls empty empty_ctx decls
     val Datatype (dt, _) = hd decls
-    val Val (_, _, e, _) = nth (decls, 1)
+    val ValPtrn (_, Outer e, _) = nth (decls, 1)
     (* val dt = TypeTrans.on_dt dt *)
-    val t = TiML.TDatatype (dt, dummy)
+    val t = TiML.TDatatype (Abs dt, dummy)
     val t = trans_mt t
     (* val () = println $ str_t empty ([], []) t *)
     (* val e = simp_e e *)

@@ -55,7 +55,7 @@ Group is
 
       micro-timl/micro-timl.sml
       nouvar-expr.sml
-      t-ast.sml
+      (* t-ast.sml *)
       visitor-util.sml                                 
       unbound.sml
       visitor.sml                                 
