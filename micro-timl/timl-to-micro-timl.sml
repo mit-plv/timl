@@ -430,21 +430,24 @@ fun test filename =
     open TypeCheck
     val ((decls, _, _, _), _) = typecheck_decls empty empty_ctx decls
     val DDatatype (dt, _) = hd decls
-    val DValPtrn (_, Outer e, _) = nth (decls, 1)
+    val DVal (_, Outer bind, _) = nth (decls, 1)
+    val (_, e) = unBind bind
     (* val dt = TypeTrans.on_dt dt *)
     val t = TiML.TDatatype (Abs dt, dummy)
     val t = trans_mt t
-    (* val () = println $ str_t empty ([], []) t *)
-    (* val e = simp_e e *)
+    (* val () = println $ str_e empty ([], ["'a", "list"], ["Cons", "Nil"], []) e *)
+    val BSNat = Base Nat
+    val e = ExprTrans.simp_e [("'a", KeKind Type), ("list", KeKind (1, [BSNat]))] e
     val () = println $ str_e empty ([], ["'a", "list"], ["Cons", "Nil"], []) e
-    (* val e = trans_e e *)
+    val e = trans_e e
   in
     (* (t, e) *)
       ()
   end
-  handle NameResolve.Error (_, msg) => (println $ "NRError: " ^ msg; raise Impossible "End")
-       | TypeCheck.Error (_, msgs) => (app println $ "TCError: " :: msgs; raise Impossible "End")
-       | T2MTError msg => (println $ "T2MTError: " ^ msg; raise Impossible "End")
+  handle NameResolve.Error (_, msg) => (println $ "NR.Error: " ^ msg; raise Impossible "End")
+       | TypeCheck.Error (_, msgs) => (app println $ "TC.Error: " :: msgs; raise Impossible "End")
+       | T2MTError msg => (println $ "T2MT.Error: " ^ msg; raise Impossible "End")
+       | Impossible msg => (println $ "Impossible: " ^ msg; raise Impossible "End")
                           
 end
                              

@@ -69,7 +69,7 @@ open Type
 
 open Pattern
 
-type ptrn = (long_id * ptrn_constr_tag, mtype, region) ptrn
+type ptrn = (long_id * ptrn_constr_tag, mtype) ptrn
 
 type return = mtype option * idx option
                                  

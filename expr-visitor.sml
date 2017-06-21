@@ -5,7 +5,7 @@ signature EXPR = sig
   type idx
   type sort
   type mtype
-  type datatype_def
+  type 'mtype datatype_def
   type ptrn
 
   type return = mtype option * idx option
@@ -35,7 +35,7 @@ signature EXPR = sig
            DVal of Namespaces.ename Unbound.binder * (Namespaces.tname Unbound.binder list, expr) Unbound.bind Unbound.outer * Region.region Unbound.outer
            | DValPtrn of ptrn * expr Unbound.outer * Region.region Unbound.outer
            | DRec of Namespaces.ename Unbound.binder * (Namespaces.tname Unbound.binder list * stbind Unbound.tele Unbound.rebind, (mtype * idx) * expr) Unbound.bind Unbound.inner * Region.region Unbound.outer
-	   | DDatatype of datatype_def * Region.region Unbound.outer
+	   | DDatatype of mtype datatype_def * Region.region Unbound.outer
            | DIdxDef of Namespaces.iname Unbound.binder * sort Unbound.outer * idx Unbound.outer
            | DAbsIdx2 of Namespaces.iname Unbound.binder * sort Unbound.outer * idx Unbound.outer
            | DAbsIdx of (Namespaces.iname Unbound.binder * sort Unbound.outer * idx Unbound.outer) * decl Unbound.tele Unbound.rebind * Region.region Unbound.outer
@@ -44,7 +44,7 @@ signature EXPR = sig
 
 end
 
-functor ExprVisitor (structure S : EXPR
+functor ExprVisitorFn (structure S : EXPR
                      structure T : EXPR
                     ) = struct
 
@@ -77,7 +77,7 @@ type ('this, 'env) expr_visitor_vtable =
        visit_DVal : 'this -> 'env ctx -> ename binder * (tname binder list, expr) bind outer * region outer -> T.decl,
        visit_DValPtrn : 'this -> 'env ctx -> ptrn * expr outer * region outer -> T.decl,
        visit_DRec : 'this -> 'env ctx -> ename binder * (tname binder list * stbind tele rebind, (mtype * idx) * expr) bind inner * region outer -> T.decl,
-       visit_DDatatype : 'this -> 'env ctx -> datatype_def * region outer -> T.decl,
+       visit_DDatatype : 'this -> 'env ctx -> mtype datatype_def * region outer -> T.decl,
        visit_DIdxDef : 'this -> 'env ctx -> iname binder * sort outer * idx outer -> T.decl,
        visit_DAbsIdx2 : 'this -> 'env ctx -> iname binder * sort outer * idx outer -> T.decl,
        visit_DAbsIdx : 'this -> 'env ctx -> (iname binder * sort outer * idx outer) * decl tele rebind * region outer -> T.decl,
@@ -88,7 +88,7 @@ type ('this, 'env) expr_visitor_vtable =
        visit_idx : 'this -> 'env -> idx -> T.idx,
        visit_sort : 'this -> 'env -> sort -> T.sort,
        visit_mtype : 'this -> 'env -> mtype -> T.mtype,
-       visit_datatype : 'this -> 'env ctx -> datatype_def -> T.datatype_def,
+       visit_datatype : 'this -> 'env ctx -> mtype datatype_def -> T.mtype T.datatype_def,
        visit_ptrn : 'this -> 'env ctx -> ptrn -> T.ptrn,
        extend_i : 'this -> 'env -> iname -> 'env,
        extend_t : 'this -> 'env -> tname -> 'env,
@@ -472,4 +472,70 @@ fun new_expr_visitor vtable params =
     ExprVisitor vtable
   end
     
+end
+
+structure ExprTrans = struct
+
+open Normalize
+open PatternVisitor
+structure ExprVisitor = ExprVisitorFn (structure S = Expr
+                                   structure T = Expr)
+open ExprVisitor
+
+(***************** the "simp" visitor  **********************)
+
+fun ignore_this_env f this env t = f t
+fun ignore_this f this env t = f env t
+
+fun visit_mtype x = ignore_this (normalize_mt empty) x
+                                
+fun simp_ptrn_visitor_vtable cast () : ('this, kcontext, 'var, mtype, 'var, mtype) ptrn_visitor_vtable =
+  let
+    fun extend_t this env name = (Name2str name, KeKind Type) :: env
+  in
+    default_ptrn_visitor_vtable
+      cast
+      extend_noop
+      extend_noop
+      visit_noop
+      visit_mtype
+  end
+
+fun new_simp_ptrn_visitor params = new_ptrn_visitor simp_ptrn_visitor_vtable params
+    
+fun simp_pn kctx pn =
+  let
+    val visitor as (PtrnVisitor vtable) = new_simp_ptrn_visitor ()
+  in
+    #visit_ptrn vtable visitor kctx pn
+  end
+                      
+fun simp_expr_visitor_vtable cast () : ('this, kcontext) expr_visitor_vtable =
+  let
+    fun extend_t this env name = (Name2str name, KeKind Type) :: env
+  in
+    default_expr_visitor_vtable
+      cast
+      extend_noop
+      extend_t
+      extend_noop
+      extend_noop
+      visit_noop
+      visit_noop
+      (ignore_this_env (simp_i o normalize_i))
+      (ignore_this_env normalize_s)
+      visit_mtype
+      (visit_imposs "visit_datatype")
+      (ignore_this simp_pn)
+  end
+
+fun new_simp_expr_visitor params = new_expr_visitor simp_expr_visitor_vtable params
+    
+fun simp_e kctx e =
+  let
+    val visitor as (ExprVisitor vtable) = new_simp_expr_visitor ()
+  in
+    #visit_expr vtable visitor kctx e
+  end
+                      
 end
