@@ -63,6 +63,7 @@ Group is
       micro-timl/micro-timl-ex.sml
       pattern-ex.sml
       micro-timl/timl-to-micro-timl.sml
+      expr-visitor.sml                                 
                                  
       $/basis.cm
       $/smlnj-lib.cm

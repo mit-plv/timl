@@ -66,6 +66,11 @@ fun visit_bind visit_'p = visit_abs o visit_pair visit_'p o visit_inner
 fun visit_bind_simp extend = visit_bind (visit_binder extend)
 fun visit_bind_anno extend visit_'anno = visit_bind (visit_pair (visit_binder extend) (visit_outer visit_'anno))
 
+fun visit_tele visit_p ctx t =
+  case t of
+      TeleNil => TeleNil
+    | TeleCons a => TeleCons $ visit_pair visit_p (visit_rebind (visit_tele visit_p)) ctx a
+    
 end
 
 signature BINDERS = sig

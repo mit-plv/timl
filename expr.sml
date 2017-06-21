@@ -94,7 +94,6 @@ datatype expr =
 	 | ELet of return * (decl tele, expr) bind * region
 	 | EAscription of expr * mtype
 
-
      and decl =
          DVal of ename binder * (tname binder list, expr) bind outer * region outer
          | DValPtrn of ptrn * expr outer * region outer
