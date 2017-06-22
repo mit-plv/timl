@@ -18,16 +18,16 @@ datatype ('var, 'bsort, 'idx, 'sort, 'ty) expr =
          | EAbs of ('ty, ('var, 'bsort, 'idx, 'sort, 'ty) expr) ebind_anno
          | ERec of ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind
          | EAbsT of ('var, 'bsort, 'idx, 'sort, 'ty) expr tbind
-         | EAppT of ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort) ty
+         | EAppT of ('var, 'bsort, 'idx, 'sort, 'ty) expr * 'ty
          | EAbsI of ('sort, ('var, 'bsort, 'idx, 'sort, 'ty) expr) ibind_anno
          | EAppI of ('var, 'bsort, 'idx, 'sort, 'ty) expr * 'idx
-         | EPack of ('var, 'bsort, 'idx, 'sort) ty * ('var, 'bsort, 'idx, 'sort, 'ty) expr
+         | EPack of 'ty * ('var, 'bsort, 'idx, 'sort, 'ty) expr
          | EUnpack of ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind tbind
          | EPackI of 'idx * ('var, 'bsort, 'idx, 'sort, 'ty) expr
          | EUnpackI of ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind ibind
          | EAscTime of ('var, 'bsort, 'idx, 'sort, 'ty) expr * 'idx (* time ascription *)
-         | EAscType of ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort) ty (* type ascription *)
-         | ENever of ('var, 'bsort, 'idx, 'sort) ty
+         | EAscType of ('var, 'bsort, 'idx, 'sort, 'ty) expr * 'ty (* type ascription *)
+         | ENever of 'ty
          | ELet of ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind
          | EMatchSum of ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind list
          | EMatchPair of ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind ebind
@@ -269,7 +269,26 @@ type ('this, 'env, 'var, 'bsort, 'idx, 'sort, 'ty, 'var2, 'bsort2, 'idx2, 'sort2
      {
        visit_expr : 'this -> 'env -> ('var, 'bsort, 'idx, 'sort, 'ty) expr -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
        visit_EVar : 'this -> 'env -> 'var -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EConst : 'this -> 'env -> Operators.expr_const -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
+       visit_ELoc : 'this -> 'env -> loc -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EUnOp : 'this -> 'env -> expr_un_op * ('var, 'bsort, 'idx, 'sort, 'ty) expr -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EBinOp : 'this -> 'env -> expr_bin_op * ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EWrite : 'this -> 'env -> ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
+       visit_ECase : 'this -> 'env -> ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EAbs : 'this -> 'env -> ('ty, ('var, 'bsort, 'idx, 'sort, 'ty) expr) ebind_anno -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
+       visit_ERec : 'this -> 'env -> ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EAbsT : 'this -> 'env -> ('var, 'bsort, 'idx, 'sort, 'ty) expr tbind -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EAppT : 'this -> 'env -> ('var, 'bsort, 'idx, 'sort, 'ty) expr * 'ty -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EAbsI : 'this -> 'env -> ('sort, ('var, 'bsort, 'idx, 'sort, 'ty) expr) ibind_anno -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
        visit_EAppI : 'this -> 'env -> ('var, 'bsort, 'idx, 'sort, 'ty) expr * 'idx -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EPack : 'this -> 'env -> 'ty * ('var, 'bsort, 'idx, 'sort, 'ty) expr -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EUnpack : 'this -> 'env -> ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind tbind -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EPackI : 'this -> 'env -> 'idx * ('var, 'bsort, 'idx, 'sort, 'ty) expr -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EUnpackI : 'this -> 'env -> ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind ibind -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EAscTime : 'this -> 'env -> ('var, 'bsort, 'idx, 'sort, 'ty) expr * 'idx -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EAscType : 'this -> 'env -> ('var, 'bsort, 'idx, 'sort, 'ty) expr * 'ty -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
+       visit_ENever : 'this -> 'env -> 'ty -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
+       visit_ELet : 'this -> 'env -> ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
        visit_EMatchSum : 'this -> 'env -> ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind list -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
        visit_EMatchPair : 'this -> 'env -> ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind ebind -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
        visit_EMatchUnfold : 'this -> 'env -> ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
@@ -277,9 +296,10 @@ type ('this, 'env, 'var, 'bsort, 'idx, 'sort, 'ty, 'var2, 'bsort2, 'idx2, 'sort2
        visit_var : 'this -> 'env -> 'var -> 'var2,
        (* visit_bsort : 'this -> 'env -> 'bsort -> 'bsort2, *)
        visit_idx : 'this -> 'env -> 'idx -> 'idx2,
-       (* visit_sort : 'this -> 'env -> 'sort -> 'sort2, *)
-       (* visit_region : 'this -> 'env -> region -> region, *)
+       visit_sort : 'this -> 'env -> 'sort -> 'sort2,
+       visit_ty : 'this -> 'env -> 'ty -> 'ty2,
        extend_i : 'this -> 'env -> iname -> 'env,
+       extend_t : 'this -> 'env -> tname -> 'env,
        extend_e : 'this -> 'env -> ename -> 'env
      }
        
@@ -290,14 +310,36 @@ fun override_visit_EVar (record : ('this, 'env, 'var, 'bsort, 'idx, 'sort, 'ty, 
   {
     visit_expr = #visit_expr record,
     visit_EVar = new,
+    visit_EConst = #visit_EConst record,
+    visit_ELoc = #visit_ELoc record,
+    visit_EUnOp = #visit_EUnOp record,
+    visit_EBinOp = #visit_EBinOp record,
+    visit_EWrite = #visit_EWrite record,
+    visit_ECase = #visit_ECase record,
+    visit_EAbs = #visit_EAbs record,
+    visit_ERec = #visit_ERec record,
+    visit_EAbsT = #visit_EAbsT record,
+    visit_EAppT = #visit_EAppT record,
+    visit_EAbsI = #visit_EAbsI record,
     visit_EAppI = #visit_EAppI record,
+    visit_EPack = #visit_EPack record,
+    visit_EUnpack = #visit_EUnpack record,
+    visit_EPackI = #visit_EPackI record,
+    visit_EUnpackI = #visit_EUnpackI record,
+    visit_EAscTime = #visit_EAscTime record,
+    visit_EAscType = #visit_EAscType record,
+    visit_ENever = #visit_ENever record,
+    visit_ELet = #visit_ELet record,
     visit_EMatchSum = #visit_EMatchSum record,
     visit_EMatchPair = #visit_EMatchPair record,
     visit_EMatchUnfold = #visit_EMatchUnfold record,
     visit_EMatchUnpackI = #visit_EMatchUnpackI record,
     visit_var = #visit_var record,
     visit_idx = #visit_idx record,
+    visit_sort = #visit_sort record,
+    visit_ty = #visit_ty record,
     extend_i = #extend_i record,
+    extend_t = #extend_t record,
     extend_e = #extend_e record
   }
 
@@ -305,16 +347,15 @@ fun override_visit_EVar (record : ('this, 'env, 'var, 'bsort, 'idx, 'sort, 'ty, 
 
 open VisitorUtil
        
-val visit_ibind = Unbound.visit_bind_simp
-val visit_tbind = Unbound.visit_bind_simp
-val visit_ebind = Unbound.visit_bind_simp
-                    
 fun default_expr_visitor_vtable
       (cast : 'this -> ('this, 'env, 'var, 'bsort, 'idx, 'sort, 'ty, 'var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr_visitor_interface)
       extend_i
+      extend_t
       extend_e
       visit_var
       visit_idx
+      visit_sort
+      visit_ty
     : ('this, 'env, 'var, 'bsort, 'idx, 'sort, 'ty, 'var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr_visitor_vtable =
   let
     fun visit_expr this env data =
@@ -323,18 +364,117 @@ fun default_expr_visitor_vtable
       in
         case data of
             EVar data => #visit_EVar vtable this env data
+          | EConst data => #visit_EConst vtable this env data
+          | ELoc data => #visit_ELoc vtable this env data
+          | EUnOp data => #visit_EUnOp vtable this env data
+          | EBinOp data => #visit_EBinOp vtable this env data
+          | EWrite data => #visit_EWrite vtable this env data
+          | ECase data => #visit_ECase vtable this env data
+          | EAbs data => #visit_EAbs vtable this env data
+          | ERec data => #visit_ERec vtable this env data
+          | EAbsT data => #visit_EAbsT vtable this env data
+          | EAppT data => #visit_EAppT vtable this env data
+          | EAbsI data => #visit_EAbsI vtable this env data
           | EAppI data => #visit_EAppI vtable this env data
+          | EPack data => #visit_EPack vtable this env data
+          | EUnpack data => #visit_EUnpack vtable this env data
+          | EPackI data => #visit_EPackI vtable this env data
+          | EUnpackI data => #visit_EUnpackI vtable this env data
+          | EAscTime data => #visit_EAscTime vtable this env data
+          | EAscType data => #visit_EAscType vtable this env data
+          | ENever data => #visit_ENever vtable this env data
+          | ELet data => #visit_ELet vtable this env data
           | EMatchSum data => #visit_EMatchSum vtable this env data
           | EMatchPair data => #visit_EMatchPair vtable this env data
           | EMatchUnfold data => #visit_EMatchUnfold vtable this env data
           | EMatchUnpackI data => #visit_EMatchUnpackI vtable this env data
-          | _ => raise Unimpl ""
       end
     fun visit_EVar this env data =
       let
         val vtable = cast this
       in
         EVar $ #visit_var vtable this env data
+      end
+    fun visit_EConst this env data = EConst data
+    fun visit_ELoc this env data = ELoc data
+    fun visit_EUnOp this env data = 
+      let
+        val vtable = cast this
+        val (opr, e) = data
+        val e = #visit_expr vtable this env e
+      in
+        EUnOp (opr, e)
+      end
+    fun visit_EBinOp this env data = 
+      let
+        val vtable = cast this
+        val (opr, e1, e2) = data
+        val e1 = #visit_expr vtable this env e1
+        val e2 = #visit_expr vtable this env e2
+      in
+        EBinOp (opr, e1, e2)
+      end
+    fun visit_EWrite this env data = 
+      let
+        val vtable = cast this
+        val (e1, e2, e3) = data
+        val e1 = #visit_expr vtable this env e1
+        val e2 = #visit_expr vtable this env e2
+        val e3 = #visit_expr vtable this env e3
+      in
+        EWrite (e1, e2, e3)
+      end
+    fun visit_ibind this = visit_bind_simp (#extend_i (cast this) this)
+    fun visit_tbind this = visit_bind_simp (#extend_t (cast this) this)
+    fun visit_ebind this = visit_bind_simp (#extend_e (cast this) this)
+    fun visit_ibind_anno this = visit_bind_anno (#extend_i (cast this) this)
+    fun visit_ebind_anno this = visit_bind_anno (#extend_e (cast this) this)
+    fun visit_ECase this env data =
+      let
+        val vtable = cast this
+        val (e, e1, e2) = data
+        val e = #visit_expr vtable this env e
+        val e1 = visit_ebind this (#visit_expr vtable this) env e1
+        val e2 = visit_ebind this (#visit_expr vtable this) env e2
+      in
+        ECase (e, e1, e2)
+      end
+    fun visit_EAbs this env data =
+      let
+        val vtable = cast this
+        val data = visit_ebind_anno this (#visit_ty vtable this) (#visit_expr vtable this) env data
+      in
+        EAbs data
+      end
+    fun visit_ERec this env data =
+      let
+        val vtable = cast this
+        val data = visit_ebind this (#visit_expr vtable this) env data
+      in
+        ERec data
+      end
+    fun visit_EAbsT this env data =
+      let
+        val vtable = cast this
+        val data = visit_tbind this (#visit_expr vtable this) env data
+      in
+        EAbsT data
+      end
+    fun visit_EAppT this env data = 
+      let
+        val vtable = cast this
+        val (e, t) = data
+        val e = #visit_expr vtable this env e
+        val t = #visit_ty vtable this env t
+      in
+        EAppT (e, t)
+      end
+    fun visit_EAbsI this env data =
+      let
+        val vtable = cast this
+        val data = visit_ibind_anno this (#visit_idx vtable this) (#visit_expr vtable this) env data
+      in
+        EAbsI data
       end
     fun visit_EAppI this env data = 
       let
@@ -345,9 +485,76 @@ fun default_expr_visitor_vtable
       in
         EAppI (e, i)
       end
-    (* fun default_visit_binder extend this = visit_binder (extend this) *)
-    val visit_ebind = fn this => visit_ebind (#extend_e (cast this) this)
-    val visit_ibind = fn this => visit_ibind (#extend_i (cast this) this)
+    fun visit_EPack this env data = 
+      let
+        val vtable = cast this
+        val (t, e) = data
+        val t = #visit_ty vtable this env t
+        val e = #visit_expr vtable this env e
+      in
+        EPack (t, e)
+      end
+    fun visit_EUnpack this env data =
+      let
+        val vtable = cast this
+        val (e, e2) = data
+        val e = #visit_expr vtable this env e
+        val e2 = (visit_tbind this o visit_ebind this) (#visit_expr vtable this) env e2
+      in
+        EUnpack (e, e2)
+      end
+    fun visit_EPackI this env data = 
+      let
+        val vtable = cast this
+        val (i, e) = data
+        val i = #visit_idx vtable this env i
+        val e = #visit_expr vtable this env e
+      in
+        EPackI (i, e)
+      end
+    fun visit_EUnpackI this env data =
+      let
+        val vtable = cast this
+        val (e, e2) = data
+        val e = #visit_expr vtable this env e
+        val e2 = (visit_ibind this o visit_ebind this) (#visit_expr vtable this) env e2
+      in
+        EUnpackI (e, e2)
+      end
+    fun visit_EAscTime this env data = 
+      let
+        val vtable = cast this
+        val (e, i) = data
+        val e = #visit_expr vtable this env e
+        val i = #visit_idx vtable this env i
+      in
+        EAscTime (e, i)
+      end
+    fun visit_EAscType this env data = 
+      let
+        val vtable = cast this
+        val (e, t) = data
+        val e = #visit_expr vtable this env e
+        val t = #visit_ty vtable this env t
+      in
+        EAscType (e, t)
+      end
+    fun visit_ENever this env data = 
+      let
+        val vtable = cast this
+        val data = #visit_ty vtable this env data
+      in
+        ENever data
+      end
+    fun visit_ELet this env data =
+      let
+        val vtable = cast this
+        val (e, e2) = data
+        val e = #visit_expr vtable this env e
+        val e2 = visit_ebind this (#visit_expr vtable this) env e2
+      in
+        ELet (e, e2)
+      end
     fun visit_EMatchSum this env data =
       let
         val vtable = cast this
@@ -388,14 +595,36 @@ fun default_expr_visitor_vtable
     {
       visit_expr = visit_expr,
       visit_EVar = visit_EVar,
+      visit_EConst = visit_EConst,
+      visit_ELoc = visit_ELoc,
+      visit_EUnOp = visit_EUnOp,
+      visit_EBinOp = visit_EBinOp,
+      visit_EWrite = visit_EWrite,
+      visit_ECase = visit_ECase,
+      visit_EAbs = visit_EAbs,
+      visit_ERec = visit_ERec,
+      visit_EAbsT = visit_EAbsT,
+      visit_EAppT = visit_EAppT,
+      visit_EAbsI = visit_EAbsI,
       visit_EAppI = visit_EAppI,
+      visit_EPack = visit_EPack,
+      visit_EUnpack = visit_EUnpack,
+      visit_EPackI = visit_EPackI,
+      visit_EUnpackI = visit_EUnpackI,
+      visit_EAscTime = visit_EAscTime,
+      visit_EAscType = visit_EAscType,
+      visit_ENever = visit_ENever,
+      visit_ELet = visit_ELet,
       visit_EMatchSum = visit_EMatchSum,
       visit_EMatchPair = visit_EMatchPair,
       visit_EMatchUnfold = visit_EMatchUnfold,
       visit_EMatchUnpackI = visit_EMatchUnpackI,
       visit_var = visit_var,
       visit_idx = visit_idx,
+      visit_sort = visit_sort,
+      visit_ty = visit_ty,
       extend_i = extend_i,
+      extend_t = extend_t,
       extend_e = extend_e
     }
   end
@@ -420,25 +649,54 @@ fun new_expr_visitor vtable params =
     
 (***************** the "shift_i_e" visitor  **********************)    
     
-fun shift_i_expr_visitor_vtable cast (shift_i, n) : ('this, int, 'var, 'bsort2, 'idx, 'ty, 'sort2, 'var, 'bsort, 'idx2, 'sort, 'ty2) expr_visitor_vtable =
+fun shift_i_expr_visitor_vtable cast ((shift_i, shift_s, shift_t), n) : ('this, int, 'var, 'bsort2, 'idx, 'ty, 'sort2, 'var, 'bsort, 'idx2, 'sort, 'ty2) expr_visitor_vtable =
   let
     fun extend_i this env _ = env + 1
-    val extend_e = extend_noop
     fun do_shift shift this env b = shift env n b
   in
     default_expr_visitor_vtable
       cast
       extend_i
-      extend_e
+      extend_noop
+      extend_noop
       visit_noop
       (do_shift shift_i)
+      (do_shift shift_s)
+      (do_shift shift_t)
   end
 
 fun new_shift_i_expr_visitor params = new_expr_visitor shift_i_expr_visitor_vtable params
     
-fun shift_i_e_fn shift_i x n b =
+fun shift_i_e_fn shifts x n b =
   let
-    val visitor as (ExprVisitor vtable) = new_shift_i_expr_visitor (shift_i, n)
+    val visitor as (ExprVisitor vtable) = new_shift_i_expr_visitor (shifts, n)
+  in
+    #visit_expr vtable visitor x b
+  end
+    
+(***************** the "shift_t_e" visitor  **********************)    
+    
+fun shift_t_expr_visitor_vtable cast (shift_t, n) : ('this, int, 'var, 'bsort2, 'idx, 'ty, 'sort2, 'var, 'bsort, 'idx2, 'sort, 'ty2) expr_visitor_vtable =
+  let
+    fun extend_t this env _ = env + 1
+    fun do_shift shift this env b = shift env n b
+  in
+    default_expr_visitor_vtable
+      cast
+      extend_noop
+      extend_t
+      extend_noop
+      visit_noop
+      visit_noop
+      visit_noop
+      (do_shift shift_t)
+  end
+
+fun new_shift_t_expr_visitor params = new_expr_visitor shift_t_expr_visitor_vtable params
+    
+fun shift_t_e_fn shift_t x n b =
+  let
+    val visitor as (ExprVisitor vtable) = new_shift_t_expr_visitor (shift_t, n)
   in
     #visit_expr vtable visitor x b
   end
@@ -447,15 +705,17 @@ fun shift_i_e_fn shift_i x n b =
     
 fun shift_e_expr_visitor_vtable cast (shift_var, n) : ('this, int, 'var, 'bsort, 'idx, 'sort, 'ty, 'var2, 'bsort2, 'idx, 'sort2, 'ty2) expr_visitor_vtable =
   let
-    val extend_i = extend_noop
     fun extend_e this env _ = env + 1
     fun visit_var this env data = shift_var env n data
   in
     default_expr_visitor_vtable
       cast
-      extend_i
+      extend_noop
+      extend_noop
       extend_e
       visit_var
+      visit_noop
+      visit_noop
       visit_noop
   end
 
@@ -474,22 +734,29 @@ datatype 'a cmp_var =
          CmpEq
          | CmpGreater of 'a
          | CmpOther
-             
-fun subst_e_expr_visitor_vtable cast (shift_var, compare_var, shift_i_i, d, x, v) : ('this, idepth * edepth, 'var, 'bsort, 'idx, 'sort, 'ty, 'var, 'bsort2, 'idx, 'sort2, 'ty2) expr_visitor_vtable =
+
+fun subst_e_expr_visitor_vtable cast (shift_var, compare_var, (shift_i_i, shift_i_s, shift_i_t, shift_t_t), d, x, v) : ('this, idepth * tdepth * edepth, 'var, 'bsort, 'idx, 'sort, 'ty, 'var, 'bsort2, 'idx, 'sort2, 'ty2) expr_visitor_vtable =
   let
-    fun extend_i this env _ = mapFst idepth_inc env
-    fun extend_e this env _ = mapSnd edepth_inc env
-    val add_depth = mapPair2 idepth_add edepth_add
+    fun extend_i this (di, dt, de) _ = (idepth_inc di, dt, de)
+    fun extend_t this (di, dt, de) _ = (di, tdepth_inc dt, de)
+    fun extend_e this (di, dt, de) _ = (di, dt, edepth_inc de)
+    fun add_depth (di, dt, de) (di', dt', de') = (idepth_add (di, di'), tdepth_add (dt, dt'), edepth_add (de, de'))
+    fun get_di (di, dt, de) = di
+    fun get_dt (di, dt, de) = dt
+    fun get_de (di, dt, de) = de
+    val shift_i_e = shift_i_e_fn shift_i_i shift_i_s shift_i_t
+    val shift_t_e = shift_t_e_fn shift_t_t
+    val shift_e_e = shift_e_e_fn shift_var
     fun visit_EVar this env y =
       let
-        val x = x + unEDepth (snd env)
+        val x = x + unEDepth (get_de env)
       in
         case compare_var y x of
             CmpEq =>
             let
-              val (di, de) = add_depth d env
+              val (di, dt, de) = add_depth d env
             in
-              shift_i_e_fn shift_i_i 0 (unIDepth di) $ shift_e_e_fn shift_var 0 (unEDepth de) v
+              shift_i_e 0 (unIDepth di) $ shift_t_e 0 (unTDepth dt) $ shift_e_e 0 (unEDepth de) v
             end
           | CmpGreater y' =>
             EVar y'
@@ -510,11 +777,11 @@ fun subst_e_expr_visitor_vtable cast (shift_var, compare_var, shift_i_i, d, x, v
 
 fun new_subst_e_expr_visitor params = new_expr_visitor subst_e_expr_visitor_vtable params
     
-fun subst_e_e_fn shift_var compare_var shift_i_i d x v b =
+fun subst_e_e_fn shift_var compare_var shifts d x v b =
   let
-    val visitor as (ExprVisitor vtable) = new_subst_e_expr_visitor (shift_var, compare_var, shift_i_i, d, x, v)
+    val visitor as (ExprVisitor vtable) = new_subst_e_expr_visitor (shift_var, compare_var, shifts, d, x, v)
   in
-    #visit_expr vtable visitor (IDepth 0, EDepth 0) b
+    #visit_expr vtable visitor (IDepth 0, TDepth 0, EDepth 0) b
   end
 
 end

@@ -111,14 +111,19 @@ fun EName name = (ExprNS, name)
 val unName = Util.snd
                    
 type idepth = idx_namespace * int
+type tdepth = type_namespace * int
 type edepth = expr_namespace * int
 fun IDepth n = (IdxNS, n)
+fun TDepth n = (TypeNS, n)
 fun EDepth n = (ExprNS, n)
 fun idepth_inc (IdxNS, n) = (IdxNS, n + 1)
+fun tdepth_inc (TypeNS, n) = (TypeNS, n + 1)
 fun edepth_inc (ExprNS, n) = (ExprNS, n + 1)
 fun idepth_add ((IdxNS, a), (IdxNS, b)) = (IdxNS, a + b)
+fun tdepth_add ((TypeNS, a), (TypeNS, b)) = (TypeNS, a + b)
 fun edepth_add ((ExprNS, a), (ExprNS, b)) = (ExprNS, a + b)
 fun unIDepth (IdxNS, n) = n
+fun unTDepth (TypeNS, n) = n
 fun unEDepth (ExprNS, n) = n
                               
 end
