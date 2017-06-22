@@ -262,7 +262,7 @@ fun new_ty_visitor vtable params =
     
 (***************** the "shift_i_t" visitor  **********************)    
     
-fun shift_i_ty_visitor_vtable cast (shift_i, shift_s, n) : ('this, int, int, 'bsort, 'idx, 'sort, int, 'bsort, 'idx2, 'sort2) ty_visitor_vtable =
+fun shift_i_ty_visitor_vtable cast ((shift_i, shift_s), n) : ('this, int, 'var, 'bsort, 'idx, 'sort, 'var, 'bsort, 'idx2, 'sort2) ty_visitor_vtable =
   let
     fun extend_i this env _ = env + 1
     val extend_t = extend_noop
@@ -279,22 +279,22 @@ fun shift_i_ty_visitor_vtable cast (shift_i, shift_s, n) : ('this, int, int, 'bs
       (do_shift shift_s)
   end
 
-val new_shift_i_ty_visitor = new_ty_visitor shift_i_ty_visitor_vtable
+fun new_shift_i_ty_visitor a = new_ty_visitor shift_i_ty_visitor_vtable a
     
-fun shift_i_t shift_i shift_s x n b =
+fun shift_i_t_fn shifts x n b =
   let
-    val visitor as (TyVisitor vtable) = new_shift_i_ty_visitor (shift_i, shift_s, n)
+    val visitor as (TyVisitor vtable) = new_shift_i_ty_visitor (shifts, n)
   in
     #visit_ty vtable visitor x b
   end
     
 (***************** the "shift_t_t" visitor  **********************)    
     
-fun shift_t_ty_visitor_vtable cast n : ('this, int, int, 'bsort, 'idx, 'sort, int, 'bsort, 'idx, 'sort) ty_visitor_vtable =
+fun shift_t_ty_visitor_vtable cast (shift_var, n) : ('this, int, 'var, 'bsort, 'idx, 'sort, 'var2, 'bsort, 'idx, 'sort) ty_visitor_vtable =
   let
     val extend_i = extend_noop
     fun extend_t this env _ = env + 1
-    fun visit_var this env data = ShiftUtil.shiftx_int env n data
+    fun visit_var this env data = shift_var env n data
   in
     default_ty_visitor_vtable
       cast
@@ -306,11 +306,11 @@ fun shift_t_ty_visitor_vtable cast n : ('this, int, int, 'bsort, 'idx, 'sort, in
       visit_noop
   end
 
-val new_shift_t_ty_visitor = new_ty_visitor shift_t_ty_visitor_vtable
+fun new_shift_t_ty_visitor a = new_ty_visitor shift_t_ty_visitor_vtable a
     
-fun shift_t_t x n b =
+fun shift_t_t_fn shift_var x n b =
   let
-    val visitor as (TyVisitor vtable) = new_shift_t_ty_visitor n
+    val visitor as (TyVisitor vtable) = new_shift_t_ty_visitor (shift_var, n)
   in
     #visit_ty vtable visitor x b
   end

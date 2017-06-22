@@ -144,4 +144,28 @@ fun str_bin_op opr =
     | New => "new"
     | Read => "read"
 
+fun str_expr_EI opr =
+  case opr of
+      EEIAppI => "EEIAppI"
+    | EEIAscriptionTime => "EEIAscTime"
+
+fun str_expr_const c =
+  case c of
+      ECTT => "()"
+    | ECInt n => str_int n
+    | ECNat n => sprintf "#$" [str_int n]
+                                
+fun str_expr_un_op opr = 
+  case opr of
+      EUFst => "fst"
+    | EUSnd => "snd"
+
+fun str_expr_bin_op opr =
+  case opr of
+      EBApp => "app"
+    | EBPair => "pair"
+    | New => "new"
+    | Read => "read"
+    | Add => "add"
+
 end

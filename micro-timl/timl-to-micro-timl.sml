@@ -200,6 +200,7 @@ structure S = TiML
 open S
 open Subst
 open MicroTiML
+open MicroTiMLVisitor
 open MicroTiMLEx
 structure Op = Operators
 open Util
@@ -321,9 +322,12 @@ fun compare_var (m, (y, r)) x =
           CmpGreater (m, (y - 1, r))
         else CmpOther
   end
-fun shift_i_e a = shift_i_e_fn shiftx_i_i a
+    
+fun shift_i_t a = shift_i_t_fn (shiftx_i_i, shiftx_i_s) a
+fun shift_t_t a = shift_t_t_fn shift_var a
+fun shift_i_e a = shift_i_e_fn (shiftx_i_i, shiftx_i_s, shift_i_t) a
 fun shift_e_e a = shift_e_e_fn shift_var a
-fun subst_e_e a = subst_e_e_fn shift_var compare_var shiftx_i_i a
+fun subst_e_e a = subst_e_e_fn shift_var compare_var (shiftx_i_i, shiftx_i_s, shift_i_t, shift_t_t) a
 fun EV n = EVar (NONE, (n, dummy))
                 
 open PatternEx
@@ -440,9 +444,11 @@ fun test filename =
     val e = ExprTrans.simp_e [("'a", KeKind Type), ("list", KeKind (1, [BSNat]))] e
     val () = println $ str_e empty ([], ["'a", "list"], ["Cons", "Nil"], []) e
     val e = trans_e e
+    fun str_long_id (_, (x, _)) = str_int x
+    open MicroTiMLExPP
+    val () = pp_e str_long_id str_raw_i e
   in
-    (* (t, e) *)
-      ()
+    ((* t, e *))
   end
   handle NameResolve.Error (_, msg) => (println $ "NR.Error: " ^ msg; raise Impossible "End")
        | TypeCheck.Error (_, msgs) => (app println $ "TC.Error: " :: msgs; raise Impossible "End")

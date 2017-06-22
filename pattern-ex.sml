@@ -416,7 +416,7 @@ fun subst_e_ptrn_visitor_vtable cast (subst_e, d, x, v) : ('this, idepth * edept
   let
     fun extend_i this env _ = mapFst idepth_inc env
     fun extend_e this env _ = mapSnd edepth_inc env
-    val add_depth = mapPair2 idepth_add edepth_add
+    fun add_depth (di, dt, de) (di', de') = (idepth_add (di, di'), dt, edepth_add (de, de'))
     fun visit_expr this env b = subst_e (add_depth d env) (x + unEDepth (snd env)) v b
   in
     default_ptrn_visitor_vtable
@@ -436,7 +436,7 @@ fun subst_e_pn_fn subst_e d x v b =
     #visit_ptrn vtable visitor (env2ctx (IDepth 0, EDepth 0)) b
   end
 
-fun substx_e_pn_fn subst_e x v b = subst_e_pn_fn subst_e (IDepth 0, EDepth 0) x v b
+fun substx_e_pn_fn subst_e x v b = subst_e_pn_fn subst_e (IDepth 0, TDepth 0, EDepth 0) x v b
 fun subst0_e_pn_fn subst_e v b = substx_e_pn_fn subst_e 0 v b
 
 (***************** the "remove_anno" visitor  **********************)    
@@ -747,7 +747,7 @@ fun remove_deep params matchee =
     remove_deep_many fresh_name params [matchee]
   end
   
-fun to_expr (shift_i_e, shift_e_e, subst_e_e, EV) matchee branches : ('var, 'bsort, 'idx, 'sort, 'ty) expr =
+fun to_expr (shift_i_e, shift_e_e, subst_e_e, EV) matchee branches : ('var, 'idx, 'sort, 'ty) expr =
   let
     val branches = map remove_anno branches
     val branches = map (remove_constr shift_i_e) branches
@@ -782,7 +782,7 @@ fun test () =
     open MicroTiMLEx
     open Subst
            
-    fun shift_i_e a = shift_i_e_fn shiftx_i_i a
+    fun shift_i_e a = shift_i_e_fn (shiftx_i_i, shiftx_i_s, shiftx_i_mt) a
                                       
     val IName = fn s => IName (s, dummy)
                               
@@ -806,15 +806,16 @@ fun test2 () =
     fun IVar n = VarI (NONE, (n, dummy))
                       
     open MicroTiMLEx
+    open MicroTiMLExPP
            
     val IName = fn s => IName (s, dummy)
     val EName = fn s => EName (s, dummy)
     fun EV n = EVar n
     val dummy = Outer dummy
 
-    fun shift_i_e a = shift_i_e_fn shiftx_i_i a
+    fun shift_i_e a = shift_i_e_fn (shiftx_i_i, shiftx_i_s, shiftx_i_mt) a
     fun shift_e_e a = shift_e_e_fn shift_var a
-    fun subst_e_e a = subst_e_e_fn shift_var compare_var shiftx_i_i a
+    fun subst_e_e a = subst_e_e_fn shift_var compare_var (shiftx_i_i, shiftx_i_s, shiftx_i_mt, shiftx_t_mt) a
                                       
     val branches =
         [

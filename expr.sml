@@ -635,11 +635,6 @@ fun str_raw_t (t : ty) : string =
       Mono t => str_raw_mt t
     | Uni (t, _) => sprintf "Uni ($)" [str_raw_bind str_raw_t t]
 
-fun str_expr_EI opr =
-  case opr of
-      EEIAppI => "EEIAppI"
-    | EEIAscriptionTime => "EEIAscTime"
-
 fun str_raw_e e =
   case e of
       EAppConstr _ => "AppConstr (...)"
@@ -891,13 +886,6 @@ fun str_t gctx (ctx as (sctx, kctx)) (t : ty) : string =
       Mono t => str_mt gctx ctx t
     | Uni _ => str_uni gctx ctx (collect_Uni_UniI t)
 
-fun Name2str n = fst $ unName n
-fun unBinderName n = (unName o unBinder) n
-fun binder2str (Binder n) = Name2str n
-fun str2binder2 ns s = Binder (ns, (s, dummy))
-fun str2ibinder s = str2binder2 Namespaces.IdxNS s
-fun str2ebinder s = str2binder2 Namespaces.ExprNS s
-
 fun ptrn_names pn : string list * string list =
   case pn of
       ConstrP (_, inames, pn, _) =>
@@ -956,7 +944,7 @@ fun add_kinding name (sctx, kctx, cctx, tctx) = (sctx, name :: kctx, cctx, tctx)
 fun add_typing name (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx)
 fun add_ctx (sctxd, kctxd, cctxd, tctxd) (sctx, kctx, cctx, tctx) =
   (sctxd @ sctx, kctxd @ kctx, cctxd @ cctx, tctxd @ tctx)
-    
+
 fun str_e gctx (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
   let
     val str_e = str_e gctx
@@ -965,17 +953,8 @@ fun str_e gctx (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
   in
     case e of
 	EVar (x, b) => decorate_var b $ str_long_id #4 gctx tctx x
-      | EConst (c, _) =>
-        (case c of
-             ECTT => "()"
-           | ECInt n => str_int n
-           | ECNat n => sprintf "#$" [str_int n]
-        )
-      | EUnOp (opr, e, _) =>
-        (case opr of
-             EUFst => sprintf "(fst $)" [str_e ctx e]
-           | EUSnd => sprintf "(snd $)" [str_e ctx e]
-        )
+      | EConst (c, _) => str_expr_const c
+      | EUnOp (opr, e, _) => sprintf "($ $)" [str_expr_un_op opr, str_e ctx e]
       | EBinOp (opr, e1, e2) =>
         (case opr of
              EBApp => sprintf "($ $)" [str_e ctx e1, str_e ctx e2]

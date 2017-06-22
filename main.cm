@@ -61,6 +61,7 @@ Group is
       visitor.sml                                 
       micro-timl/micro-timl-visitor.sml
       micro-timl/micro-timl-ex.sml
+      micro-timl/micro-timl-ex-pp.sml
       pattern-ex.sml
       micro-timl/timl-to-micro-timl.sml
       pattern-visitor.sml                                 

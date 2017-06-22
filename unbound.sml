@@ -73,28 +73,6 @@ fun visit_tele visit_p ctx t =
     
 end
 
-signature BINDERS = sig
-  type ('name, 't) bind_simp
-  type ('name, 'anno, 't) bind_anno
-end
-
-functor BinderUtilFn (structure Binders : BINDERS
-                      structure Names : sig
-                                  type iname
-                                  type tname
-                                  type cname
-                                  type ename
-                                end
-                     ) = struct
-open Names
-type 't ibind = (iname, 't) Binders.bind_simp
-type 't tbind = (tname, 't) Binders.bind_simp
-type 't ebind = (ename, 't) Binders.bind_simp
-type ('anno, 't) ibind_anno = (iname, 'anno, 't) Binders.bind_anno
-type ('anno, 't) tbind_anno = (tname, 'anno, 't) Binders.bind_anno
-type ('anno, 't) ebind_anno = (ename, 'anno, 't) Binders.bind_anno
-end
-
 functor NamespacesFn (type name) = struct
 datatype idx_namespace = IdxNS
 datatype type_namespace = TypeNS
@@ -128,9 +106,47 @@ fun unEDepth (ExprNS, n) = n
                               
 end
 
+signature BINDERS = sig
+  type ('name, 't) bind_simp
+  type ('name, 'anno, 't) bind_anno
+end
+
+functor BinderUtilFn (structure Binders : BINDERS
+                      structure Names : sig
+                                  type iname
+                                  type tname
+                                  type cname
+                                  type ename
+                                end
+                     ) = struct
+open Names
+type 't ibind = (iname, 't) Binders.bind_simp
+type 't tbind = (tname, 't) Binders.bind_simp
+type 't ebind = (ename, 't) Binders.bind_simp
+type ('anno, 't) ibind_anno = (iname, 'anno, 't) Binders.bind_anno
+type ('anno, 't) tbind_anno = (tname, 'anno, 't) Binders.bind_anno
+type ('anno, 't) ebind_anno = (ename, 'anno, 't) Binders.bind_anno
+end
+
 structure Namespaces = NamespacesFn (type name = string * Region.region)
                                     
-structure Binders = BinderUtilFn (structure Binders = Unbound
-                                  structure Names = Namespaces
-                                 )
-                                     
+structure Binders = struct
+structure BinderUtil = BinderUtilFn (structure Binders = Unbound
+                                     structure Names = Namespaces
+                                    )
+open Util
+open Region
+open Unbound
+open Namespaces
+open BinderUtil
+       
+infixr 0 $
+         
+fun Name2str n = fst $ unName n
+fun unBinderName n = (unName o unBinder) n
+fun binder2str (Binder n) = Name2str n
+fun str2binder2 ns s = Binder (ns, (s, dummy))
+fun str2ibinder s = str2binder2 Namespaces.IdxNS s
+fun str2ebinder s = str2binder2 Namespaces.ExprNS s
+
+end                                     

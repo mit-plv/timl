@@ -7,294 +7,63 @@ open Unbound
        
 infixr 0 $
          
-datatype ('var, 'bsort, 'idx, 'sort, 'ty) expr =
+datatype ('var, 'idx, 'sort, 'ty) expr =
          EVar of 'var
          | EConst of Operators.expr_const
          | ELoc of loc
-         | EUnOp of expr_un_op * ('var, 'bsort, 'idx, 'sort, 'ty) expr
-         | EBinOp of expr_bin_op * ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr
-         | EWrite of ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr
-         | ECase of ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind
-         | EAbs of ('ty, ('var, 'bsort, 'idx, 'sort, 'ty) expr) ebind_anno
-         | ERec of ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind
-         | EAbsT of ('var, 'bsort, 'idx, 'sort, 'ty) expr tbind
-         | EAppT of ('var, 'bsort, 'idx, 'sort, 'ty) expr * 'ty
-         | EAbsI of ('sort, ('var, 'bsort, 'idx, 'sort, 'ty) expr) ibind_anno
-         | EAppI of ('var, 'bsort, 'idx, 'sort, 'ty) expr * 'idx
-         | EPack of 'ty * ('var, 'bsort, 'idx, 'sort, 'ty) expr
-         | EUnpack of ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind tbind
-         | EPackI of 'idx * ('var, 'bsort, 'idx, 'sort, 'ty) expr
-         | EUnpackI of ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind ibind
-         | EAscTime of ('var, 'bsort, 'idx, 'sort, 'ty) expr * 'idx (* time ascription *)
-         | EAscType of ('var, 'bsort, 'idx, 'sort, 'ty) expr * 'ty (* type ascription *)
+         | EUnOp of expr_un_op * ('var, 'idx, 'sort, 'ty) expr
+         | EBinOp of expr_bin_op * ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr
+         | EWrite of ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr
+         | ECase of ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr ebind * ('var, 'idx, 'sort, 'ty) expr ebind
+         | EAbs of ('ty, ('var, 'idx, 'sort, 'ty) expr) ebind_anno
+         | ERec of ('var, 'idx, 'sort, 'ty) expr ebind
+         | EAbsT of ('var, 'idx, 'sort, 'ty) expr tbind
+         | EAppT of ('var, 'idx, 'sort, 'ty) expr * 'ty
+         | EAbsI of ('sort, ('var, 'idx, 'sort, 'ty) expr) ibind_anno
+         | EAppI of ('var, 'idx, 'sort, 'ty) expr * 'idx
+         | EPack of 'ty * ('var, 'idx, 'sort, 'ty) expr
+         | EUnpack of ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr ebind tbind
+         | EPackI of 'idx * ('var, 'idx, 'sort, 'ty) expr
+         | EUnpackI of ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr ebind ibind
+         | EAscTime of ('var, 'idx, 'sort, 'ty) expr * 'idx (* time ascription *)
+         | EAscType of ('var, 'idx, 'sort, 'ty) expr * 'ty (* type ascription *)
          | ENever of 'ty
-         | ELet of ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind
-         | EMatchSum of ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind list
-         | EMatchPair of ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind ebind
-         | EMatchUnfold of ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind
-         | EMatchUnpackI of ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind ibind
+         | ELet of ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr ebind
+         | EMatchSum of ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr ebind list
+         | EMatchPair of ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr ebind ebind
+         | EMatchUnfold of ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr ebind
+         | EMatchUnpackI of ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr ebind ibind
 
-fun get_bind (Abs (Binder name, Rebind (Outer t))) = (name, t)
-fun get_name s = fst $ snd s
-                 
-structure TextToken =
-  struct
-    type token = string
-    type style = unit
-    fun string t = t
-    fun style t = ()
-    fun size t = String.size t
-  end
-
-(* structure PP = PPDebugFn(PPStreamFn( *)
-(*     structure Token = TextToken *)
-(*     structure Device = SimpleTextIODev)) *)
-
-structure PP = PPStreamFn(
-  structure Token = TextToken
-  structure Device = SimpleTextIODev)
-
-fun withPP (name, wid, dst) ppFn = let
-      (* val saveStrm = !PP.debugStrm *)
-      (* val _ = PP.debugStrm := TextIO.openAppend("debug-out.txt") *)
-      val ppStrm =
-	  PP.openStream(SimpleTextIODev.openDev{dst=dst, wid=wid})
-      in
-	(* print(concat[name, ": width = ", Int.toString wid, "\n"]); *)
-	ppFn ppStrm;
-	PP.closeStream ppStrm;
-	TextIO.output (dst, "\n")
-	(* TextIO.closeOut (!PP.debugStrm); *)
-	(* PP.debugStrm := saveStrm *)
-end
-
-fun t40 () = withPP ("Test 20 [C code]", 20, TextIO.stdOut) (fn strm => (
-      PP.openHBox strm;
-	PP.string strm "if";
-	PP.space strm 1;
-	PP.string strm "(x < y)";
-	PP.space strm 1;
-	PP.string strm "{";
-	PP.openHVBox strm (PP.Abs 2);
-	  PP.space strm 1;
-	  PP.string strm "stmt1;"; PP.space strm 1;
-	  PP.openHBox strm;
-	    PP.string strm "if";
-	    PP.space strm 1;
-	    PP.string strm "(w < z)";
-	    PP.space strm 1;
-	    PP.string strm "{";
-	    PP.openHVBox strm (PP.Abs 4);
-	      PP.space strm 1; PP.string strm "stmt2;";
-	      PP.space strm 1; PP.string strm "stmt3;";
-	      PP.space strm 1; PP.string strm "stmt4;";
-	    PP.closeBox strm; PP.newline strm;
-	    PP.string strm "}";
-	  PP.closeBox strm;
-	  PP.space strm 1; PP.string strm "stmt5;";
-	  PP.space strm 1; PP.string strm "stmt6;";
-	PP.closeBox strm; PP.newline strm;
-	PP.string strm "}";
-        PP.closeBox strm))
-
-fun pp_e str_var str_i s e =
-  let
-    val pp_e = pp_e str_var str_i s
-    fun space () = PP.space s 1
-    fun add_space a = (space (); a)
-    fun str v = PP.string s v
-    fun comma () = (str ","; space ())
-    fun open_hbox () = PP.openHBox s
-    fun open_vbox () = PP.openVBox s (PP.Abs 2)
-    (* fun open_vbox () = PP.openVBox s (PP.Rel 2) *)
-    fun close_box () = PP.closeBox s
-    fun pp_pair (fa, fb) (a, b) =
-      (
-        open_hbox ();
-        str "(";
-        fa a;
-        comma ();
-        fb b;
-        str ")";
-        close_box ()
-      )
-    fun pp_list f ls =
-      case ls of
-          [] => ()
-        | [x] => f x
-        | x :: xs =>
-          (
-            f x;
-            comma ();
-            pp_list f xs
-          )
-  in
-    case e of
-        EVar x =>
-        (
-          open_hbox ();
-          str "EVar";
-          space ();
-          str $ str_var x;
-          close_box ()
-        )
-      | EAppI (e, i) =>
-        (
-          open_hbox ();
-          str "EAppI";
-          space ();
-          str "(";
-          pp_e e;
-          comma ();
-          str $ str_i i;
-          str ")";
-          close_box ()
-        )
-      | EMatchSum (e, branches) =>
-        (
-          open_hbox ();
-          str "EMatchSum";
-          space ();
-          str "(";
-          pp_e e;
-          comma ();
-          str "[";
-	  open_vbox ();
-          space ();
-          pp_list (pp_pair (str o get_name, pp_e) o get_bind) branches;
-	  close_box ();
-          str "]";
-          str ")";
-          close_box ()
-        )
-      | EMatchPair (e, branch) =>
-        let
-          val (name1, branch) = get_bind branch
-          val (name2, branch) = get_bind branch
-        in
-          open_hbox ();
-          str "EMatchPair";
-          space ();
-          str "(";
-          pp_e e;
-          comma ();
-	  open_vbox ();
-          space ();
-	  open_hbox ();
-          str "(";
-          str $ get_name name1;
-          comma ();
-          str $ get_name name2;
-          comma ();
-          pp_e branch;          
-          str ")";
-	  close_box ();
-	  close_box ();
-          str ")";
-          close_box ()
-        end
-      | EMatchUnfold (e, branch) =>
-        (
-          open_hbox ();
-          str "EMatchUnfold";
-          space ();
-          str "(";
-          pp_e e;
-          comma ();
-	  open_vbox ();
-          space ();
-          pp_pair (str o get_name, pp_e) o get_bind $ branch;
-	  close_box ();
-          str ")";
-          close_box ()
-        )
-      | EMatchUnpackI (e, branch) =>
-        let
-          val (name1, branch) = get_bind branch
-          val (name2, branch) = get_bind branch
-        in
-          open_hbox ();
-          str "EMatchUnpackI";
-          space ();
-          str "(";
-          pp_e e;
-          comma ();
-	  open_vbox ();
-          space ();
-	  open_hbox ();
-          str "(";
-          str $ get_name name1;
-          comma ();
-          str $ get_name name2;
-          comma ();
-          pp_e branch;          
-          str ")";
-	  close_box ();
-	  close_box ();
-          str ")";
-          close_box ()
-        end
-      | _ => raise Unimpl ""
-  end
-
-fun pprint_e str_var str_i e = withPP ("", 80, TextIO.stdOut) (fn s => pp_e str_var str_i s e)
-val pp_e = pprint_e
-
-(* fun str_e str_var str_i e = *)
-(*   let *)
-(*     val str_e = str_e str_var str_i *)
-(*   in *)
-(*     case e of *)
-(*         EVar x => sprintf "EVar $" [str_var x] *)
-(*       | EAppI (e, i) => sprintf "EAppI ($, $)" [str_e e, str_i i] *)
-(*       | EMatchSum (e, branches) => sprintf "EMatchSum ($, $)" [str_e e, str_ls (str_pair (get_name, str_e) o get_bind) branches] *)
-(*       | EMatchPair (e, branch) => *)
-(*         let *)
-(*           val (name1, branch) = get_bind branch *)
-(*           val (name2, branch) = get_bind branch *)
-(*         in *)
-(*           sprintf "EMatchPair ($, ($, $, $))" [str_e e, get_name name1, get_name name2, str_e branch] *)
-(*         end *)
-(*       | EMatchUnfold (e, branch) => sprintf "EMatchUnfold ($, $)" [str_e e, str_pair (get_name, str_e) $ get_bind branch] *)
-(*       | EMatchUnpackI (e, branch) => *)
-(*         let *)
-(*           val (name1, branch) = get_bind branch *)
-(*           val (name2, branch) = get_bind branch *)
-(*         in *)
-(*           sprintf "EMatchUnpackI ($, ($, $, $))" [str_e e, get_name name1, get_name name2, str_e branch] *)
-(*         end *)
-(*   end *)
-    
-type ('this, 'env, 'var, 'bsort, 'idx, 'sort, 'ty, 'var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr_visitor_vtable =
+type ('this, 'env, 'var, 'idx, 'sort, 'ty, 'var2, 'idx2, 'sort2, 'ty2) expr_visitor_vtable =
      {
-       visit_expr : 'this -> 'env -> ('var, 'bsort, 'idx, 'sort, 'ty) expr -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EVar : 'this -> 'env -> 'var -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EConst : 'this -> 'env -> Operators.expr_const -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
-       visit_ELoc : 'this -> 'env -> loc -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EUnOp : 'this -> 'env -> expr_un_op * ('var, 'bsort, 'idx, 'sort, 'ty) expr -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EBinOp : 'this -> 'env -> expr_bin_op * ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EWrite : 'this -> 'env -> ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
-       visit_ECase : 'this -> 'env -> ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EAbs : 'this -> 'env -> ('ty, ('var, 'bsort, 'idx, 'sort, 'ty) expr) ebind_anno -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
-       visit_ERec : 'this -> 'env -> ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EAbsT : 'this -> 'env -> ('var, 'bsort, 'idx, 'sort, 'ty) expr tbind -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EAppT : 'this -> 'env -> ('var, 'bsort, 'idx, 'sort, 'ty) expr * 'ty -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EAbsI : 'this -> 'env -> ('sort, ('var, 'bsort, 'idx, 'sort, 'ty) expr) ibind_anno -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EAppI : 'this -> 'env -> ('var, 'bsort, 'idx, 'sort, 'ty) expr * 'idx -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EPack : 'this -> 'env -> 'ty * ('var, 'bsort, 'idx, 'sort, 'ty) expr -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EUnpack : 'this -> 'env -> ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind tbind -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EPackI : 'this -> 'env -> 'idx * ('var, 'bsort, 'idx, 'sort, 'ty) expr -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EUnpackI : 'this -> 'env -> ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind ibind -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EAscTime : 'this -> 'env -> ('var, 'bsort, 'idx, 'sort, 'ty) expr * 'idx -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EAscType : 'this -> 'env -> ('var, 'bsort, 'idx, 'sort, 'ty) expr * 'ty -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
-       visit_ENever : 'this -> 'env -> 'ty -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
-       visit_ELet : 'this -> 'env -> ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EMatchSum : 'this -> 'env -> ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind list -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EMatchPair : 'this -> 'env -> ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind ebind -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EMatchUnfold : 'this -> 'env -> ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EMatchUnpackI : 'this -> 'env -> ('var, 'bsort, 'idx, 'sort, 'ty) expr * ('var, 'bsort, 'idx, 'sort, 'ty) expr ebind ibind -> ('var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr,
+       visit_expr : 'this -> 'env -> ('var, 'idx, 'sort, 'ty) expr -> ('var2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EVar : 'this -> 'env -> 'var -> ('var2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EConst : 'this -> 'env -> Operators.expr_const -> ('var2, 'idx2, 'sort2, 'ty2) expr,
+       visit_ELoc : 'this -> 'env -> loc -> ('var2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EUnOp : 'this -> 'env -> expr_un_op * ('var, 'idx, 'sort, 'ty) expr -> ('var2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EBinOp : 'this -> 'env -> expr_bin_op * ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr -> ('var2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EWrite : 'this -> 'env -> ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr -> ('var2, 'idx2, 'sort2, 'ty2) expr,
+       visit_ECase : 'this -> 'env -> ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr ebind * ('var, 'idx, 'sort, 'ty) expr ebind -> ('var2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EAbs : 'this -> 'env -> ('ty, ('var, 'idx, 'sort, 'ty) expr) ebind_anno -> ('var2, 'idx2, 'sort2, 'ty2) expr,
+       visit_ERec : 'this -> 'env -> ('var, 'idx, 'sort, 'ty) expr ebind -> ('var2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EAbsT : 'this -> 'env -> ('var, 'idx, 'sort, 'ty) expr tbind -> ('var2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EAppT : 'this -> 'env -> ('var, 'idx, 'sort, 'ty) expr * 'ty -> ('var2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EAbsI : 'this -> 'env -> ('sort, ('var, 'idx, 'sort, 'ty) expr) ibind_anno -> ('var2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EAppI : 'this -> 'env -> ('var, 'idx, 'sort, 'ty) expr * 'idx -> ('var2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EPack : 'this -> 'env -> 'ty * ('var, 'idx, 'sort, 'ty) expr -> ('var2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EUnpack : 'this -> 'env -> ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr ebind tbind -> ('var2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EPackI : 'this -> 'env -> 'idx * ('var, 'idx, 'sort, 'ty) expr -> ('var2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EUnpackI : 'this -> 'env -> ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr ebind ibind -> ('var2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EAscTime : 'this -> 'env -> ('var, 'idx, 'sort, 'ty) expr * 'idx -> ('var2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EAscType : 'this -> 'env -> ('var, 'idx, 'sort, 'ty) expr * 'ty -> ('var2, 'idx2, 'sort2, 'ty2) expr,
+       visit_ENever : 'this -> 'env -> 'ty -> ('var2, 'idx2, 'sort2, 'ty2) expr,
+       visit_ELet : 'this -> 'env -> ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr ebind -> ('var2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EMatchSum : 'this -> 'env -> ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr ebind list -> ('var2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EMatchPair : 'this -> 'env -> ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr ebind ebind -> ('var2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EMatchUnfold : 'this -> 'env -> ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr ebind -> ('var2, 'idx2, 'sort2, 'ty2) expr,
+       visit_EMatchUnpackI : 'this -> 'env -> ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr ebind ibind -> ('var2, 'idx2, 'sort2, 'ty2) expr,
        visit_var : 'this -> 'env -> 'var -> 'var2,
-       (* visit_bsort : 'this -> 'env -> 'bsort -> 'bsort2, *)
+       (* visit_bsort : 'this -> 'env -> 'bsort -> *)
        visit_idx : 'this -> 'env -> 'idx -> 'idx2,
        visit_sort : 'this -> 'env -> 'sort -> 'sort2,
        visit_ty : 'this -> 'env -> 'ty -> 'ty2,
@@ -303,10 +72,10 @@ type ('this, 'env, 'var, 'bsort, 'idx, 'sort, 'ty, 'var2, 'bsort2, 'idx2, 'sort2
        extend_e : 'this -> 'env -> ename -> 'env
      }
        
-type ('this, 'env, 'var, 'bsort, 'idx, 'sort, 'ty, 'var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr_visitor_interface =
-     ('this, 'env, 'var, 'bsort, 'idx, 'sort, 'ty, 'var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr_visitor_vtable
+type ('this, 'env, 'var, 'idx, 'sort, 'ty, 'var2, 'idx2, 'sort2, 'ty2) expr_visitor_interface =
+     ('this, 'env, 'var, 'idx, 'sort, 'ty, 'var2, 'idx2, 'sort2, 'ty2) expr_visitor_vtable
                                        
-fun override_visit_EVar (record : ('this, 'env, 'var, 'bsort, 'idx, 'sort, 'ty, 'var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr_visitor_vtable) new : ('this, 'env, 'var, 'bsort, 'idx, 'sort, 'ty, 'var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr_visitor_vtable =
+fun override_visit_EVar (record : ('this, 'env, 'var, 'idx, 'sort, 'ty, 'var2, 'idx2, 'sort2, 'ty2) expr_visitor_vtable) new : ('this, 'env, 'var, 'idx, 'sort, 'ty, 'var2, 'idx2, 'sort2, 'ty2) expr_visitor_vtable =
   {
     visit_expr = #visit_expr record,
     visit_EVar = new,
@@ -348,7 +117,7 @@ fun override_visit_EVar (record : ('this, 'env, 'var, 'bsort, 'idx, 'sort, 'ty, 
 open VisitorUtil
        
 fun default_expr_visitor_vtable
-      (cast : 'this -> ('this, 'env, 'var, 'bsort, 'idx, 'sort, 'ty, 'var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr_visitor_interface)
+      (cast : 'this -> ('this, 'env, 'var, 'idx, 'sort, 'ty, 'var2, 'idx2, 'sort2, 'ty2) expr_visitor_interface)
       extend_i
       extend_t
       extend_e
@@ -356,7 +125,7 @@ fun default_expr_visitor_vtable
       visit_idx
       visit_sort
       visit_ty
-    : ('this, 'env, 'var, 'bsort, 'idx, 'sort, 'ty, 'var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr_visitor_vtable =
+    : ('this, 'env, 'var, 'idx, 'sort, 'ty, 'var2, 'idx2, 'sort2, 'ty2) expr_visitor_vtable =
   let
     fun visit_expr this env data =
       let
@@ -472,7 +241,7 @@ fun default_expr_visitor_vtable
     fun visit_EAbsI this env data =
       let
         val vtable = cast this
-        val data = visit_ibind_anno this (#visit_idx vtable this) (#visit_expr vtable this) env data
+        val data = visit_ibind_anno this (#visit_sort vtable this) (#visit_expr vtable this) env data
       in
         EAbsI data
       end
@@ -629,11 +398,11 @@ fun default_expr_visitor_vtable
     }
   end
 
-datatype ('env, 'var, 'bsort, 'idx, 'sort, 'ty, 'var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr_visitor =
-         ExprVisitor of (('env, 'var, 'bsort, 'idx, 'sort, 'ty, 'var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr_visitor, 'env, 'var, 'bsort, 'idx, 'sort, 'ty, 'var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr_visitor_interface
+datatype ('env, 'var, 'idx, 'sort, 'ty, 'var2, 'idx2, 'sort2, 'ty2) expr_visitor =
+         ExprVisitor of (('env, 'var, 'idx, 'sort, 'ty, 'var2, 'idx2, 'sort2, 'ty2) expr_visitor, 'env, 'var, 'idx, 'sort, 'ty, 'var2, 'idx2, 'sort2, 'ty2) expr_visitor_interface
 
-fun expr_visitor_impls_interface (this : ('env, 'var, 'bsort, 'idx, 'sort, 'ty, 'var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr_visitor) :
-    (('env, 'var, 'bsort, 'idx, 'sort, 'ty, 'var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr_visitor, 'env, 'var, 'bsort, 'idx, 'sort, 'ty, 'var2, 'bsort2, 'idx2, 'sort2, 'ty2) expr_visitor_interface =
+fun expr_visitor_impls_interface (this : ('env, 'var, 'idx, 'sort, 'ty, 'var2, 'idx2, 'sort2, 'ty2) expr_visitor) :
+    (('env, 'var, 'idx, 'sort, 'ty, 'var2, 'idx2, 'sort2, 'ty2) expr_visitor, 'env, 'var, 'idx, 'sort, 'ty, 'var2, 'idx2, 'sort2, 'ty2) expr_visitor_interface =
   let
     val ExprVisitor vtable = this
   in
@@ -649,7 +418,7 @@ fun new_expr_visitor vtable params =
     
 (***************** the "shift_i_e" visitor  **********************)    
     
-fun shift_i_expr_visitor_vtable cast ((shift_i, shift_s, shift_t), n) : ('this, int, 'var, 'bsort2, 'idx, 'ty, 'sort2, 'var, 'bsort, 'idx2, 'sort, 'ty2) expr_visitor_vtable =
+fun shift_i_expr_visitor_vtable cast ((shift_i, shift_s, shift_t), n) : ('this, int, 'var, 'idx, 'ty, 'sort2, 'var, 'idx2, 'sort, 'ty2) expr_visitor_vtable =
   let
     fun extend_i this env _ = env + 1
     fun do_shift shift this env b = shift env n b
@@ -676,7 +445,7 @@ fun shift_i_e_fn shifts x n b =
     
 (***************** the "shift_t_e" visitor  **********************)    
     
-fun shift_t_expr_visitor_vtable cast (shift_t, n) : ('this, int, 'var, 'bsort2, 'idx, 'ty, 'sort2, 'var, 'bsort, 'idx2, 'sort, 'ty2) expr_visitor_vtable =
+fun shift_t_expr_visitor_vtable cast (shift_t, n) : ('this, int, 'var, 'idx, 'sort, 'ty, 'var, 'idx, 'sort, 'ty2) expr_visitor_vtable =
   let
     fun extend_t this env _ = env + 1
     fun do_shift shift this env b = shift env n b
@@ -703,7 +472,7 @@ fun shift_t_e_fn shift_t x n b =
     
 (***************** the "shift_e_e" visitor  **********************)    
     
-fun shift_e_expr_visitor_vtable cast (shift_var, n) : ('this, int, 'var, 'bsort, 'idx, 'sort, 'ty, 'var2, 'bsort2, 'idx, 'sort2, 'ty2) expr_visitor_vtable =
+fun shift_e_expr_visitor_vtable cast (shift_var, n) : ('this, int, 'var, 'idx, 'sort, 'ty, 'var2, 'idx, 'sort, 'ty) expr_visitor_vtable =
   let
     fun extend_e this env _ = env + 1
     fun visit_var this env data = shift_var env n data
@@ -735,7 +504,7 @@ datatype 'a cmp_var =
          | CmpGreater of 'a
          | CmpOther
 
-fun subst_e_expr_visitor_vtable cast (shift_var, compare_var, (shift_i_i, shift_i_s, shift_i_t, shift_t_t), d, x, v) : ('this, idepth * tdepth * edepth, 'var, 'bsort, 'idx, 'sort, 'ty, 'var, 'bsort2, 'idx, 'sort2, 'ty2) expr_visitor_vtable =
+fun subst_e_expr_visitor_vtable cast (shift_var, compare_var, (shift_i_i, shift_i_s, shift_i_t, shift_t_t), d, x, v) : ('this, idepth * tdepth * edepth, 'var, 'idx, 'sort, 'ty, 'var, 'idx, 'sort, 'ty) expr_visitor_vtable =
   let
     fun extend_i this (di, dt, de) _ = (idepth_inc di, dt, de)
     fun extend_t this (di, dt, de) _ = (di, tdepth_inc dt, de)
@@ -744,7 +513,7 @@ fun subst_e_expr_visitor_vtable cast (shift_var, compare_var, (shift_i_i, shift_
     fun get_di (di, dt, de) = di
     fun get_dt (di, dt, de) = dt
     fun get_de (di, dt, de) = de
-    val shift_i_e = shift_i_e_fn shift_i_i shift_i_s shift_i_t
+    val shift_i_e = shift_i_e_fn (shift_i_i, shift_i_s, shift_i_t)
     val shift_t_e = shift_t_e_fn shift_t_t
     val shift_e_e = shift_e_e_fn shift_var
     fun visit_EVar this env y =
@@ -767,8 +536,11 @@ fun subst_e_expr_visitor_vtable cast (shift_var, compare_var, (shift_i_i, shift_
         default_expr_visitor_vtable
           cast
           extend_i
+          extend_t
           extend_e
           (visit_imposs "subst_e_e/visit_var")
+          visit_noop
+          visit_noop
           visit_noop
     val vtable = override_visit_EVar vtable visit_EVar
   in
