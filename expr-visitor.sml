@@ -484,9 +484,6 @@ open ExprVisitor
 
 (***************** the "simp" visitor  **********************)
 
-fun ignore_this_env f this env t = f t
-fun ignore_this f this env t = f env t
-
 fun visit_mtype x = ignore_this (normalize_mt empty) x
                                 
 fun simp_ptrn_visitor_vtable cast () : ('this, kcontext, 'var, mtype, 'var, mtype) ptrn_visitor_vtable =

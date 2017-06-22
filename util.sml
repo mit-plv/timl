@@ -32,18 +32,14 @@ fun printf s ls = print $ sprintf s ls
 fun println s = print (s ^ "\n")
 fun trace s a = (println s; a)
 
+fun isNone opt = not (isSome opt)
 fun default v opt = getOpt (opt, v)
-fun lazy_default v opt = 
+fun lazy_default def opt = 
     case opt of
         SOME a => a
-      | NONE => v ()
-fun isNone opt = not (isSome opt)
-fun SOME_or_fail opt err = 
-  case opt of
-      SOME a => a
-    | NONE => err ()
-infix 0 !!
-fun opt !! err = SOME_or_fail opt err
+      | NONE => def ()
+infixr 0 !!
+fun opt !! def = lazy_default def opt
 fun option2list a =
   case a of
       SOME a => [a]

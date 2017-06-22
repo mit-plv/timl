@@ -209,6 +209,7 @@ open ShiftUtil
 open Unbound
        
 infixr 0 $
+infixr 0 !!
 
 exception T2MTError of string
 
@@ -444,9 +445,13 @@ fun test filename =
     val e = ExprTrans.simp_e [("'a", KeKind Type), ("list", KeKind (1, [BSNat]))] e
     val () = println $ str_e empty ([], ["'a", "list"], ["Cons", "Nil"], []) e
     val e = trans_e e
-    fun str_long_id (_, (x, _)) = str_int x
+    fun short_to_long_id x = (NONE, (x, dummy))
+    fun visit_var (_, _, tctx) (_, (x, _)) = short_to_long_id $ nth_error (map Name2str tctx) x !! (fn () => "__unbound_" ^ str_int x)
+    val export = export_fn (visit_var, return2, return2, return2)
+    val e = export ([], [], []) e
     open MicroTiMLExPP
-    val pp_e = pp_e_fn (str_long_id, str_raw_i, str_raw_s, const_fun "<ty>")
+    fun str_var (_, (x, _)) = (* str_int  *)x
+    val pp_e = pp_e_fn (str_var, str_raw_i, str_raw_s, const_fun "<ty>")
     val () = pp_e e
   in
     ((* t, e *))

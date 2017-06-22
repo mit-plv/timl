@@ -556,4 +556,35 @@ fun subst_e_e_fn shift_var compare_var shifts d x v b =
     #visit_expr vtable visitor (IDepth 0, TDepth 0, EDepth 0) b
   end
 
+(***************** the "export" visitor: convertnig de Bruijn indices to nameful terms **********************)    
+
+type naming_ctx = iname list * tname list * ename list
+fun export_expr_visitor_vtable cast (visit_var, visit_idx, visit_sort, visit_ty) : ('this, naming_ctx, 'var, 'idx, 'sort, 'ty, 'var2, 'idx2, 'sort2, 'ty2) expr_visitor_vtable =
+  let
+    fun extend_i this (sctx, kctx, tctx) name = (name :: sctx, kctx, tctx)
+    fun extend_t this (sctx, kctx, tctx) name = (sctx, name :: kctx, tctx)
+    fun extend_e this (sctx, kctx, tctx) name = (sctx, kctx, name :: tctx)
+    fun only_s f this (sctx, kctx, tctx) name = f sctx name
+    fun only_sk f this (sctx, kctx, tctx) name = f (sctx, kctx) name
+  in
+    default_expr_visitor_vtable
+      cast
+      extend_i
+      extend_t
+      extend_e
+      (ignore_this visit_var)
+      (only_s visit_idx)
+      (only_s visit_sort)
+      (only_sk visit_ty)
+  end
+
+fun new_export_expr_visitor params = new_expr_visitor export_expr_visitor_vtable params
+    
+fun export_fn params ctx e =
+  let
+    val visitor as (ExprVisitor vtable) = new_export_expr_visitor params
+  in
+    #visit_expr vtable visitor ctx e
+  end
+    
 end
