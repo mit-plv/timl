@@ -7,6 +7,12 @@ open MicroTiMLEx
 infixr 0 $
          
 fun get_bind b = mapFst binder2str $ unBind b
+fun get_bind_anno b =
+  let
+    val ((name, anno), t) = unBindAnno b
+  in
+    (Name2str name, anno, t)
+  end
                  
 fun str_proj opr =
   case opr of
@@ -128,9 +134,9 @@ fun t40 () = withPP ("Test 20 [C code]", 20, TextIO.stdOut) (fn strm => (
 	PP.string strm "}";
         PP.closeBox strm))
 
-fun pp_e str_var str_i s e =
+fun pp_e (params as (str_var, str_i, str_s, str_t)) s e =
   let
-    val pp_e = pp_e str_var str_i s
+    val pp_e = pp_e params s
     fun space () = PP.space s 1
     fun add_space a = (space (); a)
     fun str v = PP.string s v
@@ -167,18 +173,6 @@ fun pp_e str_var str_i s e =
           str "EVar";
           space ();
           str $ str_var x;
-          close_box ()
-        )
-      | EAppI (e, i) =>
-        (
-          open_hbox ();
-          str "EAppI";
-          space ();
-          str "(";
-          pp_e e;
-          comma ();
-          str $ str_i i;
-          str ")";
           close_box ()
         )
       | EMatchSum (e, branches) =>
@@ -338,11 +332,198 @@ fun pp_e str_var str_i s e =
           str ")";
           close_box ()
         )
-      | _ => raise Unimpl ""
+      | EAbs bind =>
+        let
+          val (name, t, e) = get_bind_anno bind
+        in
+          open_hbox ();
+          str "EAbs";
+          space ();
+          str "(";
+          str name;
+          comma ();
+          str $ str_t t;
+          comma ();
+          pp_e e;
+          str ")";
+          close_box ()
+        end
+      | ERec bind =>
+        let
+          val (name, e) = get_bind bind
+        in
+          open_hbox ();
+          str "ERec";
+          space ();
+          str "(";
+          str name;
+          comma ();
+          pp_e e;
+          str ")";
+          close_box ()
+        end
+      | EAbsT bind =>
+        let
+          val (name, e) = get_bind bind
+        in
+          open_hbox ();
+          str "EAbsT";
+          space ();
+          str "(";
+          str name;
+          comma ();
+          pp_e e;
+          str ")";
+          close_box ()
+        end
+      | EAppT (e, t) =>
+        (
+          open_hbox ();
+          str "EAppT";
+          space ();
+          str "(";
+          pp_e e;
+          comma ();
+          str $ str_t t;
+          str ")";
+          close_box ()
+        )
+      | EAbsI bind =>
+        let
+          val (name, s, e) = get_bind_anno bind
+        in
+          open_hbox ();
+          str "EAbsI";
+          space ();
+          str "(";
+          str name;
+          comma ();
+          str $ str_s s;
+          comma ();
+          pp_e e;
+          str ")";
+          close_box ()
+        end
+      | EAppI (e, i) =>
+        (
+          open_hbox ();
+          str "EAppI";
+          space ();
+          str "(";
+          pp_e e;
+          comma ();
+          str $ str_i i;
+          str ")";
+          close_box ()
+        )
+      | EPack (t, e) =>
+        (
+          open_hbox ();
+          str "EPack";
+          space ();
+          str "(";
+          str $ str_t t;
+          comma ();
+          pp_e e;
+          str ")";
+          close_box ()
+        )
+      | EUnpack (e, bind) =>
+        let
+          val (tname, bind) = get_bind bind
+          val (ename, e) = get_bind bind
+        in
+          open_hbox ();
+          str "EUnpack";
+          space ();
+          str "(";
+          str tname;
+          comma ();
+          str ename;
+          comma ();
+          pp_e e;
+          str ")";
+          close_box ()
+        end
+      | EPackI (i, e) =>
+        (
+          open_hbox ();
+          str "EPack";
+          space ();
+          str "(";
+          str $ str_i i;
+          comma ();
+          pp_e e;
+          str ")";
+          close_box ()
+        )
+      | EUnpackI (e, bind) =>
+        let
+          val (iname, bind) = get_bind bind
+          val (ename, e) = get_bind bind
+        in
+          open_hbox ();
+          str "EUnpackI";
+          space ();
+          str "(";
+          str iname;
+          comma ();
+          str ename;
+          comma ();
+          pp_e e;
+          str ")";
+          close_box ()
+        end
+      | EAscTime (e, i) =>
+        (
+          open_hbox ();
+          str "EAscTime";
+          space ();
+          str "(";
+          pp_e e;
+          comma ();
+          str $ str_i i;
+          str ")";
+          close_box ()
+        )
+      | EAscType (e, t) =>
+        (
+          open_hbox ();
+          str "EAscType";
+          space ();
+          str "(";
+          pp_e e;
+          comma ();
+          str $ str_t t;
+          str ")";
+          close_box ()
+        )
+      | ENever t =>
+        (
+          open_hbox ();
+          str "ENever";
+          space ();
+          str $ str_t t;
+          close_box ()
+        )
+      | ELet (e, branch) =>
+        (
+          open_hbox ();
+          str "ELet";
+          space ();
+          str "(";
+          pp_e e;
+          comma ();
+	  open_vbox ();
+          space ();
+          pp_pair (str, pp_e) o get_bind $ branch;
+	  close_box ();
+          str ")";
+          close_box ()
+        )
   end
 
-fun pprint_e str_var str_i e = withPP ("", 80, TextIO.stdOut) (fn s => pp_e str_var str_i s e)
-val pp_e = pprint_e
+fun pp_e_fn params e = withPP ("", 80, TextIO.stdOut) (fn s => pp_e params s e)
 
 (* datatype ('var, 'idx, 'sort, 'ty) expr = *)
 (*          EVar of 'var *)

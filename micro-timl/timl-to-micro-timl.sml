@@ -446,7 +446,8 @@ fun test filename =
     val e = trans_e e
     fun str_long_id (_, (x, _)) = str_int x
     open MicroTiMLExPP
-    val () = pp_e str_long_id str_raw_i e
+    val pp_e = pp_e_fn (str_long_id, str_raw_i, str_raw_s, const_fun "<ty>")
+    val () = pp_e e
   in
     ((* t, e *))
   end

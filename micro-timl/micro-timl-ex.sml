@@ -266,11 +266,11 @@ fun default_expr_visitor_vtable
     fun visit_EUnpack this env data =
       let
         val vtable = cast this
-        val (e, e2) = data
+        val (e, bind) = data
         val e = #visit_expr vtable this env e
-        val e2 = (visit_tbind this o visit_ebind this) (#visit_expr vtable this) env e2
+        val bind = (visit_tbind this o visit_ebind this) (#visit_expr vtable this) env bind
       in
-        EUnpack (e, e2)
+        EUnpack (e, bind)
       end
     fun visit_EPackI this env data = 
       let
@@ -284,11 +284,11 @@ fun default_expr_visitor_vtable
     fun visit_EUnpackI this env data =
       let
         val vtable = cast this
-        val (e, e2) = data
+        val (e, bind) = data
         val e = #visit_expr vtable this env e
-        val e2 = (visit_ibind this o visit_ebind this) (#visit_expr vtable this) env e2
+        val bind = (visit_ibind this o visit_ebind this) (#visit_expr vtable this) env bind
       in
-        EUnpackI (e, e2)
+        EUnpackI (e, bind)
       end
     fun visit_EAscTime this env data = 
       let
@@ -318,11 +318,11 @@ fun default_expr_visitor_vtable
     fun visit_ELet this env data =
       let
         val vtable = cast this
-        val (e, e2) = data
+        val (e, bind) = data
         val e = #visit_expr vtable this env e
-        val e2 = visit_ebind this (#visit_expr vtable this) env e2
+        val bind = visit_ebind this (#visit_expr vtable this) env bind
       in
-        ELet (e, e2)
+        ELet (e, bind)
       end
     fun visit_EMatchSum this env data =
       let

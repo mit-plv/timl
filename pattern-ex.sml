@@ -824,7 +824,8 @@ fun test2 () =
         ]
     val branches = map PnBind branches
     val e = to_expr (shift_i_e, shift_e_e, subst_e_e, EV) (EV 0) branches
-    val () = pp_e str_int str_raw_i e
+    val pp_e = pp_e_fn (str_int, str_raw_i, str_raw_s, str_raw_mt)
+    val () = pp_e e
                   
     (* val branches = map remove_anno branches *)
     (* val branches = map (remove_constr shift_i_e) branches *)
