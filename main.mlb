@@ -1,7 +1,8 @@
 $(SML_LIB)/basis/basis.mlb
+$(SML_LIB)/basis/build/sources.mlb
 $(SML_LIB)/mlyacc-lib/mlyacc-lib.mlb
 $(SML_LIB)/smlnj-lib/Util/smlnj-lib.mlb
-$(SML_LIB)/basis/build/sources.mlb
+$(SML_LIB)/smlnj-lib/PP/pp-lib.mlb
 
 cont-mlton.sml
 
@@ -13,20 +14,32 @@ set-util.sml
 map-util.sml
 unique-map.sml
 region.sml
+operators.sml
+
 sexp/sexp.sml
 sexp/sexp.grm.sig
 sexp/sexp.grm.sml
 sexp/sexp.lex.sml
 sexp/parser.sml
-operators.sml
 parser/ast.sml
 parser/timl.grm.sig
 parser/timl.grm.sml
 parser/timl.lex.sml
 parser/parser.sml
+
 bind.sml
+visitor-util.sml                                 
+unbound.sml
 module-context.sml
-var-uvar.sml
+var-uvar.sig
+shift-util.sml
+idx.sig
+idx.sml
+type.sig
+type.sml
+datatype.sml
+pattern.sml
+long-id.sml
 expr.sml
 uvar-expr.sml
 elaborate.sml
@@ -50,5 +63,16 @@ smt-solver.sml
 long-id-map.sml
 bigO-solver.sml
 main.sml
+
+micro-timl/micro-timl.sml
+nouvar-expr.sml
+visitor.sml                                 
+micro-timl/micro-timl-visitor.sml
+micro-timl/micro-timl-ex.sml
+micro-timl/micro-timl-ex-pp.sml
+pattern-ex.sml
+pattern-visitor.sml                                 
+expr-visitor.sml                                 
+micro-timl/timl-to-micro-timl.sml
 
 mlton-main.sml
