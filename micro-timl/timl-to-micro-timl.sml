@@ -456,10 +456,10 @@ fun test filename =
   in
     ((* t, e *))
   end
-  handle NameResolve.Error (_, msg) => (println $ "NR.Error: " ^ msg; raise Impossible "End")
-       | TypeCheck.Error (_, msgs) => (app println $ "TC.Error: " :: msgs; raise Impossible "End")
-       | T2MTError msg => (println $ "T2MT.Error: " ^ msg; raise Impossible "End")
-       | Impossible msg => (println $ "Impossible: " ^ msg; raise Impossible "End")
+  (* handle NameResolve.Error (_, msg) => (println $ "NR.Error: " ^ msg; raise Impossible "End") *)
+  (*      | TypeCheck.Error (_, msgs) => (app println $ "TC.Error: " :: msgs; raise Impossible "End") *)
+  (*      | T2MTError msg => (println $ "T2MT.Error: " ^ msg; raise Impossible "End") *)
+  (*      | Impossible msg => (println $ "Impossible: " ^ msg; raise Impossible "End") *)
                           
 end
                              

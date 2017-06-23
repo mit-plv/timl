@@ -516,7 +516,7 @@ fun remove_constr_ptrn_visitor_vtable (cast : 'this -> ('this, ('mtype, 'expr) p
     fun visit_PnConstr this (env : ('mtype, 'expr) ptrn ref ctx) data =
       let
         val vtable = cast this
-        val (x, inames, p, r) = data
+        val (Outer x, inames, p, r) = data
         val p = shift_i p
         val () = unop_ref shift_i $ #outer env
         val p = #visit_ptrn vtable this env p
@@ -524,7 +524,10 @@ fun remove_constr_ptrn_visitor_vtable (cast : 'this -> ('this, ('mtype, 'expr) p
         val p = PnUnpackI (Binder $ IName extra_name, p)
         val p = PnUnpackIMany (inames, p)
         val p = PnUnfold p
-        val p = PnInj (x, p)
+        fun PnInl p = PnInj (Outer (2, 0), p)
+        fun PnInr p = PnInj (Outer (2, 1), p)
+        fun BinPnInj (Outer (n, x), p) = self_compose x PnInr $ (if x = n - 1 then p else PnInl p)
+        val p = BinPnInj (Outer x, p)
       in
         p
       end
