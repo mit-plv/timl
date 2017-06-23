@@ -523,11 +523,11 @@ fun remove_constr_ptrn_visitor_vtable (cast : 'this -> ('this, ('mtype, 'expr) p
         val extra_name = "__VC"
         val p = PnUnpackI (Binder $ IName extra_name, p)
         val p = PnUnpackIMany (inames, p)
-        val p = PnUnfold p
         fun PnInl p = PnInj (Outer (2, 0), p)
         fun PnInr p = PnInj (Outer (2, 1), p)
         fun BinPnInj (Outer (n, x), p) = self_compose x PnInr $ (if x = n - 1 then p else PnInl p)
         val p = BinPnInj (Outer x, p)
+        val p = PnUnfold p
       in
         p
       end

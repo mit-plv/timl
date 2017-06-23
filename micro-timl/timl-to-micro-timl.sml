@@ -389,7 +389,7 @@ fun on_e (e : S.expr) =
     (*     Let (return, decs, f (x + m) n e, r) *)
     (*   end *)
     | S.EAscription (e, t) => EAscType (on_e e, on_mt t)
-(* | AppConstr (cx, is, e) => AppConstr (cx, is, f x n e) *)
+    (* | AppConstr (cx, is, e) => AppConstr (cx, is, f x n e) *)
     | _ => raise Unimpl ""
 
 val trans_e = on_e

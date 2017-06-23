@@ -9,5 +9,5 @@ val ['a] f = fn {n : Nat} (ls : list 'a {n}) return list _ {n-1} =>
            case ls of
                Nil => ls
              | Nil2 => ls
-             | Cons (x, xs) => xs 
+             | Cons (x, xs) => xs(* Cons (x, xs) *)
 end
