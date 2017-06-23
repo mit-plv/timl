@@ -1191,7 +1191,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
     (* val () = print_ctx gctx ctx *)
     fun main () =
       case e_all of
-	  U.EVar (info as (x, eia)) =>
+	  U.EVar (x, eia) =>
           let
             val r = U.get_region_long_id x
             fun insert_type_args t =
@@ -1205,13 +1205,13 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                     val t_arg = check_kind_Type gctx (skctx, t_arg)
                     val t = subst_t_t t_arg t
                     (* val () = println $ str_t skctxn t *)
-                    val t = insert_type_args t
+                    val (t, t_args) = insert_type_args t
                   in
-                    t
+                    (t, t_arg :: t_args)
                   end
             val t = fetch_type gctx (tctx, x)
             (* val () = println $ str_t gctxn skctxn t *)
-            val t = insert_type_args t
+            val (t, t_args) = insert_type_args t
             (* val () = println $ str_mt skctxn t *)
             fun insert_idx_args t_all =
               case t_all of
@@ -1223,16 +1223,20 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                     val i = U.UVarI ((), r)
                     val i = check_sort gctx (sctx, i, s)
                     val t = subst_i_mt i t
+                    val (t, i_args) = insert_idx_args t
                   in
-                    insert_idx_args t
+                    (t, i :: i_arg)
                   end
                 | _ => t_all
-            val t = if not eia then
+            val (t, i_args) = if not eia then
                       insert_idx_args t
                     else
-                      t
+                      (t, [])
+            val e = EVar (x, true)
+            val e = EAppTs (e, t_args)
+            val e = EAppIs (e, i_args)
           in
-            (EVar info, t, T0 dummy)
+            (e, t, T0 dummy)
           end
         | U.EConst (c, r) =>
           (case c of
