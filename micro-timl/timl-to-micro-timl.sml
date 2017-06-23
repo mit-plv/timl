@@ -451,7 +451,7 @@ fun test filename =
     val e = export ([], [], []) e
     open MicroTiMLExPP
     fun str_var (_, (x, _)) = (* str_int  *)x
-    val pp_e = pp_e_fn (str_var, str_raw_i, str_raw_s, const_fun "<ty>")
+    val pp_e = pp_e_fn (str_var, str_raw_i, str_raw_s, const_fun "<kind>", const_fun "<ty>")
     val () = pp_e e
   in
     ((* t, e *))

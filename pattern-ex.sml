@@ -750,7 +750,7 @@ fun remove_deep params matchee =
     remove_deep_many fresh_name params [matchee]
   end
   
-fun to_expr (shift_i_e, shift_e_e, subst_e_e, EV) matchee branches : ('var, 'idx, 'sort, 'ty) expr =
+fun to_expr (shift_i_e, shift_e_e, subst_e_e, EV) matchee branches : ('var, 'idx, 'sort, 'kind, 'ty) expr =
   let
     val branches = map remove_anno branches
     val branches = map (remove_constr shift_i_e) branches
@@ -827,7 +827,7 @@ fun test2 () =
         ]
     val branches = map PnBind branches
     val e = to_expr (shift_i_e, shift_e_e, subst_e_e, EV) (EV 0) branches
-    val pp_e = pp_e_fn (str_int, str_raw_i, str_raw_s, str_raw_mt)
+    val pp_e = pp_e_fn (str_int, str_raw_i, str_raw_s, str_raw_k, str_raw_mt)
     val () = pp_e e
                   
     (* val branches = map remove_anno branches *)

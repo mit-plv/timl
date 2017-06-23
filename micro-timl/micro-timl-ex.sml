@@ -7,75 +7,75 @@ open Unbound
        
 infixr 0 $
          
-datatype ('var, 'idx, 'sort, 'ty) expr =
+datatype ('var, 'idx, 'sort, 'kind, 'ty) expr =
          EVar of 'var
          | EConst of Operators.expr_const
          | ELoc of loc
-         | EUnOp of expr_un_op * ('var, 'idx, 'sort, 'ty) expr
-         | EBinOp of expr_bin_op * ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr
-         | EWrite of ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr
-         | ECase of ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr ebind * ('var, 'idx, 'sort, 'ty) expr ebind
-         | EAbs of ('ty, ('var, 'idx, 'sort, 'ty) expr) ebind_anno
-         | ERec of ('var, 'idx, 'sort, 'ty) expr ebind
-         | EAbsT of ('var, 'idx, 'sort, 'ty) expr tbind
-         | EAppT of ('var, 'idx, 'sort, 'ty) expr * 'ty
-         | EAbsI of ('sort, ('var, 'idx, 'sort, 'ty) expr) ibind_anno
-         | EAppI of ('var, 'idx, 'sort, 'ty) expr * 'idx
-         | EPack of 'ty * ('var, 'idx, 'sort, 'ty) expr
-         | EUnpack of ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr ebind tbind
-         | EPackI of 'idx * ('var, 'idx, 'sort, 'ty) expr
-         | EUnpackI of ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr ebind ibind
-         | EAscTime of ('var, 'idx, 'sort, 'ty) expr * 'idx (* time ascription *)
-         | EAscType of ('var, 'idx, 'sort, 'ty) expr * 'ty (* type ascription *)
+         | EUnOp of 'ty expr_un_op * ('var, 'idx, 'sort, 'kind, 'ty) expr
+         | EBinOp of expr_bin_op * ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr
+         | EWrite of ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr
+         | ECase of ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind
+         | EAbs of ('ty, ('var, 'idx, 'sort, 'kind, 'ty) expr) ebind_anno
+         | ERec of ('ty, ('var, 'idx, 'sort, 'kind, 'ty) expr) ebind_anno
+         | EAbsT of ('kind, ('var, 'idx, 'sort, 'kind, 'ty) expr) tbind_anno
+         | EAppT of ('var, 'idx, 'sort, 'kind, 'ty) expr * 'ty
+         | EAbsI of ('sort, ('var, 'idx, 'sort, 'kind, 'ty) expr) ibind_anno
+         | EAppI of ('var, 'idx, 'sort, 'kind, 'ty) expr * 'idx
+         | EPack of 'ty * 'ty * ('var, 'idx, 'sort, 'kind, 'ty) expr
+         | EUnpack of ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind tbind
+         | EPackI of 'ty * 'idx * ('var, 'idx, 'sort, 'kind, 'ty) expr
+         | EUnpackI of ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind ibind
+         | EAscTime of ('var, 'idx, 'sort, 'kind, 'ty) expr * 'idx (* time ascription *)
+         | EAscType of ('var, 'idx, 'sort, 'kind, 'ty) expr * 'ty (* type ascription *)
          | ENever of 'ty
-         | ELet of ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr ebind
-         | EMatchSum of ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr ebind list
-         | EMatchPair of ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr ebind ebind
-         | EMatchUnfold of ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr ebind
-         | EMatchUnpackI of ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr ebind ibind
+         | ELet of ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind
+         | EMatchSum of ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind list
+         | EMatchPair of ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind ebind
+         | EMatchUnfold of ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind
+         | EMatchUnpackI of ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind ibind
 
-type ('this, 'env, 'var, 'idx, 'sort, 'ty, 'var2, 'idx2, 'sort2, 'ty2) expr_visitor_vtable =
+type ('this, 'env, 'var, 'idx, 'sort, 'kind, 'ty, 'var2, 'idx2, 'sort2, 'kind2, 'ty2) expr_visitor_vtable =
      {
-       visit_expr : 'this -> 'env -> ('var, 'idx, 'sort, 'ty) expr -> ('var2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EVar : 'this -> 'env -> 'var -> ('var2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EConst : 'this -> 'env -> Operators.expr_const -> ('var2, 'idx2, 'sort2, 'ty2) expr,
-       visit_ELoc : 'this -> 'env -> loc -> ('var2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EUnOp : 'this -> 'env -> expr_un_op * ('var, 'idx, 'sort, 'ty) expr -> ('var2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EBinOp : 'this -> 'env -> expr_bin_op * ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr -> ('var2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EWrite : 'this -> 'env -> ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr -> ('var2, 'idx2, 'sort2, 'ty2) expr,
-       visit_ECase : 'this -> 'env -> ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr ebind * ('var, 'idx, 'sort, 'ty) expr ebind -> ('var2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EAbs : 'this -> 'env -> ('ty, ('var, 'idx, 'sort, 'ty) expr) ebind_anno -> ('var2, 'idx2, 'sort2, 'ty2) expr,
-       visit_ERec : 'this -> 'env -> ('var, 'idx, 'sort, 'ty) expr ebind -> ('var2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EAbsT : 'this -> 'env -> ('var, 'idx, 'sort, 'ty) expr tbind -> ('var2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EAppT : 'this -> 'env -> ('var, 'idx, 'sort, 'ty) expr * 'ty -> ('var2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EAbsI : 'this -> 'env -> ('sort, ('var, 'idx, 'sort, 'ty) expr) ibind_anno -> ('var2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EAppI : 'this -> 'env -> ('var, 'idx, 'sort, 'ty) expr * 'idx -> ('var2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EPack : 'this -> 'env -> 'ty * ('var, 'idx, 'sort, 'ty) expr -> ('var2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EUnpack : 'this -> 'env -> ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr ebind tbind -> ('var2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EPackI : 'this -> 'env -> 'idx * ('var, 'idx, 'sort, 'ty) expr -> ('var2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EUnpackI : 'this -> 'env -> ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr ebind ibind -> ('var2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EAscTime : 'this -> 'env -> ('var, 'idx, 'sort, 'ty) expr * 'idx -> ('var2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EAscType : 'this -> 'env -> ('var, 'idx, 'sort, 'ty) expr * 'ty -> ('var2, 'idx2, 'sort2, 'ty2) expr,
-       visit_ENever : 'this -> 'env -> 'ty -> ('var2, 'idx2, 'sort2, 'ty2) expr,
-       visit_ELet : 'this -> 'env -> ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr ebind -> ('var2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EMatchSum : 'this -> 'env -> ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr ebind list -> ('var2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EMatchPair : 'this -> 'env -> ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr ebind ebind -> ('var2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EMatchUnfold : 'this -> 'env -> ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr ebind -> ('var2, 'idx2, 'sort2, 'ty2) expr,
-       visit_EMatchUnpackI : 'this -> 'env -> ('var, 'idx, 'sort, 'ty) expr * ('var, 'idx, 'sort, 'ty) expr ebind ibind -> ('var2, 'idx2, 'sort2, 'ty2) expr,
+       visit_expr : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
+       visit_EVar : 'this -> 'env -> 'var -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
+       visit_EConst : 'this -> 'env -> Operators.expr_const -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
+       visit_ELoc : 'this -> 'env -> loc -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
+       visit_EUnOp : 'this -> 'env -> 'ty expr_un_op * ('var, 'idx, 'sort, 'kind, 'ty) expr -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
+       visit_EBinOp : 'this -> 'env -> expr_bin_op * ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
+       visit_EWrite : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
+       visit_ECase : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
+       visit_EAbs : 'this -> 'env -> ('ty, ('var, 'idx, 'sort, 'kind, 'ty) expr) ebind_anno -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
+       visit_ERec : 'this -> 'env -> ('ty, ('var, 'idx, 'sort, 'kind, 'ty) expr) ebind_anno -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
+       visit_EAbsT : 'this -> 'env -> ('kind, ('var, 'idx, 'sort, 'kind, 'ty) expr) tbind_anno -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
+       visit_EAppT : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * 'ty -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
+       visit_EAbsI : 'this -> 'env -> ('sort, ('var, 'idx, 'sort, 'kind, 'ty) expr) ibind_anno -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
+       visit_EAppI : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * 'idx -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
+       visit_EPack : 'this -> 'env -> 'ty * 'ty * ('var, 'idx, 'sort, 'kind, 'ty) expr -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
+       visit_EUnpack : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind tbind -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
+       visit_EPackI : 'this -> 'env -> 'ty * 'idx * ('var, 'idx, 'sort, 'kind, 'ty) expr -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
+       visit_EUnpackI : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind ibind -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
+       visit_EAscTime : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * 'idx (* time ascription *) -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
+       visit_EAscType : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * 'ty (* type ascription *) -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
+       visit_ENever : 'this -> 'env -> 'ty -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
+       visit_ELet : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
+       visit_EMatchSum : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind list -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
+       visit_EMatchPair : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind ebind -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
+       visit_EMatchUnfold : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
+       visit_EMatchUnpackI : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind ibind -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
        visit_var : 'this -> 'env -> 'var -> 'var2,
-       (* visit_bsort : 'this -> 'env -> 'bsort -> *)
        visit_idx : 'this -> 'env -> 'idx -> 'idx2,
        visit_sort : 'this -> 'env -> 'sort -> 'sort2,
+       visit_kind : 'this -> 'env -> 'kind -> 'kind2,
        visit_ty : 'this -> 'env -> 'ty -> 'ty2,
        extend_i : 'this -> 'env -> iname -> 'env,
        extend_t : 'this -> 'env -> tname -> 'env,
        extend_e : 'this -> 'env -> ename -> 'env
      }
        
-type ('this, 'env, 'var, 'idx, 'sort, 'ty, 'var2, 'idx2, 'sort2, 'ty2) expr_visitor_interface =
-     ('this, 'env, 'var, 'idx, 'sort, 'ty, 'var2, 'idx2, 'sort2, 'ty2) expr_visitor_vtable
+type ('this, 'env, 'var, 'idx, 'sort, 'kind, 'ty, 'var2, 'idx2, 'sort2, 'kind2, 'ty2) expr_visitor_interface =
+     ('this, 'env, 'var, 'idx, 'sort, 'kind, 'ty, 'var2, 'idx2, 'sort2, 'kind2, 'ty2) expr_visitor_vtable
                                        
-fun override_visit_EVar (record : ('this, 'env, 'var, 'idx, 'sort, 'ty, 'var2, 'idx2, 'sort2, 'ty2) expr_visitor_vtable) new : ('this, 'env, 'var, 'idx, 'sort, 'ty, 'var2, 'idx2, 'sort2, 'ty2) expr_visitor_vtable =
+fun override_visit_EVar (record : ('this, 'env, 'var, 'idx, 'sort, 'kind, 'ty, 'var2, 'idx2, 'sort2, 'kind2, 'ty2) expr_visitor_vtable) new : ('this, 'env, 'var, 'idx, 'sort, 'kind, 'ty, 'var2, 'idx2, 'sort2, 'kind2, 'ty2) expr_visitor_vtable =
   {
     visit_expr = #visit_expr record,
     visit_EVar = new,
@@ -106,6 +106,7 @@ fun override_visit_EVar (record : ('this, 'env, 'var, 'idx, 'sort, 'ty, 'var2, '
     visit_var = #visit_var record,
     visit_idx = #visit_idx record,
     visit_sort = #visit_sort record,
+    visit_kind = #visit_kind record,
     visit_ty = #visit_ty record,
     extend_i = #extend_i record,
     extend_t = #extend_t record,
@@ -117,7 +118,7 @@ fun override_visit_EVar (record : ('this, 'env, 'var, 'idx, 'sort, 'ty, 'var2, '
 open VisitorUtil
        
 fun default_expr_visitor_vtable
-      (cast : 'this -> ('this, 'env, 'var, 'idx, 'sort, 'ty, 'var2, 'idx2, 'sort2, 'ty2) expr_visitor_interface)
+      (cast : 'this -> ('this, 'env, 'var, 'idx, 'sort, 'kind, 'ty, 'var2, 'idx2, 'sort2, 'kind, 'ty2) expr_visitor_interface)
       extend_i
       extend_t
       extend_e
@@ -125,7 +126,7 @@ fun default_expr_visitor_vtable
       visit_idx
       visit_sort
       visit_ty
-    : ('this, 'env, 'var, 'idx, 'sort, 'ty, 'var2, 'idx2, 'sort2, 'ty2) expr_visitor_vtable =
+    : ('this, 'env, 'var, 'idx, 'sort, 'kind, 'ty, 'var2, 'idx2, 'sort2, 'kind, 'ty2) expr_visitor_vtable =
   let
     fun visit_expr this env data =
       let
@@ -166,10 +167,22 @@ fun default_expr_visitor_vtable
       end
     fun visit_EConst this env data = EConst data
     fun visit_ELoc this env data = ELoc data
+    fun visit_un_op this env opr = 
+      let
+        val vtable = cast this
+        fun on_t x = #visit_ty vtable this env x
+      in
+        case opr of
+            EUProj opr => EUProj opr
+          | EUInj (opr, t) => EUInj (opr, on_t t)
+          | EUFold t => EUFold $ on_t t
+          | EUUnfold => EUUnfold
+      end
     fun visit_EUnOp this env data = 
       let
         val vtable = cast this
         val (opr, e) = data
+        val opr = visit_un_op this env opr
         val e = #visit_expr vtable this env e
       in
         EUnOp (opr, e)
@@ -197,6 +210,7 @@ fun default_expr_visitor_vtable
     fun visit_tbind this = visit_bind_simp (#extend_t (cast this) this)
     fun visit_ebind this = visit_bind_simp (#extend_e (cast this) this)
     fun visit_ibind_anno this = visit_bind_anno (#extend_i (cast this) this)
+    fun visit_tbind_anno this = visit_bind_anno (#extend_t (cast this) this)
     fun visit_ebind_anno this = visit_bind_anno (#extend_e (cast this) this)
     fun visit_ECase this env data =
       let
@@ -218,14 +232,14 @@ fun default_expr_visitor_vtable
     fun visit_ERec this env data =
       let
         val vtable = cast this
-        val data = visit_ebind this (#visit_expr vtable this) env data
+        val data = visit_ebind_anno this (#visit_ty vtable this) (#visit_expr vtable this) env data
       in
         ERec data
       end
     fun visit_EAbsT this env data =
       let
         val vtable = cast this
-        val data = visit_tbind this (#visit_expr vtable this) env data
+        val data = visit_tbind_anno this (#visit_kind vtable this) (#visit_expr vtable this) env data
       in
         EAbsT data
       end
@@ -257,11 +271,12 @@ fun default_expr_visitor_vtable
     fun visit_EPack this env data = 
       let
         val vtable = cast this
-        val (t, e) = data
+        val (t_all, t, e) = data
+        val t_all = #visit_ty vtable this env t_all
         val t = #visit_ty vtable this env t
         val e = #visit_expr vtable this env e
       in
-        EPack (t, e)
+        EPack (t_all, t, e)
       end
     fun visit_EUnpack this env data =
       let
@@ -275,11 +290,12 @@ fun default_expr_visitor_vtable
     fun visit_EPackI this env data = 
       let
         val vtable = cast this
-        val (i, e) = data
+        val (t, i, e) = data
+        val t = #visit_ty vtable this env t
         val i = #visit_idx vtable this env i
         val e = #visit_expr vtable this env e
       in
-        EPackI (i, e)
+        EPackI (t, i, e)
       end
     fun visit_EUnpackI this env data =
       let
@@ -391,6 +407,7 @@ fun default_expr_visitor_vtable
       visit_var = visit_var,
       visit_idx = visit_idx,
       visit_sort = visit_sort,
+      visit_kind = visit_noop,
       visit_ty = visit_ty,
       extend_i = extend_i,
       extend_t = extend_t,
@@ -398,11 +415,11 @@ fun default_expr_visitor_vtable
     }
   end
 
-datatype ('env, 'var, 'idx, 'sort, 'ty, 'var2, 'idx2, 'sort2, 'ty2) expr_visitor =
-         ExprVisitor of (('env, 'var, 'idx, 'sort, 'ty, 'var2, 'idx2, 'sort2, 'ty2) expr_visitor, 'env, 'var, 'idx, 'sort, 'ty, 'var2, 'idx2, 'sort2, 'ty2) expr_visitor_interface
+datatype ('env, 'var, 'idx, 'sort, 'kind, 'ty, 'var2, 'idx2, 'sort2, 'kind2, 'ty2) expr_visitor =
+         ExprVisitor of (('env, 'var, 'idx, 'sort, 'kind, 'ty, 'var2, 'idx2, 'sort2, 'kind2, 'ty2) expr_visitor, 'env, 'var, 'idx, 'sort, 'kind, 'ty, 'var2, 'idx2, 'sort2, 'kind2, 'ty2) expr_visitor_interface
 
-fun expr_visitor_impls_interface (this : ('env, 'var, 'idx, 'sort, 'ty, 'var2, 'idx2, 'sort2, 'ty2) expr_visitor) :
-    (('env, 'var, 'idx, 'sort, 'ty, 'var2, 'idx2, 'sort2, 'ty2) expr_visitor, 'env, 'var, 'idx, 'sort, 'ty, 'var2, 'idx2, 'sort2, 'ty2) expr_visitor_interface =
+fun expr_visitor_impls_interface (this : ('env, 'var, 'idx, 'sort, 'kind, 'ty, 'var2, 'idx2, 'sort2, 'kind2, 'ty2) expr_visitor) :
+    (('env, 'var, 'idx, 'sort, 'kind, 'ty, 'var2, 'idx2, 'sort2, 'kind2, 'ty2) expr_visitor, 'env, 'var, 'idx, 'sort, 'kind, 'ty, 'var2, 'idx2, 'sort2, 'kind2, 'ty2) expr_visitor_interface =
   let
     val ExprVisitor vtable = this
   in
@@ -418,7 +435,7 @@ fun new_expr_visitor vtable params =
     
 (***************** the "shift_i_e" visitor  **********************)    
     
-fun shift_i_expr_visitor_vtable cast ((shift_i, shift_s, shift_t), n) : ('this, int, 'var, 'idx, 'ty, 'sort2, 'var, 'idx2, 'sort, 'ty2) expr_visitor_vtable =
+fun shift_i_expr_visitor_vtable cast ((shift_i, shift_s, shift_t), n) : ('this, int, 'var, 'idx, 'sort2, 'kind, 'ty, 'var, 'idx2, 'sort, 'kind, 'ty2) expr_visitor_vtable =
   let
     fun extend_i this env _ = env + 1
     fun do_shift shift this env b = shift env n b
@@ -445,7 +462,7 @@ fun shift_i_e_fn shifts x n b =
     
 (***************** the "shift_t_e" visitor  **********************)    
     
-fun shift_t_expr_visitor_vtable cast (shift_t, n) : ('this, int, 'var, 'idx, 'sort, 'ty, 'var, 'idx, 'sort, 'ty2) expr_visitor_vtable =
+fun shift_t_expr_visitor_vtable cast (shift_t, n) : ('this, int, 'var, 'idx, 'sort, 'kind, 'ty, 'var, 'idx, 'sort, 'kind, 'ty2) expr_visitor_vtable =
   let
     fun extend_t this env _ = env + 1
     fun do_shift shift this env b = shift env n b
@@ -472,7 +489,7 @@ fun shift_t_e_fn shift_t x n b =
     
 (***************** the "shift_e_e" visitor  **********************)    
     
-fun shift_e_expr_visitor_vtable cast (shift_var, n) : ('this, int, 'var, 'idx, 'sort, 'ty, 'var2, 'idx, 'sort, 'ty) expr_visitor_vtable =
+fun shift_e_expr_visitor_vtable cast (shift_var, n) : ('this, int, 'var, 'idx, 'sort, 'kind, 'ty, 'var2, 'idx, 'sort, 'kind, 'ty) expr_visitor_vtable =
   let
     fun extend_e this env _ = env + 1
     fun visit_var this env data = shift_var env n data
@@ -504,7 +521,7 @@ datatype 'a cmp_var =
          | CmpGreater of 'a
          | CmpOther
 
-fun subst_e_expr_visitor_vtable cast (shift_var, compare_var, (shift_i_i, shift_i_s, shift_i_t, shift_t_t), d, x, v) : ('this, idepth * tdepth * edepth, 'var, 'idx, 'sort, 'ty, 'var, 'idx, 'sort, 'ty) expr_visitor_vtable =
+fun subst_e_expr_visitor_vtable cast (shift_var, compare_var, (shift_i_i, shift_i_s, shift_i_t, shift_t_t), d, x, v) : ('this, idepth * tdepth * edepth, 'var, 'idx, 'sort, 'kind, 'ty, 'var, 'idx, 'sort, 'kind, 'ty) expr_visitor_vtable =
   let
     fun extend_i this (di, dt, de) _ = (idepth_inc di, dt, de)
     fun extend_t this (di, dt, de) _ = (di, tdepth_inc dt, de)
@@ -559,7 +576,7 @@ fun subst_e_e_fn shift_var compare_var shifts d x v b =
 (***************** the "export" visitor: convertnig de Bruijn indices to nameful terms **********************)    
 
 type naming_ctx = iname list * tname list * ename list
-fun export_expr_visitor_vtable cast (visit_var, visit_idx, visit_sort, visit_ty) : ('this, naming_ctx, 'var, 'idx, 'sort, 'ty, 'var2, 'idx2, 'sort2, 'ty2) expr_visitor_vtable =
+fun export_expr_visitor_vtable cast (visit_var, visit_idx, visit_sort, visit_ty) : ('this, naming_ctx, 'var, 'idx, 'sort, 'kind, 'ty, 'var2, 'idx2, 'sort2, 'kind, 'ty2) expr_visitor_vtable =
   let
     fun extend_i this (sctx, kctx, tctx) name = (name :: sctx, kctx, tctx)
     fun extend_t this (sctx, kctx, tctx) name = (sctx, name :: kctx, tctx)

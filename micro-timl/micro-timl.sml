@@ -53,10 +53,10 @@ datatype injector =
          | InjInr
 
 (* unary term operators *)
-datatype expr_un_op =
+datatype 'ty expr_un_op =
          EUProj of projector
-         | EUInj of injector
-         | EUFold
+         | EUInj of injector * 'ty
+         | EUFold of 'ty
          | EUUnfold
 
 (* primitive binary term operators *)
@@ -74,26 +74,27 @@ datatype expr_bin_op =
          | EBNatAdd
 
 (* term *)
-datatype ('var, 'bsort, 'idx, 'sort) expr =
+datatype ('var, 'idx, 'sort, 'kind, 'ty) expr =
          EVar of 'var
          | EConst of Operators.expr_const
          | ELoc of loc
-         | EUnOp of expr_un_op * ('var, 'bsort, 'idx, 'sort) expr
-         | EBinOp of expr_bin_op * ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) expr
-         | EWrite of ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) expr
-         | ECase of ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) expr ebind * ('var, 'bsort, 'idx, 'sort) expr ebind
-         | EAbs of ('var, 'bsort, 'idx, 'sort) expr ebind
-         | ERec of ('var, 'bsort, 'idx, 'sort) expr ebind
-         | EAbsT of ('var, 'bsort, 'idx, 'sort) expr tbind
-         | EAppT of ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) ty
-         | EAbsI of ('sort, ('var, 'bsort, 'idx, 'sort) expr) ibind_anno
-         | EAppI of ('var, 'bsort, 'idx, 'sort) expr * 'idx
-         | EPack of ('var, 'bsort, 'idx, 'sort) ty * ('var, 'bsort, 'idx, 'sort) expr
-         | EUnpack of ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) expr ebind tbind
-         | EPackI of 'idx * ('var, 'bsort, 'idx, 'sort) expr
-         | EUnpackI of ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) expr ebind ibind
-         | EAscTime of ('var, 'bsort, 'idx, 'sort) expr * 'idx (* time ascription *)
-         | EAscType of ('var, 'bsort, 'idx, 'sort) expr * ('var, 'bsort, 'idx, 'sort) ty (* type ascription *)
-         | ENever of ('var, 'bsort, 'idx, 'sort) ty
+         | EUnOp of 'ty expr_un_op * ('var, 'idx, 'sort, 'kind, 'ty) expr
+         | EBinOp of expr_bin_op * ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr
+         | EWrite of ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr
+         | ECase of ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind
+         | EAbs of ('ty, ('var, 'idx, 'sort, 'kind, 'ty) expr) ebind_anno
+         | ERec of ('ty, ('var, 'idx, 'sort, 'kind, 'ty) expr) ebind_anno
+         | EAbsT of ('kind, ('var, 'idx, 'sort, 'kind, 'ty) expr) tbind_anno
+         | EAppT of ('var, 'idx, 'sort, 'kind, 'ty) expr * 'ty
+         | EAbsI of ('sort, ('var, 'idx, 'sort, 'kind, 'ty) expr) ibind_anno
+         | EAppI of ('var, 'idx, 'sort, 'kind, 'ty) expr * 'idx
+         | EPack of 'ty * 'ty * ('var, 'idx, 'sort, 'kind, 'ty) expr
+         | EUnpack of ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind tbind
+         | EPackI of 'ty * 'idx * ('var, 'idx, 'sort, 'kind, 'ty) expr
+         | EUnpackI of ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind ibind
+         | EAscTime of ('var, 'idx, 'sort, 'kind, 'ty) expr * 'idx (* time ascription *)
+         | EAscType of ('var, 'idx, 'sort, 'kind, 'ty) expr * 'ty (* type ascription *)
+         | ENever of 'ty
+         | ELet of ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind
 
 end

@@ -24,11 +24,11 @@ fun str_inj opr =
       InjInl => "inl"
     | InjInr => "inr"
 
-fun str_expr_un_op opr =
+fun str_expr_un_op str_t opr =
   case opr of
       EUProj opr => str_proj opr
-    | EUInj opr => str_inj opr
-    | EUFold => "fold"
+    | EUInj (opr, t) => sprintf "($, $)" [str_inj opr, str_t t]
+    | EUFold t => sprintf "(fold $)" [str_t t]
     | EUUnfold => "unfold"
 
 fun str_prim_expr_bin_op opr =
@@ -134,7 +134,7 @@ fun t40 () = withPP ("Test 20 [C code]", 20, TextIO.stdOut) (fn strm => (
 	PP.string strm "}";
         PP.closeBox strm))
 
-fun pp_e (params as (str_var, str_i, str_s, str_t)) s e =
+fun pp_e (params as (str_var, str_i, str_s, str_k, str_t)) s e =
   let
     val pp_e = pp_e params s
     fun space () = PP.space s 1
@@ -281,7 +281,7 @@ fun pp_e (params as (str_var, str_i, str_s, str_t)) s e =
           str "EUnOp";
           space ();
           str "(";
-          str $ str_expr_un_op opr;
+          str $ str_expr_un_op str_t opr;
           comma ();
           pp_e e;
           str ")";
@@ -350,7 +350,7 @@ fun pp_e (params as (str_var, str_i, str_s, str_t)) s e =
         end
       | ERec bind =>
         let
-          val (name, e) = get_bind bind
+          val (name, t, e) = get_bind_anno bind
         in
           open_hbox ();
           str "ERec";
@@ -358,19 +358,23 @@ fun pp_e (params as (str_var, str_i, str_s, str_t)) s e =
           str "(";
           str name;
           comma ();
+          str $ str_t t;
+          comma ();
           pp_e e;
           str ")";
           close_box ()
         end
       | EAbsT bind =>
         let
-          val (name, e) = get_bind bind
+          val (name, k, e) = get_bind_anno bind
         in
           open_hbox ();
           str "EAbsT";
           space ();
           str "(";
           str name;
+          comma ();
+          str $ str_k k;
           comma ();
           pp_e e;
           str ")";
@@ -416,12 +420,14 @@ fun pp_e (params as (str_var, str_i, str_s, str_t)) s e =
           str ")";
           close_box ()
         )
-      | EPack (t, e) =>
+      | EPack (t_all, t, e) =>
         (
           open_hbox ();
           str "EPack";
           space ();
           str "(";
+          str $ str_t t_all;
+          comma ();
           str $ str_t t;
           comma ();
           pp_e e;
@@ -445,12 +451,14 @@ fun pp_e (params as (str_var, str_i, str_s, str_t)) s e =
           str ")";
           close_box ()
         end
-      | EPackI (i, e) =>
+      | EPackI (t, i, e) =>
         (
           open_hbox ();
           str "EPack";
           space ();
           str "(";
+          str $ str_t t;
+          comma ();
           str $ str_i i;
           comma ();
           pp_e e;
