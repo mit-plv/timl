@@ -595,11 +595,11 @@ fun remove_deep_many fresh_name (params as (shift_i_e, shift_e_e, subst_e_e, EV)
              | _ => p
           )
         | _ => p
-    fun get_top_alias p =
-      case p of
-          PnPair (p, _) => get_pn_alias p
-        | _ => NONE
-    val get_alias = firstSuccess get_top_alias
+    (* fun get_top_alias p = *)
+    (*   case p of *)
+    (*       PnPair (p, _) => get_pn_alias p *)
+    (*     | _ => NONE *)
+    val get_alias = firstSuccess get_pn_alias
     datatype shape =
              ShTT
              | ShPair
