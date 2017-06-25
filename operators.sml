@@ -76,7 +76,10 @@ datatype tri_op =
 
 datatype expr_EI =
          EEIAppI
-         | EEIAscriptionTime
+         | EEIAscTime
+
+datatype expr_ET =
+         EETAppT
 
 datatype expr_T =
          ETNever
@@ -147,7 +150,11 @@ fun str_bin_op opr =
 fun str_expr_EI opr =
   case opr of
       EEIAppI => "EEIAppI"
-    | EEIAscriptionTime => "EEIAscTime"
+    | EEIAscTime => "EEIAscTime"
+
+fun str_expr_ET opr =
+  case opr of
+      EETAppT => "EETAppT"
 
 fun str_expr_const c =
   case c of

@@ -344,7 +344,7 @@ fun on_e (e : S.expr) =
     | S.EEI (opr, e, i) =>
       (case opr of
            Op.EEIAppI => EAppI (on_e e, i)
-         | Op.EEIAscriptionTime => EAscTime (on_e e, i)
+         | Op.EEIAscTime => EAscTime (on_e e, i)
       )
     | S.ET (opr, t, r) =>
       (case opr of
@@ -388,8 +388,9 @@ fun on_e (e : S.expr) =
     (*   in *)
     (*     Let (return, decs, f (x + m) n e, r) *)
     (*   end *)
-    | S.EAscription (e, t) => EAscType (on_e e, on_mt t)
-    (* | AppConstr (cx, is, e) => AppConstr (cx, is, f x n e) *)
+    | S.EAsc (e, t) => EAscType (on_e e, on_mt t)
+    (* | AppConstr (cx, ts, is, e) => *)
+    (*   AppConstr (cx, is, f x n e) *)
     | _ => raise Unimpl ""
 
 val trans_e = on_e

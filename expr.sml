@@ -86,13 +86,14 @@ datatype expr =
          | EBinOp of bin_op * expr * expr
 	 | ETriOp of tri_op * expr * expr * expr
          | EEI of expr_EI * expr * idx
+         | EET of expr_ET * expr * mtype
          | ET of expr_T * mtype * region
 	 | EAbs of (ptrn, expr) bind
 	 | EAbsI of (sort, expr) ibind_anno * region
-	 | EAppConstr of (long_id * bool) * idx list * expr
+	 | EAppConstr of (long_id * bool) * mtype list * idx list * expr * mtype option
 	 | ECase of expr * return * (ptrn, expr) bind list * region
 	 | ELet of return * (decl tele, expr) bind * region
-	 | EAscription of expr * mtype
+	 | EAsc of expr * mtype
 
      and decl =
          DVal of ename binder * (tname binder list, expr) bind outer * region outer
@@ -127,7 +128,7 @@ datatype mod =
          ModComponents of (* mod_comp *)decl list * region
          (* | ModProjectible of mod_projectible *)
          | ModSeal of mod * sgn
-         | ModTransparentAscription of mod * sgn
+         | ModTransparentAsc of mod * sgn
 (* | ModFunctorApp of id * mod (* list *) *)
                                                
 (* and mod_comp = *)
@@ -157,17 +158,20 @@ val SUnit = Basic (Base UnitSort, dummy)
 
 val Type = (0, [])
 
-fun TT r = EConst (ECTT, r)
-fun ConstInt (n, r) = EConst (ECInt n, r)
-fun ConstNat (n, r) = EConst (ECNat n, r)
-fun Fst (e, r) = EUnOp (EUFst, e, r)
-fun Snd (e, r) = EUnOp (EUSnd, e, r)
-fun App (e1, e2) = EBinOp (EBApp, e1, e2)
-fun Pair (e1, e2) = EBinOp (EBPair, e1, e2)
-fun AppI (e, i) = EEI (EEIAppI, e, i)
-fun AscriptionTime (e, i) = EEI (EEIAscriptionTime, e, i)
-fun Never (t, r) = ET (ETNever, t, r)
-fun Builtin (t, r) = ET (ETBuiltin, t, r)
+fun ETT r = EConst (ECTT, r)
+fun EConstInt (n, r) = EConst (ECInt n, r)
+fun EConstNat (n, r) = EConst (ECNat n, r)
+fun EFst (e, r) = EUnOp (EUFst, e, r)
+fun ESnd (e, r) = EUnOp (EUSnd, e, r)
+fun EApp (e1, e2) = EBinOp (EBApp, e1, e2)
+fun EPair (e1, e2) = EBinOp (EBPair, e1, e2)
+fun EAppI (e, i) = EEI (EEIAppI, e, i)
+fun EAppIs (f, args) = foldl (swap EAppI) f args
+fun EAppT (e, i) = EET (EETAppT, e, i)
+fun EAppTs (f, args) = foldl (swap EAppT) f args
+fun EAscTime (e, i) = EEI (EEIAscTime, e, i)
+fun ENever (t, r) = ET (ETNever, t, r)
+fun EBuiltin (t, r) = ET (ETBuiltin, t, r)
   
 (* notations *)
          
@@ -207,14 +211,31 @@ fun collect_Uni t =
       end
     | Mono t => ([], t)
 
-fun collect_AppI e =
+fun collect_EAppI e =
   case e of
-      EEI (EBAppI, e, i) =>
-      let 
-        val (e, is) = collect_AppI e
-      in
-        (e, is @ [i])
-      end
+      EEI (opr, e, i) =>
+      (case opr of
+           EEIAppI =>
+             let 
+               val (e, is) = collect_EAppI e
+             in
+               (e, is @ [i])
+             end
+         | _ => (e, [])
+      )
+    | _ => (e, [])
+
+fun collect_EAppT e =
+  case e of
+      EET (opr, e, i) =>
+      (case opr of
+           EETAppT =>
+           let 
+             val (e, is) = collect_EAppT e
+           in
+             (e, is @ [i])
+           end
+      )
     | _ => (e, [])
 
 fun collect_BinOpI_left opr i =
@@ -972,7 +993,11 @@ fun str_e gctx (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
       | EEI (opr, e, i) =>
         (case opr of
            EEIAppI => sprintf "($ {$})" [str_e ctx e, str_i gctx sctx i]
-          | EEIAscriptionTime => sprintf "($ |> $)" [str_e ctx e, str_i gctx sctx i]
+          | EEIAscTime => sprintf "($ |> $)" [str_e ctx e, str_i gctx sctx i]
+        )
+      | EET (opr, e, t) =>
+        (case opr of
+           EETAppT => sprintf "($ {$})" [str_e ctx e, str_mt gctx skctx t]
         )
       | ET (opr, t, _) =>
         (case opr of
@@ -1005,8 +1030,13 @@ fun str_e gctx (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
         in
           sprintf "let $$ in $ end" [return, join_prefix " " decls, str_e ctx e]
         end
-      | EAscription (e, t) => sprintf "($ : $)" [str_e ctx e, str_mt gctx skctx t]
-      | EAppConstr ((x, b), is, e) => sprintf "($$ $)" [decorate_var b $ str_long_id #3 gctx cctx x, (join "" o map (prefix " ") o map (fn i => sprintf "{$}" [str_i gctx sctx i])) is, str_e ctx e]
+      | EAsc (e, t) => sprintf "($ : $)" [str_e ctx e, str_mt gctx skctx t]
+      | EAppConstr ((x, b), ts, is, e, _) =>
+        sprintf "($$$ $)" [
+          decorate_var b $ str_long_id #3 gctx cctx x,
+          (join "" o map (prefix " ") o map (fn t => sprintf "{$}" [str_mt gctx skctx t])) ts,
+          (join "" o map (prefix " ") o map (fn i => sprintf "{$}" [str_i gctx sctx i])) is,
+          str_e ctx e]
       | ECase (e, return, rules, _) => sprintf "(case $ $of $)" [str_e ctx e, str_return gctx skctx return, join " | " (map (str_rule gctx ctx) rules)]
   end
 
@@ -1251,13 +1281,14 @@ fun get_region_e e =
     | EBinOp (_, e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
     | ETriOp (_, e1, _, e3) => combine_region (get_region_e e1) (get_region_e e3)
     | EEI (_, e, i) => combine_region (get_region_e e) (get_region_i i)
+    | EET (_, e, t) => combine_region (get_region_e e) (get_region_mt t)
     | ET (_, _, r) => r
     | EAbs bind => get_region_bind get_region_pn get_region_e bind
     | EAbsI (_, r) => r
-    | EAppConstr ((x, _), _, e) => combine_region (get_region_long_id x) (get_region_e e)
+    | EAppConstr ((x, _), _, _, e, _) => combine_region (get_region_long_id x) (get_region_e e)
     | ECase (_, _, _, r) => r
     | ELet (_, _, r) => r
-    | EAscription (e, t) => combine_region (get_region_e e) (get_region_mt t)
+    | EAsc (e, t) => combine_region (get_region_e e) (get_region_mt t)
                                               
 fun get_region_rule (pn, e) = combine_region (get_region_pn pn) (get_region_e e)
 
@@ -1279,7 +1310,7 @@ fun get_region_m m =
   case m of
       ModComponents (_, r) => r
     | ModSeal (m, sg) => combine_region (get_region_m m) (get_region_sig sg)
-    | ModTransparentAscription (m, sg) => combine_region (get_region_m m) (get_region_sig sg)
+    | ModTransparentAsc (m, sg) => combine_region (get_region_m m) (get_region_sig sg)
 
 fun is_value (e : expr) : bool =
   case e of
@@ -1307,7 +1338,11 @@ fun is_value (e : expr) : bool =
     | EEI (opr, e, i) =>
       (case opr of
            EEIAppI => false
-         | EEIAscriptionTime => false
+         | EEIAscTime => false
+      )
+    | EET (opr, e, t) =>
+      (case opr of
+           EETAppT => false
       )
     | ET (opr, t, _) =>
       (case opr of
@@ -1317,8 +1352,8 @@ fun is_value (e : expr) : bool =
     | EAbs _ => true
     | EAbsI _ => true
     | ELet _ => false
-    | EAscription _ => false
-    | EAppConstr (_, _, e) => is_value e
+    | EAsc _ => false
+    | EAppConstr (_, _, _, e, _) => is_value e
     | ECase _ => false
 
 datatype ('var, 'prop) hyp = 
@@ -1371,6 +1406,7 @@ fun on_e_e on_v =
 	| EBinOp (opr, e1, e2) => EBinOp (opr, f x n e1, f x n e2)
 	| ETriOp (opr, e1, e2, e3) => ETriOp (opr, f x n e1, f x n e2, f x n e3)
 	| EEI (opr, e, i) => EEI (opr, f x n e, i)
+	| EET (opr, e, t) => EET (opr, f x n e, t)
 	| ET (opr, t, r) => ET (opr, t, r)
 	| EAbs bind =>
           let
@@ -1396,8 +1432,8 @@ fun on_e_e on_v =
 	  in
 	    ELet (return, Unbound.Bind (decls, f (x + m) n e), r)
 	  end
-	| EAscription (e, t) => EAscription (f x n e, t)
-	| EAppConstr (cx, is, e) => EAppConstr (cx, is, f x n e)
+	| EAsc (e, t) => EAsc (f x n e, t)
+	| EAppConstr (cx, ts, is, e, ot) => EAppConstr (cx, ts, is, f x n e, ot)
 	| ECase (e, return, rules, r) => ECase (f x n e, return, map (f_rule x n) rules, r)
 
     and f_decls x n decls =
@@ -2673,6 +2709,13 @@ local
           in
             acc
           end
+	| EET (opr, e, t) =>
+          let
+            val acc = f acc e
+            val acc = on_mt acc t
+          in
+            acc
+          end
 	| ET (opr, t, r) => on_mt acc t
 	| EAbs bind =>
           let
@@ -2690,18 +2733,20 @@ local
           in
             acc
           end
-	| EAscription (e, t) =>
+	| EAsc (e, t) =>
           let
             val acc = f acc e
             val acc = on_mt acc t
           in
             acc
           end
-	| EAppConstr ((x, ie), is, e) =>
+	| EAppConstr ((x, ie), ts, is, e, ot) =>
           let
             val acc = on_long_id acc x
+            val acc = on_list on_mt acc ts
             val acc = on_list on_i acc is
             val acc = f acc e
+            val acc = on_option on_mt acc ot
           in
             acc
           end
@@ -2820,7 +2865,7 @@ local
         in
           acc
         end
-      | ModTransparentAscription (m, sg) =>
+      | ModTransparentAsc (m, sg) =>
         let 
           val acc = f acc m
           val acc = on_sgn acc sg

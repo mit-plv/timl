@@ -25,7 +25,7 @@ infix 1 <->
         
 exception Error of region * string list
 
-type kind_ext = bool (*is datatype*) * kind * mtype option (*aliasing*)
+type kind_ext = mtype option (*is datatype*) * kind * mtype option (*aliasing*)
 
 fun str_ke gctx (ctx as (sctx, kctx)) (dt, k, t) =
   if not dt andalso isNone t then str_k k
@@ -346,6 +346,7 @@ fun do_fetch_sort_by_name (ctx, (name, r)) =
     | NONE => raise Error (r, [sprintf "Can't find index variable '$' in context $" [name, str_ls fst ctx]])
 
 fun package0_snd f m (a, b) = (a, f m b)
+fun package0_pair f g m (a, b) = (f m a, g m b)
 fun package0_list f m ls = map (f m) ls
                                
 fun fetch_sort_by_name gctx ctx (m, name) =
@@ -409,6 +410,8 @@ fun fetch_constr_type gctx (ctx : ccontext, x) =
   constr_type VarT shiftx_long_id $ snd $ fetch_constr gctx (ctx, x)
 
 fun get_family (c : mtype constr) = #1 c
+
+fun package0_long_id b = package_long_id 0 b
                                  
 fun get_family_siblings gctx cctx cx =
   let
@@ -419,11 +422,11 @@ fun get_family_siblings gctx cctx cx =
         fun iter (n, (_, c)) =
           ((* println (str_mt (gctx_names gctx) (sctx_names sctx, names kctx) (MtVar (get_family c)));  *)
             (* println (str_raw_long_id $ get_family c);  *)
-            if eq_id (snd $ get_family c, snd family) then SOME (NONE, (n, r)) else NONE)
+            if eq_id (snd $ get_family c, snd family) then SOME ((NONE, (n, r)), c) else NONE)
       in
         rev $ map snd $ mapPartialWithIdx iter cctx
       end
-    fun fetch_family a = generic_fetch (package0_list (package_long_id 0)) do_fetch_family #3 a
+    fun fetch_family a = generic_fetch (package0_list (package0_pair package0_long_id package0_c)) do_fetch_family #3 a
   in
     fetch_family gctx (cctx, cx)
   end

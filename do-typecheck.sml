@@ -1196,7 +1196,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
             val r = U.get_region_long_id x
             fun insert_type_args t =
               case t of
-                  Mono t => t
+                  Mono t => (t, [])
                 | Uni (Bind (_, t), _) =>
                   let
                     (* val t_arg = fresh_mt (sctx, kctx) r *)
@@ -1225,9 +1225,9 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                     val t = subst_i_mt i t
                     val (t, i_args) = insert_idx_args t
                   in
-                    (t, i :: i_arg)
+                    (t, i :: i_args)
                   end
-                | _ => t_all
+                | _ => (t_all, [])
             val (t, i_args) = if not eia then
                       insert_idx_args t
                     else
@@ -1241,12 +1241,12 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
         | U.EConst (c, r) =>
           (case c of
 	       ECTT => 
-               (TT r, Unit dummy, T0 dummy)
+               (ETT r, Unit dummy, T0 dummy)
 	     | ECInt n => 
-	       (ConstInt (n, r), BaseType (Int, dummy), T0 dummy)
+	       (EConstInt (n, r), BaseType (Int, dummy), T0 dummy)
 	     | ECNat n => 
 	       if n >= 0 then
-	         (ConstNat (n, r), TyNat (ConstIN (n, r), r), T0 r)
+	         (EConstNat (n, r), TyNat (ConstIN (n, r), r), T0 r)
 	       else
 	         raise Error (r, ["Natural number constant must be non-negative"])
           )
@@ -1259,7 +1259,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                  val t2 = fresh_mt gctx (sctx, kctx) r
                  val (e, _, d) = check_mtype (ctx, e, Prod (t1, t2)) 
                in 
-                 (Fst (e, r), t1, d)
+                 (EFst (e, r), t1, d)
 	       end
 	     | EUSnd => 
 	       let 
@@ -1268,7 +1268,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                  val t2 = fresh_mt gctx (sctx, kctx) r
                  val (e, _, d) = check_mtype (ctx, e, Prod (t1, t2)) 
                in 
-                 (Snd (e, r), t2, d)
+                 (ESnd (e, r), t2, d)
 	       end
           )
 	| U.EBinOp (opr, e1, e2) =>
@@ -1278,7 +1278,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                  val (e1, t1, d1) = get_mtype (ctx, e1) 
 	         val (e2, t2, d2) = get_mtype (ctx, e2) 
                in
-	         (Pair (e1, e2), Prod (t1, t2), d1 %+ d2)
+	         (EPair (e1, e2), Prod (t1, t2), d1 %+ d2)
 	       end
 	     | EBApp =>
 	       let
@@ -1287,7 +1287,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                  val d = fresh_i gctx sctx (Base Time) r
                  val t = fresh_mt gctx (sctx, kctx) r
                  val (e1, _, d1) = check_mtype (ctx, e1, Arrow (t2, d, t))
-                 val ret = (App (e1, e2), t, d1 %+ d2 %+ T1 dummy %+ d) 
+                 val ret = (EApp (e1, e2), t, d1 %+ d2 %+ T1 dummy %+ d) 
                in
                  ret
 	       end
@@ -1342,7 +1342,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                      let
                        val i = check_sort gctx (sctx, i, s) 
                      in
-	               (AppI (e, i), subst_i_mt i t1, d)
+	               (EAppI (e, i), subst_i_mt i t1, d)
                      end
                    | _ =>
                      (* If the type is not in the expected form (maybe due to uvar), we try to unify it with the expected template. This may lose generality because the the inferred argument sort will always be a base sort. *)
@@ -1362,15 +1362,19 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                        (* val () = println "after" *)
                        val i = check_sort gctx (sctx, i, s) 
                      in
-	               (AppI (e, i), subst_i_mt i t1, d)
+	               (EAppI (e, i), subst_i_mt i t1, d)
 	             end
                end
-	     | EEIAscriptionTime => 
+	     | EEIAscTime => 
 	       let val i = check_bsort gctx (sctx, i, Base Time)
 	           val (e, t) = check_time (ctx, e, i)
                in
-	         (AscriptionTime (e, i), t, i)
+	         (EAscTime (e, i), t, i)
 	       end
+          )
+	| U.EET (opr, e, i) =>
+          (case opr of
+	       EETAppT => raise Impossible "get_mtype()/EAppT"
           )
 	| U.ET (opr, t, r) =>
           (case opr of
@@ -1379,7 +1383,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	         val t = check_kind_Type gctx (skctx, t)
 	         val () = write_prop (False dummy, U.get_region_e e_all)
                in
-	         (Never (t, r), t, T0 r)
+	         (ENever (t, r), t, T0 r)
                end
 	     | ETBuiltin => 
                let
@@ -1387,7 +1391,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	         val () = if !is_builtin_enabled then ()
                           else raise Error (r, ["builtin keyword is only available in standard library"])
                in
-	         (Builtin (t, r), t, T0 r)
+	         (EBuiltin (t, r), t, T0 r)
                end
           )
 	| U.EAbs bind => 
@@ -1440,19 +1444,21 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
           in
 	    (EAbsI (BindAnno ((iname, s), e), r_all), UniI (s, Bind ((name, r), t), r_all), T0 r_all)
 	  end 
-	| U.EAscription (e, t) => 
+	| U.EAsc (e, t) => 
 	  let val t = check_kind_Type gctx (skctx, t)
 	      val (e, _, d) = check_mtype (ctx, e, t)
           in
-	    (EAscription (e, t), t, d)
+	    (EAsc (e, t), t, d)
 	  end
-	| U.EAppConstr ((x, eia), is, e) => 
-	  let 
+	| U.EAppConstr ((x, eia), ts, is, e, ot) => 
+	  let
+            val () = assert (fn () => null ts) "get_mtype()/EAppConstr: null ts"
+            val () = assert (fn () => isNone ot) "get_mtype()/EAppConstr: isNone ot"
             val tc = fetch_constr_type gctx (cctx, x)
 	    (* delegate to checking [x {is} e] *)
 	    val f = U.EVar ((NONE, (0, U.get_region_long_id x)), eia)
-	    val f = foldl (fn (i, e) => U.AppI (e, i)) f is
-	    val e = U.App (f, U.Subst.shift_e_e e)
+	    val f = foldl (fn (i, e) => U.EAppI (e, i)) f is
+	    val e = U.EApp (f, U.Subst.shift_e_e e)
             (* val f_name = "__synthesized_constructor" *)
             val f_name = str_long_id #3 (gctx_names gctx) (names cctx) x
 	    val (e, t, d) = get_mtype (add_typing_skct (f_name, tc) ctx, e) 
@@ -1472,17 +1478,25 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                     else if eq_i d2 (T1 dummy) then d1
                     else raise wrong_d
                   | _ => raise wrong_d
-            val (is, e) =
+            val (ts, is, e) =
                 case e of
                     EBinOp (EBApp, f, e) =>
                     let
-                      val (_, is) = collect_AppI f
+                      val (f, is) = collect_EAppI f
+                      val (f, ts) = collect_EAppT f
+                      val () = case f of
+                                   EVar (_, true) => ()
+                                 | _ => raise Impossible "get_mtype()/EAppConstr: EVar (_, true)"
                     in
-                      (is, e)
+                      (ts, is, e)
                     end
-                  | _ => raise Impossible "get_mtype (): U.AppConstr: e in wrong form"
+                  | _ => raise Impossible "get_mtype (): U.EAppConstr: e in wrong form"
             val e = forget_e_e 0 1 e
-            val e = EAppConstr ((x, eia), is, e)
+            val siblings = get_family_siblings gctx cctx cx
+            val pos_in_family = index (curry eq_long_id cx) (map fst siblings) !! (fn () => raise Impossible "family_pos")
+            val dt = 
+            val t = TDatatype (Abs dt, dummy)
+            val e = EAppConstr ((x, true), ts, is, e, SOME (pos_in_family, t))
 	  in
 	    (e, t, d)
 	  end
@@ -2088,7 +2102,7 @@ fun get_sig gctx m : context =
       in
         sg
       end
-    | U.ModTransparentAscription (m, sg) =>
+    | U.ModTransparentAsc (m, sg) =>
       let
         val sg = is_wf_sig gctx sg
         val sg' = get_sig gctx m

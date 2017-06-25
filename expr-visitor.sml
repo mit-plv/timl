@@ -23,13 +23,14 @@ signature EXPR = sig
            | EBinOp of Operators.bin_op * expr * expr
 	   | ETriOp of Operators.tri_op * expr * expr * expr
            | EEI of Operators.expr_EI * expr * idx
+           | EET of Operators.expr_ET * expr * mtype
            | ET of Operators.expr_T * mtype * Region.region
 	   | EAbs of (ptrn, expr) Unbound.bind
 	   | EAbsI of (sort, expr) Binders.ibind_anno * Region.region
-	   | EAppConstr of (var * bool) * idx list * expr
+	   | EAppConstr of (var * bool) * mtype list * idx list * expr * mtype option
 	   | ECase of expr * return * (ptrn, expr) Unbound.bind list * Region.region
 	   | ELet of return * (decl Unbound.tele, expr) Unbound.bind * Region.region
-	   | EAscription of expr * mtype
+	   | EAsc of expr * mtype
 
        and decl =
            DVal of Namespaces.ename Unbound.binder * (Namespaces.tname Unbound.binder list, expr) Unbound.bind Unbound.outer * Region.region Unbound.outer
@@ -66,13 +67,14 @@ type ('this, 'env) expr_visitor_vtable =
        visit_EBinOp : 'this -> 'env -> bin_op * expr * expr -> T.expr,
        visit_ETriOp : 'this -> 'env -> tri_op * expr * expr * expr -> T.expr,
        visit_EEI : 'this -> 'env -> expr_EI * expr * idx -> T.expr,
+       visit_EET : 'this -> 'env -> expr_ET * expr * mtype -> T.expr,
        visit_ET : 'this -> 'env -> expr_T * mtype * region -> T.expr,
        visit_EAbs : 'this -> 'env -> (ptrn, expr) bind -> T.expr,
        visit_EAbsI : 'this -> 'env -> (sort, expr) ibind_anno * region -> T.expr,
-       visit_EAppConstr : 'this -> 'env -> (var * bool) * idx list * expr -> T.expr,
+       visit_EAppConstr : 'this -> 'env -> (var * bool) * mtype list * idx list * expr * mtype option -> T.expr,
        visit_ECase : 'this -> 'env -> expr * return * (ptrn, expr) bind list * region -> T.expr,
        visit_ELet : 'this -> 'env -> return * (decl tele, expr) bind * region -> T.expr,
-       visit_EAscription : 'this -> 'env -> expr * mtype -> T.expr,
+       visit_EAsc : 'this -> 'env -> expr * mtype -> T.expr,
        visit_decl : 'this -> 'env ctx -> decl -> T.decl,
        visit_DVal : 'this -> 'env ctx -> ename binder * (tname binder list, expr) bind outer * region outer -> T.decl,
        visit_DValPtrn : 'this -> 'env ctx -> ptrn * expr outer * region outer -> T.decl,
@@ -133,13 +135,14 @@ fun default_expr_visitor_vtable
           | EBinOp data => #visit_EBinOp vtable this env data
 	  | ETriOp data => #visit_ETriOp vtable this env data
           | EEI data => #visit_EEI vtable this env data
+          | EET data => #visit_EET vtable this env data
           | ET data => #visit_ET vtable this env data
 	  | EAbs data => #visit_EAbs vtable this env data
 	  | EAbsI data => #visit_EAbsI vtable this env data
 	  | EAppConstr data => #visit_EAppConstr vtable this env data
 	  | ECase data => #visit_ECase vtable this env data
 	  | ELet data => #visit_ELet vtable this env data
-	  | EAscription data => #visit_EAscription vtable this env data
+	  | EAsc data => #visit_EAsc vtable this env data
       end
     fun visit_EVar this env data =
       let
@@ -191,6 +194,15 @@ fun default_expr_visitor_vtable
       in
         T.EEI (opr, e, i)
       end
+    fun visit_EET this env data = 
+      let
+        val vtable = cast this
+        val (opr, e, t) = data
+        val e = #visit_expr vtable this env e
+        val t = #visit_mtype vtable this env t
+      in
+        T.EET (opr, e, t)
+      end
     fun visit_ET this env data = 
       let
         val vtable = cast this
@@ -218,12 +230,14 @@ fun default_expr_visitor_vtable
     fun visit_EAppConstr this env data = 
       let
         val vtable = cast this
-        val ((var, eia), is, e) = data
+        val ((var, eia), ts, is, e, ot) = data
         val var = #visit_var vtable this env var
+        val ts = map (#visit_mtype vtable this env) ts
         val is = map (#visit_idx vtable this env) is
         val e = #visit_expr vtable this env e
+        val ot = Option.map (#visit_mtype vtable this env) ot
       in
-        T.EAppConstr ((var, eia), is, e)
+        T.EAppConstr ((var, eia), ts, is, e, ot)
       end
     fun visit_return this env (t, i) =
       let
@@ -252,14 +266,14 @@ fun default_expr_visitor_vtable
       in
         T.ELet (return, bind, r)
       end
-    fun visit_EAscription this env data = 
+    fun visit_EAsc this env data = 
       let
         val vtable = cast this
         val (e, t) = data
         val e = #visit_expr vtable this env e
         val t = #visit_mtype vtable this env t
       in
-        T.EAscription (e, t)
+        T.EAsc (e, t)
       end
     fun visit_decl this env data =
       let
@@ -423,13 +437,14 @@ fun default_expr_visitor_vtable
       visit_EBinOp = visit_EBinOp,
       visit_ETriOp = visit_ETriOp,
       visit_EEI = visit_EEI,
+      visit_EET = visit_EET,
       visit_ET = visit_ET,
       visit_EAbs = visit_EAbs,
       visit_EAbsI = visit_EAbsI,
       visit_EAppConstr = visit_EAppConstr,
       visit_ECase = visit_ECase,
       visit_ELet = visit_ELet,
-      visit_EAscription = visit_EAscription,
+      visit_EAsc = visit_EAsc,
       visit_decl = visit_decl,
       visit_DVal = visit_DVal,
       visit_DValPtrn = visit_DValPtrn,

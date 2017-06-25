@@ -315,24 +315,24 @@ fun copy_anno gctx (anno as (t, d)) e =
           in
             ELet ((t, d), Unbound.Bind (Teles decls, copy_anno (shift_return (sctxn, kctxn) (t, d')) e), r)
           end
-        | EAscription (e, t') =>
+        | EAsc (e, t') =>
           let
             val t = SOME t'
             val e = copy_anno (t, d) e
           in
-            EAscription (e, t')
+            EAsc (e, t')
           end
-        | EEI (EEIAscriptionTime, e, d') =>
+        | EEI (EEIAscTime, e, d') =>
           let
             val d = SOME d'
             val e = copy_anno (t, d) e
           in
-            AscriptionTime (e, d')
+            EAscTime (e, d')
           end
         | ET (ETNever, _, _) => e
         | _ =>
           case t of
-              SOME t => EAscription (e, t)
+              SOME t => EAsc (e, t)
             | NONE => e
     end
       
@@ -361,7 +361,7 @@ fun on_expr gctx (ctx as (sctx, kctx, cctx, tctx)) e =
       case e of
 	  S.EVar (x, b) => 
 	  (case find_constr gctx cctx x of
-	       SOME (x, _) => EAppConstr ((x, b), [], TT $ get_region_long_id x)
+	       SOME (x, _) => EAppConstr ((x, b), [], [], ETT $ get_region_long_id x, NONE)
 	     | NONE => EVar ((on_long_id gctx #4 tctx x), b)
           )
         | S.EConst c => EConst c
@@ -372,13 +372,13 @@ fun on_expr gctx (ctx as (sctx, kctx, cctx, tctx)) e =
 	       let
                  val e2 = on_expr ctx e2
 	         fun default () = 
-                   App (on_expr ctx e1, e2)
-	         val (e1, is) = S.collect_AppI e1 
+                   EApp (on_expr ctx e1, e2)
+	         val (e1, is) = S.collect_EAppI e1 
 	       in
 	         case e1 of
 		     S.EVar (x, b) =>
 		     (case find_constr gctx cctx x of
-		          SOME (x, _) => EAppConstr ((x, b), map (on_idx gctx sctx) is, e2)
+		          SOME (x, _) => EAppConstr ((x, b), [], map (on_idx gctx sctx) is, e2, NONE)
 		        | NONE => default ())
 	           | _ => default ()
 	       end
@@ -390,25 +390,29 @@ fun on_expr gctx (ctx as (sctx, kctx, cctx, tctx)) e =
 	       EEIAppI => 
 	       let
                  fun default () = 
-                   AppI (on_expr ctx e, on_idx gctx sctx i)
-	         val (e, is) = S.collect_AppI e
+                   EAppI (on_expr ctx e, on_idx gctx sctx i)
+	         val (e, is) = S.collect_EAppI e
                  val is = is @ [i]
 	       in
 	         case e of
 		     S.EVar (x, b) =>
 		     (case find_constr gctx cctx x of
-		          SOME (x, _) => EAppConstr ((x, b), map (on_idx gctx sctx) is, TT (S.get_region_i i))
+		          SOME (x, _) => EAppConstr ((x, b), [], map (on_idx gctx sctx) is, ETT (S.get_region_i i), NONE)
 		        | NONE => default ())
 	           | _ => default ()
 	       end
-	     | EEIAscriptionTime =>
+	     | EEIAscTime =>
                let
                  val i = on_idx gctx sctx i
                  val e = on_expr ctx e
                  val e = copy_anno (gctx_names gctx) (NONE, SOME i) e
                in
-                 AscriptionTime (e, i)
+                 EAscTime (e, i)
                end
+          )
+	| S.EET (opr, e, t) =>
+          (case opr of
+	       EETAppT => raise Impossible "name-resolve/EAppT"
           )
 	| S.ET (opr, t, r) => ET (opr, on_mtype gctx skctx t, r)
 	| S.EAbs bind => 
@@ -437,15 +441,15 @@ fun on_expr gctx (ctx as (sctx, kctx, cctx, tctx)) e =
           in
             ELet (return, Unbound.Bind (Teles decls, on_expr ctx e), r)
           end
-	| S.EAscription (e, t) =>
+	| S.EAsc (e, t) =>
           let
             val t = on_mtype gctx skctx t
             val e = on_expr ctx e
             val e = copy_anno (gctx_names gctx) (SOME t, NONE) e
           in
-            EAscription (e, t)
+            EAsc (e, t)
           end
-	| S.EAppConstr ((x, b), is, e) => EAppConstr ((on_long_id gctx (map fst o #3) (map fst cctx) x, b), map (on_idx gctx sctx) is, on_expr ctx e)
+	| S.EAppConstr ((x, b), ts, is, e, ot) => EAppConstr ((on_long_id gctx (map fst o #3) (map fst cctx) x, b), map (on_mtype gctx skctx) ts, map (on_idx gctx sctx) is, on_expr ctx e, Option.map (on_mtype gctx skctx) ot)
 	| S.ECase (e, return, rules, r) =>
           let
             val return = on_return gctx skctx return
@@ -663,12 +667,12 @@ fun on_module gctx m =
         in
           (ModSeal (m, sg), ctx)
         end
-      | S.ModTransparentAscription (m, sg) =>
+      | S.ModTransparentAsc (m, sg) =>
         let
           val (sg, _) = on_sig gctx sg
           val (m, ctx) = on_module gctx m
         in
-          (ModTransparentAscription (m, sg), ctx)
+          (ModTransparentAsc (m, sg), ctx)
         end
 
 fun on_top_bind gctx (name, bind) = 

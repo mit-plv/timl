@@ -274,17 +274,17 @@ local
             case m of
                 NONE =>
                 if x = "never" andalso eia = false then
-                  Never (elab_mt (S.VarT (NONE, ("_", r))), r)
+                  ENever (elab_mt (S.VarT (NONE, ("_", r))), r)
                 else if x = "builtin" andalso eia = false then
-                  Builtin (elab_mt (S.VarT (NONE, ("_", r))), r)
+                  EBuiltin (elab_mt (S.VarT (NONE, ("_", r))), r)
                 else
                   def ()
               | SOME _ => def ()
           end
 	| S.Tuple (es, r) =>
 	  (case es of
-	       [] => TT r
-	     | e :: es => foldl (fn (e2, e1) => Pair (e1, elab e2)) (elab e) es)
+	       [] => ETT r
+	     | e :: es => foldl (fn (e2, e1) => EPair (e1, elab e2)) (elab e) es)
 	| S.Abs (binds, (t, d), e, r) =>
 	  let 
             fun f (b, e) =
@@ -292,42 +292,42 @@ local
 		    Typing pn => EAbs $ Unbound.Bind (elab_pn pn, e)
 		  | TBind (name, s, _) => EAbsI (BindAnno ((IName name, elab_s s), e), r)
             val e = elab e
-            val e = case d of SOME d => AscriptionTime (e, elab_i d) | _ => e
-            val e = case t of SOME t => EAscription (e, elab_mt t) | _ => e
+            val e = case d of SOME d => EAscTime (e, elab_i d) | _ => e
+            val e = case t of SOME t => EAsc (e, elab_mt t) | _ => e
 	  in
 	    foldr f e binds
 	  end
 	| S.App (e1, e2, r) =>
 	  let 
-	    fun default () = App (elab e1, elab e2)
+	    fun default () = EApp (elab e1, elab e2)
 	  in
 	    case e1 of
 		S.Var ((m, (x, _)), false) =>
                 (case m of
                      NONE =>
-		     if x = "fst" then Fst (elab e2, r)
-		     else if x = "snd" then Snd (elab e2, r)
+		     if x = "fst" then EFst (elab e2, r)
+		     else if x = "snd" then ESnd (elab e2, r)
 		     else default ()
                    | SOME _ => default ()
                 )
 	      | _ => default ()
 	  end
 	| S.AppI (e, i, _) =>
-	  AppI (elab e, elab_i i)
+	  EAppI (elab e, elab_i i)
 	| S.Case (e, return, rules, r) =>
 	  let
             (* val rules = map (mapSnd (copy_anno return)) rules *)
 	  in
 	    ECase (elab e, elab_return return, map (fn (pn, e) => Unbound.Bind (elab_pn pn, elab e)) rules, r)
 	  end
-	| S.Ascription (e, t, _) =>
-	  EAscription (elab e, elab_mt t)
-	| S.AscriptionTime (e, i, _) =>
-	  AscriptionTime (elab e, elab_i i)
+	| S.Asc (e, t, _) =>
+	  EAsc (elab e, elab_mt t)
+	| S.AscTime (e, i, _) =>
+	  EAscTime (elab e, elab_i i)
 	| S.Let (return, decs, e, r) =>
           ELet (elab_return return, Unbound.Bind (Teles $ map elab_decl decs, elab e), r)
-	| S.Const n => ConstInt n
-	| S.ConstNat n => ConstNat n
+	| S.Const n => EConstInt n
+	| S.ConstNat n => EConstNat n
         | S.BinOp (opr, e1, e2, _) => EBinOp (opr, elab e1, elab e2)
 
   and elab_decl decl =
@@ -405,7 +405,7 @@ local
       case m of
           S.ModComponents (comps, r) => ModComponents (map elab_decl comps, r)
         | S.ModSeal (m, sg) => ModSeal (elab_mod m, elab_sig sg)
-        | S.ModTransparentAscription (m, sg) => ModTransparentAscription (elab_mod m, elab_sig sg)
+        | S.ModTransparentAsc (m, sg) => ModTransparentAsc (elab_mod m, elab_sig sg)
                                                                          
   fun elab_top_bind bind =
       case bind of
