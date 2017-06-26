@@ -449,7 +449,7 @@ fun on_expr gctx (ctx as (sctx, kctx, cctx, tctx)) e =
           in
             EAsc (e, t)
           end
-	| S.EAppConstr ((x, b), ts, is, e, ot) => EAppConstr ((on_long_id gctx (map fst o #3) (map fst cctx) x, b), map (on_mtype gctx skctx) ts, map (on_idx gctx sctx) is, on_expr ctx e, Option.map (on_mtype gctx skctx) ot)
+	| S.EAppConstr ((x, b), ts, is, e, ot) => EAppConstr ((on_long_id gctx (map fst o #3) (map fst cctx) x, b), map (on_mtype gctx skctx) ts, map (on_idx gctx sctx) is, on_expr ctx e, Option.map (mapSnd (on_mtype gctx skctx)) ot)
 	| S.ECase (e, return, rules, r) =>
           let
             val return = on_return gctx skctx return

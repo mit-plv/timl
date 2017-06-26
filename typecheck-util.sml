@@ -25,12 +25,12 @@ infix 1 <->
         
 exception Error of region * string list
 
-type kind_ext = mtype option (*is datatype*) * kind * mtype option (*aliasing*)
+type kind_ext = kind * mtype option (*aliasing*)
 
-fun str_ke gctx (ctx as (sctx, kctx)) (dt, k, t) =
-  if not dt andalso isNone t then str_k k
+fun str_ke gctx (ctx as (sctx, kctx)) (k, t) =
+  if isNone t then str_k k
   else
-    sprintf "($$$)" [str_k k, if dt then " [datatype]" else "", str_opt (fn t => sprintf " (= $)" [str_mt gctx ctx t]) t]
+    sprintf "($$)" [str_k k, str_opt (fn t => sprintf " (= $)" [str_mt gctx ctx t]) t]
                                  
 (* sorting context *)
 type scontext = (string (* option *) * sort) list
@@ -65,9 +65,9 @@ type sigcontext = sgntr Gctx.map
                                    
 fun names ctx = map fst ctx
 
-fun shiftx_i_ke x n (dt, k, t) = (dt, k, Option.map (shiftx_i_mt x n) t)
+fun shiftx_i_ke x n (k, t) = (k, Option.map (shiftx_i_mt x n) t)
                                   
-fun shiftx_t_ke x n (dt, k, t) = (dt, k, Option.map (shiftx_t_mt x n) t)
+fun shiftx_t_ke x n (k, t) = (k, Option.map (shiftx_t_mt x n) t)
                                   
 fun shiftx_i_ps n ps = 
   map (shiftx_i_p 0 n) ps
@@ -127,8 +127,8 @@ fun add_nondep_sortings_skc pairs (sctx, kctx, cctx) =
 fun sctx_names (ctx : scontext) = (* List.mapPartial id $ *) map fst ctx
 fun sctx_length (ctx : scontext) = length $ sctx_names ctx
 
-fun KeKind k = (false, k, NONE)
-fun KeTypeEq (k, t) = (false, k, SOME t)
+fun KeKind k = (k, NONE)
+fun KeTypeEq (k, t) = (k, SOME t)
 
 fun add_kindingext pair (kctx : kcontext) = pair :: kctx
 fun add_kinding pair = add_kindingext $ mapSnd KeKind pair
@@ -222,9 +222,9 @@ fun ctx_from_typing pair : context = ([], [], [], [pair])
 
 (* fetching from context *)
                                    
-fun package_i_ke x v (dt, k, t) = (dt, k, Option.map (package_i_mt x v) t)
+fun package_i_ke x v (k, t) = (k, Option.map (package_i_mt x v) t)
                                   
-fun package_t_ke x v (dt, k, t) = (dt, k, Option.map (package_t_mt x v) t)
+fun package_t_ke x v (k, t) = (k, Option.map (package_t_mt x v) t)
 
 fun package0_ke v (b : kind_ext) =
   package_t_ke 0 v $ package_i_ke 0 v b
@@ -274,7 +274,7 @@ fun lookup_kindext_by_name kctx name =
       NONE => NONE
     | SOME (n, k) => SOME (n, shiftx_t_ke 0 (n + 1) k)
 
-fun get_ke_kind (_, k, _) = k
+fun get_ke_kind ((k, _) : kind_ext) = k
                            
 fun lookup_kind (n : int) kctx = 
   case nth_error kctx n of
@@ -373,18 +373,16 @@ fun fetch_kindext gctx (kctx, x) =
 (* fun fetch_kind a = generic_fetch shiftx_m_k package0_kind do_fetch_kind #2 a *)
 fun fetch_kind gctx (kctx, x) = get_ke_kind $ fetch_kindext gctx (kctx, x)
                                             
+fun is_datatype (_, t) = 
+  case t of
+      SOME (TDatatype _) => true
+    | _ => false
+             
 fun fetch_is_datatype gctx (kctx, x) =
   let
-    val (dt, _, _) = fetch_kindext gctx (kctx, x)
+    val k = fetch_kindext gctx (kctx, x)
   in
-    dt
-  end
-
-fun fetch_kind_and_is_datatype gctx (kctx, x) =
-  let
-    val (dt, (n, sorts), _) = fetch_kindext gctx (kctx, x)
-  in
-    (dt, n, sorts)
+    is_datatype k
   end
 
 fun do_fetch_kindext_by_name (kctx, (name, r)) =
@@ -464,12 +462,14 @@ fun fetch_type_by_name gctx ctx (m, name) =
   in
     ((m, x), t)
   end
-    
+
 fun try_retrieve_MtVar f gctx kctx x =
   let
     val k = fetch_kindext gctx (kctx, x)
+    val alias = #2 k
+    val alias = if is_datatype k then NONE else alias
   in
-    default (MtVar x) $ Option.map f (#3 k)
+    default (MtVar x) $ Option.map f alias
   end
 
 (* verification conditions written incrementally during typechecking *)

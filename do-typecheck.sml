@@ -794,7 +794,7 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
  	let
           val inames = map binder2str inames
           val c as (family, tbinds) = snd $ fetch_constr gctx (cctx, cx)
-          val siblings = get_family_siblings gctx cctx cx
+          val siblings = map fst $ get_family_siblings gctx cctx cx
           val pos_in_family = index (curry eq_long_id cx) siblings !! (fn () => raise Impossible "family_pos")
           val (tname_kinds, ibinds) = unfold_binds tbinds
           val tnames = map fst tname_kinds
@@ -1492,10 +1492,10 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                     end
                   | _ => raise Impossible "get_mtype (): U.EAppConstr: e in wrong form"
             val e = forget_e_e 0 1 e
-            val siblings = get_family_siblings gctx cctx cx
-            val pos_in_family = index (curry eq_long_id cx) (map fst siblings) !! (fn () => raise Impossible "family_pos")
-            val dt = 
-            val t = TDatatype (Abs dt, dummy)
+            val siblings = get_family_siblings gctx cctx x
+            val pos_in_family = index (curry eq_long_id x) (map fst siblings) !! (fn () => raise Impossible "get_mtype(): family_pos")
+            val family = get_family $ snd $ hd siblings
+            val t = MtVar family
             val e = EAppConstr ((x, true), ts, is, e, SOME (pos_in_family, t))
 	  in
 	    (e, t, d)
@@ -1753,7 +1753,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
                   fun sort_set_idx_eq s' i =
                     set_prop r s' (VarI (NONE, (0, r)) %= shift_i_i i)
                   val sctx = mapWithIdx (fn (i, (name, s)) => (name, sort_set_idx_eq s $ VarI (SOME (m, r), (i, r)))) sctx
-                  fun kind_set_type_eq (dt, k, _) t = (dt, k, SOME t)
+                  fun kind_set_type_eq (k, _) t = (k, SOME t)
                   val kctx = mapWithIdx (fn (i, (name, k)) => (name, kind_set_type_eq k $ MtVar (SOME (m, r), (i, r)))) kctx
                 in
                   (sctx, kctx, cctx, tctx)
@@ -1814,7 +1814,7 @@ and is_wf_datatype gctx ctx (dt : U.mtype U.datatype_def, r) : mtype datatype_de
       val (tname_kinds, (sorts, constr_decls)) = unfold_binds tbinds
       val tnames = map fst tname_kinds
       val sorts = map is_wf_bsort sorts
-      val nk = (name, (true, (length tnames, sorts), NONE))
+      val nk = (name, ((length tnames, sorts), NONE))
       val ctx as (sctx, kctx, _, _) = add_kindingext_skct nk ctx
       fun make_constr ((name, ibinds, r) : U.mtype U.constr_decl) : mtype constr_decl * (string * mtype constr) =
 	let
@@ -1855,6 +1855,7 @@ and is_wf_datatype gctx ctx (dt : U.mtype U.datatype_def, r) : mtype datatype_de
       val (constr_decls, constrs) = (unzip o map make_constr) constr_decls
       val dt = (name, fold_binds (tname_kinds, (sorts, constr_decls)))
       val dt = to_Unbound $ dt
+      val nk = mapSnd (mapSnd (const_fun (SOME $ TDatatype (Abs dt, r)))) nk
     in
       (dt, ([], add_kindingext nk [], rev constrs, []))
     end
@@ -1977,14 +1978,14 @@ fun link_sig r gctx m (ctx' as (sctx', kctx', cctx', tctx') : context) =
       let
         val (x, k) = fetch_kindext_by_name gctx [] (SOME m, (name, r))
         val () = is_sub_kindext r gctx (sctx', kctx') (k, k')
-        fun kind_add_type_eq (dt, k, t') t =
+        fun kind_add_type_eq (k, t') t =
           case t' of
-              NONE => (dt, k, SOME t)
+              NONE => (k, SOME t)
            |  SOME t' =>
               let
                 val () = unify_mt r gctx (sctx', kctx') (t', t)
               in
-                (dt, k, SOME t')
+                (k, SOME t')
               end
         val k' = kind_add_type_eq k' (MtVar x)
       in
@@ -2154,7 +2155,7 @@ fun check_top_bind gctx (name, bind) =
     
 open CollectMod
        
-fun collect_mod_ke (dt, k, t) = default [] (Option.map collect_mod_mt t)
+fun collect_mod_ke (k, t) = default [] (Option.map collect_mod_mt t)
                                         
 fun collect_mod_ctx ((sctx, kctx, cctx, tctx) : context) =
   let

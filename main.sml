@@ -384,6 +384,7 @@ fun main (prog_name, args : string list) =
     TiML.Error msg => (println msg; failure)
     | IO.Io e => (println (sprintf "IO Error doing $ on $" [#function e, #name e]); failure)
     | Impossible msg => (println ("Impossible: " ^ msg); failure)
+    | Unimpl msg => (println ("Unimpl: " ^ msg); failure)
     | ParseArgsError msg => (println msg; usage (); failure)
                                (* | _ => (println ("Internal error"); failure) *)
 

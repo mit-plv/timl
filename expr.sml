@@ -90,7 +90,7 @@ datatype expr =
          | ET of expr_T * mtype * region
 	 | EAbs of (ptrn, expr) bind
 	 | EAbsI of (sort, expr) ibind_anno * region
-	 | EAppConstr of (long_id * bool) * mtype list * idx list * expr * mtype option
+	 | EAppConstr of (long_id * bool) * mtype list * idx list * expr * (int * mtype) option
 	 | ECase of expr * return * (ptrn, expr) bind list * region
 	 | ELet of return * (decl tele, expr) bind * region
 	 | EAsc of expr * mtype
@@ -2646,7 +2646,9 @@ fun on_option f acc a =
   case a of
       SOME a => f acc a
     | NONE => acc
-                
+
+fun on_snd f acc (a, b) = f acc b
+  
 local
   fun f acc b =
     case b of
@@ -2746,7 +2748,7 @@ local
             val acc = on_list on_mt acc ts
             val acc = on_list on_i acc is
             val acc = f acc e
-            val acc = on_option on_mt acc ot
+            val acc = on_option (on_snd on_mt) acc ot
           in
             acc
           end

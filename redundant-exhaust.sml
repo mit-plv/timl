@@ -80,7 +80,7 @@ fun cover_neg gctx (ctx as (sctx, kctx, cctx)) (t : mtype) c =
 	(case is_AppV t of
 	     SOME (family, ts, _) =>
 	     let
-               val all = get_family_siblings gctx cctx x
+               val all = map fst $ get_family_siblings gctx cctx x
                (* val () = println $ sprintf "Family of $: $" [str_long_id #3 (gctx_names gctx) (names cctx) x, str_ls (str_long_id #3 (gctx_names gctx) (names cctx)) all] *)
 	       val others = diff eq_long_id all [x]
                (* val () = println $ sprintf "Family siblings of $: $" [str_long_id #3 (gctx_names gctx) (names cctx) x, str_ls (str_long_id #3 (gctx_names gctx) (names cctx)) others] *)

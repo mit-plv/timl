@@ -84,7 +84,7 @@ fun update_t t =
       Mono t => Mono (update_mt t)
     | Uni (Bind (name, t), r) => Uni (Bind (name, update_t t), r)
 
-fun update_ke (dt, k, t) = (dt, update_k k, Option.map update_mt t)
+fun update_ke (k, t) = (update_k k, Option.map update_mt t)
 
 fun update_c ((x, tbinds) : mtype constr) =
   let
@@ -320,7 +320,7 @@ fun normalize_t gctx kctx t =
 
 fun normalize_k k = mapSnd (map normalize_bs) k
 
-fun normalize_ke gctx kctx ((dt, k, t) : kind_ext) = (dt, normalize_k k, Option.map (normalize_mt gctx kctx) t)
+fun normalize_ke gctx kctx ((k, t) : kind_ext) = (normalize_k k, Option.map (normalize_mt gctx kctx) t)
 
 fun normalize_c gctx kctx ((x, core) : mtype constr) : mtype constr =
   let

@@ -27,7 +27,7 @@ signature EXPR = sig
            | ET of Operators.expr_T * mtype * Region.region
 	   | EAbs of (ptrn, expr) Unbound.bind
 	   | EAbsI of (sort, expr) Binders.ibind_anno * Region.region
-	   | EAppConstr of (var * bool) * mtype list * idx list * expr * mtype option
+	   | EAppConstr of (var * bool) * mtype list * idx list * expr * (int * mtype) option
 	   | ECase of expr * return * (ptrn, expr) Unbound.bind list * Region.region
 	   | ELet of return * (decl Unbound.tele, expr) Unbound.bind * Region.region
 	   | EAsc of expr * mtype
@@ -71,7 +71,7 @@ type ('this, 'env) expr_visitor_vtable =
        visit_ET : 'this -> 'env -> expr_T * mtype * region -> T.expr,
        visit_EAbs : 'this -> 'env -> (ptrn, expr) bind -> T.expr,
        visit_EAbsI : 'this -> 'env -> (sort, expr) ibind_anno * region -> T.expr,
-       visit_EAppConstr : 'this -> 'env -> (var * bool) * mtype list * idx list * expr * mtype option -> T.expr,
+       visit_EAppConstr : 'this -> 'env -> (var * bool) * mtype list * idx list * expr * (int * mtype) option -> T.expr,
        visit_ECase : 'this -> 'env -> expr * return * (ptrn, expr) bind list * region -> T.expr,
        visit_ELet : 'this -> 'env -> return * (decl tele, expr) bind * region -> T.expr,
        visit_EAsc : 'this -> 'env -> expr * mtype -> T.expr,
@@ -235,7 +235,7 @@ fun default_expr_visitor_vtable
         val ts = map (#visit_mtype vtable this env) ts
         val is = map (#visit_idx vtable this env) is
         val e = #visit_expr vtable this env e
-        val ot = Option.map (#visit_mtype vtable this env) ot
+        val ot = Option.map (mapSnd (#visit_mtype vtable this env)) ot
       in
         T.EAppConstr ((var, eia), ts, is, e, ot)
       end
