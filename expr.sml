@@ -1032,7 +1032,7 @@ fun str_e gctx (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
         end
       | EAsc (e, t) => sprintf "($ : $)" [str_e ctx e, str_mt gctx skctx t]
       | EAppConstr ((x, b), ts, is, e, _) =>
-        sprintf "($$$ $)" [
+        sprintf "([$]$$ $)" [
           decorate_var b $ str_long_id #3 gctx cctx x,
           (join "" o map (prefix " ") o map (fn t => sprintf "{$}" [str_mt gctx skctx t])) ts,
           (join "" o map (prefix " ") o map (fn i => sprintf "{$}" [str_i gctx sctx i])) is,

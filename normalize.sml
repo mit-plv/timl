@@ -77,7 +77,27 @@ fun update_mt t =
     | MtAbsI (s, Bind (name, t), r) => MtAbsI (update_bs s, Bind (name, update_mt t), r)
     | MtAppI (t, i) => MtAppI (update_mt t, update_i i)
     | BaseType a => BaseType a
-    | TDatatype _ => raise Unimpl "undate_mt()/TDatatype"
+    | TDatatype (Abs dt, r) =>
+      let
+        open TypeUtil
+        val (name, tbinds) = from_Unbound dt
+        val (tname_kinds, (bsorts, decls)) = unfold_binds tbinds
+        val bsorts = map update_bs bsorts
+        fun update_constr_core ibinds =
+          let
+            val (name_sorts, (t, is)) = unfold_binds ibinds
+            val name_sorts = map (mapSnd update_s) name_sorts
+            val t = update_mt t
+            val is = map update_i is
+          in
+            fold_binds (name_sorts, (t, is))
+          end
+        val decls = map (map2_3 update_constr_core) decls
+        val tbinds = fold_binds (tname_kinds, (bsorts, decls))
+        val dt = to_Unbound (name, tbinds)
+      in
+        TDatatype (Abs dt, r)
+      end
 
 fun update_t t =
   case t of
@@ -307,12 +327,41 @@ fun normalize_mt gctx kctx t =
                 | _ => MtApp (t1, t2)
             end
           | BaseType a => BaseType a
-          | TDatatype _ => raise Unimpl "normalize_mt()/TDatatype"
+          | TDatatype (Abs dt, r) =>
+            let
+              open TypeUtil
+              val dt = from_Unbound dt
+              fun get_kind dt =
+                let
+                  val (tname_kinds, (bsorts, _)) = unfold_binds $ snd dt
+                in
+                  (length tname_kinds, bsorts)
+                end
+              fun on_body kctx (bsorts, constr_decls) =
+                (bsorts, (map o map2_3) (normalize_constr_core gctx kctx) constr_decls)
+              val Bind dt = normalize_tbind id (normalize_tbinds id (const_fun Type) id on_body) kctx (get_kind dt) $ Bind dt
+              val dt = to_Unbound dt
+            in
+              TDatatype (Abs dt, r)
+            end
     (* val () = println $ "end normalize_mt()" *)
   in
     ret
   end
 
+and normalize_constr_core gctx kctx c =
+  let
+    fun on_body kctx (t, is) =
+      let
+        val t = normalize_mt gctx kctx t
+        val is = map normalize_i is
+      in
+        (t, is)
+      end
+  in
+    normalize_ibinds normalize_s on_body kctx c
+  end
+    
 fun normalize_t gctx kctx t =
   case t of
       Mono t => Mono (normalize_mt gctx kctx t)
@@ -324,14 +373,7 @@ fun normalize_ke gctx kctx ((k, t) : kind_ext) = (normalize_k k, Option.map (nor
 
 fun normalize_c gctx kctx ((x, core) : mtype constr) : mtype constr =
   let
-    fun on_body kctx (t, is) =
-      let
-        val t = normalize_mt gctx kctx t
-        val is = map normalize_i is
-      in
-        (t, is)
-      end
-    val core = normalize_tbinds id (const_fun Type) id (normalize_ibinds normalize_s on_body) kctx core
+    val core = normalize_tbinds id (const_fun Type) id (normalize_constr_core gctx) kctx core
   in
     (x, core)
   end

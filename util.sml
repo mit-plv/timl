@@ -90,6 +90,7 @@ fun swap f (a, b) = f (b, a)
 fun flip f a b = f b a
 fun map4 f (a, b, c, d) = (a, b, c, f d)
 fun map3_4 f (a, b, c, d) = (a, b, f c, d)
+fun map2_3 f (a, b, c) = (a, f b, c)
 fun attach_fst a b = (a, b)
 fun attach_snd b a = (a, b)
 (* fun add_idx ls = ListPair.zip (range (length ls), ls) *)

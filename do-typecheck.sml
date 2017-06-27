@@ -1495,8 +1495,8 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
             val siblings = get_family_siblings gctx cctx x
             val pos_in_family = index (curry eq_long_id x) (map fst siblings) !! (fn () => raise Impossible "get_mtype(): family_pos")
             val family = get_family $ snd $ hd siblings
-            val t = MtVar family
-            val e = EAppConstr ((x, true), ts, is, e, SOME (pos_in_family, t))
+            val family_type = MtVar family
+            val e = EAppConstr ((x, true), ts, is, e, SOME (pos_in_family, family_type))
 	  in
 	    (e, t, d)
 	  end

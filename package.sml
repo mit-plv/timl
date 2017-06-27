@@ -65,69 +65,11 @@ fun package_i_s x v (b : sort) : sort = f x v b
 end
 fun package0_s v = package_i_s 0 v
 
-local
-  fun f x v b =
-    case b of
-	Arrow (t1, d, t2) => Arrow (f x v t1, package_i_i x v d, f x v t2)
-      | TyArray (t, i) => TyArray (f x v t, package_i_i x v i)
-      | TyNat (i, r) => TyNat (package_i_i x v i, r)
-      | Unit r => Unit r
-      | Prod (t1, t2) => Prod (f x v t1, f x v t2)
-      | UniI (s, bind, r) => UniI (package_i_s x v s, package_i_ibind f x v bind, r)
-      | MtVar y => MtVar y
-      | MtAbs (k, bind, r) => MtAbs (k, package_i_tbind f x v bind, r)
-      | MtApp (t1, t2) => MtApp (f x v t1, f x v t2)
-      | MtAbsI (b, bind, r) => MtAbsI (b, package_i_ibind f x v bind, r)
-      | MtAppI (t, i) => MtAppI (f x v t, package_i_i x v i)
-      | BaseType a => BaseType a
-      | UVar a => b
-      | TDatatype _ => raise Unimpl "package_i_mt()/TDatatype"
-in
-fun package_i_mt x v (b : mtype) : mtype = f x v b
-end
-
-local
-  fun f x v b =
-    case b of
-	Mono t => Mono (package_i_mt x v t)
-      | Uni (bind, r) => Uni (package_i_tbind f x v bind, r)
-in
-fun package_i_t x v (b : ty) : ty = f x v b
-end
-
 fun package_t_ibind f x v (Bind (name, inner) : ('a * 'b) ibind) =
   Bind (name, f x v inner)
 
 fun package_t_tbind f x v (Bind (name, inner) : ('a * 'b) tbind) =
   Bind (name, f (x + 1) v inner)
-
-local
-  fun f x v (b : mtype) : mtype =
-    case b of
-	Arrow (t1, d, t2) => Arrow (f x v t1, d, f x v t2)
-      | TyArray (t, i) => TyArray (f x v t, i)
-      | TyNat (i, r) => TyNat (i, r)
-      | Unit r => Unit r
-      | Prod (t1, t2) => Prod (f x v t1, f x v t2)
-      | UniI (s, bind, r) => UniI (s, package_t_ibind f x v bind, r)
-      | MtVar y => MtVar $ package_long_id x v y
-      | MtAbs (k, bind, r) => MtAbs (k, package_t_tbind f x v bind, r)
-      | MtApp (t1, t2) => MtApp (f x v t1, f x v t2)
-      | MtAbsI (s, bind, r) => MtAbsI (s, package_t_ibind f x v bind, r)
-      | MtAppI (t, i) => MtAppI (f x v t, i)
-      | BaseType a => BaseType a
-      | UVar a => b
-      | TDatatype _ => raise Unimpl "package_t_mt()/TDatatype"
-in
-fun package_t_mt x v (b : mtype) : mtype = f x v b
-end
-fun package0_mt v b = package_t_mt 0 v $ package_i_mt 0 v b
-
-fun package_t_t x v (b : ty) : ty =
-  case b of
-      Mono t => Mono (package_t_mt x v t)
-    | Uni (bind, r) => Uni (package_t_tbind package_t_t x v bind, r)
-fun package0_t v b = package_t_t 0 v $ package_i_t 0 v b
 
 fun package_binds on_bind f_cls f_inner x v ibinds =
   let
@@ -161,19 +103,110 @@ fun package_t_ibinds f_cls f_inner x v ibinds = package_binds package_t_ibind f_
 fun package_i_tbinds f_cls f_inner x v ibinds = package_binds package_i_tbind f_cls f_inner x v ibinds
 fun package_t_tbinds f_cls f_inner x v ibinds = package_binds package_t_tbind f_cls f_inner x v ibinds
 
+fun package_i_mt x v (b : mtype) : mtype =
+  let
+    val f = package_i_mt
+  in
+    case b of
+	Arrow (t1, d, t2) => Arrow (f x v t1, package_i_i x v d, f x v t2)
+      | TyArray (t, i) => TyArray (f x v t, package_i_i x v i)
+      | TyNat (i, r) => TyNat (package_i_i x v i, r)
+      | Unit r => Unit r
+      | Prod (t1, t2) => Prod (f x v t1, f x v t2)
+      | UniI (s, bind, r) => UniI (package_i_s x v s, package_i_ibind f x v bind, r)
+      | MtVar y => MtVar y
+      | MtAbs (k, bind, r) => MtAbs (k, package_i_tbind f x v bind, r)
+      | MtApp (t1, t2) => MtApp (f x v t1, f x v t2)
+      | MtAbsI (b, bind, r) => MtAbsI (b, package_i_ibind f x v bind, r)
+      | MtAppI (t, i) => MtAppI (f x v t, package_i_i x v i)
+      | BaseType a => BaseType a
+      | UVar a => b
+      | TDatatype (Abs dt, r) =>
+        let
+          open TypeUtil
+          val (name, tbinds) = from_Unbound dt
+          fun on_body x v (bsorts, decls) =
+            (bsorts, map (map2_3 (package_i_constr_core x v)) decls)
+          val tbinds = package_i_tbinds return3 on_body x v tbinds
+          val dt = to_Unbound (name, tbinds)
+        in
+          TDatatype (Abs dt, r)
+        end
+  end
+
+and package_i_constr_core x m b =
+  let
+    fun on_body x m (t, is) = (package_i_mt x m t, map (package_i_i x m) is)
+  in
+    package_i_ibinds package_i_s on_body x m b
+  end
+    
+local
+  fun f x v b =
+    case b of
+	Mono t => Mono (package_i_mt x v t)
+      | Uni (bind, r) => Uni (package_i_tbind f x v bind, r)
+in
+fun package_i_t x v (b : ty) : ty = f x v b
+end
+
+fun package_t_mt x v (b : mtype) : mtype =
+  let
+    val f = package_t_mt
+  in
+    case b of
+	Arrow (t1, d, t2) => Arrow (f x v t1, d, f x v t2)
+      | TyArray (t, i) => TyArray (f x v t, i)
+      | TyNat (i, r) => TyNat (i, r)
+      | Unit r => Unit r
+      | Prod (t1, t2) => Prod (f x v t1, f x v t2)
+      | UniI (s, bind, r) => UniI (s, package_t_ibind f x v bind, r)
+      | MtVar y => MtVar $ package_long_id x v y
+      | MtAbs (k, bind, r) => MtAbs (k, package_t_tbind f x v bind, r)
+      | MtApp (t1, t2) => MtApp (f x v t1, f x v t2)
+      | MtAbsI (s, bind, r) => MtAbsI (s, package_t_ibind f x v bind, r)
+      | MtAppI (t, i) => MtAppI (f x v t, i)
+      | BaseType a => BaseType a
+      | UVar a => b
+      | TDatatype (Abs dt, r) =>
+        let
+          open TypeUtil
+          val (name, tbinds) = from_Unbound dt
+          fun on_body x v (bsorts, decls) =
+            (bsorts, map (map2_3 (package_t_constr_core x v)) decls)
+          val tbinds = package_t_tbinds return3 on_body x v tbinds
+          val dt = to_Unbound (name, tbinds)
+        in
+          TDatatype (Abs dt, r)
+        end
+  end
+    
+and package_t_constr_core x m b =
+  let
+    fun on_body x v (t, is) = (package_t_mt x v t, is)
+  in
+    package_t_ibinds return3 on_body x m b
+  end
+    
+fun package0_mt v b = package_t_mt 0 v $ package_i_mt 0 v b
+
+fun package_t_t x v (b : ty) : ty =
+  case b of
+      Mono t => Mono (package_t_mt x v t)
+    | Uni (bind, r) => Uni (package_t_tbind package_t_t x v bind, r)
+fun package0_t v b = package_t_t 0 v $ package_i_t 0 v b
+
 fun package_i_c x m ((family, core) : mtype constr) =
   let
-    fun on_body x v (t, is) = (package_i_mt x v t, map (package_i_i x v) is)
-    val core = package_i_tbinds return3 (package_i_ibinds package_i_s on_body) x m core
+    val core = package_i_tbinds return3 package_i_constr_core x m core
   in
     (family, core)
   end
 
 fun package_t_c x m ((family, core) : mtype constr) =
   let
-    fun on_body x v (t, is) = (package_t_mt x v t, is)
+    val core = package_t_tbinds return3 package_t_constr_core x m core
     val family = package_long_id x m family
-    val core = package_t_tbinds return3 (package_t_ibinds return3 on_body) x m core
   in
     (family, core)
   end
