@@ -246,6 +246,7 @@ fun TAppTs (t, ts) = foldl (swap TAppT) t ts
 fun EInlInr (opr, t, e) = EUnOp (EUInj (opr, t), e)
 fun EInl (t, e) = EInlInr (InjInl, t, e)
 fun EInr (t, e) = EInlInr (InjInr, t, e)
+fun EFold (t, e) = EUnOp (EUFold t, e)
 
 fun foldr' f init xs = foldl' f init $ rev xs
 
@@ -350,6 +351,8 @@ fun compare_var (m, (y, r)) x =
     
 fun shift_i_t a = shift_i_t_fn (shiftx_i_i, shiftx_i_s) a
 fun shift_t_t a = shift_t_t_fn shift_var a
+fun subst_t_t a = subst_t_t_fn shift_var compare_var (shiftx_i_i, shiftx_i_s) a
+fun subst0_t_t a = subst_t_t (IDepth 0, TDepth 0) 0 a
 fun shift_i_e a = shift_i_e_fn (shiftx_i_i, shiftx_i_s, shift_i_t) a
 fun shift_e_e a = shift_e_e_fn shift_var a
 fun subst_e_e a = subst_e_e_fn shift_var compare_var (shiftx_i_i, shiftx_i_s, shift_i_t, shift_t_t) a
@@ -421,11 +424,11 @@ fun on_e (e : S.expr) =
         val trec = on_mt t
         val (name, tbinds) = TypeUtil.from_Unbound dt
         val (tname_kinds, (bsorts, constr_decls)) = unfold_binds tbinds
-        val constr_decl as (_, core, _) = nth_error constr_decls pos !! (fn () => "to-micro-timl/AppConstr: nth_error constr_decls")
+        val constr_decl as (_, core, _) = nth_error constr_decls pos !! (fn () => raise Impossible "to-micro-timl/AppConstr: nth_error constr_decls")
         val (name_sorts, (_, result_is)) = unfold_binds core
         val () = assert (fn () => length is = length name_sorts) "length is = length name_sorts"
         val result_is = foldl (fn (v, b) => map (subst_i_i v) b) result_is is
-        val fold_anno = TAppIs (TAppTs (trec, ts), result_is)
+        val fold_anno = TAppIs (TAppTs (trec, map on_mt ts), result_is)
         fun unroll t_rec =
           let
             fun collect_until_TRec t =
@@ -436,7 +439,7 @@ fun on_e (e : S.expr) =
                   in
                     (t, args @ [inl i])
                   end
-                | TAppI (t, t') =>
+                | TAppT (t, t') =>
                   let
                     val (t, args) = collect_until_TRec t
                   in
@@ -448,17 +451,23 @@ fun on_e (e : S.expr) =
                   in
                     (t, [])
                   end
+                | _ => raise Impossible "collect_until_TRec"
             val (t_body, args) = collect_until_TRec t_rec
-            val t_body = subst0_t_t t_rec t_body
-            val t = foldl (fn (arg, t) => case arg of inl i => TAppI (t, i) | inr t' => TAppT (t, t')) t args
+            val t = subst0_t_t t_rec t_body
+            fun TApp (t, arg) =
+              case arg of
+                  inl i => TAppI (t, i)
+                | inr t' => TAppT (t, t')
+            val t = foldl (swap TApp) t args
           in
             t
           end
         val unrolled = unroll fold_anno
         val inj_anno = unTSums unrolled
-        val pack_anno = nth_error inj_anno pos !! (fn () => "to-micro-timl/AppConstr: nth_error sums")
+        val pack_anno = nth_error inj_anno pos !! (fn () => raise Impossible "to-micro-timl/AppConstr: nth_error sums")
         (* val exists = peel_exists (length is + 1) pack_anno *)
         val is = is @ [TTI dummy]
+        val e = on_e e
         val e = EPackIs (pack_anno, is, e)
         val e = EInj (inj_anno, pos, e)
         val e = EFold (fold_anno, e)
@@ -513,12 +522,15 @@ fun test filename =
     val DVal (_, Outer bind, _) = nth (decls, 1)
     val (_, e) = unBind bind
     (* val dt = TypeTrans.on_dt dt *)
-    val t = TiML.TDatatype (Abs dt, dummy)
-    val t = trans_mt t
+    val t_list = TiML.TDatatype (Abs dt, dummy)
+    val t = trans_mt t_list
     (* val () = println $ str_e empty ([], ["'a", "list"], ["Cons", "Nil"], []) e *)
     val BSNat = Base Nat
     val e = ExprTrans.simp_e [("'a", KeKind Type), ("list", KeKind (1, [BSNat]))] e
     val () = println $ str_e empty ([], ["'a", "list"], ["Cons", "Nil"], []) e
+    fun visit_subst_t_pn a = ExprTrans.visit_subst_t_pn_fn substx_t_mt a
+    fun subst_t_e a = ExprTrans.subst_t_e_fn (substx_t_mt, visit_subst_t_pn) a
+    val e = subst_t_e (IDepth 0, TDepth 1) 1 t_list e
     val e = trans_e e
     fun short_to_long_id x = (NONE, (x, dummy))
     fun visit_var (_, _, tctx) (_, (x, _)) = short_to_long_id $ nth_error (map Name2str tctx) x !! (fn () => "__unbound_" ^ str_int x)

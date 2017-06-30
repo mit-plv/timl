@@ -412,12 +412,15 @@ fun shift_e_pn_fn shift_e x n b =
     
 (***************** the "subst_e_pn" visitor  **********************)    
 
-fun subst_e_ptrn_visitor_vtable cast (subst_e, d, x, v) : ('this, idepth * edepth, 'mtype, 'expr, 'mtype, 'expr2) ptrn_visitor_vtable =
+fun subst_e_ptrn_visitor_vtable cast (subst_e, d, x, v) : ('this, idepth * tdepth * edepth, 'mtype, 'expr, 'mtype, 'expr2) ptrn_visitor_vtable =
   let
-    fun extend_i this env _ = mapFst idepth_inc env
-    fun extend_e this env _ = mapSnd edepth_inc env
-    fun add_depth (di, dt, de) (di', de') = (idepth_add (di, di'), dt, edepth_add (de, de'))
-    fun visit_expr this env b = subst_e (add_depth d env) (x + unEDepth (snd env)) v b
+    fun extend_i this (di, dt, de) _ = (idepth_inc di, dt, de)
+    fun extend_e this (di, dt, de) _ = (di, dt, edepth_inc de)
+    fun add_depth (di, dt, de) (di', dt', de') = (idepth_add (di, di'), tdepth_add (dt, dt'), edepth_add (de, de'))
+    fun get_di (di, dt, de) = di
+    fun get_dt (di, dt, de) = dt
+    fun get_de (di, dt, de) = de
+    fun visit_expr this env b = subst_e (add_depth d env) (x + unEDepth (get_de env)) v b
   in
     default_ptrn_visitor_vtable
       cast
@@ -429,15 +432,16 @@ fun subst_e_ptrn_visitor_vtable cast (subst_e, d, x, v) : ('this, idepth * edept
 
 fun new_subst_e_ptrn_visitor params = new_ptrn_visitor subst_e_ptrn_visitor_vtable params
     
-fun subst_e_pn_fn subst_e d x v b =
+fun visit_subst_e_pn_fn subst_e env d x v b =
   let
     val visitor as (PtrnVisitor vtable) = new_subst_e_ptrn_visitor (subst_e, d, x, v)
   in
-    #visit_ptrn vtable visitor (env2ctx (IDepth 0, EDepth 0)) b
+    #visit_ptrn vtable visitor env b
   end
 
-fun substx_e_pn_fn subst_e x v b = subst_e_pn_fn subst_e (IDepth 0, TDepth 0, EDepth 0) x v b
-fun subst0_e_pn_fn subst_e v b = substx_e_pn_fn subst_e 0 v b
+fun subst_e_pn_fn subst_e = visit_subst_e_pn_fn subst_e (env2ctx (IDepth 0, TDepth 0, EDepth 0))
+fun substx_e_pn_fn subst_e = subst_e_pn_fn subst_e (IDepth 0, TDepth 0, EDepth 0) 
+fun subst0_e_pn_fn subst_e = substx_e_pn_fn subst_e 0
 
 (***************** the "remove_anno" visitor  **********************)    
     

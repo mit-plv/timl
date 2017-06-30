@@ -359,14 +359,6 @@ fun default_expr_visitor_vtable
       in
         T.DRec (name, bind, r)
       end
-    fun visit_DDatatype this env data =
-      let
-        val vtable = cast this
-        val (dt, r) = data
-        val dt = #visit_datatype vtable this env dt
-      in
-        T.DDatatype (dt, r)
-      end
     fun visit_DIdxDef this env data =
       let
         val vtable = cast this
@@ -406,6 +398,14 @@ fun default_expr_visitor_vtable
         val t = visit_outer (#visit_mtype vtable this) env t
       in
         T.DTypeDef (name, t)
+      end
+    fun visit_DDatatype this env data =
+      let
+        val vtable = cast this
+        val (dt, r) = data
+        val dt = #visit_datatype vtable this env dt
+      in
+        T.DDatatype (dt, r)
       end
     fun visit_scoping_ctx this env (sctx, kctx, cctx, tctx) =
       let
@@ -550,4 +550,51 @@ fun simp_e kctx e =
     #visit_expr vtable visitor kctx e
   end
                       
+(***************** the "subst_t_e" visitor  **********************)    
+
+(* fun visit_datatype this env data = *)
+(*   let *)
+(*     val vtable =  *)
+(*     val (name, _) = data *)
+(*     val name = visit_tbinder this env name *)
+(*     val t = visit_outer (#visit_mod_projectible vtable this) env $ TDatatype (Abs data, dummy) *)
+(*     val data = case t of *)
+(*                    TDatatype (Abs dt, _) => dt *)
+(*                  | _ => raise Impossible "default_expr_visitor/visit_datatype" *)
+(*   in *)
+(*     data *)
+(*   end *)
+    
+fun subst_t_expr_visitor_vtable cast ((subst_t_t, subst_t_pn), d, x, v) : ('this, idepth * tdepth) expr_visitor_vtable =
+  let
+    fun extend_i this env _ = mapFst idepth_inc env
+    fun extend_t this env _ = mapSnd tdepth_inc env
+    fun add_depth (di, dt) (di', dt') = (idepth_add (di, di'), dt, tdepth_add (dt, dt'))
+    fun visit_mtype this env b = subst_t_t (add_depth d env) (x + unTDepth (snd env)) v b
+    fun visit_ptrn this env b = subst_t_pn env d x v b
+  in
+    default_expr_visitor_vtable
+      cast
+      extend_i
+      extend_t
+      extend_noop
+      extend_noop
+      visit_noop
+      visit_noop
+      visit_noop
+      visit_noop
+      visit_mtype
+      (visit_imposs "visit_datatype")
+      visit_ptrn
+  end
+
+fun new_subst_t_expr_visitor params = new_expr_visitor subst_t_expr_visitor_vtable params
+    
+fun subst_t_e_fn substs d x v b =
+  let
+    val visitor as (ExprVisitor vtable) = new_subst_t_expr_visitor (substs, d, x, v)
+  in
+    #visit_expr vtable visitor (IDepth 0, TDepth 0) b
+  end
+
 end

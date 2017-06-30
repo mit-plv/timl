@@ -139,4 +139,33 @@ fun new_ptrn_visitor vtable params =
     PtrnVisitor vtable
   end
     
+(***************** the "subst_t_pn" visitor  **********************)    
+
+fun subst_t_ptrn_visitor_vtable cast (subst_t_t, d, x, v) : ('this, idepth * tdepth, 'mtype, 'expr, 'mtype, 'expr2) ptrn_visitor_vtable =
+  let
+    fun extend_i this env _ = mapFst idepth_inc env
+    fun add_depth (di, dt) (di', dt') = (idepth_add (di, di'), tdepth_add (dt, dt'))
+    fun visit_mtype this env b = subst_t_t (add_depth d env) (x + unTDepth (snd env)) v b
+  in
+    default_ptrn_visitor_vtable
+      cast
+      extend_i
+      extend_noop
+      visit_noop
+      visit_mtype
+  end
+
+fun new_subst_t_ptrn_visitor params = new_ptrn_visitor subst_t_ptrn_visitor_vtable params
+    
+fun visit_subst_t_pn_fn substs env d x v b =
+  let
+    val visitor as (PtrnVisitor vtable) = new_subst_t_ptrn_visitor (substs, d, x, v)
+  in
+    #visit_ptrn vtable visitor env b
+  end
+
+fun subst_t_pn_fn substs = visit_subst_t_pn_fn substs (env2ctx (IDepth 0, TDepth 0))
+fun substx_t_pn_fn substs = subst_t_pn_fn substs (IDepth 0, TDepth 0) 
+fun subst0_t_pn_fn substs = substx_t_pn_fn substs 0
+
 end

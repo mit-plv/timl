@@ -531,11 +531,6 @@ fun shift_e_e_fn shift_var x n b =
     
 (***************** the "subst_e_e" visitor  **********************)    
 
-datatype 'a cmp_var =
-         CmpEq
-         | CmpGreater of 'a
-         | CmpOther
-
 fun subst_e_expr_visitor_vtable cast (shift_var, compare_var, (shift_i_i, shift_i_s, shift_i_t, shift_t_t), d, x, v) : ('this, idepth * tdepth * edepth, 'var, 'idx, 'sort, 'kind, 'ty, 'var, 'idx, 'sort, 'kind, 'ty) expr_visitor_vtable =
   let
     fun extend_i this (di, dt, de) _ = (idepth_inc di, dt, de)

@@ -45,6 +45,40 @@ type ('this, 'env, 'var, 'bsort, 'idx, 'sort, 'var2, 'bsort2, 'idx2, 'sort2) ty_
 type ('this, 'env, 'var, 'bsort, 'idx, 'sort, 'var2, 'bsort2, 'idx2, 'sort2) ty_visitor_interface =
      ('this, 'env, 'var, 'bsort, 'idx, 'sort, 'var2, 'bsort2, 'idx2, 'sort2) ty_visitor_vtable
                                        
+fun override_visit_TVar (record : ('this, 'env, 'var, 'bsort, 'idx, 'sort, 'var2, 'bsort2, 'idx2, 'sort2) ty_visitor_vtable) new : ('this, 'env, 'var, 'bsort, 'idx, 'sort, 'var2, 'bsort2, 'idx2, 'sort2) ty_visitor_vtable =
+  {
+       visit_kind = #visit_kind record,
+       visit_KType = #visit_KType record,
+       visit_KArrow = #visit_KArrow record,
+       visit_KArrowT = #visit_KArrowT record,
+       visit_ty = #visit_ty record,
+       visit_TVar = new,
+       visit_TConst = #visit_TConst record,
+       visit_TBinOp = #visit_TBinOp record,
+       visit_TArrow = #visit_TArrow record,
+       visit_TAbsI = #visit_TAbsI record,
+       visit_TAppI = #visit_TAppI record,
+       visit_TQuan = #visit_TQuan record,
+       visit_TQuanI = #visit_TQuanI record,
+       visit_TRec = #visit_TRec record,
+       visit_TNat = #visit_TNat record,
+       visit_TArr = #visit_TArr record,
+       visit_TAbsT = #visit_TAbsT record,
+       visit_TAppT = #visit_TAppT record,
+       visit_var = #visit_var record,
+       visit_bsort = #visit_bsort record,
+       visit_idx = #visit_idx record,
+       visit_sort = #visit_sort record,
+       visit_ty_const = #visit_ty_const record,
+       visit_ty_bin_op = #visit_ty_bin_op record,
+       visit_quan = #visit_quan record,
+       visit_ibind_anno_bsort = #visit_ibind_anno_bsort record,
+       visit_ibind_anno_sort = #visit_ibind_anno_sort record,
+       visit_tbind_anno = #visit_tbind_anno record,
+       extend_i = #extend_i record,
+       extend_t = #extend_t record
+  }
+
 (***************** the default visitor  **********************)    
 
 open VisitorUtil
@@ -315,4 +349,54 @@ fun shift_t_t_fn shift_var x n b =
     #visit_ty vtable visitor x b
   end
     
+(***************** the "subst_t_t" visitor  **********************)    
+
+fun subst_t_ty_visitor_vtable cast (shift_var, compare_var, (shift_i_i, shift_i_s), d, x, v) : ('this, idepth * tdepth, 'var, 'bsort, 'idx, 'sort, 'var, 'bsort, 'idx, 'sort) ty_visitor_vtable =
+  let
+    fun extend_i this (di, dt) _ = (idepth_inc di, dt)
+    fun extend_t this (di, dt) _ = (di, tdepth_inc dt)
+    fun add_depth (di, dt) (di', dt') = (idepth_add (di, di'), tdepth_add (dt, dt'))
+    fun get_di (di, dt) = di
+    fun get_dt (di, dt) = dt
+    val shift_i_t = shift_i_t_fn (shift_i_i, shift_i_s)
+    val shift_t_t = shift_t_t_fn shift_var
+    fun visit_TVar this env y =
+      let
+        val x = x + unTDepth (get_dt env)
+      in
+        case compare_var y x of
+            CmpEq =>
+            let
+              val (di, dt) = add_depth d env
+            in
+              shift_i_t 0 (unIDepth di) $ shift_t_t 0 (unTDepth dt) v
+            end
+          | CmpGreater y' =>
+            TVar y'
+          | _ =>
+            TVar y
+      end
+    val vtable = 
+        default_ty_visitor_vtable
+          cast
+          extend_i
+          extend_t
+          (visit_imposs "subst_t_t/visit_var")
+          visit_noop
+          visit_noop
+          visit_noop
+    val vtable = override_visit_TVar vtable visit_TVar
+  in
+    vtable
+  end
+
+fun new_subst_t_ty_visitor params = new_ty_visitor subst_t_ty_visitor_vtable params
+    
+fun subst_t_t_fn shift_var compare_var shifts d x v b =
+  let
+    val visitor as (TyVisitor vtable) = new_subst_t_ty_visitor (shift_var, compare_var, shifts, d, x, v)
+  in
+    #visit_ty vtable visitor (IDepth 0, TDepth 0) b
+  end
+                               
 end
