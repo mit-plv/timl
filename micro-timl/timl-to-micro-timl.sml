@@ -240,10 +240,34 @@ val TUnit = TConst TCUnit
 val TEmpty = TConst TCEmpty
 fun TSum (t1, t2) = TBinOp (TBSum, t1, t2)
 fun TProd (t1, t2) = TBinOp (TBProd, t1, t2)
+fun TAppIs (t, is) = foldl (swap TAppI) t is
+fun TAppTs (t, ts) = foldl (swap TAppT) t ts
+      
+fun EInlInr (opr, t, e) = EUnOp (EUInj (opr, t), e)
+fun EInl (t, e) = EInlInr (InjInl, t, e)
+fun EInr (t, e) = EInlInr (InjInr, t, e)
 
 fun foldr' f init xs = foldl' f init $ rev xs
 
 fun TSums ts = foldr' TSum TEmpty ts
+fun unTSums t =
+  case t of
+      TBinOp (TBSum, t1, t2) => t1 :: unTSums t2
+    | _ => [t]
+fun EInj (ts, n, e) =
+  case ts of
+      [] => raise Impossible "EInj []"
+    | [t] =>
+      let
+        val () = assert (fn () => n = 0) "EInj(): n = 0"
+      in
+        e
+      end
+    | t :: ts =>
+      if n <= 0 then
+        EInl (TSums ts, e)
+      else
+        EInr (t, EInj (ts, n-1, e))
 
 fun int2var x = (NONE, (x, dummy))
 
@@ -389,8 +413,58 @@ fun on_e (e : S.expr) =
     (*     Let (return, decs, f (x + m) n e, r) *)
     (*   end *)
     | S.EAsc (e, t) => EAscType (on_e e, on_mt t)
-    (* | AppConstr (cx, ts, is, e) => *)
-    (*   AppConstr (cx, is, f x n e) *)
+    | S.EAppConstr ((_, eia), ts, is, e, ot) =>
+      let
+        val (pos, t) = ot !! (fn () => raise Impossible "to-micro-timl/AppConstr/ot")
+        val dt = case t of TDatatype (Abs dt, _) => dt | _ => raise Impossible "to-micro-timl/AppConstr/TDatatype"
+        val () = if eia then () else raise Impossible "to-micro-timl/AppConstr/eia"
+        val trec = on_mt t
+        val (name, tbinds) = TypeUtil.from_Unbound dt
+        val (tname_kinds, (bsorts, constr_decls)) = unfold_binds tbinds
+        val constr_decl as (_, core, _) = nth_error constr_decls pos !! (fn () => "to-micro-timl/AppConstr: nth_error constr_decls")
+        val (name_sorts, (_, result_is)) = unfold_binds core
+        val () = assert (fn () => length is = length name_sorts) "length is = length name_sorts"
+        val result_is = foldl (fn (v, b) => map (subst_i_i v) b) result_is is
+        val fold_anno = TAppIs (TAppTs (trec, ts), result_is)
+        fun unroll t_rec =
+          let
+            fun collect_until_TRec t =
+              case t of
+                  TAppI (t, i) =>
+                  let
+                    val (t, args) = collect_until_TRec t
+                  in
+                    (t, args @ [inl i])
+                  end
+                | TAppI (t, t') =>
+                  let
+                    val (t, args) = collect_until_TRec t
+                  in
+                    (t, args @ [inr t'])
+                  end
+                | TRec bind =>
+                  let
+                    val (_, t) = unBindAnno bind
+                  in
+                    (t, [])
+                  end
+            val (t_body, args) = collect_until_TRec t_rec
+            val t_body = subst0_t_t t_rec t_body
+            val t = foldl (fn (arg, t) => case arg of inl i => TAppI (t, i) | inr t' => TAppT (t, t')) t args
+          in
+            t
+          end
+        val unrolled = unroll fold_anno
+        val inj_anno = unTSums unrolled
+        val pack_anno = nth_error inj_anno pos !! (fn () => "to-micro-timl/AppConstr: nth_error sums")
+        (* val exists = peel_exists (length is + 1) pack_anno *)
+        val is = is @ [TTI dummy]
+        val e = EPackIs (pack_anno, is, e)
+        val e = EInj (inj_anno, pos, e)
+        val e = EFold (fold_anno, e)
+      in
+        e
+      end
     | _ => raise Unimpl ""
 
 val trans_e = on_e

@@ -454,12 +454,26 @@ fun pp_e (params as (str_var, str_i, str_s, str_k, str_t)) s e =
       | EPackI (t, i, e) =>
         (
           open_hbox ();
-          str "EPack";
+          str "EPackI";
           space ();
           str "(";
           str $ str_t t;
           comma ();
           str $ str_i i;
+          comma ();
+          pp_e e;
+          str ")";
+          close_box ()
+        )
+      | EPackIs (t, is, e) =>
+        (
+          open_hbox ();
+          str "EPackIs";
+          space ();
+          str "(";
+          str $ str_t t;
+          comma ();
+          pp_list (str o str_i) is;
           comma ();
           pp_e e;
           str ")";

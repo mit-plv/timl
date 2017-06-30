@@ -24,6 +24,7 @@ datatype ('var, 'idx, 'sort, 'kind, 'ty) expr =
          | EPack of 'ty * 'ty * ('var, 'idx, 'sort, 'kind, 'ty) expr
          | EUnpack of ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind tbind
          | EPackI of 'ty * 'idx * ('var, 'idx, 'sort, 'kind, 'ty) expr
+         | EPackIs of 'ty * 'idx list * ('var, 'idx, 'sort, 'kind, 'ty) expr
          | EUnpackI of ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind ibind
          | EAscTime of ('var, 'idx, 'sort, 'kind, 'ty) expr * 'idx (* time ascription *)
          | EAscType of ('var, 'idx, 'sort, 'kind, 'ty) expr * 'ty (* type ascription *)
@@ -53,6 +54,7 @@ type ('this, 'env, 'var, 'idx, 'sort, 'kind, 'ty, 'var2, 'idx2, 'sort2, 'kind2, 
        visit_EPack : 'this -> 'env -> 'ty * 'ty * ('var, 'idx, 'sort, 'kind, 'ty) expr -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
        visit_EUnpack : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind tbind -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
        visit_EPackI : 'this -> 'env -> 'ty * 'idx * ('var, 'idx, 'sort, 'kind, 'ty) expr -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
+       visit_EPackIs : 'this -> 'env -> 'ty * 'idx list * ('var, 'idx, 'sort, 'kind, 'ty) expr -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
        visit_EUnpackI : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind ibind -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
        visit_EAscTime : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * 'idx (* time ascription *) -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
        visit_EAscType : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * 'ty (* type ascription *) -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
@@ -94,6 +96,7 @@ fun override_visit_EVar (record : ('this, 'env, 'var, 'idx, 'sort, 'kind, 'ty, '
     visit_EPack = #visit_EPack record,
     visit_EUnpack = #visit_EUnpack record,
     visit_EPackI = #visit_EPackI record,
+    visit_EPackIs = #visit_EPackIs record,
     visit_EUnpackI = #visit_EUnpackI record,
     visit_EAscTime = #visit_EAscTime record,
     visit_EAscType = #visit_EAscType record,
@@ -149,6 +152,7 @@ fun default_expr_visitor_vtable
           | EPack data => #visit_EPack vtable this env data
           | EUnpack data => #visit_EUnpack vtable this env data
           | EPackI data => #visit_EPackI vtable this env data
+          | EPackIs data => #visit_EPackIs vtable this env data
           | EUnpackI data => #visit_EUnpackI vtable this env data
           | EAscTime data => #visit_EAscTime vtable this env data
           | EAscType data => #visit_EAscType vtable this env data
@@ -297,6 +301,16 @@ fun default_expr_visitor_vtable
       in
         EPackI (t, i, e)
       end
+    fun visit_EPackIs this env data = 
+      let
+        val vtable = cast this
+        val (t, is, e) = data
+        val t = #visit_ty vtable this env t
+        val is = map (#visit_idx vtable this env) is
+        val e = #visit_expr vtable this env e
+      in
+        EPackIs (t, is, e)
+      end
     fun visit_EUnpackI this env data =
       let
         val vtable = cast this
@@ -395,6 +409,7 @@ fun default_expr_visitor_vtable
       visit_EPack = visit_EPack,
       visit_EUnpack = visit_EUnpack,
       visit_EPackI = visit_EPackI,
+      visit_EPackIs = visit_EPackIs,
       visit_EUnpackI = visit_EUnpackI,
       visit_EAscTime = visit_EAscTime,
       visit_EAscType = visit_EAscType,
