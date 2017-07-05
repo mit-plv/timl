@@ -57,11 +57,13 @@ smt-solver.sml
 long-id-map.sml
 bigO-solver.sml
 main.sml
+pp-util.sml
 
 micro-timl/micro-timl.sml
 nouvar-expr.sml
 visitor.sml                                 
 micro-timl/micro-timl-visitor.sml
+micro-timl/micro-timl-pp.sml
 micro-timl/micro-timl-ex.sml
 micro-timl/micro-timl-ex-pp.sml
 pattern-ex.sml

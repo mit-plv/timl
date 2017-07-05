@@ -315,7 +315,8 @@ fun on_mt (t : S.mtype) =
             val is = map (shiftx_i_i 0 1) is
             val formal_iargs = map (shiftx_i_i 0 (length name_sorts + 1)) formal_iargs
             val prop = PEqs $ zip (is, formal_iargs)
-            val extra_sort_name = "__datatype_constraint"
+            (* val extra_sort_name = "__datatype_constraint" *)
+            val extra_sort_name = "__VC"
             val extra_sort = Subset ((BSUnit, dummy), S.Bind ((extra_sort_name, dummy), prop), dummy)
             val t = on_mt t
             val t = TExistsIMany (map (mapFst (IName o attach_snd dummy)) $ (extra_sort_name, extra_sort) :: rev name_sorts, t)
@@ -351,8 +352,11 @@ fun compare_var (m, (y, r)) x =
     
 fun shift_i_t a = shift_i_t_fn (shiftx_i_i, shiftx_i_s) a
 fun shift_t_t a = shift_t_t_fn shift_var a
-fun subst_t_t a = subst_t_t_fn shift_var compare_var (shiftx_i_i, shiftx_i_s) a
+fun subst_t_t a = subst_t_t_fn (shift_var, compare_var, shiftx_i_i, shiftx_i_s) a
 fun subst0_t_t a = subst_t_t (IDepth 0, TDepth 0) 0 a
+fun subst_i_t a = subst_i_t_fn (substx_i_i, substx_i_s) a
+fun subst0_i_t a = subst_i_t 0 0 a
+fun normalize_t a = normalize_t_fn (subst0_i_t, subst0_t_t) a
 fun shift_i_e a = shift_i_e_fn (shiftx_i_i, shiftx_i_s, shift_i_t) a
 fun shift_e_e a = shift_e_e_fn shift_var a
 fun subst_e_e a = subst_e_e_fn shift_var compare_var (shiftx_i_i, shiftx_i_s, shift_i_t, shift_t_t) a
@@ -418,17 +422,20 @@ fun on_e (e : S.expr) =
     | S.EAsc (e, t) => EAscType (on_e e, on_mt t)
     | S.EAppConstr ((_, eia), ts, is, e, ot) =>
       let
+        fun str_var (_, (x, _)) = str_int x
+        val pp_t = MicroTiMLPP.pp_t_fn (str_var, str_bs, str_raw_i, str_raw_s, const_fun "<kind>")
         val (pos, t) = ot !! (fn () => raise Impossible "to-micro-timl/AppConstr/ot")
         val dt = case t of TDatatype (Abs dt, _) => dt | _ => raise Impossible "to-micro-timl/AppConstr/TDatatype"
         val () = if eia then () else raise Impossible "to-micro-timl/AppConstr/eia"
-        val trec = on_mt t
+        val t_rec = on_mt t
+        (* val () = pp_t t_rec *)
         val (name, tbinds) = TypeUtil.from_Unbound dt
         val (tname_kinds, (bsorts, constr_decls)) = unfold_binds tbinds
         val constr_decl as (_, core, _) = nth_error constr_decls pos !! (fn () => raise Impossible "to-micro-timl/AppConstr: nth_error constr_decls")
         val (name_sorts, (_, result_is)) = unfold_binds core
         val () = assert (fn () => length is = length name_sorts) "length is = length name_sorts"
         val result_is = foldl (fn (v, b) => map (subst_i_i v) b) result_is is
-        val fold_anno = TAppIs (TAppTs (trec, map on_mt ts), result_is)
+        val fold_anno = TAppIs (TAppTs (t_rec, map on_mt ts), result_is)
         fun unroll t_rec =
           let
             fun collect_until_TRec t =
@@ -459,12 +466,15 @@ fun on_e (e : S.expr) =
                   inl i => TAppI (t, i)
                 | inr t' => TAppT (t, t')
             val t = foldl (swap TApp) t args
+            val t = normalize_t t
           in
             t
           end
         val unrolled = unroll fold_anno
+        (* val () = pp_t unrolled *)
         val inj_anno = unTSums unrolled
-        val pack_anno = nth_error inj_anno pos !! (fn () => raise Impossible "to-micro-timl/AppConstr: nth_error sums")
+        (* val () = println $ sprintf "$, $" [str_int $ length inj_anno, str_int pos] *)
+        val pack_anno = nth_error inj_anno pos !! (fn () => raise Impossible $ sprintf "to-micro-timl/AppConstr: nth_error inj_anno: $, $" [str_int $ length inj_anno, str_int pos])
         (* val exists = peel_exists (length is + 1) pack_anno *)
         val is = is @ [TTI dummy]
         val e = on_e e
@@ -528,17 +538,18 @@ fun test filename =
     val BSNat = Base Nat
     val e = ExprTrans.simp_e [("'a", KeKind Type), ("list", KeKind (1, [BSNat]))] e
     val () = println $ str_e empty ([], ["'a", "list"], ["Cons", "Nil"], []) e
-    fun visit_subst_t_pn a = ExprTrans.visit_subst_t_pn_fn substx_t_mt a
-    fun subst_t_e a = ExprTrans.subst_t_e_fn (substx_t_mt, visit_subst_t_pn) a
+    val () = println ""
+    fun use_idepth_tdepth f (di, dt) = f (unIDepth di, unTDepth dt)
+    fun visit_subst_t_pn a = ExprTrans.visit_subst_t_pn_fn (use_idepth_tdepth substx_t_mt) a
+    fun subst_t_e a = ExprTrans.subst_t_e_fn (use_idepth_tdepth substx_t_mt, visit_subst_t_pn) a
     val e = subst_t_e (IDepth 0, TDepth 1) 1 t_list e
     val e = trans_e e
     fun short_to_long_id x = (NONE, (x, dummy))
     fun visit_var (_, _, tctx) (_, (x, _)) = short_to_long_id $ nth_error (map Name2str tctx) x !! (fn () => "__unbound_" ^ str_int x)
     val export = export_fn (visit_var, return2, return2, return2)
     val e = export ([], [], []) e
-    open MicroTiMLExPP
     fun str_var (_, (x, _)) = (* str_int  *)x
-    val pp_e = pp_e_fn (str_var, str_raw_i, str_raw_s, const_fun "<kind>", const_fun "<ty>")
+    val pp_e = MicroTiMLExPP.pp_e_fn (str_var, str_raw_i, str_raw_s, const_fun "<kind>", const_fun "<ty>")
     val () = pp_e e
   in
     ((* t, e *))

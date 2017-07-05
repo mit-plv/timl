@@ -569,7 +569,7 @@ fun subst_t_expr_visitor_vtable cast ((subst_t_t, subst_t_pn), d, x, v) : ('this
   let
     fun extend_i this env _ = mapFst idepth_inc env
     fun extend_t this env _ = mapSnd tdepth_inc env
-    fun add_depth (di, dt) (di', dt') = (idepth_add (di, di'), dt, tdepth_add (dt, dt'))
+    fun add_depth (di, dt) (di', dt') = (idepth_add (di, di'), tdepth_add (dt, dt'))
     fun visit_mtype this env b = subst_t_t (add_depth d env) (x + unTDepth (snd env)) v b
     fun visit_ptrn this env b = subst_t_pn env d x v b
   in
