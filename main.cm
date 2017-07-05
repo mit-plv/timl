@@ -70,6 +70,7 @@ pattern-ex.sml
 pattern-visitor.sml                                 
 expr-visitor.sml                                 
 micro-timl/timl-to-micro-timl.sml
+type-visitor.sml                                 
 
 $/basis.cm
 $/smlnj-lib.cm
