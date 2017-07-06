@@ -339,7 +339,7 @@ fun normalize_mt gctx kctx t =
                 end
               fun on_body kctx (bsorts, constr_decls) =
                 (bsorts, (map o map2_3) (normalize_constr_core gctx kctx) constr_decls)
-              val Bind dt = normalize_tbind id (normalize_tbinds id (const_fun Type) id on_body) kctx (get_kind dt) $ Bind dt
+              val Bind dt = normalize_tbind fst (normalize_tbinds fst (const_fun Type) id on_body) kctx (get_kind dt) $ Bind dt
               val dt = to_Unbound dt
             in
               TDatatype (Abs dt, r)
@@ -373,7 +373,7 @@ fun normalize_ke gctx kctx ((k, t) : kind_ext) = (normalize_k k, Option.map (nor
 
 fun normalize_c gctx kctx ((x, core) : mtype constr) : mtype constr =
   let
-    val core = normalize_tbinds id (const_fun Type) id (normalize_constr_core gctx) kctx core
+    val core = normalize_tbinds fst (const_fun Type) id (normalize_constr_core gctx) kctx core
   in
     (x, core)
   end

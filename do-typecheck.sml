@@ -1814,7 +1814,7 @@ and is_wf_datatype gctx ctx (dt : U.mtype U.datatype_def, r) : mtype datatype_de
       val (tname_kinds, (sorts, constr_decls)) = unfold_binds tbinds
       val tnames = map fst tname_kinds
       val sorts = map is_wf_bsort sorts
-      val nk = (name, ((length tnames, sorts), NONE))
+      val nk = (fst name, ((length tnames, sorts), NONE))
       val ctx as (sctx, kctx, _, _) = add_kindingext_skct nk ctx
       fun make_constr ((name, ibinds, r) : U.mtype U.constr_decl) : mtype constr_decl * (string * mtype constr) =
 	let
@@ -1850,7 +1850,7 @@ and is_wf_datatype gctx ctx (dt : U.mtype U.datatype_def, r) : mtype datatype_de
             end
           val (_, ibinds) = constr_from_type t
 	in
-	  ((name, ibinds, r), (name, (family, fold_binds (tname_kinds, ibinds))))
+	  ((name, ibinds, r), (fst name, (family, fold_binds (tname_kinds, ibinds))))
 	end
       val (constr_decls, constrs) = (unzip o map make_constr) constr_decls
       val dt = (name, fold_binds (tname_kinds, (sorts, constr_decls)))

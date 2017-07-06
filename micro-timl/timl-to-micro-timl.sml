@@ -89,6 +89,7 @@ functor TypeTransFn (structure Src : TYPE
                    sharing type  Tgt.var = Tgt.Idx.var
                    sharing type  Tgt.name = Tgt.Idx.name
                    sharing type  Tgt.region = Tgt.Idx.region
+                   sharing type Src.name = Tgt.name
                   ) =
 struct
 
@@ -319,7 +320,7 @@ fun on_mt (t : S.mtype) =
             val extra_sort_name = "__VC"
             val extra_sort = Subset ((BSUnit, dummy), S.Bind ((extra_sort_name, dummy), prop), dummy)
             val t = on_mt t
-            val t = TExistsIMany (map (mapFst (IName o attach_snd dummy)) $ (extra_sort_name, extra_sort) :: rev name_sorts, t)
+            val t = TExistsIMany (map (mapFst IName) $ ((extra_sort_name, dummy), extra_sort) :: rev name_sorts, t)
           in
             t
           end
@@ -331,7 +332,7 @@ fun on_mt (t : S.mtype) =
         val t = TAbsIMany (attach_names IName (fn n => "_i" ^ str_int n) $ rev bsorts, t)
         val t = TAbsTMany (attach_names TName (fn n => "_t" ^ str_int n) $ repeat len_tnames KType, t)
       in
-        TRec $ BindAnno ((TName (dt_name, dummy), k), t)
+        TRec $ BindAnno ((TName dt_name, k), t)
       end
 
 val trans_mt = on_mt

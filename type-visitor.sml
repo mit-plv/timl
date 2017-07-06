@@ -1,6 +1,7 @@
 functor MtypeVisitorFn (structure S : TYPE where type region = Region.region
+                                                      and type name = string * Region.region
                         structure T : TYPE where type region = Region.region
-                        sharing type S.name = T.name
+                                                      and type name = string * Region.region
                        ) = struct
 
 open Unbound
@@ -139,7 +140,7 @@ fun default_mtype_visitor_vtable
       in
         visit_bind (#extend_t vtable this)
       end
-    fun visit_binds visit_bind this f_anno f_term env binds =
+    fun visit_binds visit_bind this f_anno f_term env (binds : ('namespace, 'classifier, 'name, 'inner) Bind.binds) : ('namespace, 'classifier2, 'name, 'inner2) Bind.binds=
       let
         open Bind
         val visit_ibinds = visit_binds visit_bind this f_anno f_term
@@ -211,11 +212,14 @@ fun default_mtype_visitor_vtable
       in
         T.UVar (x, r)
       end
-    fun visit_constr_core this env data =
+    fun visit_constr_core this env (data : mtype constr_core) : T.mtype T.constr_core =
       let
         val vtable = cast this
       in
-        visit_ibinds this (#visit_sort vtable this) (visit_pair (#visit_mtype vtable this) (visit_list (#visit_idx vtable this))) env data
+        visit_ibinds this
+                     (#visit_sort vtable this)
+                     (visit_pair (#visit_mtype vtable this)
+                                 (visit_list (#visit_idx vtable this))) env data
       end
     fun visit_TDatatype this env data =
       let
@@ -224,7 +228,12 @@ fun default_mtype_visitor_vtable
         open TypeUtil
         val dt = Bind.Bind $ from_Unbound dt
         fun visit_constr_decl env (name, c, r) = (name, visit_constr_core this env c, r)
-        val Bind.Bind dt = visit_tbind this (visit_tbinds this return2 (visit_pair (visit_list (#visit_bsort vtable this)) (visit_list visit_constr_decl))) env dt
+        val Bind.Bind dt =
+            visit_tbind this
+                        (visit_tbinds this
+                                      return2
+                                      (visit_pair (visit_list (#visit_bsort vtable this))
+                                                  (visit_list visit_constr_decl))) env dt
         val dt = to_Unbound dt
       in
         T.TDatatype (Abs dt, r)

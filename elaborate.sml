@@ -227,7 +227,7 @@ local
       let
         val sorts = map (fst o elab_b) (map (fn (_, s, _) => s) top_sortings @ sorts)
         fun default_t2 r = foldl (fn (arg, f) => S.AppTT (f, S.VarT (NONE, (arg, r)), r)) (S.VarT (NONE, (name, r))) tnames
-        fun elab_constr (((cname, _), binds, core, r) : S.constr_decl) : mtype constr_decl =
+        fun elab_constr ((cname, binds, core, r) : S.constr_decl) : mtype constr_decl =
             let
               (* val (t1, t2) = default (S.VarT ("unit", r), SOME (default_t2 r)) core *)
               (* val t2 = default (default_t2 r) t2 *)
@@ -236,7 +236,7 @@ local
                       NONE => (S.VarT (NONE, ("unit", r)), default_t2 r)
                     | SOME (t1, NONE) => (S.VarT (NONE, ("unit", r)), t1)
                     | SOME (t1, SOME t2) => (t1, t2)
-              fun f ((name, _), sort, r) = (name, elab_s sort)
+              fun f (name, sort, r) = (name, elab_s sort)
               val binds = map f (map (fn (name, b, r) => (name, S.Basic b, r)) top_sortings @ binds)
               val t2_orig = t2
               val (t2, is) = get_is t2
@@ -258,7 +258,7 @@ local
             in
               (cname, fold_binds (binds, (elab_mt t1, map elab_i is)), r)
             end
-        val dt = (name, fold_binds (map (attach_snd ()) tnames, (sorts, map elab_constr constrs)))
+        val dt = ((name, dummy), fold_binds (map (attach_snd ()) $ map (attach_snd dummy) tnames, (sorts, map elab_constr constrs)))
         open TypeUtil
         val dt = to_Unbound dt
       in

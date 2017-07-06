@@ -195,7 +195,7 @@ open Bind
        
 fun collect_UniI t =
   case t of
-      UniI (s, Bind ((name, _), t), _) =>
+      UniI (s, Bind (name, t), _) =>
       let val (binds, t) = collect_UniI t
       in
         ((name, s) :: binds, t)
@@ -389,7 +389,7 @@ fun MtAbsIMany (ctx, t, r) = foldl (fn ((name, s), t) => MtAbsI (s, Bind ((name,
 fun AppVar (x, is) = MtAppIs (MtVar x) is
 fun AppV (x, ts, is, r) = MtAppIs (MtApps (MtVar x) ts) is
 
-type 'mtype constr = var(*family*) * (unit, string, 'mtype constr_core) tbinds
+type 'mtype constr = var(*family*) * (unit, name, 'mtype constr_core) tbinds
 (* type 'mtype constr = var(*family*) * string list(*type argument names*) * 'mtype constr_core *)
 val VarT = MtVar
 fun constr_type VarT shiftx_long_id ((family, tbinds) : mtype constr) = 
@@ -400,9 +400,9 @@ fun constr_type VarT shiftx_long_id ((family, tbinds) : mtype constr) =
     val ts = map (fn x => VarT (NONE, (x, dummy))) $ rev $ range $ length tnames
     val t2 = AppV (shiftx_long_id 0 (length tnames) family, ts, is, dummy)
     val t = Arrow (t, T0 dummy, t2)
-    val t = foldr (fn ((name, s), t) => UniI (s, Bind ((name, dummy), t), dummy)) t ns
+    val t = foldr (fn ((name, s), t) => UniI (s, Bind (name, t), dummy)) t ns
     val t = Mono t
-    val t = foldr (fn (name, t) => Uni (Bind ((name, dummy), t), dummy)) t tnames
+    val t = foldr (fn (name, t) => Uni (Bind (name, t), dummy)) t tnames
   in
     t
   end
@@ -411,7 +411,7 @@ fun get_constr_inames (core : mtype constr_core) =
   let
     val (name_sorts, _) = unfold_binds core
   in
-    map fst name_sorts
+    map fst $ map fst name_sorts
   end
                                  
 (* equality test *)
@@ -757,6 +757,7 @@ fun collect_Uni_UniI t =
     val (tnames, t) = collect_Uni t
     val tnames = map fst tnames
     val (binds, t) = collect_UniI t
+    val binds = map (mapFst fst) binds
   in
     (map KindingT tnames @ map SortingT binds, t)
   end
@@ -864,6 +865,7 @@ fun str_mt gctx (ctx as (sctx, kctx)) (t : mtype) : string =
       | UniI _ =>
         let
           val (binds, t) = collect_UniI t
+          val binds = map (mapFst fst) binds
         in
           str_uni gctx ctx (map SortingT binds, t)
         end
@@ -1119,18 +1121,19 @@ and str_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
             val name = binder2str name
             val tbinds = unInner tbinds
             val (tname_kinds, (sorts, constrs)) = unfold_binds tbinds
-            val tnames = map fst tname_kinds
+            val tnames = map fst $ map fst tname_kinds
             val str_tnames = (join_prefix " " o rev) tnames
-            fun str_constr_decl (cname, ibinds, _) =
+            fun str_constr_decl ((cname, _), ibinds, _) =
               let 
                 val (name_sorts, (t, idxs)) = unfold_binds ibinds
+                val name_sorts = map (mapFst fst) name_sorts
                 val (name_sorts, sctx') = str_sortings gctx sctx name_sorts
                 val name_sorts = map (fn (nm, s) => sprintf "$ : $" [nm, s]) name_sorts
               in
                 sprintf "$ of$ $ ->$$ $" [cname, (join_prefix " " o map (surround "{" "}")) name_sorts, str_mt gctx (sctx', rev tnames @ name :: kctx) t, (join_prefix " " o map (surround "{" "}" o str_i gctx sctx') o rev) idxs, str_tnames, name]
               end
             val s = sprintf "datatype$$ $ = $" [(join_prefix " " o map (surround "{" "}" o str_bs) o rev) sorts, str_tnames, name, join " | " (map str_constr_decl constrs)]
-            val cnames = map #1 constrs
+            val cnames = map fst $ map #1 constrs
             val ctx = (sctx, name :: kctx, rev cnames @ cctx, tctx)
           in
             (s, ctx)

@@ -14,10 +14,10 @@ open Bind
                         
 type kind = int (*number of type arguments*) * bsort list
 
-type 'mtype constr_core = (sort, string, 'mtype * idx list) ibinds
-type 'mtype constr_decl = string * 'mtype constr_core * region
+type 'mtype constr_core = (sort, name, 'mtype * idx list) ibinds
+type 'mtype constr_decl = name * 'mtype constr_core * region
 
-type 'mtype datatype_def = Namespaces.tname Unbound.binder(*for datatype self-reference*) * (unit, string, bsort list * 'mtype constr_decl list) tbinds Unbound.inner
+type 'mtype datatype_def = Namespaces.tname Unbound.binder(*for datatype self-reference*) * (unit, name, bsort list * 'mtype constr_decl list) tbinds Unbound.inner
 
 (* monotypes *)
 datatype mtype = 
@@ -52,8 +52,8 @@ local
   open Unbound
   open Namespaces
 in
-fun from_Unbound (Binder (TypeNS, (name, _)), Rebind (Outer t)) = (name, t)
-fun to_Unbound (name, t) = (Binder (TypeNS, (name, Region.dummy)), Rebind (Outer t))
+fun from_Unbound (Binder (TypeNS, name), Rebind (Outer t)) = (name, t)
+fun to_Unbound (name, t) = (Binder (TypeNS, name), Rebind (Outer t))
 end
                                                        
 end

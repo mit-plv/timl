@@ -253,11 +253,11 @@ fun on_ibinds get_name on_anno on_inner ctx (ibinds : ('a, 'name, 'c) ibinds) = 
 fun on_tbinds get_name on_anno on_inner ctx (tbinds : ('a, 'name, 'c) tbinds) = on_binds on_tbind_generic get_name on_anno on_inner ctx tbinds
                                                                                          
 fun on_constr_core gctx (ctx as (sctx, kctx)) (ibinds : S.mtype S.constr_core) : mtype constr_core =
-    on_ibinds id (on_sort gctx) (fn sctx => fn (t, is) => (on_mtype gctx (sctx, kctx) t, map (on_idx gctx sctx) is)) sctx ibinds
+    on_ibinds fst (on_sort gctx) (fn sctx => fn (t, is) => (on_mtype gctx (sctx, kctx) t, map (on_idx gctx sctx) is)) sctx ibinds
 
 fun on_constr gctx (ctx as (sctx, kctx)) ((family, tbinds) : S.mtype S.constr) : mtype constr =
     (on_long_id gctx #2 kctx family,
-     on_tbinds id return2 (fn kctx => on_constr_core gctx (sctx, kctx)) kctx tbinds)
+     on_tbinds fst return2 (fn kctx => on_constr_core gctx (sctx, kctx)) kctx tbinds)
 
 fun on_return gctx (ctx as (sctx, _)) return = mapPair (Option.map (on_mtype gctx ctx), Option.map (on_idx gctx sctx)) return
 
@@ -584,12 +584,12 @@ and on_datatype gctx (ctx as (sctx, kctx, cctx, tctx)) (dt, r) =
         (map on_bsort sorts, map (on_constr_decl kctx) constr_decls)
       open TypeUtil
       val dt = Bind $ from_Unbound dt
-      val Bind dt = on_tbind_generic id (on_tbinds id return2 on_constrs) kctx dt
+      val Bind dt = on_tbind_generic fst (on_tbinds fst return2 on_constrs) kctx dt
       val decl = to_Unbound dt
       val (name, dt) = dt
       val (_, (_, constr_decls)) = unfold_binds dt
-      val cnames = map (fn (name, core, _) => (name, get_constr_inames core)) constr_decls
-      val ctx = (sctx, name :: kctx, rev cnames @ cctx, tctx)
+      val cnames = map (fn (name, core, _) => (fst name, get_constr_inames core)) constr_decls
+      val ctx = (sctx, fst name :: kctx, rev cnames @ cctx, tctx)
     in
       (decl, ctx)
     end
