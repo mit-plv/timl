@@ -2,6 +2,7 @@ functor MtypeVisitorFn (structure S : TYPE where type region = Region.region
                                                       and type name = string * Region.region
                         structure T : TYPE where type region = Region.region
                                                       and type name = string * Region.region
+                        sharing type S.base_type = T.base_type
                        ) = struct
 
 open Unbound
@@ -110,8 +111,10 @@ fun default_mtype_visitor_vtable
       in
         T.TyArray (t, i)
       end
-    fun visit_BaseType this env data = data
-    fun visit_Unit this env data = data
+    fun visit_BaseType this env data =
+      T.BaseType data
+    fun visit_Unit this env data =
+      T.Unit data
     fun visit_Prod this env data =
       let
         val vtable = cast this
