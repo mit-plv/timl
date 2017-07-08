@@ -9,7 +9,7 @@ Introduction to Algorithms. McGraw-Hill Higher Education,
 
 (* The main functions are [insert_delete_seq_from_good_start] and [insert_delete_seq_from_empty]. *)
 
-functor DynamicTable (structure T : sig
+functor DynamicTable (T : sig
 (* num: the number of existing elements in the table 
    size: the capacity (the maximal possible number of elements) *)
   type table 'a  {Nat} {Nat}
