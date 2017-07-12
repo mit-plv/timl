@@ -42,6 +42,7 @@ package.sml
 typecheck-util.sml
 normalize.sml
 collect-var.sml
+type-visitor.sml
 collect-uvar.sml
 parallel-subst.sml
 fresh-uvar.sml
@@ -70,7 +71,6 @@ pattern-ex.sml
 pattern-visitor.sml                                 
 expr-visitor.sml                                 
 micro-timl/timl-to-micro-timl.sml
-type-visitor.sml
        
 $/basis.cm
 $/smlnj-lib.cm

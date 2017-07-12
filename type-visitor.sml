@@ -44,6 +44,33 @@ type ('this, 'env) mtype_visitor_vtable =
 type ('this, 'env) mtype_visitor_interface =
      ('this, 'env) mtype_visitor_vtable
                                        
+fun override_visit_UVar (record : ('this, 'env) mtype_visitor_vtable) new =
+  {
+    visit_mtype = #visit_mtype record,
+    visit_Arrow = #visit_Arrow record,
+    visit_TyNat = #visit_TyNat record,
+    visit_TyArray = #visit_TyArray record,
+    visit_BaseType = #visit_BaseType record,
+    visit_Unit = #visit_Unit record,
+    visit_Prod = #visit_Prod record,
+    visit_UniI = #visit_UniI record,
+    visit_MtVar = #visit_MtVar record,
+    visit_MtAbs = #visit_MtAbs record,
+    visit_MtApp = #visit_MtApp record,
+    visit_MtAbsI = #visit_MtAbsI record,
+    visit_MtAppI = #visit_MtAppI record,
+    visit_UVar = new,
+    visit_TDatatype = #visit_TDatatype record,
+    visit_var = #visit_var record,
+    visit_bsort = #visit_bsort record,
+    visit_idx = #visit_idx record,
+    visit_sort = #visit_sort record,
+    visit_kind = #visit_kind record,
+    visit_uvar = #visit_uvar record,
+    extend_i = #extend_i record,
+    extend_t = #extend_t record
+  }
+
 (***************** the default visitor  **********************)    
 
 open VisitorUtil

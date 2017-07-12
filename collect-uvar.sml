@@ -37,25 +37,71 @@ fun collect_uvar_s_s s =
           Refined a => collect_uvar_s_s a
         | Fresh info => [(x, info, r)]
                                           
-fun collect_uvar_t_mt t =
-    case t of
-        Unit _ => []
-      | Arrow (t1, _, t2) => collect_uvar_t_mt t1 @ collect_uvar_t_mt t2
-      | TyArray (t, _) => collect_uvar_t_mt t
-      | TyNat _ => []
-      | Prod (t1, t2) => collect_uvar_t_mt t1 @ collect_uvar_t_mt t2
-      | UniI (s, Bind (name, t1), _) => collect_uvar_t_mt t1
-      | MtVar x => []
-      | MtAbs (_, Bind (_, t), _) => collect_uvar_t_mt t
-      | MtApp (t1, t2) => collect_uvar_t_mt t1 @ collect_uvar_t_mt t2
-      | MtAbsI (_, Bind (_, t), _) => collect_uvar_t_mt t
-      | MtAppI (t, i) => collect_uvar_t_mt t
-      | BaseType _ => []
-      | TDatatype _ => raise Unimpl "collect_uvar_t_mt()/TDatatype"
-      | UVar (x, r) =>
-        case !x of
-            Refined a => collect_uvar_t_mt a
-          | Fresh info => [(x, info, r)]
+structure MtypeVisitor = MtypeVisitorFn (structure S = Expr
+                                         structure T = Expr)
+open MtypeVisitor
+                                      
+fun collect_uvar_t_mtype_visitor_vtable cast () (* : ('this, () list ref) mtype_visitor_vtable *) =
+  let
+    fun visit_UVar this env (x, r) =
+      let
+        val new = 
+            case !x of
+                Refined a => collect_uvar_t_mt a
+              | Fresh info => [(x, info, r)]
+        fun push_many_ref r x = binop_ref (curry op@) r x
+        val () = push_many_ref env new
+      in
+        UVar (x, r)
+      end
+    val vtable =
+        default_mtype_visitor_vtable
+          cast
+          extend_noop
+          extend_noop
+          visit_noop
+          visit_noop
+          visit_noop
+          visit_noop
+          visit_noop
+          (visit_imposs "visit_uvar")
+    val vtable = override_visit_UVar vtable visit_UVar
+  in
+    vtable
+  end
+
+and new_collect_uvar_t_mtype_visitor params = new_mtype_visitor collect_uvar_t_mtype_visitor_vtable params
+    
+and collect_uvar_t_mt t =
+  let
+    val visitor as (MtypeVisitor vtable) = new_collect_uvar_t_mtype_visitor ()
+    val result = ref []
+    val t = #visit_mtype vtable visitor result t
+  in
+    !result
+  end
+
+open Bind
+       
+(* fun collect_uvar_t_mt t = *)
+(*     case t of *)
+(*         Unit _ => [] *)
+(*       | Arrow (t1, _, t2) => collect_uvar_t_mt t1 @ collect_uvar_t_mt t2 *)
+(*       | TyArray (t, _) => collect_uvar_t_mt t *)
+(*       | TyNat _ => [] *)
+(*       | Prod (t1, t2) => collect_uvar_t_mt t1 @ collect_uvar_t_mt t2 *)
+(*       | UniI (s, Bind (name, t1), _) => collect_uvar_t_mt t1 *)
+(*       | MtVar x => [] *)
+(*       | MtAbs (_, Bind (_, t), _) => collect_uvar_t_mt t *)
+(*       | MtApp (t1, t2) => collect_uvar_t_mt t1 @ collect_uvar_t_mt t2 *)
+(*       | MtAbsI (_, Bind (_, t), _) => collect_uvar_t_mt t *)
+(*       | MtAppI (t, i) => collect_uvar_t_mt t *)
+(*       | BaseType _ => [] *)
+(*       | TDatatype _ => raise Unimpl "collect_uvar_t_mt()/TDatatype" *)
+(*       | UVar (x, r) => *)
+(*         case !x of *)
+(*             Refined a => collect_uvar_t_mt a *)
+(*           | Fresh info => [(x, info, r)] *)
     
 fun collect_uvar_t_t t =
   case t of
