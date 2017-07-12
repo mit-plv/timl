@@ -1,7 +1,8 @@
-functor MtypeVisitorFn (structure S : TYPE where type region = Region.region
-                                                      and type name = string * Region.region
-                        structure T : TYPE where type region = Region.region
-                                                      and type name = string * Region.region
+signature TYPICAL_TYPE = TYPE where type region = Region.region
+                                         and type name = string * Region.region
+
+functor MtypeVisitorFn (structure S : TYPICAL_TYPE
+                        structure T : TYPICAL_TYPE
                         sharing type S.base_type = T.base_type
                        ) = struct
 
