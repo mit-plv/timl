@@ -110,7 +110,6 @@ datatype expr =
 
 datatype spec =
          SpecVal of name * ty
-         | SpecDatatype of mtype datatype_def * region
          | SpecIdx of name * sort
          | SpecType of name * kind
          | SpecTypeDef of name * mtype
@@ -2807,7 +2806,6 @@ local
       | SpecIdx (name, s) => on_s acc s
       | SpecType (name, k) => []
       | SpecTypeDef (name, t) => on_mt acc t
-      | SpecDatatype (a, r) => on_datatype acc a
 in
 val on_spec = f
 fun collect_mod_spec b = f [] b

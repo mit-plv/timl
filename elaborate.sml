@@ -384,7 +384,7 @@ local
           let
             val (dt, r) = elab_datatype a
           in
-            DTypeDef (fst dt, Outer (TDatatype (Abs dt, r)))
+            DTypeDef (fst dt, Outer $ TDatatype (Abs dt, r))
           end
         | S.TypeDef (name, t) => DTypeDef (Binder $ TName name, Outer $ elab_mt t)
         | S.Open name => DOpen (Outer name, NONE)
@@ -392,7 +392,6 @@ local
   fun elab_spec spec =
       case spec of
           S.SpecVal (name, tnames, t, r) => SpecVal (name, foldr (fn (tname, t) => Uni (Bind (tname, t), combine_region (snd tname) r)) (Mono $ elab_mt t) tnames)
-        | S.SpecDatatype a => SpecDatatype $ elab_datatype a
         | S.SpecIdx (name, sort) => SpecIdx (name, elab_s sort)
         | S.SpecType (tnames, sorts, r) =>
           (case tnames of
@@ -400,6 +399,12 @@ local
              | name :: tnames => SpecType (name, (length tnames, map (fst o elab_b) sorts))
           )
         | S.SpecTypeDef (name, ty) => SpecTypeDef (name, elab_mt ty)
+        | S.SpecDatatype a =>
+          let
+            val (dt, r) = elab_datatype a
+          in
+            SpecTypeDef (unBinderName $ fst dt, TDatatype (Abs dt, r))
+          end
 
   fun elab_sig sg =
       case sg of

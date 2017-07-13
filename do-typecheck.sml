@@ -2056,17 +2056,20 @@ fun is_wf_sig gctx (comps, r) =
             (SpecType ((name, r), k), add_kinding_skct (name, k) ctx)
           end
         | U.SpecTypeDef ((name, r), t) =>
-          let
-            val (t, k) = get_kind gctx ((sctx, kctx), t)
-          in
-            (SpecTypeDef ((name, r), t), add_type_eq_skct (name, (k, t)) ctx)
-          end
-        | U.SpecDatatype (dt, r) =>
-          let
-            val (dt, ctxd) = is_wf_datatype gctx ctx (dt, r)
-          in
-            (SpecDatatype (dt, r), add_ctx ctxd ctx)
-          end
+          (case t of
+               U.TDatatype (Abs dt, r) =>
+               let
+                 val (dt, ctxd) = is_wf_datatype gctx ctx (dt, r)
+               in
+                 (SpecTypeDef ((name, r), TDatatype (Abs dt, r)), add_ctx ctxd ctx)
+               end
+             | _ =>
+               let
+                 val (t, k) = get_kind gctx ((sctx, kctx), t)
+               in
+                 (SpecTypeDef ((name, r), t), add_type_eq_skct (name, (k, t)) ctx)
+               end
+          )
     fun iter (spec, (specs, ctx)) =
       let
         val (spec, ctx) = is_wf_spec ctx spec

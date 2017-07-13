@@ -633,18 +633,21 @@ fun on_sig gctx (comps, r) =
             (SpecType ((name, r), k), add_kinding_skct name ctx)
           end
         | S.SpecTypeDef ((name, r), t) =>
-          let
-            val t = on_mtype gctx (sctx, kctx) t
-          in
-            (SpecTypeDef ((name, r), t), add_kinding_skct name ctx)
-          end
-        | S.SpecDatatype (dt, r) =>
-          let
-            val (dt, (tname, cnames)) = on_datatype gctx (sctx, kctx) dt
-            val ctx = (sctx, tname :: kctx, rev cnames @ cctx, tctx)
-          in
-            (SpecDatatype (dt, r), ctx)
-          end
+          (case t of
+               S.TDatatype (Abs dt, r) =>
+               let
+                 val (dt, (tname, cnames)) = on_datatype gctx (sctx, kctx) dt
+                 val ctx = (sctx, tname :: kctx, rev cnames @ cctx, tctx)
+               in
+                 (SpecTypeDef ((name, r), TDatatype (Abs dt, r)), ctx)
+               end
+             | _ =>
+               let
+                 val t = on_mtype gctx (sctx, kctx) t
+               in
+                 (SpecTypeDef ((name, r), t), add_kinding_skct name ctx)
+               end
+          )
     fun iter (spec, (specs, ctx)) =
       let
         val (spec, ctx) = on_spec ctx spec
