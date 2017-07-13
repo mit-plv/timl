@@ -265,12 +265,12 @@ fun whnf_mt gctx kctx (t : mtype) : mtype =
 fun normalize_ibind f kctx (Bind (name, t) : ('a * 'b) ibind) =
   Bind (name, f (shiftx_i_kctx 1 kctx) t)
        
-fun normalize_tbind get_name f kctx k (Bind (name, t) : ('a * 'b) tbind) =
-  Bind (name, f (add_kinding (get_name name, k) kctx) t)
+fun normalize_tbind f kctx k (Bind (name, t) : ((string * 'a) * 'b) tbind) =
+  Bind (name, f (add_kinding (fst name, k) kctx) t)
 
-fun normalize_binds get_name get_cls on_bind f_cls f ctx binds =
+fun normalize_binds get_cls on_bind f_cls f ctx binds =
   let
-    val normalize_binds = normalize_binds get_name get_cls on_bind f_cls f
+    val normalize_binds = normalize_binds get_cls on_bind f_cls f
   in
     case binds of
         BindNil a => BindNil (f ctx a)
@@ -278,13 +278,13 @@ fun normalize_binds get_name get_cls on_bind f_cls f ctx binds =
         let
           val cls = f_cls cls
         in
-          BindCons (cls, on_bind get_name normalize_binds ctx (get_cls cls) bind)
+          BindCons (cls, on_bind normalize_binds ctx (get_cls cls) bind)
         end
   end
 
-fun normalize_ibind' _ f kctx _ bind = normalize_ibind f kctx bind
-fun normalize_ibinds f_cls f ctx (b : ('classifier, 'name, 'inner) ibinds) = normalize_binds (const_fun "") id normalize_ibind' f_cls f ctx b
-fun normalize_tbinds get_name get_cls f_cls f ctx (b : ('classifier, 'name, 'inner) tbinds) = normalize_binds get_name get_cls normalize_tbind f_cls f ctx b
+fun normalize_ibind' f kctx _ bind = normalize_ibind f kctx bind
+fun normalize_ibinds f_cls f ctx (b : ('classifier, 'name, 'inner) ibinds) = normalize_binds id normalize_ibind' f_cls f ctx b
+fun normalize_tbinds get_cls f_cls f ctx (b : ('classifier, string * 'a, 'inner) tbinds) = normalize_binds get_cls normalize_tbind f_cls f ctx b
        
 fun normalize_mt gctx kctx t =
   let
@@ -313,7 +313,7 @@ fun normalize_mt gctx kctx t =
           | MtAbs (k, bind, r) =>
             let
               val k = normalize_k k
-              val t = MtAbs (k, normalize_tbind fst normalize_mt kctx k bind, r)
+              val t = MtAbs (k, normalize_tbind normalize_mt kctx k bind, r)
             in
               t
             end
@@ -339,7 +339,7 @@ fun normalize_mt gctx kctx t =
                 end
               fun on_body kctx (bsorts, constr_decls) =
                 (bsorts, (map o map2_3) (normalize_constr_core gctx kctx) constr_decls)
-              val Bind dt = normalize_tbind fst (normalize_tbinds fst (const_fun Type) id on_body) kctx (get_kind dt) $ Bind dt
+              val Bind dt = normalize_tbind (normalize_tbinds (const_fun Type) id on_body) kctx (get_kind dt) $ Bind dt
               val dt = to_Unbound dt
             in
               TDatatype (Abs dt, r)
@@ -373,7 +373,7 @@ fun normalize_ke gctx kctx ((k, t) : kind_ext) = (normalize_k k, Option.map (nor
 
 fun normalize_c gctx kctx ((x, core) : mtype constr) : mtype constr =
   let
-    val core = normalize_tbinds fst (const_fun Type) id (normalize_constr_core gctx) kctx core
+    val core = normalize_tbinds (const_fun Type) id (normalize_constr_core gctx) kctx core
   in
     (x, core)
   end

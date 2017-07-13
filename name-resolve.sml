@@ -85,9 +85,7 @@ fun on_bsort bs =
       | S.BSArrow (a, b) => BSArrow (on_bsort a, on_bsort b)
       | S.UVarBS u => UVarBS u
 
-fun on_ibind_generic get_name f ctx (Bind (name, inner) : ('a * 'b) ibind) = Bind (name, f (get_name name :: ctx) inner)
-
-fun on_ibind x = on_ibind_generic fst x
+fun on_ibind f ctx (Bind (name, inner) : ((string * 'a) * 'b) ibind) = Bind (name, f (fst name :: ctx) inner)
 
 fun on_idx (gctx : sigcontext) ctx i =
     let
@@ -130,11 +128,9 @@ fun on_sort gctx ctx s =
                                                    
 fun on_kind k = mapSnd (map on_bsort) k
 
-fun on_tbind_generic get_name f kctx (Bind (name, b) : ('a * 'b) tbind) = 
-  Bind (name, f (get_name name :: kctx) b)
+fun on_tbind f kctx (Bind (name, b) : ((string * 'a) * 'b) tbind) = 
+  Bind (name, f (fst name :: kctx) b)
 
-fun on_tbind x = on_tbind_generic fst x
-                       
 fun on_mtype gctx (ctx as (sctx, kctx)) t =
     let
       val on_mtype = on_mtype gctx
@@ -229,35 +225,35 @@ fun on_ptrn gctx (ctx as (sctx, kctx, cctx)) pn =
           AnnoP (on_ptrn ctx pn, Outer $ on_mtype gctx (sctx, kctx) t)
     end
 
-fun on_binds on_bind get_name on_anno on_inner ctx ibinds =
+fun on_binds on_bind on_anno on_inner ctx ibinds =
   let
-    val on_binds = on_binds on_bind get_name on_anno on_inner
+    val on_binds = on_binds on_bind on_anno on_inner
   in
     case ibinds of
         BindNil inner => BindNil (on_inner ctx inner)
       | BindCons (anno, bind) =>
-        BindCons (on_anno ctx anno, on_bind get_name on_binds ctx bind)
+        BindCons (on_anno ctx anno, on_bind on_binds ctx bind)
   end
 
-fun on_ibinds get_name on_anno on_inner ctx (ibinds : ('a, 'name, 'c) ibinds) = on_binds on_ibind_generic get_name on_anno on_inner ctx ibinds
-(* fun on_ibinds get_name on_anno on_inner ctx ibinds = *)
+fun on_ibinds on_anno on_inner ctx (ibinds : ('a, string * 'b, 'c) ibinds) = on_binds on_ibind on_anno on_inner ctx ibinds
+(* fun on_ibinds on_anno on_inner ctx ibinds = *)
 (*   let *)
-(*     val on_ibinds = on_ibinds get_name on_anno on_inner *)
+(*     val on_ibinds = on_ibinds on_anno on_inner *)
 (*   in *)
 (*     case ibinds of *)
 (*         BindNil inner => BindNil (on_inner ctx inner) *)
 (*       | BindCons (anno, bind) => *)
-(*         BindCons (on_anno ctx anno, on_ibind_generic get_name on_ibinds ctx bind) *)
+(*         BindCons (on_anno ctx anno, on_ibind_generic on_ibinds ctx bind) *)
 (*   end *)
 
-fun on_tbinds get_name on_anno on_inner ctx (tbinds : ('a, 'name, 'c) tbinds) = on_binds on_tbind_generic get_name on_anno on_inner ctx tbinds
+fun on_tbinds on_anno on_inner ctx (tbinds : ('a, string * 'b, 'c) tbinds) = on_binds on_tbind on_anno on_inner ctx tbinds
                                                                                          
 fun on_constr_core gctx (ctx as (sctx, kctx)) (ibinds : S.mtype S.constr_core) : mtype constr_core =
-    on_ibinds fst (on_sort gctx) (fn sctx => fn (t, is) => (on_mtype gctx (sctx, kctx) t, map (on_idx gctx sctx) is)) sctx ibinds
+    on_ibinds (on_sort gctx) (fn sctx => fn (t, is) => (on_mtype gctx (sctx, kctx) t, map (on_idx gctx sctx) is)) sctx ibinds
 
 fun on_constr gctx (ctx as (sctx, kctx)) ((family, tbinds) : S.mtype S.constr) : mtype constr =
     (on_long_id gctx #2 kctx family,
-     on_tbinds fst return2 (fn kctx => on_constr_core gctx (sctx, kctx)) kctx tbinds)
+     on_tbinds return2 (fn kctx => on_constr_core gctx (sctx, kctx)) kctx tbinds)
 
 fun on_return gctx (ctx as (sctx, _)) return = mapPair (Option.map (on_mtype gctx ctx), Option.map (on_idx gctx sctx)) return
 
@@ -584,7 +580,7 @@ and on_datatype gctx (ctx as (sctx, kctx, cctx, tctx)) (dt, r) =
         (map on_bsort sorts, map (on_constr_decl kctx) constr_decls)
       open TypeUtil
       val dt = Bind $ from_Unbound dt
-      val Bind dt = on_tbind_generic fst (on_tbinds fst return2 on_constrs) kctx dt
+      val Bind dt = on_tbind (on_tbinds return2 on_constrs) kctx dt
       val decl = to_Unbound dt
       val (name, dt) = dt
       val (_, (_, constr_decls)) = unfold_binds dt
