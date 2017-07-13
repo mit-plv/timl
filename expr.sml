@@ -1542,7 +1542,7 @@ fun shift_e_e b = shiftx_e_e 0 1 b
 
 fun shiftx_i_c x n ((family, tbinds) : mtype constr) : mtype constr =
   (family,
-   on_i_tbinds return3 (on_i_constr_core shiftx_i_i shiftx_i_s shiftx_i_mt) x n tbinds)
+   on_i_tbinds return3 (on_i_constr_core (shiftx_i_i, shiftx_i_s)) x n tbinds)
 
 fun shift_i_c b = shiftx_i_c 0 1 b
 
