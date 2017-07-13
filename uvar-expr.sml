@@ -84,3 +84,10 @@ structure Expr = ExprFn (structure Var = IntVar
                         
 structure ExprVisitor = ExprVisitorFn (structure S = Expr
                                        structure T = Expr)
+
+structure ShiftEE = ShiftEEFn (structure S = Expr
+                               structure T = Expr)
+                                      
+structure SubstTE = SubstTEFn (structure S = Expr
+                               structure T = Expr)
+                                      

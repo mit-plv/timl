@@ -67,9 +67,12 @@ structure Type = TypeFn (structure Idx = Idx
                         )
 open Type
 
+structure Pattern = Pattern
 open Pattern
 
-type ptrn = (long_id * ptrn_constr_tag, mtype) ptrn
+type cvar = long_id
+
+type ptrn = (cvar * ptrn_constr_tag, mtype) ptrn
 
 type return = mtype option * idx option
                                  
@@ -1682,7 +1685,7 @@ fun subst_t_mt_fn params d x v b =
     #visit_mtype vtable visitor (IDepth 0, TDepth 0) b
   end
                                
-fun substx_t_mt (di, dt) a = subst_t_mt_fn (shiftx_i_mt, shiftx_t_mt) (IDepth di, TDepth dt) a
+fun substx_t_mt a = unuse_idepth_tdepth (subst_t_mt_fn (shiftx_i_mt, shiftx_t_mt)) a
       
 fun subst_t_mt (v : mtype) (b : mtype) : mtype = substx_t_mt (0, 0) 0 v b
                                                              
@@ -2880,4 +2883,5 @@ end
 functor TestExprFnSignatures (Params : EXPR_PARAMS) = struct
 structure M : IDX = ExprFn (Params)
 structure M2 : TYPE = ExprFn (Params)
+structure M3 : EXPR = ExprFn (Params)
 end

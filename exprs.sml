@@ -116,3 +116,7 @@ structure UnderscoredExpr = ExprFn (structure Var = IntVar
 
 structure UnderscoredExprVisitor = ExprVisitorFn (structure S = UnderscoredExpr
                                                   structure T = UnderscoredExpr)
+
+structure UnderscoredShiftEE = ShiftEEFn (structure S = UnderscoredExpr
+                                          structure T = UnderscoredExpr)
+                                                 

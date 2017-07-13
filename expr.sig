@@ -1,12 +1,15 @@
 signature EXPR = sig
 
+  structure Pattern : PATTERN
   type var
+  type cvar
   type mod_projectible
   type idx
   type sort
   type mtype
   type 'mtype datatype_def
-  type ptrn
+  type ptrn_constr_tag
+  type ptrn = (cvar * ptrn_constr_tag, mtype) Pattern.ptrn
   val ptrn_names : ptrn -> string list * string list
 
   type return = mtype option * idx option
@@ -28,7 +31,7 @@ signature EXPR = sig
            | ET of Operators.expr_T * mtype * Region.region
 	   | EAbs of (ptrn, expr) Unbound.bind
 	   | EAbsI of (sort, expr) Binders.ibind_anno * Region.region
-	   | EAppConstr of (var * bool) * mtype list * idx list * expr * (int * mtype) option
+	   | EAppConstr of (cvar * bool) * mtype list * idx list * expr * (int * mtype) option
 	   | ECase of expr * return * (ptrn, expr) Unbound.bind list * Region.region
 	   | ELet of return * (decl Unbound.tele, expr) Unbound.bind * Region.region
 	   | EAsc of expr * mtype

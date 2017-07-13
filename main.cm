@@ -34,10 +34,12 @@ type-util.sml
 type-visitor.sml
 type.sml
 datatype.sml
+pattern.sig
 pattern.sml
 long-id.sml
 expr.sig
 expr-visitor.sml                                 
+expr-trans.sml
 expr.sml
 exprs.sml
 uvar-expr.sml
@@ -47,7 +49,7 @@ package.sml
 typecheck-util.sml
 normalize.sml
 pattern-visitor.sml                                 
-expr-trans.sml
+simp-expr.sml
 collect-var.sml
 collect-uvar.sml
 parallel-subst.sml

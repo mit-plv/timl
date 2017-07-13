@@ -1,64 +1,21 @@
-structure ExprTrans = struct
+functor SubstTEFn (structure S : EXPR
+                   structure T : EXPR
+                   sharing type S.var = T.var
+                   sharing type S.cvar = T.cvar
+                   sharing type S.mod_projectible = T.mod_projectible
+                   sharing type S.idx = T.idx
+                   sharing type S.sort = T.sort
+                   sharing type S.ptrn_constr_tag = T.ptrn_constr_tag
+                  ) = struct
 
-open Normalize
-open PatternVisitor
+structure ExprVisitor = ExprVisitorFn (structure S = S
+                                       structure T = T)
 open ExprVisitor
-
+       
+open Util
+       
 infixr 0 $
          
-(***************** the "simp" visitor  **********************)
-
-fun visit_mtype x = ignore_this (normalize_mt empty) x
-                                
-fun simp_ptrn_visitor_vtable cast () : ('this, kcontext, 'var, mtype, 'var, mtype) ptrn_visitor_vtable =
-  let
-    fun extend_t this env name = (Name2str name, KeKind Type) :: env
-  in
-    default_ptrn_visitor_vtable
-      cast
-      extend_noop
-      extend_noop
-      visit_noop
-      visit_mtype
-  end
-
-fun new_simp_ptrn_visitor params = new_ptrn_visitor simp_ptrn_visitor_vtable params
-    
-fun simp_pn kctx pn =
-  let
-    val visitor as (PtrnVisitor vtable) = new_simp_ptrn_visitor ()
-  in
-    #visit_ptrn vtable visitor kctx pn
-  end
-                      
-fun simp_expr_visitor_vtable cast () : ('this, kcontext) expr_visitor_vtable =
-  let
-    fun extend_t this env name = (Name2str name, KeKind Type) :: env
-  in
-    default_expr_visitor_vtable
-      cast
-      extend_noop
-      extend_t
-      extend_noop
-      extend_noop
-      visit_noop
-      visit_noop
-      (ignore_this_env (simp_i o normalize_i))
-      (ignore_this_env normalize_s)
-      visit_mtype
-      (visit_imposs "visit_datatype")
-      (ignore_this simp_pn)
-  end
-
-fun new_simp_expr_visitor params = new_expr_visitor simp_expr_visitor_vtable params
-    
-fun simp_e kctx e =
-  let
-    val visitor as (ExprVisitor vtable) = new_simp_expr_visitor ()
-  in
-    #visit_expr vtable visitor kctx e
-  end
-                      
 (***************** the "subst_t_e" visitor  **********************)    
 
 (* fun visit_datatype this env data = *)
@@ -74,13 +31,12 @@ fun simp_e kctx e =
 (*     data *)
 (*   end *)
     
-fun subst_t_expr_visitor_vtable cast ((subst_t_t, subst_t_pn), d, x, v) : ('this, idepth * tdepth) expr_visitor_vtable =
+fun subst_t_expr_visitor_vtable cast (subst_t_t, d, x, v) : ('this, idepth * tdepth) expr_visitor_vtable =
   let
     fun extend_i this env _ = mapFst idepth_inc env
     fun extend_t this env _ = mapSnd tdepth_inc env
     fun add_depth (di, dt) (di', dt') = (idepth_add (di, di'), tdepth_add (dt, dt'))
     fun visit_mtype this env b = subst_t_t (add_depth d env) (x + unTDepth (snd env)) v b
-    fun visit_ptrn this env b = subst_t_pn env d x v b
   in
     default_expr_visitor_vtable
       cast
@@ -92,9 +48,10 @@ fun subst_t_expr_visitor_vtable cast ((subst_t_t, subst_t_pn), d, x, v) : ('this
       visit_noop
       visit_noop
       visit_noop
+      visit_noop
       visit_mtype
       (visit_imposs "visit_datatype")
-      visit_ptrn
+      visit_noop
   end
 
 fun new_subst_t_expr_visitor params = new_expr_visitor subst_t_expr_visitor_vtable params
@@ -106,4 +63,179 @@ fun subst_t_e_fn substs d x v b =
     #visit_expr vtable visitor (IDepth 0, TDepth 0) b
   end
 
+end
+
+functor ShiftEEFn (structure S : EXPR
+                   structure T : EXPR
+                   sharing type S.cvar = T.cvar
+                   sharing type S.mod_projectible = T.mod_projectible
+                   sharing type S.idx = T.idx
+                   sharing type S.sort = T.sort
+                   sharing type S.mtype = T.mtype
+                   sharing type S.datatype_def = T.datatype_def
+                   sharing type S.ptrn_constr_tag = T.ptrn_constr_tag
+                  ) = struct
+
+structure ExprVisitor = ExprVisitorFn (structure S = S
+                                       structure T = T
+                                      )
+open ExprVisitor
+
+open Util
+       
+infixr 0 $
+         
+(***************** the "shift_e_e" visitor  **********************)    
+
+open Bind
+       
+fun on_e_expr_visitor_vtable cast (on_var, n) : ('this, int) expr_visitor_vtable =
+  let
+    fun extend_e this env _ = env + 1
+    fun visit_var this env data = on_var env n data
+  in
+    default_expr_visitor_vtable
+      cast
+      extend_noop
+      extend_noop
+      extend_noop
+      extend_e
+      visit_var
+      visit_noop
+      visit_noop
+      visit_noop
+      visit_noop
+      visit_noop
+      visit_noop
+      visit_noop
+  end
+
+fun new_on_e_expr_visitor params = new_expr_visitor on_e_expr_visitor_vtable params
+    
+fun on_e_e on_var x n b =
+  let
+    val visitor as (ExprVisitor vtable) = new_on_e_expr_visitor (on_var, n)
+  in
+    #visit_expr vtable visitor x b
+  end
+    
+fun on_e_ibind f x n (Bind (name, b) : ('a * 'b) ibind) = Bind (name, f x n b)
+                                                               
+(* fun on_e_e on_v = *)
+(*   let *)
+(*     fun f x n b = *)
+(*       case b of *)
+(* 	  EVar (y, b) => EVar (on_v x n y, b) *)
+(*         | EConst _ => b *)
+(* 	| EUnOp (opr, e, r) => EUnOp (opr, f x n e, r) *)
+(* 	| EBinOp (opr, e1, e2) => EBinOp (opr, f x n e1, f x n e2) *)
+(* 	| ETriOp (opr, e1, e2, e3) => ETriOp (opr, f x n e1, f x n e2, f x n e3) *)
+(* 	| EEI (opr, e, i) => EEI (opr, f x n e, i) *)
+(* 	| EET (opr, e, t) => EET (opr, f x n e, t) *)
+(* 	| ET (opr, t, r) => ET (opr, t, r) *)
+(* 	| EAbs bind => *)
+(*           let *)
+(*             val (pn, e) = unBind bind *)
+(*           in *)
+(*             EAbs $ Unbound.Bind (pn, f (x + (length $ snd $ ptrn_names pn)) n e) *)
+(*           end *)
+(* 	| EAbsI (bind, r) => *)
+(*           let *)
+(*             val ((name, s), e) = unBindAnno bind *)
+(*             val bind = Bind (name, e) *)
+(*             val Bind (name, e) = on_e_ibind f x n bind *)
+(*             val bind = BindAnno ((name, s), e) *)
+(*           in *)
+(*             EAbsI (bind, r) *)
+(*           end *)
+(* 	| ELet (return, bind, r) => *)
+(* 	  let *)
+(*             val (decls, e) = unBind bind *)
+(*             val decls = unTeles decls *)
+(* 	    val (decls, m) = f_decls x n decls *)
+(*             val decls = Teles decls *)
+(* 	  in *)
+(* 	    ELet (return, Unbound.Bind (decls, f (x + m) n e), r) *)
+(* 	  end *)
+(* 	| EAsc (e, t) => EAsc (f x n e, t) *)
+(* 	| EAppConstr (cx, ts, is, e, ot) => EAppConstr (cx, ts, is, f x n e, ot) *)
+(* 	| ECase (e, return, rules, r) => ECase (f x n e, return, map (f_rule x n) rules, r) *)
+
+(*     and f_decls x n decls = *)
+(* 	let  *)
+(*           fun g (dec, (acc, m)) = *)
+(* 	    let *)
+(* 	      val (dec, m') = f_dec (x + m) n dec *)
+(* 	    in *)
+(* 	      (dec :: acc, m' + m) *)
+(* 	    end *)
+(* 	  val (decls, m) = foldl g ([], 0) decls *)
+(* 	  val decls = rev decls *)
+(* 	in *)
+(*           (decls, m) *)
+(*         end *)
+
+(*     and f_dec x n dec = *)
+(* 	case dec of *)
+(* 	    DVal (name, Outer bind, r) =>  *)
+(* 	    let *)
+(*               val (tnames, e) = unBind bind *)
+(* 	    in *)
+(*               (DVal (name, Outer $ Unbound.Bind (tnames, f x n e), r), 1) *)
+(*             end *)
+(* 	  | DValPtrn (pn, Outer e, r) =>  *)
+(* 	    let  *)
+(*               val (_, enames) = ptrn_names pn  *)
+(* 	    in *)
+(*               (DValPtrn (pn, Outer $ f x n e, r), length enames) *)
+(*             end *)
+(*           | DRec (name, bind, r) =>  *)
+(*             let *)
+(*               val ((tnames, Rebind binds), ((t, d), e)) = unBind $ unInner bind *)
+(*               val binds = unTeles binds *)
+(*               fun g (bind, m) = *)
+(*                 case bind of *)
+(*                     SortingST _ => m *)
+(*                   | TypingST pn => *)
+(* 	            let  *)
+(*                       val (_, enames) = ptrn_names pn  *)
+(* 	            in *)
+(*                       m + length enames *)
+(*                     end *)
+(*               val m = foldl g 0 binds *)
+(*               val e = f (x + 1 + m) n e *)
+(*             in *)
+(*               (DRec (name, Inner $ Unbound.Bind ((tnames, Rebind $ Teles binds), ((t, d), e)), r), 1) *)
+(*             end *)
+(*           | DDatatype a => (DDatatype a, 0) *)
+(*           | DIdxDef a => (DIdxDef a, 0) *)
+(*           | DAbsIdx2 a => (DAbsIdx2 a, 0) *)
+(*           | DAbsIdx (a, Rebind decls, r) =>  *)
+(*             let *)
+(*               val decls = unTeles decls *)
+(*               val (decls, m) = f_decls x n decls *)
+(*             in *)
+(*               (DAbsIdx (a, Rebind $ Teles decls, r), m) *)
+(*             end *)
+(*           | DTypeDef (name, t) => (DTypeDef (name, t), 0) *)
+(*           | DOpen (m, octx) => *)
+(*             case octx of *)
+(*                 NONE => raise Impossible "ctx can't be NONE" *)
+(*               | SOME ctx => (DOpen (m, octx), length $ #4 ctx) *)
+
+(*     and f_rule x n bind = *)
+(* 	let *)
+(*           val (pn, e) = unBind bind *)
+(*           val (_, enames) = ptrn_names pn  *)
+(* 	in *)
+(* 	  Unbound.Bind (pn, f (x + length enames) n e) *)
+(* 	end *)
+(*   in *)
+(*     f *)
+(*   end *)
+
+(* fun shiftx_e_e x n b = on_e_e shiftx_v x n b *)
+(* fun shift_e_e b = shiftx_e_e 0 1 b *)
+(* fun forget_e_e x n b = on_e_e forget_v x n b *)
+                              
 end

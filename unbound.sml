@@ -104,6 +104,9 @@ fun unIDepth (IdxNS, n) = n
 fun unTDepth (TypeNS, n) = n
 fun unEDepth (ExprNS, n) = n
                               
+fun use_idepth_tdepth f (di, dt) = f (unIDepth di, unTDepth dt)
+fun unuse_idepth_tdepth f (di, dt) = f (IDepth di, TDepth dt)
+                                     
 end
 
 signature BINDERS = sig
