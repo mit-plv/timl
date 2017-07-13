@@ -359,8 +359,6 @@ local
           in
 	    DRec (Binder $ EName name, Inner $ Unbound.Bind ((map (Binder o TName) tnames, Rebind $ Teles binds), ((t, d), e)), Outer r)
           end
-        | S.Datatype a =>
-          DDatatype $ mapSnd Outer $ elab_datatype a
         | S.IdxDef ((name, r), s, i) =>
           let
             val s = default (UVarS ((), r)) $ Option.map elab_s s
@@ -381,6 +379,12 @@ local
                       | NONE => UVarI ((), r1)
           in
             DAbsIdx ((Binder $ IName (name, r1), Outer s, Outer i), Rebind $ Teles $ map elab_decl decls, Outer r)
+          end
+        | S.Datatype a =>
+          let
+            val (dt, r) = elab_datatype a
+          in
+            DTypeDef (fst dt, Outer (TDatatype (Abs dt, r)))
           end
         | S.TypeDef (name, t) => DTypeDef (Binder $ TName name, Outer $ elab_mt t)
         | S.Open name => DOpen (Outer name, NONE)

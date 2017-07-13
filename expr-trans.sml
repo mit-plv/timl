@@ -50,7 +50,6 @@ fun subst_t_expr_visitor_vtable cast (subst_t_t, d, x, v) : ('this, idepth * tde
       visit_noop
       visit_noop
       visit_mtype
-      (visit_imposs "visit_datatype")
       visit_noop
   end
 
@@ -72,7 +71,6 @@ functor ShiftEEFn (structure S : EXPR
                    sharing type S.idx = T.idx
                    sharing type S.sort = T.sort
                    sharing type S.mtype = T.mtype
-                   sharing type S.datatype_def = T.datatype_def
                    sharing type S.ptrn_constr_tag = T.ptrn_constr_tag
                   ) = struct
 
@@ -101,7 +99,6 @@ fun on_e_expr_visitor_vtable cast (on_var, n) : ('this, int) expr_visitor_vtable
       extend_noop
       extend_e
       visit_var
-      visit_noop
       visit_noop
       visit_noop
       visit_noop

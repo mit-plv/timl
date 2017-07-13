@@ -1682,12 +1682,6 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
             in
               (decl, ctx_from_typing (name, te), 0, [T0 dummy])
 	    end
-	  | U.DDatatype (dt, Outer r) =>
-            let
-              val (dt, ctxd) = is_wf_datatype gctx ctx (dt, r)
-            in
-              (DDatatype (dt, Outer r), ctxd, 0, [])
-            end
           | U.DIdxDef (name, Outer s, Outer i) =>
             let
               val (name, r) = unBinderName name
@@ -1714,13 +1708,22 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
               (DAbsIdx2 (Binder $ IName (name, r), Outer s, Outer i), ctxd, length ps, [])
             end
           | U.DTypeDef (name, Outer t) =>
-            let
-              val (name, r) = unBinderName name
-              val (t, k) = get_kind gctx ((sctx, kctx), t)
-              val kinding = (name, KeTypeEq (k, t))
-            in
-              (DTypeDef (Binder $ TName (name, r), Outer t), ctx_from_kindingext kinding, 0, [])
-            end
+            (case t of
+                 U.TDatatype (Abs dt, r) =>
+                 let
+                   val (dt, ctxd) = is_wf_datatype gctx ctx (dt, r)
+                 in
+                   (DTypeDef (name, Outer $ TDatatype (Abs dt, r)), ctxd, 0, [])
+                 end
+               | _ =>
+                 let
+                   val (name, r) = unBinderName name
+                   val (t, k) = get_kind gctx ((sctx, kctx), t)
+                   val kinding = (name, KeTypeEq (k, t))
+                 in
+                   (DTypeDef (Binder $ TName (name, r), Outer t), ctx_from_kindingext kinding, 0, [])
+                 end
+            )
           | U.DAbsIdx ((name, Outer s, Outer i), Rebind decls, Outer r) =>
             let
               val (name, r1) = unBinderName name

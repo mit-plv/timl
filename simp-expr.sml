@@ -24,7 +24,6 @@ fun simp_expr_visitor_vtable cast () : ('this, kcontext) expr_visitor_vtable =
       (ignore_this_env (simp_i o normalize_i))
       (ignore_this_env normalize_s)
       visit_mtype
-      (visit_imposs "visit_datatype")
       visit_noop
   end
 

@@ -102,7 +102,6 @@ datatype expr =
          DVal of ename binder * (tname binder list, expr) bind outer * region outer
          | DValPtrn of ptrn * expr outer * region outer
          | DRec of ename binder * (tname binder list * stbind tele rebind, (mtype * idx) * expr) bind inner * region outer
-	 | DDatatype of mtype datatype_def * region outer
          | DIdxDef of iname binder * sort outer * idx outer
          | DAbsIdx2 of iname binder * sort outer * idx outer
          | DAbsIdx of (iname binder * sort outer * idx outer) * decl tele rebind * region outer
@@ -1119,28 +1118,6 @@ and str_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
           in
             (sprintf "rec$ $$ : $ |> $ = $" [tnames, name, binds, t, d, e], ctx_ret)
           end
-        | DDatatype ((name, tbinds), _) =>
-          let
-            val name = binder2str name
-            val tbinds = unInner tbinds
-            val (tname_kinds, (sorts, constrs)) = unfold_binds tbinds
-            val tnames = map fst $ map fst tname_kinds
-            val str_tnames = (join_prefix " " o rev) tnames
-            fun str_constr_decl ((cname, _), ibinds, _) =
-              let 
-                val (name_sorts, (t, idxs)) = unfold_binds ibinds
-                val name_sorts = map (mapFst fst) name_sorts
-                val (name_sorts, sctx') = str_sortings gctx sctx name_sorts
-                val name_sorts = map (fn (nm, s) => sprintf "$ : $" [nm, s]) name_sorts
-              in
-                sprintf "$ of$ $ ->$$ $" [cname, (join_prefix " " o map (surround "{" "}")) name_sorts, str_mt gctx (sctx', rev tnames @ name :: kctx) t, (join_prefix " " o map (surround "{" "}" o str_i gctx sctx') o rev) idxs, str_tnames, name]
-              end
-            val s = sprintf "datatype$$ $ = $" [(join_prefix " " o map (surround "{" "}" o str_bs) o rev) sorts, str_tnames, name, join " | " (map str_constr_decl constrs)]
-            val cnames = map fst $ map #1 constrs
-            val ctx = (sctx, name :: kctx, rev cnames @ cctx, tctx)
-          in
-            (s, ctx)
-          end
         | DIdxDef (name, Outer s, Outer i) =>
           let
             val name = binder2str name
@@ -1163,11 +1140,36 @@ and str_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
             (sprintf "absidx $ : $ = $ with$ end" [name, str_s gctx sctx s, str_i gctx sctx i, join_prefix " " decls], ctx')
           end
         | DTypeDef (name, Outer t) =>
-          let
-            val name = binder2str name
-          in
-            (sprintf "type $ = $" [name, str_mt gctx (sctx, kctx) t], add_kinding name ctx)
-          end
+          (case t of
+               TDatatype (Abs (name, tbinds), _) =>
+               let
+                 val name = binder2str name
+                 val tbinds = unInner tbinds
+                 val (tname_kinds, (sorts, constrs)) = unfold_binds tbinds
+                 val tnames = map fst $ map fst tname_kinds
+                 val str_tnames = (join_prefix " " o rev) tnames
+                 fun str_constr_decl ((cname, _), ibinds, _) =
+                   let 
+                     val (name_sorts, (t, idxs)) = unfold_binds ibinds
+                     val name_sorts = map (mapFst fst) name_sorts
+                     val (name_sorts, sctx') = str_sortings gctx sctx name_sorts
+                     val name_sorts = map (fn (nm, s) => sprintf "$ : $" [nm, s]) name_sorts
+                   in
+                     sprintf "$ of$ $ ->$$ $" [cname, (join_prefix " " o map (surround "{" "}")) name_sorts, str_mt gctx (sctx', rev tnames @ name :: kctx) t, (join_prefix " " o map (surround "{" "}" o str_i gctx sctx') o rev) idxs, str_tnames, name]
+                   end
+                 val s = sprintf "datatype$$ $ = $" [(join_prefix " " o map (surround "{" "}" o str_bs) o rev) sorts, str_tnames, name, join " | " (map str_constr_decl constrs)]
+                 val cnames = map fst $ map #1 constrs
+                 val ctx = (sctx, name :: kctx, rev cnames @ cctx, tctx)
+               in
+                 (s, ctx)
+               end
+             | _ =>
+               let
+                 val name = binder2str name
+               in
+                 (sprintf "type $ = $" [name, str_mt gctx (sctx, kctx) t], add_kinding name ctx)
+               end
+          )
         | DOpen (Outer (m, r), _) =>
           let
             val (m, ctxd) = lookup_module gctx m
@@ -1303,7 +1305,6 @@ fun get_region_dec dec =
       DVal (_, _, Outer r) => r
     | DValPtrn (_, _, Outer r) => r
     | DRec (_, _, Outer r) => r
-    | DDatatype (_, Outer r) => r
     | DIdxDef (name, _, Outer i) => combine_region (get_region_binder name) (get_region_i i)
     | DAbsIdx2 (name, _, Outer i) => combine_region (get_region_binder name) (get_region_i i)
     | DAbsIdx (_, _, Outer r) => r
@@ -2764,7 +2765,6 @@ local
           in
             acc
           end
-        | DDatatype (a, r) => on_datatype acc a
         | DIdxDef (name, Outer s, Outer i) =>
           let 
             val acc = on_s acc s

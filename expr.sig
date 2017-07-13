@@ -7,7 +7,6 @@ signature EXPR = sig
   type idx
   type sort
   type mtype
-  type 'mtype datatype_def
   type ptrn_constr_tag
   type ptrn = (cvar * ptrn_constr_tag, mtype) Pattern.ptrn
   val ptrn_names : ptrn -> string list * string list
@@ -40,7 +39,6 @@ signature EXPR = sig
            DVal of Namespaces.ename Unbound.binder * (Namespaces.tname Unbound.binder list, expr) Unbound.bind Unbound.outer * Region.region Unbound.outer
            | DValPtrn of ptrn * expr Unbound.outer * Region.region Unbound.outer
            | DRec of Namespaces.ename Unbound.binder * (Namespaces.tname Unbound.binder list * stbind Unbound.tele Unbound.rebind, (mtype * idx) * expr) Unbound.bind Unbound.inner * Region.region Unbound.outer
-	   | DDatatype of mtype datatype_def * Region.region Unbound.outer
            | DIdxDef of Namespaces.iname Unbound.binder * sort Unbound.outer * idx Unbound.outer
            | DAbsIdx2 of Namespaces.iname Unbound.binder * sort Unbound.outer * idx Unbound.outer
            | DAbsIdx of (Namespaces.iname Unbound.binder * sort Unbound.outer * idx Unbound.outer) * decl Unbound.tele Unbound.rebind * Region.region Unbound.outer

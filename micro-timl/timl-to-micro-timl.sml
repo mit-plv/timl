@@ -529,7 +529,7 @@ fun test filename =
     open TypeCheck
     val ((decls, _, _, _), _) = typecheck_decls empty empty_ctx decls
     val dt = case hd decls of
-                 DDatatype (dt, _) => dt
+                 DTypeDef (_, Outer (TDatatype (Abs dt, _))) => dt
                | _ => raise Impossible ""
     val bind = case nth (decls, 1) of
                    DVal (_, Outer bind, _) => bind

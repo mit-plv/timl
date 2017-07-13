@@ -33,7 +33,6 @@ type ('this, 'env) expr_visitor_vtable =
        visit_DVal : 'this -> 'env ctx -> ename binder * (tname binder list, expr) bind outer * region outer -> T.decl,
        visit_DValPtrn : 'this -> 'env ctx -> ptrn * expr outer * region outer -> T.decl,
        visit_DRec : 'this -> 'env ctx -> ename binder * (tname binder list * stbind tele rebind, (mtype * idx) * expr) bind inner * region outer -> T.decl,
-       visit_DDatatype : 'this -> 'env ctx -> mtype datatype_def * region outer -> T.decl,
        visit_DIdxDef : 'this -> 'env ctx -> iname binder * sort outer * idx outer -> T.decl,
        visit_DAbsIdx2 : 'this -> 'env ctx -> iname binder * sort outer * idx outer -> T.decl,
        visit_DAbsIdx : 'this -> 'env ctx -> (iname binder * sort outer * idx outer) * decl tele rebind * region outer -> T.decl,
@@ -52,7 +51,6 @@ type ('this, 'env) expr_visitor_vtable =
        visit_idx : 'this -> 'env -> idx -> T.idx,
        visit_sort : 'this -> 'env -> sort -> T.sort,
        visit_mtype : 'this -> 'env -> mtype -> T.mtype,
-       visit_datatype : 'this -> 'env ctx -> mtype datatype_def -> T.mtype T.datatype_def,
        visit_ptrn_constr_tag : 'this -> 'env -> ptrn_constr_tag -> T.ptrn_constr_tag,
        extend_i : 'this -> 'env -> iname -> 'env,
        extend_t : 'this -> 'env -> tname -> 'env,
@@ -83,7 +81,6 @@ fun default_expr_visitor_vtable
       visit_idx
       visit_sort
       visit_mtype
-      visit_datatype
       visit_ptrn_constr_tag
     : ('this, 'env) expr_visitor_vtable =
   let
@@ -246,7 +243,6 @@ fun default_expr_visitor_vtable
             DVal data => #visit_DVal vtable this env data
           | DValPtrn data => #visit_DValPtrn vtable this env data
           | DRec data => #visit_DRec vtable this env data
-	  | DDatatype data => #visit_DDatatype vtable this env data
           | DIdxDef data => #visit_DIdxDef vtable this env data
           | DAbsIdx2 data => #visit_DAbsIdx2 vtable this env data
           | DAbsIdx data => #visit_DAbsIdx vtable this env data
@@ -362,14 +358,6 @@ fun default_expr_visitor_vtable
       in
         T.DTypeDef (name, t)
       end
-    fun visit_DDatatype this env data =
-      let
-        val vtable = cast this
-        val (dt, r) = data
-        val dt = #visit_datatype vtable this env dt
-      in
-        T.DDatatype (dt, r)
-      end
     fun visit_scoping_ctx this env (sctx, kctx, cctx, tctx) =
       let
         val sctx = visit_list (visit_ibinder this) env sctx
@@ -469,7 +457,6 @@ fun default_expr_visitor_vtable
       visit_DVal = visit_DVal,
       visit_DValPtrn = visit_DValPtrn,
       visit_DRec = visit_DRec,
-      visit_DDatatype = visit_DDatatype,
       visit_DIdxDef = visit_DIdxDef,
       visit_DAbsIdx2 = visit_DAbsIdx2,
       visit_DAbsIdx = visit_DAbsIdx,
@@ -488,7 +475,6 @@ fun default_expr_visitor_vtable
       visit_idx = visit_idx,
       visit_sort = visit_sort,
       visit_mtype = visit_mtype,
-      visit_datatype = visit_datatype,
       visit_ptrn_constr_tag = visit_ptrn_constr_tag,
       extend_i = extend_i,
       extend_t = extend_t,
