@@ -5,6 +5,8 @@ open Bind
 open UVar
 open Expr
        
+infixr 0 $
+         
 fun collect_uvar_i_i i =
   case i of
       VarI _ => []
@@ -40,17 +42,26 @@ fun collect_uvar_s_s s =
 structure MtypeVisitor = MtypeVisitorFn (structure S = Expr
                                          structure T = Expr)
 open MtypeVisitor
-                                      
-fun collect_uvar_t_mtype_visitor_vtable cast () (* : ('this, () list ref) mtype_visitor_vtable *) =
+
+(* type 'this collect_uvar_t_vtable = *)
+(*      ('this, ((uvar_name *  *)
+(*                ((string * bsort) list *  *)
+(*                 (string * kind) list),mtype) uvar ref *)
+(*               *  *)
+(*               (uvar_name *  *)
+(*                ((string * bsort) list *  *)
+(*                 (string * kind) list)) * region) list  *)
+(*                                                  ref) mtype_visitor_vtable      *)
+       
+fun collect_uvar_t_mtype_visitor_vtable cast () (* : 'this collect_uvar_t_vtable *) =
   let
     fun visit_UVar this env (x, r) =
       let
-        val new = 
+        val vtable = cast this
+        val () = 
             case !x of
-                Refined a => collect_uvar_t_mt a
-              | Fresh info => [(x, info, r)]
-        fun push_many_ref r x = binop_ref (curry op@) r x
-        val () = push_many_ref env new
+                Refined t => ignore $ #visit_mtype vtable this env t
+              | Fresh info => push_ref env (x, info, r)
       in
         UVar (x, r)
       end
@@ -70,9 +81,9 @@ fun collect_uvar_t_mtype_visitor_vtable cast () (* : ('this, () list ref) mtype_
     vtable
   end
 
-and new_collect_uvar_t_mtype_visitor params = new_mtype_visitor collect_uvar_t_mtype_visitor_vtable params
+fun new_collect_uvar_t_mtype_visitor params = new_mtype_visitor collect_uvar_t_mtype_visitor_vtable params
     
-and collect_uvar_t_mt t =
+fun collect_uvar_t_mt t =
   let
     val visitor as (MtypeVisitor vtable) = new_collect_uvar_t_mtype_visitor ()
     val result = ref []

@@ -67,6 +67,7 @@ fun return2 a1 a2 = a2
 fun return3 a1 a2 a3 = a3
 fun return4 a1 a2 a3 a4 = a4
 fun const_fun c _ = c
+fun ignore x = const_fun () x
 fun self_compose n f =
     if n <= 0 then
       id
