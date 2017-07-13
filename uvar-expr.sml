@@ -81,3 +81,6 @@ structure Expr = ExprFn (structure Var = IntVar
                          structure UVarT = UVar
                          type ptrn_constr_tag = int * int
                         )
+                        
+structure ExprVisitor = ExprVisitorFn (structure S = Expr
+                                       structure T = Expr)

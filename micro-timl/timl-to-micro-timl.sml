@@ -523,11 +523,17 @@ fun test filename =
     val prog = elaborate_prog prog
     open NameResolve
     val (prog, _, _) = resolve_prog empty prog
-    val (_, TopModBind (ModComponents (decls, _))) = hd prog
+    val decls = case hd prog of
+                    (_, TopModBind (ModComponents (decls, _))) => decls
+                  | _ => raise Impossible ""
     open TypeCheck
     val ((decls, _, _, _), _) = typecheck_decls empty empty_ctx decls
-    val DDatatype (dt, _) = hd decls
-    val DVal (_, Outer bind, _) = nth (decls, 1)
+    val dt = case hd decls of
+                 DDatatype (dt, _) => dt
+               | _ => raise Impossible ""
+    val bind = case nth (decls, 1) of
+                   DVal (_, Outer bind, _) => bind
+                 | _ => raise Impossible ""
     val (_, e) = unBind bind
     (* val dt = TypeTrans.on_dt dt *)
     val t_list = TiML.TDatatype (Abs dt, dummy)

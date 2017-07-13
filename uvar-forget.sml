@@ -193,6 +193,4 @@ fun forget_t_mt x n b = on_t_mt forget_long_id x n b
 fun forget_i_t x n b = on_i_t forget_i_mt x n b
 fun forget_t_t x n b = on_t_t forget_t_mt x n b
 
-fun forget_e_e x n b = on_e_e forget_v x n b
-                              
 end
