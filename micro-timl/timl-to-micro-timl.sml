@@ -350,14 +350,14 @@ fun compare_var (m, (y, r)) x =
     
 fun shift_i_t a = shift_i_t_fn (shiftx_i_i, shiftx_i_s) a
 fun shift_t_t a = shift_t_t_fn shift_var a
-fun subst_t_t a = subst_t_t_fn (shift_var, compare_var, shiftx_i_i, shiftx_i_s) a
+fun subst_t_t a = subst_t_t_fn (compare_var, shift_var, shiftx_i_i, shiftx_i_s) a
 fun subst0_t_t a = subst_t_t (IDepth 0, TDepth 0) 0 a
 fun subst_i_t a = subst_i_t_fn (substx_i_i, substx_i_s) a
 fun subst0_i_t a = subst_i_t 0 0 a
 fun normalize_t a = normalize_t_fn (subst0_i_t, subst0_t_t) a
 fun shift_i_e a = shift_i_e_fn (shiftx_i_i, shiftx_i_s, shift_i_t) a
 fun shift_e_e a = shift_e_e_fn shift_var a
-fun subst_e_e a = subst_e_e_fn shift_var compare_var (shiftx_i_i, shiftx_i_s, shift_i_t, shift_t_t) a
+fun subst_e_e a = subst_e_e_fn (compare_var, shift_var, shiftx_i_i, shiftx_i_s, shift_i_t, shift_t_t) a
 fun EV n = EVar (NONE, (n, dummy))
                 
 open PatternEx

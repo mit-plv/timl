@@ -797,7 +797,7 @@ fun subst_i_t_fn substs d x v b =
 
 (***************** the "subst_t_t" visitor  **********************)    
 
-fun subst_t_ty_visitor_vtable cast ((shift_var, compare_var, shift_i_i, shift_i_s), d, x, v) : ('this, idepth * tdepth, 'var, 'bsort, 'idx, 'sort, 'var, 'bsort, 'idx, 'sort) ty_visitor_vtable =
+fun subst_t_ty_visitor_vtable cast ((compare_var, shift_var, shift_i_i, shift_i_s), d, x, v) : ('this, idepth * tdepth, 'var, 'bsort, 'idx, 'sort, 'var, 'bsort, 'idx, 'sort) ty_visitor_vtable =
   let
     fun extend_i this (di, dt) _ = (idepth_inc di, dt)
     fun extend_t this (di, dt) _ = (di, tdepth_inc dt)

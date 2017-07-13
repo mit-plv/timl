@@ -531,7 +531,7 @@ fun shift_e_e_fn shift_var x n b =
     
 (***************** the "subst_e_e" visitor  **********************)    
 
-fun subst_e_expr_visitor_vtable cast (shift_var, compare_var, (shift_i_i, shift_i_s, shift_i_t, shift_t_t), d, x, v) : ('this, idepth * tdepth * edepth, 'var, 'idx, 'sort, 'kind, 'ty, 'var, 'idx, 'sort, 'kind, 'ty) expr_visitor_vtable =
+fun subst_e_expr_visitor_vtable cast ((compare_var, shift_var, shift_i_i, shift_i_s, shift_i_t, shift_t_t), d, x, v) : ('this, idepth * tdepth * edepth, 'var, 'idx, 'sort, 'kind, 'ty, 'var, 'idx, 'sort, 'kind, 'ty) expr_visitor_vtable =
   let
     fun extend_i this (di, dt, de) _ = (idepth_inc di, dt, de)
     fun extend_t this (di, dt, de) _ = (di, tdepth_inc dt, de)
@@ -576,9 +576,9 @@ fun subst_e_expr_visitor_vtable cast (shift_var, compare_var, (shift_i_i, shift_
 
 fun new_subst_e_expr_visitor params = new_expr_visitor subst_e_expr_visitor_vtable params
     
-fun subst_e_e_fn shift_var compare_var shifts d x v b =
+fun subst_e_e_fn params d x v b =
   let
-    val visitor as (ExprVisitor vtable) = new_subst_e_expr_visitor (shift_var, compare_var, shifts, d, x, v)
+    val visitor as (ExprVisitor vtable) = new_subst_e_expr_visitor (params, d, x, v)
   in
     #visit_expr vtable visitor (IDepth 0, TDepth 0, EDepth 0) b
   end

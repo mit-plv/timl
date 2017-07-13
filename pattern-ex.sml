@@ -822,7 +822,7 @@ fun test2 () =
 
     fun shift_i_e a = shift_i_e_fn (shiftx_i_i, shiftx_i_s, shiftx_i_mt) a
     fun shift_e_e a = shift_e_e_fn shift_var a
-    fun subst_e_e a = subst_e_e_fn shift_var compare_var (shiftx_i_i, shiftx_i_s, shiftx_i_mt, shiftx_t_mt) a
+    fun subst_e_e a = subst_e_e_fn (compare_var, shift_var, shiftx_i_i, shiftx_i_s, shiftx_i_mt, shiftx_t_mt) a
                                       
     val branches =
         [

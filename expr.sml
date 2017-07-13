@@ -1644,37 +1644,67 @@ val substx_i_s = f
 fun subst_i_s (v : idx) (b : sort) : sort = substx_i_s 0 0 v b
 end
 
-local
-  fun f d x v b =
-    case b of
-	Arrow (t1, i, t2) => Arrow (f d x v t1, substx_i_i d x v i, f d x v t2)
-      | TyNat (i, r) => TyNat (substx_i_i d x v i, r)
-      | TyArray (t, i) => TyArray (f d x v t, substx_i_i d x v i)
-      | Unit r => Unit r
-      | Prod (t1, t2) => Prod (f d x v t1, f d x v t2)
-      | UniI (s, bind, r) => UniI (substx_i_s d x v s, substx_i_ibind f d x v bind, r)
-      | MtVar y => MtVar y
-      | MtApp (t1, t2) => MtApp (f d x v t1, f d x v t2)
-      | MtAbs (k, bind, r) => MtAbs (k, substx_i_tbind f d x v bind, r)
-      | MtAppI (t, i) => MtAppI (f d x v t, substx_i_i d x v i)
-      | MtAbsI (b, bind, r) => MtAbsI (b, substx_i_ibind f d x v bind, r)
-      | BaseType a => BaseType a
-      | UVar a => b
-      | TDatatype (Abs dt, r) =>
-        let
-          fun on_constr d x v b = substx_i_ibinds substx_i_s (substx_pair (f, substx_list substx_i_i)) d x v b
-          fun on_constr_decl d x v (name, c, r) = (name, on_constr d x v c, r)
-          val dt = Bind $ from_Unbound dt
-          val Bind dt = substx_i_tbind (substx_i_tbinds return4 (substx_pair (return4, substx_list on_constr_decl))) d x v dt
-          val dt = to_Unbound dt
-        in
-          TDatatype (Abs dt, r)
-        end
-in
-val substx_i_mt = f
-fun subst_i_mt (v : idx) (b : mtype) : mtype = substx_i_mt 0 0 v b
-end
+(* local *)
+(*   fun f d x v b = *)
+(*     case b of *)
+(* 	Arrow (t1, i, t2) => Arrow (f d x v t1, substx_i_i d x v i, f d x v t2) *)
+(*       | TyNat (i, r) => TyNat (substx_i_i d x v i, r) *)
+(*       | TyArray (t, i) => TyArray (f d x v t, substx_i_i d x v i) *)
+(*       | Unit r => Unit r *)
+(*       | Prod (t1, t2) => Prod (f d x v t1, f d x v t2) *)
+(*       | UniI (s, bind, r) => UniI (substx_i_s d x v s, substx_i_ibind f d x v bind, r) *)
+(*       | MtVar y => MtVar y *)
+(*       | MtApp (t1, t2) => MtApp (f d x v t1, f d x v t2) *)
+(*       | MtAbs (k, bind, r) => MtAbs (k, substx_i_tbind f d x v bind, r) *)
+(*       | MtAppI (t, i) => MtAppI (f d x v t, substx_i_i d x v i) *)
+(*       | MtAbsI (b, bind, r) => MtAbsI (b, substx_i_ibind f d x v bind, r) *)
+(*       | BaseType a => BaseType a *)
+(*       | UVar a => b *)
+(*       | TDatatype (Abs dt, r) => *)
+(*         let *)
+(*           fun on_constr d x v b = substx_i_ibinds substx_i_s (substx_pair (f, substx_list substx_i_i)) d x v b *)
+(*           fun on_constr_decl d x v (name, c, r) = (name, on_constr d x v c, r) *)
+(*           val dt = Bind $ from_Unbound dt *)
+(*           val Bind dt = substx_i_tbind (substx_i_tbinds return4 (substx_pair (return4, substx_list on_constr_decl))) d x v dt *)
+(*           val dt = to_Unbound dt *)
+(*         in *)
+(*           TDatatype (Abs dt, r) *)
+(*         end *)
+(* in *)
+(* val substx_i_mt = f *)
+(* end *)
 
+fun subst_i_mtype_visitor_vtable cast ((subst_i_i, subst_i_s), d, x, v) : ('this, int) mtype_visitor_vtable =
+  let
+    fun extend_i this env _ = env + 1
+    fun visit_idx this env b = subst_i_i (d + env) (x + env) v b
+    fun visit_sort this env b = subst_i_s (d + env) (x + env) v b
+  in
+    default_mtype_visitor_vtable
+      cast
+      extend_i
+      extend_noop
+      visit_noop
+      visit_noop
+      visit_idx
+      visit_sort
+      visit_noop
+      visit_noop
+  end
+
+fun new_subst_i_mtype_visitor params = new_mtype_visitor subst_i_mtype_visitor_vtable params
+    
+fun subst_i_mt_fn substs d x v b =
+  let
+    val visitor as (MtypeVisitor vtable) = new_subst_i_mtype_visitor (substs, d, x, v)
+  in
+    #visit_mtype vtable visitor 0 b
+  end
+
+fun substx_i_mt a = subst_i_mt_fn (substx_i_i, substx_i_s) a
+                               
+fun subst_i_mt (v : idx) (b : mtype) : mtype = substx_i_mt 0 0 v b
+                                                           
 local
   fun f d x v b =
     case b of
