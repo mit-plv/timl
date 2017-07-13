@@ -190,11 +190,11 @@ fun on_mtype gctx (ctx as (sctx, kctx)) t =
         | S.MtAbsI (b, bind, r_all) => MtAbsI (on_bsort b, on_ibind (fn sctx => on_mtype (sctx, kctx)) sctx bind, r_all)
 	| S.BaseType (bt, r) => BaseType (bt, r)
         | S.UVar u => UVar u
-        | S.TDatatype (Abs dt, r) =>
+        | S.TDatatype (dt, r) =>
           let
             val (dt, _) = on_datatype gctx ctx dt
           in
-            TDatatype (Abs dt, r)
+            TDatatype (dt, r)
           end
     end
 
@@ -204,11 +204,8 @@ and on_datatype gctx (sctx, kctx) dt =
         (cname, on_constr_core gctx (sctx, kctx) core, r)
       fun on_constrs kctx (sorts, constr_decls) =
         (map on_bsort sorts, map (on_constr_decl kctx) constr_decls)
-      open TypeUtil
-      val dt = Bind $ from_Unbound dt
-      val Bind dt = on_tbind (on_tbinds return2 on_constrs) kctx dt
-      val (name, tbinds) = dt
-      val dt = to_Unbound dt
+      val dt = on_tbind (on_tbinds return2 on_constrs) kctx dt
+      val Bind (name, tbinds) = dt
       val (_, (_, constr_decls)) = unfold_binds tbinds
       val cnames = map (fn (name, core, _) => (fst name, get_constr_inames core)) constr_decls
     in
@@ -312,7 +309,7 @@ fun copy_anno gctx (anno as (t, d)) e =
           end
         | ELet ((t', d'), bind, r) =>
           let
-            val (decls, e) = unBind bind
+            val (decls, e) = Unbound.unBind bind
             val decls = unTeles decls
             val (t, d) = (copy t' t, copy d' d)
             val (_, (sctx, kctx, _, _)) = str_decls gctx ([], [], [], []) decls
@@ -322,7 +319,7 @@ fun copy_anno gctx (anno as (t, d)) e =
                     DValPtrn (_, Outer (EVar _), _) => true
                   | DVal (_, Outer bind, _) =>
                     let
-                      val (_, e) = unBind bind
+                      val (_, e) = Unbound.unBind bind
                     in
                       case e of
                           EVar _ => true
@@ -356,7 +353,7 @@ fun copy_anno gctx (anno as (t, d)) e =
       
 and copy_anno_rule gctx return bind =
     let
-      val (pn, e) = unBind bind
+      val (pn, e) = Unbound.unBind bind
       val (sctx, _) = ptrn_names pn
       val offset = (length sctx, 0)
     in
@@ -435,7 +432,7 @@ fun on_expr gctx (ctx as (sctx, kctx, cctx, tctx)) e =
 	| S.ET (opr, t, r) => ET (opr, on_mtype gctx skctx t, r)
 	| S.EAbs bind => 
           let
-            val (pn, e) = unBind bind
+            val (pn, e) = Unbound.unBind bind
             val pn = on_ptrn gctx (sctx, kctx, cctx) pn
             val (inames, enames) = ptrn_names pn
             val ctx = (inames @ sctx, kctx, cctx, enames @ tctx)
@@ -452,7 +449,7 @@ fun on_expr gctx (ctx as (sctx, kctx, cctx, tctx)) e =
           end
 	| S.ELet (return, bind, r) =>
           let
-            val (decls, e) = unBind bind
+            val (decls, e) = Unbound.unBind bind
             val decls = unTeles decls
             val return = on_return gctx skctx return
             val (decls, ctx) = on_decls gctx ctx decls
@@ -498,7 +495,7 @@ and on_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
       case decl of
           S.DVal (name, Outer bind, Outer r) =>
           let
-            val (tnames, e) = unBind bind
+            val (tnames, e) = Unbound.unBind bind
             val tnames = map unBinderName tnames
             val pn = VarP name
             val ctx' as (sctx', kctx', cctx', _) = (sctx, (rev o map fst) tnames @ kctx, cctx, tctx)
@@ -521,7 +518,7 @@ and on_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
 	| S.DRec (name, bind, Outer r) => 
 	  let
             val (name, r1) = unBinderName name
-            val ((tnames, Rebind binds), ((t, d), e)) = unBind $ unInner bind
+            val ((tnames, Rebind binds), ((t, d), e)) = Unbound.unBind $ unInner bind
             val tnames = map unBinderName tnames
             val binds = unTeles binds
 	    val ctx as (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx)
@@ -566,12 +563,12 @@ and on_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
           end
         | S.DTypeDef (name, Outer t) =>
           (case t of
-               S.TDatatype (Abs dt, r) =>
+               S.TDatatype (dt, r) =>
                let
                  val (dt, (tname, cnames)) = on_datatype gctx (sctx, kctx) dt
                  val ctx = (sctx, tname :: kctx, rev cnames @ cctx, tctx)
                in
-                 (DTypeDef (name, Outer $ TDatatype (Abs dt, r)), ctx)
+                 (DTypeDef (name, Outer $ TDatatype (dt, r)), ctx)
                end
              | _ =>
                let
@@ -600,7 +597,7 @@ and on_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
 
 and on_rule gctx (ctx as (sctx, kctx, cctx, tctx)) bind =
     let
-      val (pn, e) = unBind bind
+      val (pn, e) = Unbound.unBind bind
       (* val () = println $ sprintf "on_rule $ in context $" [S.str_rule ctx (pn, e), join " " tctx] *)
       val pn = on_ptrn gctx (sctx, kctx, cctx) pn
       val (inames, enames) = ptrn_names pn
@@ -634,12 +631,12 @@ fun on_sig gctx (comps, r) =
           end
         | S.SpecTypeDef ((name, r), t) =>
           (case t of
-               S.TDatatype (Abs dt, r) =>
+               S.TDatatype (dt, r) =>
                let
                  val (dt, (tname, cnames)) = on_datatype gctx (sctx, kctx) dt
                  val ctx = (sctx, tname :: kctx, rev cnames @ cctx, tctx)
                in
-                 (SpecTypeDef ((name, r), TDatatype (Abs dt, r)), ctx)
+                 (SpecTypeDef ((name, r), TDatatype (dt, r)), ctx)
                end
              | _ =>
                let

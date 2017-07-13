@@ -1009,7 +1009,7 @@ fun str_e gctx (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
         )
       | EAbs bind => 
         let
-          val (pn, e) = unBind bind
+          val (pn, e) = Unbound.unBind bind
           val (inames, enames) = ptrn_names pn
           val pn = str_pn gctx (sctx, kctx, cctx) pn
           val ctx = (inames @ sctx, kctx, cctx, enames @ tctx)
@@ -1026,7 +1026,7 @@ fun str_e gctx (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
         end
       | ELet (return, bind, _) => 
         let
-          val (decls, e) = unBind bind
+          val (decls, e) = Unbound.unBind bind
           val decls = unTeles decls
           val return = str_return gctx (sctx, kctx) return
           val (decls, ctx) = str_decls gctx ctx decls
@@ -1064,7 +1064,7 @@ and str_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
           DVal (name, Outer bind, _) =>
           let
             val pn = VarP name
-            val (tnames, e) = unBind bind
+            val (tnames, e) = Unbound.unBind bind
             val tnames = map binder2str tnames
             val ctx' as (sctx', kctx', cctx', _) = (sctx, rev tnames @ kctx, cctx, tctx)
             val tnames = (join "" o map (fn nm => sprintf " [$]" [nm])) tnames
@@ -1087,7 +1087,7 @@ and str_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
         | DRec (name, bind, _) =>
           let
             val name = binder2str name
-            val ((tnames, Rebind binds), ((t, d), e)) = unBind $ unInner bind
+            val ((tnames, Rebind binds), ((t, d), e)) = Unbound.unBind $ unInner bind
             val binds = unTeles binds
             val tnames = map binder2str tnames
 	    val ctx as (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx)
@@ -1140,10 +1140,9 @@ and str_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
           end
         | DTypeDef (name, Outer t) =>
           (case t of
-               TDatatype (Abs (name, tbinds), _) =>
+               TDatatype (Bind (name, tbinds), _) =>
                let
-                 val name = binder2str name
-                 val tbinds = unInner tbinds
+                 val name = fst name
                  val (tname_kinds, (sorts, constrs)) = unfold_binds tbinds
                  val tnames = map fst $ map fst tname_kinds
                  val str_tnames = (join_prefix " " o rev) tnames
@@ -1180,7 +1179,7 @@ and str_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
       
 and str_rule gctx (ctx as (sctx, kctx, cctx, tctx)) bind =
     let
-      val (pn, e) = unBind bind
+      val (pn, e) = Unbound.unBind bind
       val (inames, enames) = ptrn_names pn
       val ctx' = (inames @ sctx, kctx, cctx, enames @ tctx)
     in
@@ -1275,7 +1274,7 @@ fun get_region_pn pn =
 
 fun get_region_bind fp ft bind =
   let
-    val (p, t) = unBind bind
+    val (p, t) = Unbound.unBind bind
   in
     combine_region (fp p) (ft t)
   end
@@ -2280,8 +2279,6 @@ fun simp_s s =
           | _ => SApp (s, i)
       end
 
-open TypeUtil
-       
 fun simp_mt t =
   case t of
       Arrow (t1, d, t2) => Arrow (simp_mt t1, simp_i d, simp_mt t2)
@@ -2305,15 +2302,13 @@ fun simp_mt t =
             MtAbsI (_, Bind (_, t), _) => simp_mt (Subst.subst_i_mt i t)
           | _ => MtAppI (t, i)
       end
-    | TDatatype (Abs dt, r) =>
+    | TDatatype (dt, r) =>
       let
         fun simp_constr c = simp_binds simp_s (mapPair (simp_mt, map simp_i)) c
         fun simp_constr_decl ((name, c, r) : mtype constr_decl) : mtype constr_decl = (name, simp_constr c, r)
-        val dt = Bind $ from_Unbound dt
-        val Bind dt = simp_bind (simp_binds id (mapPair (id, map simp_constr_decl))) dt
-        val dt = to_Unbound dt
+        val dt = simp_bind (simp_binds id (mapPair (id, map simp_constr_decl))) dt
       in
-        TDatatype (Abs dt, r)
+        TDatatype (dt, r)
       end
 
 fun simp_t t =
@@ -2508,8 +2503,6 @@ fun on_pair (f, g) acc (a, b) =
     acc
   end
   
-open TypeUtil
-       
 fun on_mt acc b =
   let
     val f = on_mt
@@ -2565,7 +2558,7 @@ fun on_mt acc b =
       | MtAbsI (b, bind, r) => on_ibind f acc bind
       | BaseType _ => acc
       | UVar _ => acc
-      | TDatatype (Abs dt, r) => on_datatype acc dt
+      | TDatatype (dt, r) => on_datatype acc dt
   end
     
 and on_constr_core acc ibinds =
@@ -2578,9 +2571,8 @@ and on_constr_core acc ibinds =
     acc
   end
     
-and on_datatype acc dt =
+and on_datatype acc (Bind (_, tbinds)) =
     let
-      val (_, tbinds) = from_Unbound $ dt
       val (_, (_, constr_decls)) = unfold_binds tbinds
       fun on_constr_decl acc (name, core, r) = on_constr_core acc core
       val acc = on_list on_constr_decl acc constr_decls
@@ -2680,7 +2672,7 @@ local
 	| ET (opr, t, r) => on_mt acc t
 	| EAbs bind =>
           let
-            val (pn, e) = unBind bind
+            val (pn, e) = Unbound.unBind bind
             val acc = on_ptrn acc pn
             val acc = f acc e
           in
@@ -2716,13 +2708,13 @@ local
             val acc = f acc e
             val acc = on_return acc return
             val on_rule = on_pair (on_ptrn, f)
-            val acc = on_list (on_rule) acc $ map unBind rules
+            val acc = on_list (on_rule) acc $ map Unbound.unBind rules
           in
             acc
           end
 	| ELet (return, bind, r) =>
           let
-            val (decls, e) = unBind bind
+            val (decls, e) = Unbound.unBind bind
             val decls = unTeles decls
             val acc = on_return acc return
             val acc = on_list on_decl acc decls
@@ -2735,7 +2727,7 @@ local
       case b of
           DVal (name, Outer bind, r) =>
           let
-            val (tnames, e) = unBind bind
+            val (tnames, e) = Unbound.unBind bind
             val pn = VarP name
             val acc = on_ptrn acc pn
             val acc = f acc e
@@ -2751,7 +2743,7 @@ local
           end
         | DRec (name, bind, r) =>
           let
-            val ((tnames, Rebind binds), ((t, i), e)) = unBind $ unInner bind
+            val ((tnames, Rebind binds), ((t, i), e)) = Unbound.unBind $ unInner bind
             val binds = unTeles binds
             fun on_stbind acc b =
               case b of

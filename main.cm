@@ -30,7 +30,6 @@ shift-util.sml
 idx.sig
 idx.sml
 type.sig
-type-util.sml
 type-visitor.sml
 type.sml
 datatype.sml

@@ -121,16 +121,13 @@ fun package_i_mt x v (b : mtype) : mtype =
       | MtAppI (t, i) => MtAppI (f x v t, package_i_i x v i)
       | BaseType a => BaseType a
       | UVar a => b
-      | TDatatype (Abs dt, r) =>
+      | TDatatype (Bind (name, tbinds), r) =>
         let
-          open TypeUtil
-          val (name, tbinds) = from_Unbound dt
           fun on_body x v (bsorts, decls) =
             (bsorts, map (map2_3 (package_i_constr_core x v)) decls)
           val tbinds = package_i_tbinds return3 on_body x v tbinds
-          val dt = to_Unbound (name, tbinds)
         in
-          TDatatype (Abs dt, r)
+          TDatatype (Bind (name, tbinds), r)
         end
   end
 
@@ -168,16 +165,13 @@ fun package_t_mt x v (b : mtype) : mtype =
       | MtAppI (t, i) => MtAppI (f x v t, i)
       | BaseType a => BaseType a
       | UVar a => b
-      | TDatatype (Abs dt, r) =>
+      | TDatatype (Bind (name, tbinds), r) =>
         let
-          open TypeUtil
-          val (name, tbinds) = from_Unbound dt
           fun on_body x v (bsorts, decls) =
             (bsorts, map (map2_3 (package_t_constr_core x v)) decls)
           val tbinds = package_t_tbinds return3 on_body x v tbinds
-          val dt = to_Unbound (name, tbinds)
         in
-          TDatatype (Abs dt, r)
+          TDatatype (Bind (name, tbinds), r)
         end
   end
     

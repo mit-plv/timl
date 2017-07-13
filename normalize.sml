@@ -77,10 +77,8 @@ fun update_mt t =
     | MtAbsI (s, Bind (name, t), r) => MtAbsI (update_bs s, Bind (name, update_mt t), r)
     | MtAppI (t, i) => MtAppI (update_mt t, update_i i)
     | BaseType a => BaseType a
-    | TDatatype (Abs dt, r) =>
+    | TDatatype (Bind (name, tbinds), r) =>
       let
-        open TypeUtil
-        val (name, tbinds) = from_Unbound dt
         val (tname_kinds, (bsorts, decls)) = unfold_binds tbinds
         val bsorts = map update_bs bsorts
         fun update_constr_core ibinds =
@@ -94,9 +92,8 @@ fun update_mt t =
           end
         val decls = map (map2_3 update_constr_core) decls
         val tbinds = fold_binds (tname_kinds, (bsorts, decls))
-        val dt = to_Unbound (name, tbinds)
       in
-        TDatatype (Abs dt, r)
+        TDatatype (Bind (name, tbinds), r)
       end
 
 fun update_t t =
@@ -327,11 +324,9 @@ fun normalize_mt gctx kctx t =
                 | _ => MtApp (t1, t2)
             end
           | BaseType a => BaseType a
-          | TDatatype (Abs dt, r) =>
+          | TDatatype (dt, r) =>
             let
-              open TypeUtil
-              val dt = from_Unbound dt
-              fun get_kind dt =
+              fun get_kind (Bind dt) =
                 let
                   val (tname_kinds, (bsorts, _)) = unfold_binds $ snd dt
                 in
@@ -339,10 +334,9 @@ fun normalize_mt gctx kctx t =
                 end
               fun on_body kctx (bsorts, constr_decls) =
                 (bsorts, (map o map2_3) (normalize_constr_core gctx kctx) constr_decls)
-              val Bind dt = normalize_tbind (normalize_tbinds (const_fun Type) id on_body) kctx (get_kind dt) $ Bind dt
-              val dt = to_Unbound dt
+              val dt = normalize_tbind (normalize_tbinds (const_fun Type) id on_body) kctx (get_kind dt) $ dt
             in
-              TDatatype (Abs dt, r)
+              TDatatype (dt, r)
             end
     (* val () = println $ "end normalize_mt()" *)
   in

@@ -1396,7 +1396,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
           )
 	| U.EAbs bind => 
 	  let
-            val (pn, e) = unBind bind
+            val (pn, e) = Unbound.unBind bind
             val r = U.get_region_pn pn
             val t = fresh_mt gctx (sctx, kctx) r
             val skcctx = (sctx, kctx, cctx) 
@@ -1413,7 +1413,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	  end
 	| U.ELet (return, bind, r) => 
 	  let
-            val (decls, e) = unBind bind
+            val (decls, e) = Unbound.unBind bind
             val decls = unTeles decls
             val return = is_wf_return gctx (skctx, return)
             val (decls, ctxd as (sctxd, kctxd, _, _), nps, ds, ctx) = check_decls (ctx, decls)
@@ -1504,7 +1504,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	  end
 	| U.ECase (e, return, rules, r) => 
 	  let
-            val rules = map unBind rules
+            val rules = map Unbound.unBind rules
             val return = if !anno_less then (fst return, NONE) else return
             val (e, t1, d1) = get_mtype (ctx, e)
             val return = is_wf_return gctx (skctx, return)
@@ -1592,7 +1592,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
             U.DVal (ename, Outer bind, Outer r) =>
             let
               val name = binder2str ename
-              val (tnames, e) = unBind bind
+              val (tnames, e) = Unbound.unBind bind
               val tnames = map unBinderName tnames
               val (e, t, d) = get_mtype (add_kindings_skct (zip ((rev o map fst) tnames, repeat (length tnames) Type)) ctx, e)
               val t = if is_value e then 
@@ -1622,7 +1622,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
 	  | U.DRec (name, bind, Outer r) => 
 	    let
               val (name, r1) = unBinderName name
-              val ((tnames, Rebind binds), ((t, d), e)) = unBind $ unInner bind
+              val ((tnames, Rebind binds), ((t, d), e)) = Unbound.unBind $ unInner bind
               val tnames = map unBinderName tnames
               val binds = unTeles binds
               val ctx as (sctx, kctx, cctx, tctx) = add_kindings_skct (zip ((rev o map fst) tnames, repeat (length tnames) Type)) ctx
@@ -1709,11 +1709,11 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
             end
           | U.DTypeDef (name, Outer t) =>
             (case t of
-                 U.TDatatype (Abs dt, r) =>
+                 U.TDatatype (dt, r) =>
                  let
                    val (dt, ctxd) = is_wf_datatype gctx ctx (dt, r)
                  in
-                   (DTypeDef (name, Outer $ TDatatype (Abs dt, r)), ctxd, 0, [])
+                   (DTypeDef (name, Outer $ TDatatype (dt, r)), ctxd, 0, [])
                  end
                | _ =>
                  let
@@ -1812,10 +1812,8 @@ and check_decls gctx (ctx, decls) : decl list * context * int * idx list * conte
       (decls, ctxd, nps, ds, ctx)
     end
 
-and is_wf_datatype gctx ctx (dt : U.mtype U.datatype_def, r) : mtype datatype_def * context =
+and is_wf_datatype gctx ctx (Bind (name, tbinds) : U.mtype U.datatype_def, r) : mtype datatype_def * context =
     let
-      open TypeUtil
-      val (name, tbinds) = from_Unbound $ dt
       val (tname_kinds, (sorts, constr_decls)) = unfold_binds tbinds
       val tnames = map fst tname_kinds
       val sorts = map is_wf_bsort sorts
@@ -1858,9 +1856,8 @@ and is_wf_datatype gctx ctx (dt : U.mtype U.datatype_def, r) : mtype datatype_de
 	  ((name, ibinds, r), (fst name, (family, fold_binds (tname_kinds, ibinds))))
 	end
       val (constr_decls, constrs) = (unzip o map make_constr) constr_decls
-      val dt = (name, fold_binds (tname_kinds, (sorts, constr_decls)))
-      val dt = to_Unbound $ dt
-      val nk = mapSnd (mapSnd (const_fun (SOME $ TDatatype (Abs dt, r)))) nk
+      val dt = Bind (name, fold_binds (tname_kinds, (sorts, constr_decls)))
+      val nk = mapSnd (mapSnd (const_fun (SOME $ TDatatype (dt, r)))) nk
     in
       (dt, ([], add_kindingext nk [], rev constrs, []))
     end
@@ -2057,11 +2054,11 @@ fun is_wf_sig gctx (comps, r) =
           end
         | U.SpecTypeDef ((name, r), t) =>
           (case t of
-               U.TDatatype (Abs dt, r) =>
+               U.TDatatype (dt, r) =>
                let
                  val (dt, ctxd) = is_wf_datatype gctx ctx (dt, r)
                in
-                 (SpecTypeDef ((name, r), TDatatype (Abs dt, r)), add_ctx ctxd ctx)
+                 (SpecTypeDef ((name, r), TDatatype (dt, r)), add_ctx ctxd ctx)
                end
              | _ =>
                let

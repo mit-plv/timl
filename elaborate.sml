@@ -258,9 +258,7 @@ local
             in
               (cname, fold_binds (binds, (elab_mt t1, map elab_i is)), r)
             end
-        val dt = ((name, dummy), fold_binds (map (attach_snd ()) $ map (attach_snd dummy) tnames, (sorts, map elab_constr constrs)))
-        open TypeUtil
-        val dt = to_Unbound dt
+        val dt = Bind ((name, dummy), fold_binds (map (attach_snd ()) $ map (attach_snd dummy) tnames, (sorts, map elab_constr constrs)))
       in
         (dt, r)
       end
@@ -384,7 +382,7 @@ local
           let
             val (dt, r) = elab_datatype a
           in
-            DTypeDef (fst dt, Outer $ TDatatype (Abs dt, r))
+            DTypeDef (Binder $ TName $ fst $ unBind dt, Outer $ TDatatype (dt, r))
           end
         | S.TypeDef (name, t) => DTypeDef (Binder $ TName name, Outer $ elab_mt t)
         | S.Open name => DOpen (Outer name, NONE)
@@ -403,7 +401,7 @@ local
           let
             val (dt, r) = elab_datatype a
           in
-            SpecTypeDef (unBinderName $ fst dt, TDatatype (Abs dt, r))
+            SpecTypeDef (fst $ unBind dt, TDatatype (dt, r))
           end
 
   fun elab_sig sg =

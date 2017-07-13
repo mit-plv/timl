@@ -117,12 +117,10 @@ fun on_mt t =
     | S.MtAbsI (b, Bind (name, t), r) => MtAbsI (on_b b, Bind (on_name name, on_mt t), on_r r)
     | S.BaseType (t, r) => BaseType (on_base_type t, on_r r)
     | S.UVar (x, r) => UVar (on_uvar_mt on_b on_k on_mt x, on_r r)
-    | S.TDatatype (Abs dt, r) => TDatatype (Abs $ on_dt dt, on_r r)
+    | S.TDatatype (dt, r) => TDatatype (on_dt dt, on_r r)
 
-and on_dt dt =
+and on_dt (Bind (name, tbinds)) =
     let
-      open TypeUtil
-      val (name, tbinds) = from_Unbound dt
       val (tname_kinds, (bsorts, constrs)) = unfold_binds tbinds
       val bsorts = map on_b bsorts
       fun on_constr_core ibinds =
@@ -138,7 +136,7 @@ and on_dt dt =
       val constrs = map (fn (name, c, r) => (name, on_constr_core c, on_r r)) constrs
       val tbinds = fold_binds (tname_kinds, (bsorts, constrs))
     in
-      to_Unbound (name, tbinds)
+      Bind (name, tbinds)
     end
 
 end
@@ -299,10 +297,8 @@ fun on_mt (t : S.mtype) =
     | S.UVar (x, _) =>
     (* exfalso x *)
       raise Impossible "UVar"
-    | S.TDatatype (Abs bind, _) =>
+    | S.TDatatype (Bind.Bind (dt_name, tbinds), _) =>
       let
-        open TypeUtil
-        val (dt_name, tbinds) = from_Unbound bind
         val (tname_kinds, (bsorts, constrs)) = unfold_binds tbinds
         val tnames = map fst tname_kinds
         fun on_constr (ibinds : S.mtype S.constr_core) =
@@ -423,11 +419,11 @@ fun on_e (e : S.expr) =
         fun str_var (_, (x, _)) = str_int x
         val pp_t = MicroTiMLPP.pp_t_fn (str_var, str_bs, str_raw_i, str_raw_s, const_fun "<kind>")
         val (pos, t) = ot !! (fn () => raise Impossible "to-micro-timl/AppConstr/ot")
-        val dt = case t of TDatatype (Abs dt, _) => dt | _ => raise Impossible "to-micro-timl/AppConstr/TDatatype"
+        val dt = case t of TDatatype (dt, _) => dt | _ => raise Impossible "to-micro-timl/AppConstr/TDatatype"
         val () = if eia then () else raise Impossible "to-micro-timl/AppConstr/eia"
         val t_rec = on_mt t
         (* val () = pp_t t_rec *)
-        val (name, tbinds) = TypeUtil.from_Unbound dt
+        val Bind.Bind (name, tbinds) = dt
         val (tname_kinds, (bsorts, constr_decls)) = unfold_binds tbinds
         val constr_decl as (_, core, _) = nth_error constr_decls pos !! (fn () => raise Impossible "to-micro-timl/AppConstr: nth_error constr_decls")
         val (name_sorts, (_, result_is)) = unfold_binds core
@@ -529,14 +525,14 @@ fun test filename =
     open TypeCheck
     val ((decls, _, _, _), _) = typecheck_decls empty empty_ctx decls
     val dt = case hd decls of
-                 DTypeDef (_, Outer (TDatatype (Abs dt, _))) => dt
+                 DTypeDef (_, Outer (TDatatype (dt, _))) => dt
                | _ => raise Impossible ""
     val bind = case nth (decls, 1) of
                    DVal (_, Outer bind, _) => bind
                  | _ => raise Impossible ""
-    val (_, e) = unBind bind
+    val (_, e) = Unbound.unBind bind
     (* val dt = TypeTrans.on_dt dt *)
-    val t_list = TiML.TDatatype (Abs dt, dummy)
+    val t_list = TiML.TDatatype (dt, dummy)
     val t = trans_mt t_list
     (* val () = println $ str_e empty ([], ["'a", "list"], ["Cons", "Nil"], []) e *)
     val BSNat = Base Nat

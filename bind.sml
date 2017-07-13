@@ -10,6 +10,8 @@ datatype ('namespace, 'classifier, 'name, 'inner) binds =
          BindNil of 'inner
          | BindCons of 'classifier * ('namespace, 'name * ('namespace, 'classifier, 'name, 'inner) binds) bind
 
+fun unBind (Bind a) = a
+                        
 fun unfold_binds binds =
     case binds of
         BindNil inner => ([], inner)

@@ -17,7 +17,7 @@ type kind = int (*number of type arguments*) * bsort list
 type 'mtype constr_core = (sort, name, 'mtype * idx list) ibinds
 type 'mtype constr_decl = name * 'mtype constr_core * region
 
-type 'mtype datatype_def = (Namespaces.type_namespace * name) Unbound.binder(*for datatype self-reference*) * (unit, name, Idx.bsort list * 'mtype constr_decl list) Bind.tbinds Unbound.inner
+type 'mtype datatype_def = (name(*for datatype self-reference*) * (unit, name, Idx.bsort list * 'mtype constr_decl list) Bind.tbinds) Bind.tbind
 
 (* monotypes *)
 datatype mtype = 
@@ -34,7 +34,7 @@ datatype mtype =
          | MtAbsI of bsort * (name * mtype) ibind  * region
          | MtAppI of mtype * idx
          | UVar of (bsort, kind, mtype) uvar_mt * region
-         | TDatatype of mtype datatype_def Unbound.abs * region
+         | TDatatype of mtype datatype_def * region
 
 datatype ty = 
 	 Mono of mtype
@@ -69,7 +69,6 @@ open Type
 open ShiftableVar
 open ShiftableIdx
 open ShiftUtil
-open TypeUtil
        
 infixr 0 $
          

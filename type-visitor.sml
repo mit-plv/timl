@@ -30,7 +30,7 @@ type ('this, 'env) mtype_visitor_vtable =
        visit_MtAbsI : 'this -> 'env -> Idx.bsort * (name * mtype) Bind.ibind  * region -> T.mtype,
        visit_MtAppI : 'this -> 'env -> mtype * Idx.idx -> T.mtype,
        visit_UVar : 'this -> 'env -> (Idx.bsort, kind, mtype) UVarT.uvar_mt * region -> T.mtype,
-       visit_TDatatype : 'this -> 'env -> mtype datatype_def Unbound.abs * region -> T.mtype,
+       visit_TDatatype : 'this -> 'env -> mtype datatype_def * region -> T.mtype,
        visit_constr_core : 'this -> 'env -> mtype constr_core -> T.mtype T.constr_core,
        visit_var : 'this -> 'env -> var -> T.var,
        visit_bsort : 'this -> 'env -> Idx.bsort -> T.Idx.bsort,
@@ -284,19 +284,16 @@ fun default_mtype_visitor_vtable
     fun visit_TDatatype this env data =
       let
         val vtable = cast this
-        val (Abs dt, r) = data
-        open TypeUtil
-        val dt = Bind.Bind $ from_Unbound dt
+        val (dt, r) = data
         fun visit_constr_decl env (name, c, r) = (name, visit_constr_core this env c, r)
-        val Bind.Bind dt =
+        val dt =
             visit_tbind this
                         (visit_tbinds this
                                       return2
                                       (visit_pair (visit_list (#visit_bsort vtable this))
                                                   (visit_list visit_constr_decl))) env dt
-        val dt = to_Unbound dt
       in
-        T.TDatatype (Abs dt, r)
+        T.TDatatype (dt, r)
       end
   in
     {
