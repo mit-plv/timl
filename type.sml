@@ -17,7 +17,7 @@ type kind = int (*number of type arguments*) * bsort list
 type 'mtype constr_core = (sort, name, 'mtype * idx list) ibinds
 type 'mtype constr_decl = name * 'mtype constr_core * region
 
-type 'mtype datatype_def = Namespaces.tname Unbound.binder(*for datatype self-reference*) * (unit, name, bsort list * 'mtype constr_decl list) tbinds Unbound.inner
+type 'mtype datatype_def = (Namespaces.type_namespace * name) Unbound.binder(*for datatype self-reference*) * (unit, name, Idx.bsort list * 'mtype constr_decl list) Bind.tbinds Unbound.inner
 
 (* monotypes *)
 datatype mtype = 
@@ -46,18 +46,6 @@ functor TestTypeFnSignatures (Params : TYPE_PARAMS) = struct
 structure M : TYPE = TypeFn (Params)
 end
 
-structure TypeUtil = struct
-
-local
-  open Unbound
-  open Namespaces
-in
-fun from_Unbound (Binder (TypeNS, name), Rebind (Outer t)) = (name, t)
-fun to_Unbound (name, t) = (Binder (TypeNS, name), Rebind (Outer t))
-end
-                                                       
-end
-                       
 signature SHIFTABLE_IDX = sig
 
   type idx
@@ -127,38 +115,75 @@ fun on_i_t on_i_mt x n b =
     f x n b
   end
 
-fun on_t_mt on_v x n b =
+(* fun on_t_mt on_v x n b = *)
+(*   let *)
+(*     fun f x n b = *)
+(*       case b of *)
+(* 	  Arrow (t1, d, t2) => Arrow (f x n t1, d, f x n t2) *)
+(*         | TyNat (i, r) => TyNat (i, r) *)
+(*         | TyArray (t, i) => TyArray (f x n t, i) *)
+(*         | Unit r => Unit r *)
+(* 	| Prod (t1, t2) => Prod (f x n t1, f x n t2) *)
+(* 	| UniI (s, bind, r) => UniI (s, on_t_ibind f x n bind, r) *)
+(*         | MtVar y => MtVar $ on_v x n y *)
+(*         | MtApp (t1, t2) => MtApp (f x n t1, f x n t2) *)
+(*         | MtAbs (k, bind, r) => MtAbs (k, on_t_tbind f x n bind, r) *)
+(*         | MtAppI (t, i) => MtAppI (f x n t, i) *)
+(*         | MtAbsI (s, bind, r) => MtAbsI (s, on_t_ibind f x n bind, r) *)
+(* 	| BaseType a => BaseType a *)
+(*         | UVar a => b *)
+(*         | TDatatype (Unbound.Abs dt, r) => *)
+(*           let *)
+(*             fun on_constr_decl x n (name, c, r) = (name, on_t_constr_core f x n c, r) *)
+(*             val dt = Bind $ from_Unbound dt *)
+(*             val Bind dt = on_t_tbind (on_t_tbinds return3 (on_pair (return3, on_list on_constr_decl))) x n dt *)
+(*             val dt = to_Unbound dt *)
+(*           in *)
+(*             TDatatype (Unbound.Abs dt, r) *)
+(*           end *)
+(*   in *)
+(*     f x n b *)
+(*   end *)
+    
+(* and on_t_constr_core on_mt x n b = on_t_ibinds return3 (on_pair (on_mt, return3)) x n b *)
+
+structure MtypeVisitor = MtypeVisitorFn (structure S = Type
+                                         structure T = Type)
+open MtypeVisitor
+                                         
+fun on_t_mtype_visitor_vtable cast (on_var, n) : ('this, int) mtype_visitor_vtable =
   let
-    fun f x n b =
-      case b of
-	  Arrow (t1, d, t2) => Arrow (f x n t1, d, f x n t2)
-        | TyNat (i, r) => TyNat (i, r)
-        | TyArray (t, i) => TyArray (f x n t, i)
-        | Unit r => Unit r
-	| Prod (t1, t2) => Prod (f x n t1, f x n t2)
-	| UniI (s, bind, r) => UniI (s, on_t_ibind f x n bind, r)
-        | MtVar y => MtVar $ on_v x n y
-        | MtApp (t1, t2) => MtApp (f x n t1, f x n t2)
-        | MtAbs (k, bind, r) => MtAbs (k, on_t_tbind f x n bind, r)
-        | MtAppI (t, i) => MtAppI (f x n t, i)
-        | MtAbsI (s, bind, r) => MtAbsI (s, on_t_ibind f x n bind, r)
-	| BaseType a => BaseType a
-        | UVar a => b
-        | TDatatype (Unbound.Abs dt, r) =>
-          let
-            fun on_constr_decl x n (name, c, r) = (name, on_t_constr_core f x n c, r)
-            val dt = Bind $ from_Unbound dt
-            val Bind dt = on_t_tbind (on_t_tbinds return3 (on_pair (return3, on_list on_constr_decl))) x n dt
-            val dt = to_Unbound dt
-          in
-            TDatatype (Unbound.Abs dt, r)
-          end
+    fun extend_t this env _ = env + 1
+    fun visit_var this env data = on_var env n data
   in
-    f x n b
+    default_mtype_visitor_vtable
+      cast
+      extend_noop
+      extend_t
+      visit_var
+      visit_noop
+      visit_noop
+      visit_noop
+      visit_noop
+      visit_noop
+  end
+
+fun new_on_t_mtype_visitor a = new_mtype_visitor on_t_mtype_visitor_vtable a
+    
+fun on_t_mt on_var x n b =
+  let
+    val visitor as (MtypeVisitor vtable) = new_on_t_mtype_visitor (on_var, n)
+  in
+    #visit_mtype vtable visitor x b
   end
     
-and on_t_constr_core on_mt x n b = on_t_ibinds return3 (on_pair (on_mt, return3)) x n b
-                                         
+fun on_t_constr_core on_var x n b =
+  let
+    val visitor as (MtypeVisitor vtable) = new_on_t_mtype_visitor (on_var, n)
+  in
+    #visit_constr_core vtable visitor x b
+  end
+    
 fun on_t_t on_t_mt x n b =
   let
     fun f x n b =

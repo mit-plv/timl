@@ -1,9 +1,8 @@
-signature TYPICAL_TYPE = TYPE where type region = Region.region
-                                         and type name = string * Region.region
-
-functor MtypeVisitorFn (structure S : TYPICAL_TYPE
-                        structure T : TYPICAL_TYPE
+functor MtypeVisitorFn (structure S : TYPE
+                        structure T : TYPE
                         sharing type S.base_type = T.base_type
+                        sharing type S.name = T.name
+                        sharing type S.region = T.region
                        ) = struct
 
 open Unbound
@@ -32,6 +31,7 @@ type ('this, 'env) mtype_visitor_vtable =
        visit_MtAppI : 'this -> 'env -> mtype * Idx.idx -> T.mtype,
        visit_UVar : 'this -> 'env -> (Idx.bsort, kind, mtype) UVarT.uvar_mt * region -> T.mtype,
        visit_TDatatype : 'this -> 'env -> mtype datatype_def Unbound.abs * region -> T.mtype,
+       visit_constr_core : 'this -> 'env -> mtype constr_core -> T.mtype T.constr_core,
        visit_var : 'this -> 'env -> var -> T.var,
        visit_bsort : 'this -> 'env -> Idx.bsort -> T.Idx.bsort,
        visit_idx : 'this -> 'env -> Idx.idx -> T.Idx.idx,
@@ -62,6 +62,7 @@ fun override_visit_UVar (record : ('this, 'env) mtype_visitor_vtable) new =
     visit_MtAppI = #visit_MtAppI record,
     visit_UVar = new,
     visit_TDatatype = #visit_TDatatype record,
+    visit_constr_core = #visit_constr_core record,
     visit_var = #visit_var record,
     visit_bsort = #visit_bsort record,
     visit_idx = #visit_idx record,
@@ -286,6 +287,7 @@ fun default_mtype_visitor_vtable
       visit_MtAppI = visit_MtAppI,
       visit_UVar = visit_UVar,
       visit_TDatatype = visit_TDatatype,
+      visit_constr_core = visit_constr_core,
       visit_var = visit_var,
       visit_bsort = visit_bsort,
       visit_idx = visit_idx,

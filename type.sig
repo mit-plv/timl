@@ -11,7 +11,7 @@ signature TYPE = sig
   type 'mtype constr_core = (Idx.sort, name, 'mtype * Idx.idx list) Bind.ibinds
   type 'mtype constr_decl = name * 'mtype constr_core * region
 
-  type 'mtype datatype_def = Namespaces.tname Unbound.binder(*for datatype self-reference*) * (unit, name, Idx.bsort list * 'mtype constr_decl list) Bind.tbinds Unbound.inner
+  type 'mtype datatype_def = (Namespaces.type_namespace * name) Unbound.binder(*for datatype self-reference*) * (unit, name, Idx.bsort list * 'mtype constr_decl list) Bind.tbinds Unbound.inner
 
   (* monotypes *)
   datatype mtype = 

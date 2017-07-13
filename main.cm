@@ -30,6 +30,8 @@ shift-util.sml
 idx.sig
 idx.sml
 type.sig
+type-util.sml
+type-visitor.sml
 type.sml
 datatype.sml
 pattern.sml
@@ -42,7 +44,6 @@ package.sml
 typecheck-util.sml
 normalize.sml
 collect-var.sml
-type-visitor.sml
 collect-uvar.sml
 parallel-subst.sml
 fresh-uvar.sml

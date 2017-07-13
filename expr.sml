@@ -1548,7 +1548,7 @@ fun shift_i_c b = shiftx_i_c 0 1 b
 
 fun shiftx_t_c x n (((m, family), tbinds) : mtype constr) : mtype constr =
   ((m, shiftx_id x n family),
-   on_t_tbinds return3 (on_t_constr_core shiftx_t_mt) x n tbinds)
+   on_t_tbinds return3 (on_t_constr_core shiftx_var) x n tbinds)
 fun shift_t_c b = shiftx_t_c 0 1 b
 
 (* forget *)
@@ -1580,7 +1580,9 @@ type 'a shiftable = {
 
 fun substx_pair (f1, f2) d x v (b1, b2) = (f1 d x v b1, f2 d x v b2)
 fun substx_list f d x v b = map (f d x v) b
-                            
+
+open Bind
+       
 fun substx_i_ibind f d x v (Bind (name, inner) : ('name * 'b) ibind) =
   Bind (name, f (d + 1) (x + 1) v inner)
        
