@@ -338,18 +338,15 @@ fun on_mt (t : S.mtype) =
 val trans_mt = on_mt
                  
 val shift_var = LongIdShift.shiftx_var
+    
 fun compare_var (m, (y, r)) x =
-  let
-    open MicroTiMLEx
-  in
-    case m of
-        SOME _ => CmpOther
-      | NONE =>
-        if y = x then CmpEq
-        else if y > x then
-          CmpGreater (m, (y - 1, r))
-        else CmpOther
-  end
+  case m of
+      SOME _ => CmpOther
+    | NONE =>
+      if y = x then CmpEq
+      else if y > x then
+        CmpGreater (m, (y - 1, r))
+      else CmpOther
     
 fun shift_i_t a = shift_i_t_fn (shiftx_i_i, shiftx_i_s) a
 fun shift_t_t a = shift_t_t_fn shift_var a

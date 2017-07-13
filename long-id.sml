@@ -10,5 +10,5 @@ fun on_v_long_id on_v x n (m, (y, r)) =
   in
     (m, (y, r))
   end
-    
+
 end

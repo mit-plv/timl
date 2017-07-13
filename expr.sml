@@ -1703,43 +1703,85 @@ fun substx_t_tbinds f_cls f d x v (b : ('classifier, 'name, 'inner) tbinds) = su
 (*       BindNil a => BindNil (f d x v a) *)
 (*     | BindCons (cls, bind) => BindCons (f_cls d x v cls, substx_t_tbind (substx_t_tbinds f_cls f) d x v bind) *)
 
+(* local *)
+(*   fun f d x v (b : mtype) : mtype = *)
+(*     case b of *)
+(* 	Arrow (t1, i, t2) => Arrow (f d x v t1, i, f d x v t2) *)
+(*       | TyNat (i, r) => TyNat (i, r) *)
+(*       | TyArray (t, i) => TyArray (f d x v t, i) *)
+(*       | Unit r => Unit r *)
+(*       | Prod (t1, t2) => Prod (f d x v t1, f d x v t2) *)
+(*       | UniI (s, bind, r) => UniI (s, substx_t_ibind f d x v bind, r) *)
+(*       | MtVar y => *)
+(*         substx_long_id MtVar x (fn () => shiftx_i_mt 0 (fst d) $ shiftx_t_mt 0 (snd d) v) y *)
+(*       | MtAbs (k, bind, r) => MtAbs (k, substx_t_tbind f d x v bind, r) *)
+(*       | MtApp (t1, t2) => MtApp (f d x v t1, f d x v t2) *)
+(*       | MtAbsI (s, bind, r) => MtAbsI (s, substx_t_ibind f d x v bind, r) *)
+(*       | MtAppI (t, i) => MtAppI (f d x v t, i) *)
+(*       | BaseType a => BaseType a *)
+(*       | UVar a => b *)
+(*       | TDatatype (Abs dt, r) => *)
+(*         let *)
+(*           fun on_constr d x v b = substx_t_ibinds return4 (substx_pair (f, return4)) d x v b *)
+(*           fun on_constr_decl d x v (name, c, r) = (name, on_constr d x v c, r) *)
+(*           val dt = Bind $ from_Unbound dt *)
+(*           val Bind dt = substx_t_tbind (substx_t_tbinds return4 (substx_pair (return4, substx_list on_constr_decl))) d x v dt *)
+(*           val dt = to_Unbound dt *)
+(*         in *)
+(*           TDatatype (Abs dt, r) *)
+(*         end *)
+(* in *)
+(* val substx_t_mt = f *)
+(* end *)
 
-local
-  fun f d x v (b : mtype) : mtype =
-    case b of
-	Arrow (t1, i, t2) => Arrow (f d x v t1, i, f d x v t2)
-      | TyNat (i, r) => TyNat (i, r)
-      | TyArray (t, i) => TyArray (f d x v t, i)
-      | Unit r => Unit r
-      | Prod (t1, t2) => Prod (f d x v t1, f d x v t2)
-      | UniI (s, bind, r) => UniI (s, substx_t_ibind f d x v bind, r)
-      | MtVar y =>
-        substx_long_id MtVar x (fn () => shiftx_i_mt 0 (fst d) $ shiftx_t_mt 0 (snd d) v) y
-      | MtAbs (k, bind, r) => MtAbs (k, substx_t_tbind f d x v bind, r)
-      | MtApp (t1, t2) => MtApp (f d x v t1, f d x v t2)
-      | MtAbsI (s, bind, r) => MtAbsI (s, substx_t_ibind f d x v bind, r)
-      | MtAppI (t, i) => MtAppI (f d x v t, i)
-      | BaseType a => BaseType a
-      | UVar a => b
-      | TDatatype (Abs dt, r) =>
-        let
-          fun on_constr d x v b = substx_t_ibinds return4 (substx_pair (f, return4)) d x v b
-          fun on_constr_decl d x v (name, c, r) = (name, on_constr d x v c, r)
-          val dt = Bind $ from_Unbound dt
-          val Bind dt = substx_t_tbind (substx_t_tbinds return4 (substx_pair (return4, substx_list on_constr_decl))) d x v dt
-          val dt = to_Unbound dt
-        in
-          TDatatype (Abs dt, r)
-        end
-in
-val substx_t_mt = f
+fun subst_t_mtype_visitor_vtable cast ((shift_i_t, shift_t_t), d, x, v) : ('this, idepth * tdepth) mtype_visitor_vtable =
+  let
+    fun extend_i this (di, dt) _ = (idepth_inc di, dt)
+    fun extend_t this (di, dt) _ = (di, tdepth_inc dt)
+    fun add_depth (di, dt) (di', dt') = (idepth_add (di, di'), tdepth_add (dt, dt'))
+    fun get_di (di, dt) = di
+    fun get_dt (di, dt) = dt
+    fun visit_MtVar this env y =
+      let
+        val x = x + unTDepth (get_dt env)
+        val (di, dt) = add_depth d env
+      in
+        substx_long_id MtVar x (fn () => shift_i_t 0 (unIDepth di) $ shift_t_t 0 (unTDepth dt) v) y
+      end
+    val vtable = 
+        default_mtype_visitor_vtable
+          cast
+          extend_i
+          extend_t
+          (visit_imposs "subst_t_mt/visit_var")
+          visit_noop
+          visit_noop
+          visit_noop
+          visit_noop
+          visit_noop
+    val vtable = override_visit_MtVar vtable visit_MtVar
+  in
+    vtable
+  end
+
+fun new_subst_t_mtype_visitor params = new_mtype_visitor subst_t_mtype_visitor_vtable params
+
+fun subst_t_mt_fn params d x v b =
+  let
+    val visitor as (MtypeVisitor vtable) = new_subst_t_mtype_visitor (params, d, x, v)
+  in
+    #visit_mtype vtable visitor (IDepth 0, TDepth 0) b
+  end
+                               
+fun substx_t_mt (di, dt) a = subst_t_mt_fn (shiftx_i_mt, shiftx_t_mt) (IDepth di, TDepth dt) a
+      
 fun subst_t_mt (v : mtype) (b : mtype) : mtype = substx_t_mt (0, 0) 0 v b
+                                                             
 fun subst_is_mt is t =
   fst (foldl (fn (i, (t, x)) => (substx_i_mt x x i t, x - 1)) (t, length is - 1) is)
 fun subst_ts_mt vs b =
   fst (foldl (fn (v, (b, x)) => (substx_t_mt (0, x) x v b, x - 1)) (b, length vs - 1) vs)
-end
-
+      
 fun substx_t_t d x (v : mtype) (b : ty) : ty =
   case b of
       Mono t => Mono (substx_t_mt d x v t)
