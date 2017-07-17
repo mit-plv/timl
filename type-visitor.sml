@@ -101,14 +101,28 @@ fun override_visit_UVar (record : ('this, 'env) mtype_visitor_vtable) new =
     extend_t = #extend_t record
   }
 
+datatype 'env mtype_visitor =
+         MtypeVisitor of ('env mtype_visitor, 'env) mtype_visitor_interface
+
+fun mtype_visitor_impls_interface (this : 'env mtype_visitor) :
+    ('env mtype_visitor, 'env) mtype_visitor_interface =
+  let
+    val MtypeVisitor vtable = this
+  in
+    vtable
+  end
+
+fun new_mtype_visitor vtable params =
+  let
+    val vtable = vtable mtype_visitor_impls_interface params
+  in
+    MtypeVisitor vtable
+  end
+    
 (***************** the default visitor  **********************)    
 
 open VisitorUtil
        
-(* val visit_ibind = Unbound.visit_bind_simp *)
-(* val visit_tbind = Unbound.visit_bind_simp *)
-(* val visit_ebind = Unbound.visit_bind_simp *)
-                    
 fun default_mtype_visitor_vtable
       (cast : 'this -> ('this, 'env) mtype_visitor_interface)
       extend_i
@@ -181,34 +195,26 @@ fun default_mtype_visitor_vtable
       in
         T.Prod (t1, t2)
       end
-    fun visit_bind extend f env data =
-      let
-        val Bind.Bind (name, t) = data
-        val t = f (extend env name) t
-      in
-        Bind.Bind (name, t)
-      end
     fun visit_ibind this =
       let
         val vtable = cast this
       in
-        visit_bind (#extend_i vtable this)
+        Bind.visit_bind (#extend_i vtable this)
       end
     fun visit_tbind this =
       let
         val vtable = cast this
       in
-        visit_bind (#extend_t vtable this)
+        Bind.visit_bind (#extend_t vtable this)
       end
     fun visit_binds visit_bind this f_anno f_term env (binds : ('namespace, 'classifier, 'name, 'inner) Bind.binds) : ('namespace, 'classifier2, 'name, 'inner2) Bind.binds=
       let
-        open Bind
         val visit_ibinds = visit_binds visit_bind this f_anno f_term
         val vtable = cast this
       in
         case binds of
-            BindNil t => BindNil $ f_term env t
-          | BindCons (anno, bind) => BindCons (f_anno env anno, visit_bind this visit_ibinds env bind)
+            Bind.BindNil t => Bind.BindNil $ f_term env t
+          | Bind.BindCons (anno, bind) => Bind.BindCons (f_anno env anno, visit_bind this visit_ibinds env bind)
       end
     fun visit_ibinds a = visit_binds visit_ibind a
     fun visit_tbinds a = visit_binds visit_tbind a
@@ -324,23 +330,5 @@ fun default_mtype_visitor_vtable
     }
   end
 
-datatype 'env mtype_visitor =
-         MtypeVisitor of ('env mtype_visitor, 'env) mtype_visitor_interface
-
-fun mtype_visitor_impls_interface (this : 'env mtype_visitor) :
-    ('env mtype_visitor, 'env) mtype_visitor_interface =
-  let
-    val MtypeVisitor vtable = this
-  in
-    vtable
-  end
-
-fun new_mtype_visitor vtable params =
-  let
-    val vtable = vtable mtype_visitor_impls_interface params
-  in
-    MtypeVisitor vtable
-  end
-    
 end
 

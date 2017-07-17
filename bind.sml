@@ -34,6 +34,14 @@ type 'body tbind = (type_namespace, 'body) bind
 type ('classifier, 'name, 'inner) ibinds = (idx_namespace, 'classifier, 'name, 'inner) binds
 type ('classifier, 'name, 'inner) tbinds = (type_namespace, 'classifier, 'name, 'inner) binds
                                                                                         
+fun visit_bind extend f env data =
+  let
+    val Bind (name, t) = data
+    val t = f (extend env name) t
+  in
+    Bind (name, t)
+  end
+    
 end
 (*
 structure ExprUtil = struct

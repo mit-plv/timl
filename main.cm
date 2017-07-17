@@ -28,6 +28,7 @@ module-context.sml
 var-uvar.sig
 shift-util.sml
 idx.sig
+idx-visitor.sml
 idx.sml
 type.sig
 type-visitor.sml
