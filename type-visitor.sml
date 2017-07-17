@@ -1,4 +1,4 @@
-functor MtypeVisitorFn (structure S : TYPE
+functor TypeVisitorFn (structure S : TYPE
                         structure T : TYPE
                         sharing type S.base_type = T.base_type
                         sharing type S.name = T.name
@@ -14,7 +14,7 @@ open S
 
 infixr 0 $
        
-type ('this, 'env) mtype_visitor_vtable =
+type ('this, 'env) type_visitor_vtable =
      {
        visit_mtype : 'this -> 'env -> mtype -> T.mtype,
        visit_Arrow : 'this -> 'env -> mtype * Idx.idx * mtype -> T.mtype,
@@ -31,6 +31,9 @@ type ('this, 'env) mtype_visitor_vtable =
        visit_MtAppI : 'this -> 'env -> mtype * Idx.idx -> T.mtype,
        visit_UVar : 'this -> 'env -> (Idx.bsort, kind, mtype) UVarT.uvar_mt * region -> T.mtype,
        visit_TDatatype : 'this -> 'env -> mtype datatype_def * region -> T.mtype,
+       visit_ty : 'this -> 'env -> ty -> T.ty,
+       visit_Mono : 'this -> 'env -> mtype -> T.ty,
+       visit_Uni : 'this -> 'env -> (name * ty) Bind.tbind * region -> T.ty,
        visit_constr_core : 'this -> 'env -> mtype constr_core -> T.mtype T.constr_core,
        visit_var : 'this -> 'env -> var -> T.var,
        visit_bsort : 'this -> 'env -> Idx.bsort -> T.Idx.bsort,
@@ -42,10 +45,10 @@ type ('this, 'env) mtype_visitor_vtable =
        extend_t : 'this -> 'env -> name -> 'env
      }
        
-type ('this, 'env) mtype_visitor_interface =
-     ('this, 'env) mtype_visitor_vtable
+type ('this, 'env) type_visitor_interface =
+     ('this, 'env) type_visitor_vtable
                                        
-fun override_visit_MtVar (record : ('this, 'env) mtype_visitor_vtable) new =
+fun override_visit_MtVar (record : ('this, 'env) type_visitor_vtable) new =
   {
     visit_mtype = #visit_mtype record,
     visit_Arrow = #visit_Arrow record,
@@ -62,6 +65,9 @@ fun override_visit_MtVar (record : ('this, 'env) mtype_visitor_vtable) new =
     visit_MtAppI = #visit_MtAppI record,
     visit_UVar = #visit_UVar record,
     visit_TDatatype = #visit_TDatatype record,
+    visit_ty = #visit_ty record,
+    visit_Mono = #visit_Mono record,
+    visit_Uni = #visit_Uni record,
     visit_constr_core = #visit_constr_core record,
     visit_var = #visit_var record,
     visit_bsort = #visit_bsort record,
@@ -73,7 +79,7 @@ fun override_visit_MtVar (record : ('this, 'env) mtype_visitor_vtable) new =
     extend_t = #extend_t record
   }
 
-fun override_visit_UVar (record : ('this, 'env) mtype_visitor_vtable) new =
+fun override_visit_UVar (record : ('this, 'env) type_visitor_vtable) new =
   {
     visit_mtype = #visit_mtype record,
     visit_Arrow = #visit_Arrow record,
@@ -90,6 +96,9 @@ fun override_visit_UVar (record : ('this, 'env) mtype_visitor_vtable) new =
     visit_MtAppI = #visit_MtAppI record,
     visit_UVar = new,
     visit_TDatatype = #visit_TDatatype record,
+    visit_ty = #visit_ty record,
+    visit_Mono = #visit_Mono record,
+    visit_Uni = #visit_Uni record,
     visit_constr_core = #visit_constr_core record,
     visit_var = #visit_var record,
     visit_bsort = #visit_bsort record,
@@ -101,30 +110,30 @@ fun override_visit_UVar (record : ('this, 'env) mtype_visitor_vtable) new =
     extend_t = #extend_t record
   }
 
-datatype 'env mtype_visitor =
-         MtypeVisitor of ('env mtype_visitor, 'env) mtype_visitor_interface
+datatype 'env type_visitor =
+         TypeVisitor of ('env type_visitor, 'env) type_visitor_interface
 
-fun mtype_visitor_impls_interface (this : 'env mtype_visitor) :
-    ('env mtype_visitor, 'env) mtype_visitor_interface =
+fun type_visitor_impls_interface (this : 'env type_visitor) :
+    ('env type_visitor, 'env) type_visitor_interface =
   let
-    val MtypeVisitor vtable = this
+    val TypeVisitor vtable = this
   in
     vtable
   end
 
-fun new_mtype_visitor vtable params =
+fun new_type_visitor vtable params =
   let
-    val vtable = vtable mtype_visitor_impls_interface params
+    val vtable = vtable type_visitor_impls_interface params
   in
-    MtypeVisitor vtable
+    TypeVisitor vtable
   end
     
 (***************** the default visitor  **********************)    
 
 open VisitorUtil
        
-fun default_mtype_visitor_vtable
-      (cast : 'this -> ('this, 'env) mtype_visitor_interface)
+fun default_type_visitor_vtable
+      (cast : 'this -> ('this, 'env) type_visitor_interface)
       extend_i
       extend_t
       visit_var
@@ -133,7 +142,7 @@ fun default_mtype_visitor_vtable
       visit_sort
       visit_kind
       visit_uvar
-    : ('this, 'env) mtype_visitor_vtable =
+    : ('this, 'env) type_visitor_vtable =
   let
     fun visit_mtype this env data =
       let
@@ -278,6 +287,29 @@ fun default_mtype_visitor_vtable
       in
         T.UVar (x, r)
       end
+    fun visit_ty this env data =
+      let
+        val vtable = cast this
+      in
+        case data of
+	    Mono data => #visit_Mono vtable this env data
+	  | Uni data => #visit_Uni vtable this env data
+      end
+    fun visit_Mono this env data =
+      let
+        val vtable = cast this
+        val data = #visit_mtype vtable this env data
+      in
+        T.Mono data
+      end
+    fun visit_Uni this env data =
+      let
+        val vtable = cast this
+        val (bind, r) = data
+        val bind = visit_tbind this (#visit_ty vtable this) env bind
+      in
+        T.Uni (bind, r)
+      end
     fun visit_constr_core this env (data : mtype constr_core) : T.mtype T.constr_core =
       let
         val vtable = cast this
@@ -318,6 +350,9 @@ fun default_mtype_visitor_vtable
       visit_MtAppI = visit_MtAppI,
       visit_UVar = visit_UVar,
       visit_TDatatype = visit_TDatatype,
+      visit_ty = visit_ty,
+      visit_Mono = visit_Mono,
+      visit_Uni = visit_Uni,
       visit_constr_core = visit_constr_core,
       visit_var = visit_var,
       visit_bsort = visit_bsort,

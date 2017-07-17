@@ -39,9 +39,9 @@ fun collect_uvar_s_s s =
           Refined a => collect_uvar_s_s a
         | Fresh info => [(x, info, r)]
                                           
-structure MtypeVisitor = MtypeVisitorFn (structure S = Expr
+structure TypeVisitor = TypeVisitorFn (structure S = Expr
                                          structure T = Expr)
-open MtypeVisitor
+open TypeVisitor
 
 (* type 'this collect_uvar_t_vtable = *)
 (*      ('this, ((uvar_name *  *)
@@ -51,9 +51,9 @@ open MtypeVisitor
 (*               (uvar_name *  *)
 (*                ((string * bsort) list *  *)
 (*                 (string * kind) list)) * region) list  *)
-(*                                                  ref) mtype_visitor_vtable      *)
+(*                                                  ref) type_visitor_vtable      *)
        
-fun collect_uvar_t_mtype_visitor_vtable cast () (* : 'this collect_uvar_t_vtable *) =
+fun collect_uvar_t_type_visitor_vtable cast () (* : 'this collect_uvar_t_vtable *) =
   let
     fun visit_UVar this env (x, r) =
       let
@@ -66,7 +66,7 @@ fun collect_uvar_t_mtype_visitor_vtable cast () (* : 'this collect_uvar_t_vtable
         UVar (x, r)
       end
     val vtable =
-        default_mtype_visitor_vtable
+        default_type_visitor_vtable
           cast
           extend_noop
           extend_noop
@@ -81,11 +81,11 @@ fun collect_uvar_t_mtype_visitor_vtable cast () (* : 'this collect_uvar_t_vtable
     vtable
   end
 
-fun new_collect_uvar_t_mtype_visitor params = new_mtype_visitor collect_uvar_t_mtype_visitor_vtable params
+fun new_collect_uvar_t_type_visitor params = new_type_visitor collect_uvar_t_type_visitor_vtable params
     
 fun collect_uvar_t_mt t =
   let
-    val visitor as (MtypeVisitor vtable) = new_collect_uvar_t_mtype_visitor ()
+    val visitor as (TypeVisitor vtable) = new_collect_uvar_t_type_visitor ()
     val result = ref []
     val t = #visit_mtype vtable visitor result t
   in

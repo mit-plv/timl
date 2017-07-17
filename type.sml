@@ -104,16 +104,16 @@ infixr 0 $
 
 (* and on_i_constr_core on_i on_s on_i_mt x n b = on_i_ibinds on_s (on_pair (on_i_mt, on_list on_i)) x n b *)
                                     
-structure MtypeVisitor = MtypeVisitorFn (structure S = Type
+structure TypeVisitor = TypeVisitorFn (structure S = Type
                                          structure T = Type)
-open MtypeVisitor
+open TypeVisitor
                                          
-fun on_i_mtype_visitor_vtable cast ((on_i, on_s), n) : ('this, int) mtype_visitor_vtable =
+fun on_i_type_visitor_vtable cast ((on_i, on_s), n) : ('this, int) type_visitor_vtable =
   let
     fun extend_i this env _ = env + 1
     fun use f this env b = f env n b
   in
-    default_mtype_visitor_vtable
+    default_type_visitor_vtable
       cast
       extend_i
       extend_noop
@@ -125,18 +125,18 @@ fun on_i_mtype_visitor_vtable cast ((on_i, on_s), n) : ('this, int) mtype_visito
       visit_noop
   end
 
-fun new_on_i_mtype_visitor a = new_mtype_visitor on_i_mtype_visitor_vtable a
+fun new_on_i_type_visitor a = new_type_visitor on_i_type_visitor_vtable a
     
 fun on_i_mt params x n b =
   let
-    val visitor as (MtypeVisitor vtable) = new_on_i_mtype_visitor (params, n)
+    val visitor as (TypeVisitor vtable) = new_on_i_type_visitor (params, n)
   in
     #visit_mtype vtable visitor x b
   end
     
 fun on_i_constr_core params x n b =
   let
-    val visitor as (MtypeVisitor vtable) = new_on_i_mtype_visitor (params, n)
+    val visitor as (TypeVisitor vtable) = new_on_i_type_visitor (params, n)
   in
     #visit_constr_core vtable visitor x b
   end
@@ -183,12 +183,12 @@ fun on_i_t on_i_mt x n b =
     
 (* and on_t_constr_core on_mt x n b = on_t_ibinds return3 (on_pair (on_mt, return3)) x n b *)
 
-fun on_t_mtype_visitor_vtable cast (on_var, n) : ('this, int) mtype_visitor_vtable =
+fun on_t_type_visitor_vtable cast (on_var, n) : ('this, int) type_visitor_vtable =
   let
     fun extend_t this env _ = env + 1
     fun visit_var this env data = on_var env n data
   in
-    default_mtype_visitor_vtable
+    default_type_visitor_vtable
       cast
       extend_noop
       extend_t
@@ -200,18 +200,18 @@ fun on_t_mtype_visitor_vtable cast (on_var, n) : ('this, int) mtype_visitor_vtab
       visit_noop
   end
 
-fun new_on_t_mtype_visitor a = new_mtype_visitor on_t_mtype_visitor_vtable a
+fun new_on_t_type_visitor a = new_type_visitor on_t_type_visitor_vtable a
     
 fun on_t_mt on_var x n b =
   let
-    val visitor as (MtypeVisitor vtable) = new_on_t_mtype_visitor (on_var, n)
+    val visitor as (TypeVisitor vtable) = new_on_t_type_visitor (on_var, n)
   in
     #visit_mtype vtable visitor x b
   end
     
 fun on_t_constr_core on_var x n b =
   let
-    val visitor as (MtypeVisitor vtable) = new_on_t_mtype_visitor (on_var, n)
+    val visitor as (TypeVisitor vtable) = new_on_t_type_visitor (on_var, n)
   in
     #visit_constr_core vtable visitor x b
   end

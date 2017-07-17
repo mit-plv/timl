@@ -1555,13 +1555,13 @@ end
 (* val substx_i_mt = f *)
 (* end *)
 
-fun subst_i_mtype_visitor_vtable cast ((subst_i_i, subst_i_s), d, x, v) : ('this, int) mtype_visitor_vtable =
+fun subst_i_type_visitor_vtable cast ((subst_i_i, subst_i_s), d, x, v) : ('this, int) type_visitor_vtable =
   let
     fun extend_i this env _ = env + 1
     fun visit_idx this env b = subst_i_i (d + env) (x + env) v b
     fun visit_sort this env b = subst_i_s (d + env) (x + env) v b
   in
-    default_mtype_visitor_vtable
+    default_type_visitor_vtable
       cast
       extend_i
       extend_noop
@@ -1573,11 +1573,11 @@ fun subst_i_mtype_visitor_vtable cast ((subst_i_i, subst_i_s), d, x, v) : ('this
       visit_noop
   end
 
-fun new_subst_i_mtype_visitor params = new_mtype_visitor subst_i_mtype_visitor_vtable params
+fun new_subst_i_type_visitor params = new_type_visitor subst_i_type_visitor_vtable params
     
 fun subst_i_mt_fn substs d x v b =
   let
-    val visitor as (MtypeVisitor vtable) = new_subst_i_mtype_visitor (substs, d, x, v)
+    val visitor as (TypeVisitor vtable) = new_subst_i_type_visitor (substs, d, x, v)
   in
     #visit_mtype vtable visitor 0 b
   end
@@ -1645,7 +1645,7 @@ fun substx_t_tbinds f_cls f d x v (b : ('classifier, 'name, 'inner) tbinds) = su
 (* val substx_t_mt = f *)
 (* end *)
 
-fun subst_t_mtype_visitor_vtable cast ((shift_i_t, shift_t_t), d, x, v) : ('this, idepth * tdepth) mtype_visitor_vtable =
+fun subst_t_type_visitor_vtable cast ((shift_i_t, shift_t_t), d, x, v) : ('this, idepth * tdepth) type_visitor_vtable =
   let
     fun extend_i this (di, dt) _ = (idepth_inc di, dt)
     fun extend_t this (di, dt) _ = (di, tdepth_inc dt)
@@ -1660,7 +1660,7 @@ fun subst_t_mtype_visitor_vtable cast ((shift_i_t, shift_t_t), d, x, v) : ('this
         substx_long_id MtVar x (fn () => shift_i_t 0 (unIDepth di) $ shift_t_t 0 (unTDepth dt) v) y
       end
     val vtable = 
-        default_mtype_visitor_vtable
+        default_type_visitor_vtable
           cast
           extend_i
           extend_t
@@ -1675,11 +1675,11 @@ fun subst_t_mtype_visitor_vtable cast ((shift_i_t, shift_t_t), d, x, v) : ('this
     vtable
   end
 
-fun new_subst_t_mtype_visitor params = new_mtype_visitor subst_t_mtype_visitor_vtable params
+fun new_subst_t_type_visitor params = new_type_visitor subst_t_type_visitor_vtable params
 
 fun subst_t_mt_fn params d x v b =
   let
-    val visitor as (MtypeVisitor vtable) = new_subst_t_mtype_visitor (params, d, x, v)
+    val visitor as (TypeVisitor vtable) = new_subst_t_type_visitor (params, d, x, v)
   in
     #visit_mtype vtable visitor (IDepth 0, TDepth 0) b
   end
