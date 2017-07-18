@@ -1484,46 +1484,101 @@ fun substx_i_ibinds f_cls f d x v (b : ('classifier, 'name, 'inner) ibinds) = su
 fun substx_i_tbinds f_cls f d x v (b : ('classifier, 'name, 'inner) tbinds) = substx_binds substx_i_tbind f_cls f d x v b
                                                                                            
 (* depth [d] is used for shifting value [v] *)
-local
-  fun f d(*depth*) x v b =
-    case b of
-	VarI y => substx_long_id VarI x (fn () => shiftx_i_i 0 d v) y
-      | IConst c => IConst c
-      | UnOpI (opr, i, r) => UnOpI (opr, f d x v i, r)
-      | BinOpI (opr, d1, d2) => BinOpI (opr, f d x v d1, f d x v d2)
-      | Ite (i1, i2, i3, r) => Ite (f d x v i1, f d x v i2, f d x v i3, r)
-      | IAbs (b, bind, r) => IAbs (b, substx_i_ibind f d x v bind, r)
-      | UVarI a => b
-in
-val substx_i_i = f
+                                                                                           
+fun subst_i_idx_visitor_vtable cast (shift_i_i, d, x, v) : ('this, int) idx_visitor_vtable =
+  let
+    fun extend_i this d _ = d + 1
+    fun visit_VarI this env y =
+      let
+        val x = x + env
+        val d = d + env
+      in
+        substx_long_id VarI x (fn () => shift_i_i 0 d v) y
+      end
+    val vtable = 
+        default_idx_visitor_vtable
+          cast
+          extend_i
+          (visit_imposs "subst_i_i/visit_var")
+          visit_noop
+          visit_noop
+          visit_noop
+          visit_noop
+    val vtable = override_visit_VarI vtable visit_VarI
+  in
+    vtable
+  end
+
+fun new_subst_i_idx_visitor params = new_idx_visitor subst_i_idx_visitor_vtable params
+
+fun subst_i_i_fn params d x v b =
+  let
+    val visitor as (IdxVisitor vtable) = new_subst_i_idx_visitor (params, d, x, v)
+  in
+    #visit_idx vtable visitor 0 b
+  end
+                               
+fun substx_i_i a = subst_i_i_fn shiftx_i_i a
+      
+fun subst_i_p_fn params d x v b =
+  let
+    val visitor as (IdxVisitor vtable) = new_subst_i_idx_visitor (params, d, x, v)
+  in
+    #visit_prop vtable visitor 0 b
+  end
+                               
+fun substx_i_p a = subst_i_p_fn shiftx_i_i a
+      
+fun subst_i_s_fn params d x v b =
+  let
+    val visitor as (IdxVisitor vtable) = new_subst_i_idx_visitor (params, d, x, v)
+  in
+    #visit_sort vtable visitor 0 b
+  end
+                               
+fun substx_i_s a = subst_i_s_fn shiftx_i_i a
+      
+(* local *)
+(*   fun f d(*depth*) x v b = *)
+(*     case b of *)
+(* 	VarI y => substx_long_id VarI x (fn () => shiftx_i_i 0 d v) y *)
+(*       | IConst c => IConst c *)
+(*       | UnOpI (opr, i, r) => UnOpI (opr, f d x v i, r) *)
+(*       | BinOpI (opr, d1, d2) => BinOpI (opr, f d x v d1, f d x v d2) *)
+(*       | Ite (i1, i2, i3, r) => Ite (f d x v i1, f d x v i2, f d x v i3, r) *)
+(*       | IAbs (b, bind, r) => IAbs (b, substx_i_ibind f d x v bind, r) *)
+(*       | UVarI a => b *)
+(* in *)
+(* val substx_i_i = f *)
+(* end *)
+
+(* local *)
+(*   fun f d x v b = *)
+(*     case b of *)
+(* 	PTrueFalse b => PTrueFalse b *)
+(*       | Not (p, r) => Not (f d x v p, r) *)
+(*       | BinConn (opr,p1, p2) => BinConn (opr, f d x v p1, f d x v p2) *)
+(*       | BinPred (opr, d1, d2) => BinPred (opr, substx_i_i d x v d1, substx_i_i d x v d2) *)
+(*       | Quan (q, bs, bind, r) => Quan (q, bs, substx_i_ibind f d x v bind, r) *)
+(* in *)
+(* val substx_i_p = f *)
+(* end *)
+
+(* local *)
+(*   fun f d x v b = *)
+(*     case b of *)
+(* 	Basic s => Basic s *)
+(*       | Subset (b, bind, r) => Subset (b, substx_i_ibind substx_i_p d x v bind, r) *)
+(*       | UVarS a => b *)
+(*       | SAbs (b, bind, r) => SAbs (b, substx_i_ibind f d x v bind, r) *)
+(*       | SApp (s, i) => SApp (f d x v s, substx_i_i d x v i) *)
+(* in *)
+(* val substx_i_s = f *)
+(* end *)
+
 fun subst_i_i v b = substx_i_i 0 0 v b
-end
-
-local
-  fun f d x v b =
-    case b of
-	PTrueFalse b => PTrueFalse b
-      | Not (p, r) => Not (f d x v p, r)
-      | BinConn (opr,p1, p2) => BinConn (opr, f d x v p1, f d x v p2)
-      | BinPred (opr, d1, d2) => BinPred (opr, substx_i_i d x v d1, substx_i_i d x v d2)
-      | Quan (q, bs, bind, r) => Quan (q, bs, substx_i_ibind f d x v bind, r)
-in
-val substx_i_p = f
 fun subst_i_p (v : idx) (b : prop) : prop = substx_i_p 0 0 v b
-end
-
-local
-  fun f d x v b =
-    case b of
-	Basic s => Basic s
-      | Subset (b, bind, r) => Subset (b, substx_i_ibind substx_i_p d x v bind, r)
-      | UVarS a => b
-      | SAbs (b, bind, r) => SAbs (b, substx_i_ibind f d x v bind, r)
-      | SApp (s, i) => SApp (f d x v s, substx_i_i d x v i)
-in
-val substx_i_s = f
 fun subst_i_s (v : idx) (b : sort) : sort = substx_i_s 0 0 v b
-end
 
 (* local *)
 (*   fun f d x v b = *)
@@ -1586,15 +1641,25 @@ fun substx_i_mt a = subst_i_mt_fn (substx_i_i, substx_i_s) a
                                
 fun subst_i_mt (v : idx) (b : mtype) : mtype = substx_i_mt 0 0 v b
                                                            
-local
-  fun f d x v b =
-    case b of
-	Mono t => Mono (substx_i_mt d x v t)
-      | Uni (bind, r) => Uni (substx_i_tbind f d x v bind, r)
-in
-val substx_i_t = f
+fun subst_i_t_fn substs d x v b =
+  let
+    val visitor as (TypeVisitor vtable) = new_subst_i_type_visitor (substs, d, x, v)
+  in
+    #visit_ty vtable visitor 0 b
+  end
+
+fun substx_i_t a = subst_i_t_fn (substx_i_i, substx_i_s) a
+                               
+(* local *)
+(*   fun f d x v b = *)
+(*     case b of *)
+(* 	Mono t => Mono (substx_i_mt d x v t) *)
+(*       | Uni (bind, r) => Uni (substx_i_tbind f d x v bind, r) *)
+(* in *)
+(* val substx_i_t = f *)
+(* end *)
+
 fun subst_i_t (v : idx) (b : ty) : ty = substx_i_t 0 0 v b
-end
 
 fun substx_t_ibind f (di, dt) x v (Bind (name, inner) : ('name * 'b) ibind) =
   Bind (name, f (di + 1, dt) x v inner)
