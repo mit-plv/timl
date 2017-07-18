@@ -141,15 +141,22 @@ fun on_i_constr_core params x n b =
     #visit_constr_core vtable visitor x b
   end
     
-fun on_i_t on_i_mt x n b =
+fun on_i_t params x n b =
   let
-    fun f x n b =
-      case b of
-	  Mono t => Mono (on_i_mt x n t)
-	| Uni (bind, r) => Uni (on_i_tbind f x n bind, r)
+    val visitor as (TypeVisitor vtable) = new_on_i_type_visitor (params, n)
   in
-    f x n b
+    #visit_ty vtable visitor x b
   end
+    
+(* fun on_i_t on_i_mt x n b = *)
+(*   let *)
+(*     fun f x n b = *)
+(*       case b of *)
+(* 	  Mono t => Mono (on_i_mt x n t) *)
+(* 	| Uni (bind, r) => Uni (on_i_tbind f x n bind, r) *)
+(*   in *)
+(*     f x n b *)
+(*   end *)
 
 (* fun on_t_mt on_v x n b = *)
 (*   let *)
@@ -216,30 +223,36 @@ fun on_t_constr_core on_var x n b =
     #visit_constr_core vtable visitor x b
   end
     
-fun on_t_t on_t_mt x n b =
+fun on_t_t on_var x n b =
   let
-    fun f x n b =
-      case b of
-	  Mono t => Mono (on_t_mt x n t)
-	| Uni (bind, r) => Uni (on_t_tbind f x n bind, r)
+    val visitor as (TypeVisitor vtable) = new_on_t_type_visitor (on_var, n)
   in
-    f x n b
+    #visit_ty vtable visitor x b
   end
+    
+(* fun on_t_t on_t_mt x n b = *)
+(*   let *)
+(*     fun f x n b = *)
+(*       case b of *)
+(* 	  Mono t => Mono (on_t_mt x n t) *)
+(* 	| Uni (bind, r) => Uni (on_t_tbind f x n bind, r) *)
+(*   in *)
+(*     f x n b *)
+(*   end *)
 
 fun shiftx_i_mt x n b = on_i_mt (shiftx_i_i, shiftx_i_s) x n b
-and shiftx_t_mt x n b = on_t_mt shiftx_var x n b
 fun shift_i_mt b = shiftx_i_mt 0 1 b
+and shiftx_t_mt x n b = on_t_mt shiftx_var x n b
 fun shift_t_mt b = shiftx_t_mt 0 1 b
 
-fun shiftx_i_t x n b = on_i_t shiftx_i_mt x n b
+fun shiftx_i_t x n b = on_i_t (shiftx_i_i, shiftx_i_s) x n b
 fun shift_i_t b = shiftx_i_t 0 1 b
-
-fun shiftx_t_t x n b = on_t_t shiftx_t_mt x n b
+fun shiftx_t_t x n b = on_t_t shiftx_var x n b
 fun shift_t_t b = shiftx_t_t 0 1 b
 
 fun forget_i_mt x n b = on_i_mt (forget_i_i, forget_i_s) x n b
 fun forget_t_mt x n b = on_t_mt forget_var x n b
-fun forget_i_t x n b = on_i_t forget_i_mt x n b
-fun forget_t_t x n b = on_t_t forget_t_mt x n b
+fun forget_i_t x n b = on_i_t (forget_i_i, forget_i_s) x n b
+fun forget_t_t x n b = on_t_t forget_var x n b
 
 end
