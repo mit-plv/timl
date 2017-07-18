@@ -90,5 +90,5 @@ smlnj: main.cm
 	./format.rb ml-build -Ccontrol.poly-eq-warn=false -Ccompiler-mc.error-non-exhaustive-match=true -Ccompiler-mc.error-non-exhaustive-bind=true main.cm Main.main main-image
 
 clean:
-	rm main
-	rm main-image*
+	rm -f main
+	rm -f main-image*
