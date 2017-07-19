@@ -1,6 +1,7 @@
 structure NameResolve = struct
 structure S = NamefulExpr
-open UnderscoredExpr
+structure T = UnderscoredExpr
+open T
 open Region
 open Gctx
 open List
@@ -20,7 +21,7 @@ type ccontext = (string * string list) list
 type tcontext = string list
 type context = scontext * kcontext * ccontext * tcontext
 datatype sgntr =
-         Sig of (* sigcontext *  *)context
+         Sig of (* ns_sigcontext *  *)context
          | FunctorBind of (string * context) (* list *) * context
                                                             
 fun is_FunctorBind s =
@@ -28,7 +29,7 @@ fun is_FunctorBind s =
       FunctorBind a => SOME a
     | _ => NONE
 
-type sigcontext = sgntr Gctx.map
+type ns_sigcontext = sgntr Gctx.map
                                    
 fun runError m _ =
     OK (m ())
@@ -43,7 +44,7 @@ fun on_id ctx (x, r) =
 fun filter_module gctx =
     Gctx.mapPartial (fn sg => case sg of Sig sg => SOME sg | _ => NONE) gctx
 
-fun lookup_module gctx m =
+fun ns_lookup_module gctx m =
     nth_error2 (filter_module gctx) m
 
 fun names ctx = map fst ctx
@@ -51,7 +52,7 @@ fun names ctx = map fst ctx
 fun ctx_names ((sctx, kctx, cctx, tctx) : context) =
     (sctx, kctx, names cctx, tctx) 
 
-fun gctx_names (gctx : sigcontext) =
+fun gctx_names (gctx : ns_sigcontext) =
     let
       val gctx = filter_module gctx
       val gctx = Gctx.map ctx_names gctx
@@ -65,7 +66,7 @@ fun find_long_id gctx sel eq ctx (m, (x, xr)) =
         opt_bind (findOptionWithIdx (eq x) ctx)
                  (fn x => opt_return (NONE, (x, xr)))
       | SOME (m, mr) =>
-        opt_bind (lookup_module gctx m)
+        opt_bind (ns_lookup_module gctx m)
                  (fn (m, sg) =>
                      opt_bind (findOptionWithIdx (eq x) $ sel sg)
                               (fn x => opt_return (SOME (m, mr), (x, xr))))
@@ -75,7 +76,7 @@ fun on_long_id gctx sel ctx x =
         SOME x => x
       | NONE => raise Error (S.get_region_long_id x, sprintf "Unbound (long) variable '$' in context: $ $" [S.str_long_id #1 empty [] x, str_ls id ctx, str_ls id $ domain gctx])
                       
-fun find_constr (gctx : sigcontext) ctx x =
+fun find_constr (gctx : ns_sigcontext) ctx x =
     flip Option.map (find_long_id gctx #3 is_eq_fst_snd ctx x)
          (fn (m, ((i, inames), xr)) => ((m, (i, xr)), inames))
          
@@ -87,7 +88,7 @@ fun on_quan q =
       | Exists _ => Exists NONE
 
 structure IdxVisitor = IdxVisitorFn (structure S = S.Idx
-                                     structure T = Idx)
+                                     structure T = T.Idx)
 open IdxVisitor
                            
 (***************** the "import" (or name-resolving) visitor: converting nameful terms to de Bruijn indices **********************)    
@@ -145,7 +146,7 @@ fun on_sort gctx ctx b =
 (*       | S.BSArrow (a, b) => BSArrow (on_bsort a, on_bsort b) *)
 (*       | S.UVarBS u => UVarBS u *)
 
-(* fun on_idx (gctx : sigcontext) ctx i = *)
+(* fun on_idx (gctx : ns_sigcontext) ctx i = *)
 (*     let *)
 (*       val on_idx = on_idx gctx *)
 (*     in *)
@@ -217,72 +218,150 @@ fun get_datatype_names (Bind (name, tbinds)) =
       (fst name, cnames)
     end
       
-fun on_mtype gctx (ctx as (sctx, kctx)) t =
-    let
-      val on_mtype = on_mtype gctx
-    in
-      case t of
-	  S.Arrow (t1, d, t2) => Arrow (on_mtype ctx t1, on_idx gctx sctx d, on_mtype ctx t2)
-        | S.TyArray (t, i) => TyArray (on_mtype ctx t, on_idx gctx sctx i)
-        | S.TyNat (i, r) => TyNat (on_idx gctx sctx i, r)
-        | S.Unit r => Unit r
-	| S.Prod (t1, t2) => Prod (on_mtype ctx t1, on_mtype ctx t2)
-	| S.UniI (s, bind, r_all) => UniI (on_sort gctx sctx s, on_ibind (fn sctx => on_mtype (sctx, kctx)) sctx bind, r_all)
-        | S.MtVar x => MtVar $ on_long_id gctx #2 kctx x
-        | S.MtApp (t1, t2) => MtApp (on_mtype ctx t1, on_mtype ctx t2)
-        | S.MtAbs (k, bind, r_all) => MtAbs (on_kind k, on_tbind (fn kctx => (on_mtype (sctx, kctx))) kctx bind, r_all)
-        | S.MtAppI (t1, i) =>
-          let
-            fun default () = MtAppI (on_mtype ctx t1, on_idx gctx sctx i)
-          in
-            case S.is_AppV t of
-                SOME (x, ts, is) =>
-                let
-                  val ts = map (on_mtype ctx) ts
-                  val is = map (on_idx gctx sctx) is
-                in
-                  if S.eq_long_id (x, (NONE, ("nat", dummy))) andalso length ts = 0 andalso length is = 1 then
-                    TyNat (hd is, S.get_region_mt t)
-                  else if S.eq_long_id (x, (NONE, ("array", dummy))) andalso length ts = 1 andalso length is = 1 then
-                    TyArray (hd ts, hd is)
-                  else
-                    default ()
-                end
-              | NONE => default ()         
-          end
-        | S.MtAbsI (b, bind, r_all) => MtAbsI (on_bsort b, on_ibind (fn sctx => on_mtype (sctx, kctx)) sctx bind, r_all)
-	| S.BaseType (bt, r) => BaseType (bt, r)
-        | S.UVar u => UVar u
-        | S.TDatatype (dt, r) =>
-          let
-            val dt = on_datatype gctx ctx dt
-          in
-            TDatatype (dt, r)
-          end
-    end
+structure TV = TypeVisitorFn (structure S = S.Type
+                                       structure T = T.Type)
+                                         
+fun on_i_type_visitor_vtable (cast : 'this -> ('this, scontext * kcontext) TV.type_visitor_vtable) gctx : ('this, scontext * kcontext) TV.type_visitor_vtable =
+  let
+    fun extend_i this (sctx, kctx) name = (fst name :: sctx, kctx)
+    fun extend_t this (sctx, kctx) name = (sctx, fst name :: kctx)
+    fun visit_var this (sctx, kctx) x =
+      on_long_id gctx #2 kctx x
+    fun for_idx f this (sctx, kctx) b = f gctx sctx b
+    fun for_bsort f _ _ b = f b
+    fun visit_MtAppI this ctx (data as (t1, i)) =
+      let
+        val vtable = cast this
+        fun default () = MtAppI (#visit_mtype vtable this ctx t1, #visit_idx vtable this ctx i)
+        val t = S.MtAppI data
+      in
+        case S.is_AppV t of
+            SOME (x, ts, is) =>
+            let
+              val ts = map (#visit_mtype vtable this ctx) ts
+              val is = map (#visit_idx vtable this ctx) (is : S.idx list)
+            in
+              if S.eq_long_id (x, (NONE, ("nat", dummy))) andalso length ts = 0 andalso length is = 1 then
+                TyNat (hd is, S.get_region_mt t)
+              else if S.eq_long_id (x, (NONE, ("array", dummy))) andalso length ts = 1 andalso length is = 1 then
+                TyArray (hd ts, hd is)
+              else
+                default ()
+            end
+          | NONE => default ()         
+      end
+    val vtable = 
+        TV.default_type_visitor_vtable
+          cast
+          extend_i
+          extend_t
+          visit_var
+          (for_bsort on_bsort)
+          (for_idx on_idx)
+          (for_idx on_sort)
+          (for_bsort on_kind)
+          visit_noop
+    val vtable = TV.override_visit_MtAppI vtable visit_MtAppI
+  in
+    vtable
+  end
 
-and on_datatype gctx (sctx, kctx) dt =
-    let
-      fun on_constr_decl kctx (cname, core, r) =
-        (cname, on_constr_core gctx (sctx, kctx) core, r)
-      fun on_constrs kctx (sorts, constr_decls) =
-        (map on_bsort sorts, map (on_constr_decl kctx) constr_decls)
-      val dt = on_tbind (on_tbinds return2 on_constrs) kctx dt
-    in
-      dt
-    end
+fun new_on_i_type_visitor a = TV.new_type_visitor on_i_type_visitor_vtable a
+    
+fun on_mtype gctx ctx b =
+  let
+    val visitor as (TV.TypeVisitor vtable) = new_on_i_type_visitor gctx
+  in
+    #visit_mtype vtable visitor ctx b
+  end
+    
+fun on_datatype gctx ctx b =
+  let
+    val visitor as (TV.TypeVisitor vtable) = new_on_i_type_visitor gctx
+  in
+    #visit_datatype vtable visitor ctx b
+  end
+    
+fun on_constr_core gctx ctx b =
+  let
+    val visitor as (TV.TypeVisitor vtable) = new_on_i_type_visitor gctx
+  in
+    #visit_constr_core vtable visitor ctx b
+  end
+    
+fun on_type gctx ctx b =
+  let
+    val visitor as (TV.TypeVisitor vtable) = new_on_i_type_visitor gctx
+  in
+    #visit_ty vtable visitor ctx b
+  end
+    
+(* fun on_mtype gctx (ctx as (sctx, kctx)) t = *)
+(*     let *)
+(*       val on_mtype = on_mtype gctx *)
+(*     in *)
+(*       case t of *)
+(* 	  S.Arrow (t1, d, t2) => Arrow (on_mtype ctx t1, on_idx gctx sctx d, on_mtype ctx t2) *)
+(*         | S.TyArray (t, i) => TyArray (on_mtype ctx t, on_idx gctx sctx i) *)
+(*         | S.TyNat (i, r) => TyNat (on_idx gctx sctx i, r) *)
+(*         | S.Unit r => Unit r *)
+(* 	| S.Prod (t1, t2) => Prod (on_mtype ctx t1, on_mtype ctx t2) *)
+(* 	| S.UniI (s, bind, r_all) => UniI (on_sort gctx sctx s, on_ibind (fn sctx => on_mtype (sctx, kctx)) sctx bind, r_all) *)
+(*         | S.MtVar x => MtVar $ on_long_id gctx #2 kctx x *)
+(*         | S.MtApp (t1, t2) => MtApp (on_mtype ctx t1, on_mtype ctx t2) *)
+(*         | S.MtAbs (k, bind, r_all) => MtAbs (on_kind k, on_tbind (fn kctx => (on_mtype (sctx, kctx))) kctx bind, r_all) *)
+(*         | S.MtAppI (t1, i) => *)
+(*           let *)
+(*             fun default () = MtAppI (on_mtype ctx t1, on_idx gctx sctx i) *)
+(*           in *)
+(*             case S.is_AppV t of *)
+(*                 SOME (x, ts, is) => *)
+(*                 let *)
+(*                   val ts = map (on_mtype ctx) ts *)
+(*                   val is = map (on_idx gctx sctx) is *)
+(*                 in *)
+(*                   if S.eq_long_id (x, (NONE, ("nat", dummy))) andalso length ts = 0 andalso length is = 1 then *)
+(*                     TyNat (hd is, S.get_region_mt t) *)
+(*                   else if S.eq_long_id (x, (NONE, ("array", dummy))) andalso length ts = 1 andalso length is = 1 then *)
+(*                     TyArray (hd ts, hd is) *)
+(*                   else *)
+(*                     default () *)
+(*                 end *)
+(*               | NONE => default ()          *)
+(*           end *)
+(*         | S.MtAbsI (b, bind, r_all) => MtAbsI (on_bsort b, on_ibind (fn sctx => on_mtype (sctx, kctx)) sctx bind, r_all) *)
+(* 	| S.BaseType (bt, r) => BaseType (bt, r) *)
+(*         | S.UVar u => UVar u *)
+(*         | S.TDatatype (dt, r) => *)
+(*           let *)
+(*             val dt = on_datatype gctx ctx dt *)
+(*           in *)
+(*             TDatatype (dt, r) *)
+(*           end *)
+(*     end *)
 
-and on_constr_core gctx (ctx as (sctx, kctx)) (ibinds : S.mtype S.constr_core) : mtype constr_core =
-    on_ibinds (on_sort gctx) (fn sctx => fn (t, is) => (on_mtype gctx (sctx, kctx) t, map (on_idx gctx sctx) is)) sctx ibinds
+(* and on_datatype gctx (sctx, kctx) dt = *)
+(*     let *)
+(*       fun on_constr_decl kctx (cname, core, r) = *)
+(*         (cname, on_constr_core gctx (sctx, kctx) core, r) *)
+(*       fun on_constrs kctx (sorts, constr_decls) = *)
+(*         (map on_bsort sorts, map (on_constr_decl kctx) constr_decls) *)
+(*       val dt = on_tbind (on_tbinds return2 on_constrs) kctx dt *)
+(*     in *)
+(*       dt *)
+(*     end *)
+
+(* and on_constr_core gctx (ctx as (sctx, kctx)) (ibinds : S.mtype S.constr_core) : mtype constr_core = *)
+(*     on_ibinds (on_sort gctx) (fn sctx => fn (t, is) => (on_mtype gctx (sctx, kctx) t, map (on_idx gctx sctx) is)) sctx ibinds *)
       
-fun on_type gctx (ctx as (sctx, kctx)) t =
-    let
-      val on_type = on_type gctx
-    in
-      case t of
-	  S.Mono t => Mono (on_mtype gctx ctx t)
-	| S.Uni (Bind ((name, r), t), r_all) => Uni (Bind ((name, r), on_type (sctx, name :: kctx) t), r_all)
-    end
+(* fun on_type gctx (ctx as (sctx, kctx)) t = *)
+(*     let *)
+(*       val on_type = on_type gctx *)
+(*     in *)
+(*       case t of *)
+(* 	  S.Mono t => Mono (on_mtype gctx ctx t) *)
+(* 	| S.Uni (Bind ((name, r), t), r_all) => Uni (Bind ((name, r), on_type (sctx, name :: kctx) t), r_all) *)
+(*     end *)
       
 fun on_ptrn gctx (ctx as (sctx, kctx, cctx)) pn =
     let
@@ -641,7 +720,7 @@ and on_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
         | S.DOpen (Outer (m, r), _) =>
           let
             val (m, ctxd) =
-                case lookup_module gctx m of
+                case ns_lookup_module gctx m of
                     SOME a => a
                   | NONE => raise Error (r, "Unbound module " ^ m)
             val ctx = add_ctx ctxd ctx
@@ -767,7 +846,7 @@ fun on_top_bind gctx (name, bind) =
         end
       | S.TopFunctorApp ((f, f_r), m) =>
         let
-          fun lookup_functor (gctx : sigcontext) m =
+          fun lookup_functor (gctx : ns_sigcontext) m =
             opt_bind (Gctx.find (gctx, m)) is_FunctorBind
           fun fetch_functor gctx (m, r) =
               case lookup_functor gctx m of
