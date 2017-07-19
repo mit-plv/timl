@@ -229,6 +229,17 @@ fun on_i_type_visitor_vtable (cast : 'this -> ('this, scontext * kcontext) TV.ty
       on_long_id gctx #2 kctx x
     fun for_idx f this (sctx, kctx) b = f gctx sctx b
     fun for_bsort f _ _ b = f b
+    val vtable = 
+        TV.default_type_visitor_vtable
+          cast
+          extend_i
+          extend_t
+          visit_var
+          (for_bsort on_bsort)
+          (for_idx on_idx)
+          (for_idx on_sort)
+          (for_bsort on_kind)
+          visit_noop
     fun visit_MtAppI this ctx (data as (t1, i)) =
       let
         val vtable = cast this
@@ -250,17 +261,6 @@ fun on_i_type_visitor_vtable (cast : 'this -> ('this, scontext * kcontext) TV.ty
             end
           | NONE => default ()         
       end
-    val vtable = 
-        TV.default_type_visitor_vtable
-          cast
-          extend_i
-          extend_t
-          visit_var
-          (for_bsort on_bsort)
-          (for_idx on_idx)
-          (for_idx on_sort)
-          (for_bsort on_kind)
-          visit_noop
     val vtable = TV.override_visit_MtAppI vtable visit_MtAppI
   in
     vtable
