@@ -79,55 +79,110 @@ fun find_constr (gctx : sigcontext) ctx x =
     flip Option.map (find_long_id gctx #3 is_eq_fst_snd ctx x)
          (fn (m, ((i, inames), xr)) => ((m, (i, xr)), inames))
          
-fun on_bsort bs =
-    case bs of
-        S.Base b => Base b
-      | S.BSArrow (a, b) => BSArrow (on_bsort a, on_bsort b)
-      | S.UVarBS u => UVarBS u
-
 fun on_ibind f ctx (Bind (name, inner) : ((string * 'a) * 'b) ibind) = Bind (name, f (fst name :: ctx) inner)
 
-fun on_idx (gctx : sigcontext) ctx i =
-    let
-      val on_idx = on_idx gctx
-    in
-      case i of
-	  S.VarI x => VarI (on_long_id gctx #1 ctx x)
-        | S.IConst c => IConst c
-        | S.UnOpI (opr, i, r) => UnOpI (opr, on_idx ctx i, r)
-	| S.BinOpI (opr, i1, i2) => BinOpI (opr, on_idx ctx i1, on_idx ctx i2)
-        | S.Ite (i1, i2, i3, r) => Ite (on_idx ctx i1, on_idx ctx i2, on_idx ctx i3, r)
-        | S.IAbs (bs, bind, r) => IAbs (on_bsort bs, on_ibind on_idx ctx bind, r)
-        | S.UVarI u => UVarI u
-    end
-      
 fun on_quan q =
     case q of
         Forall => Forall
       | Exists _ => Exists NONE
-                           
-fun on_prop gctx ctx p =
-    let
-      val on_prop = on_prop gctx
-    in
-      case p of
-	  S.PTrueFalse b => PTrueFalse b
-        | S.Not (p, r) => Not (on_prop ctx p, r)
-	| S.BinConn (opr, p1, p2) => BinConn (opr, on_prop ctx p1, on_prop ctx p2)
-	| S.BinPred (opr, i1, i2) => BinPred (opr, on_idx gctx ctx i1, on_idx gctx ctx i2)
-        | S.Quan (q, bs, bind, r_all) => Quan (on_quan q, on_bsort bs, on_ibind on_prop ctx bind, r_all)
-    end
 
-fun on_sort gctx ctx s =
-    case s of
-	S.Basic (b, r) => Basic (on_bsort b, r)
-      | S.Subset ((s, r1), bind, r_all) => Subset ((on_bsort s, r1), on_ibind (on_prop gctx) ctx bind, r_all)
-      | S.UVarS u => UVarS u
-      | S.SAbs (b, bind, r) => SAbs (on_bsort b, on_ibind (on_sort gctx) ctx bind, r)
-      | S.SApp (s, i) => SApp (on_sort gctx ctx s, on_idx gctx ctx i)
-                                                   
+structure IdxVisitor = IdxVisitorFn (structure S = S.Idx
+                                     structure T = Idx)
+open IdxVisitor
+                           
+(***************** the "import" (or name-resolving) visitor: converting nameful terms to de Bruijn indices **********************)    
+    
+fun import_idx_visitor_vtable cast gctx : ('this, scontext) idx_visitor_vtable =
+  let
+    fun extend this env x1 = fst x1 :: env
+    fun visit_var this env x =
+      on_long_id gctx #1 env x
+    fun visit_quan _ _ q = on_quan q
+  in
+    default_idx_visitor_vtable
+      cast
+      extend
+      visit_var
+      visit_noop
+      visit_noop
+      visit_noop
+      visit_quan
+  end
+
+fun new_import_idx_visitor a = new_idx_visitor import_idx_visitor_vtable a
+    
+fun on_bsort b =
+  let
+    val visitor as (IdxVisitor vtable) = new_import_idx_visitor empty
+  in
+    #visit_bsort vtable visitor [] b
+  end
+    
+fun on_idx gctx ctx b =
+  let
+    val visitor as (IdxVisitor vtable) = new_import_idx_visitor gctx
+  in
+    #visit_idx vtable visitor ctx b
+  end
+    
+fun on_prop gctx ctx b =
+  let
+    val visitor as (IdxVisitor vtable) = new_import_idx_visitor gctx
+  in
+    #visit_prop vtable visitor ctx b
+  end
+    
+fun on_sort gctx ctx b =
+  let
+    val visitor as (IdxVisitor vtable) = new_import_idx_visitor gctx
+  in
+    #visit_sort vtable visitor ctx b
+  end
+    
+(* fun on_bsort bs = *)
+(*     case bs of *)
+(*         S.Base b => Base b *)
+(*       | S.BSArrow (a, b) => BSArrow (on_bsort a, on_bsort b) *)
+(*       | S.UVarBS u => UVarBS u *)
+
+(* fun on_idx (gctx : sigcontext) ctx i = *)
+(*     let *)
+(*       val on_idx = on_idx gctx *)
+(*     in *)
+(*       case i of *)
+(* 	  S.VarI x => VarI (on_long_id gctx #1 ctx x) *)
+(*         | S.IConst c => IConst c *)
+(*         | S.UnOpI (opr, i, r) => UnOpI (opr, on_idx ctx i, r) *)
+(* 	| S.BinOpI (opr, i1, i2) => BinOpI (opr, on_idx ctx i1, on_idx ctx i2) *)
+(*         | S.Ite (i1, i2, i3, r) => Ite (on_idx ctx i1, on_idx ctx i2, on_idx ctx i3, r) *)
+(*         | S.IAbs (bs, bind, r) => IAbs (on_bsort bs, on_ibind on_idx ctx bind, r) *)
+(*         | S.UVarI u => UVarI u *)
+(*     end *)
+      
+(* fun on_prop gctx ctx p = *)
+(*     let *)
+(*       val on_prop = on_prop gctx *)
+(*     in *)
+(*       case p of *)
+(* 	  S.PTrueFalse b => PTrueFalse b *)
+(*         | S.Not (p, r) => Not (on_prop ctx p, r) *)
+(* 	| S.BinConn (opr, p1, p2) => BinConn (opr, on_prop ctx p1, on_prop ctx p2) *)
+(* 	| S.BinPred (opr, i1, i2) => BinPred (opr, on_idx gctx ctx i1, on_idx gctx ctx i2) *)
+(*         | S.Quan (q, bs, bind, r_all) => Quan (on_quan q, on_bsort bs, on_ibind on_prop ctx bind, r_all) *)
+(*     end *)
+
+(* fun on_sort gctx ctx s = *)
+(*     case s of *)
+(* 	S.Basic (b, r) => Basic (on_bsort b, r) *)
+(*       | S.Subset ((s, r1), bind, r_all) => Subset ((on_bsort s, r1), on_ibind (on_prop gctx) ctx bind, r_all) *)
+(*       | S.UVarS u => UVarS u *)
+(*       | S.SAbs (b, bind, r) => SAbs (on_bsort b, on_ibind (on_sort gctx) ctx bind, r) *)
+(*       | S.SApp (s, i) => SApp (on_sort gctx ctx s, on_idx gctx ctx i) *)
+
 fun on_kind k = mapSnd (map on_bsort) k
 
+open Bind
+       
 fun on_tbind f kctx (Bind (name, b) : ((string * 'a) * 'b) tbind) = 
   Bind (name, f (fst name :: kctx) b)
 

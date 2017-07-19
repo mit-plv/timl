@@ -45,7 +45,7 @@ type ('this, 'env) idx_visitor_vtable =
        visit_uvar_i : 'this -> 'env -> (bsort, idx) UVarI.uvar_i -> (T.bsort, T.idx) T.UVarI.uvar_i,
        visit_uvar_s : 'this -> 'env -> (bsort, sort) UVarI.uvar_s -> (T.bsort, T.sort) T.UVarI.uvar_s,
        visit_quan : 'this -> 'env -> idx exists_anno quan -> T.idx T.exists_anno quan,
-       extend_i : 'this -> 'env -> name -> 'env
+       extend : 'this -> 'env -> name -> 'env
      }
        
 fun override_visit_idx (record : ('this, 'env) idx_visitor_vtable) new =
@@ -79,7 +79,7 @@ fun override_visit_idx (record : ('this, 'env) idx_visitor_vtable) new =
     visit_uvar_i = #visit_uvar_i record,
     visit_uvar_s = #visit_uvar_s record,
     visit_quan = #visit_quan record,
-    extend_i = #extend_i record
+    extend = #extend record
   }
 
 fun override_visit_VarI (record : ('this, 'env) idx_visitor_vtable) new =
@@ -113,7 +113,7 @@ fun override_visit_VarI (record : ('this, 'env) idx_visitor_vtable) new =
     visit_uvar_i = #visit_uvar_i record,
     visit_uvar_s = #visit_uvar_s record,
     visit_quan = #visit_quan record,
-    extend_i = #extend_i record
+    extend = #extend record
   }
 
 type ('this, 'env) idx_visitor_interface =
@@ -143,7 +143,7 @@ open VisitorUtil
        
 fun default_idx_visitor_vtable
       (cast : 'this -> ('this, 'env) idx_visitor_interface)
-      extend_i
+      extend
       visit_var
       visit_uvar_bs
       visit_uvar_i
@@ -231,7 +231,7 @@ fun default_idx_visitor_vtable
       let
         val vtable = cast this
       in
-        Bind.visit_bind (#extend_i vtable this)
+        Bind.visit_bind (#extend vtable this)
       end
     fun visit_IAbs this env data =
       let
@@ -384,7 +384,7 @@ fun default_idx_visitor_vtable
       visit_uvar_i = visit_uvar_i,
       visit_uvar_s = visit_uvar_s,
       visit_quan = visit_quan,
-      extend_i = extend_i
+      extend = extend
     }
   end
 
