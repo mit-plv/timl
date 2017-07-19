@@ -209,6 +209,14 @@ fun on_ibinds on_anno on_inner ctx (ibinds : ('a, string * 'b, 'c) ibinds) = on_
 
 fun on_tbinds on_anno on_inner ctx (tbinds : ('a, string * 'b, 'c) tbinds) = on_binds on_tbind on_anno on_inner ctx tbinds
                                                                                          
+fun get_datatype_names (Bind (name, tbinds)) =
+    let
+      val (_, (_, constr_decls)) = unfold_binds tbinds
+      val cnames = map (fn (name, core, _) => (fst name, get_constr_inames core)) constr_decls
+    in
+      (fst name, cnames)
+    end
+      
 fun on_mtype gctx (ctx as (sctx, kctx)) t =
     let
       val on_mtype = on_mtype gctx
@@ -247,7 +255,7 @@ fun on_mtype gctx (ctx as (sctx, kctx)) t =
         | S.UVar u => UVar u
         | S.TDatatype (dt, r) =>
           let
-            val (dt, _) = on_datatype gctx ctx dt
+            val dt = on_datatype gctx ctx dt
           in
             TDatatype (dt, r)
           end
@@ -260,11 +268,8 @@ and on_datatype gctx (sctx, kctx) dt =
       fun on_constrs kctx (sorts, constr_decls) =
         (map on_bsort sorts, map (on_constr_decl kctx) constr_decls)
       val dt = on_tbind (on_tbinds return2 on_constrs) kctx dt
-      val Bind (name, tbinds) = dt
-      val (_, (_, constr_decls)) = unfold_binds tbinds
-      val cnames = map (fn (name, core, _) => (fst name, get_constr_inames core)) constr_decls
     in
-      (dt, (fst name, cnames))
+      dt
     end
 
 and on_constr_core gctx (ctx as (sctx, kctx)) (ibinds : S.mtype S.constr_core) : mtype constr_core =
@@ -620,7 +625,8 @@ and on_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
           (case t of
                S.TDatatype (dt, r) =>
                let
-                 val (dt, (tname, cnames)) = on_datatype gctx (sctx, kctx) dt
+                 val dt = on_datatype gctx (sctx, kctx) dt
+                 val (tname, cnames) = get_datatype_names dt
                  val ctx = (sctx, tname :: kctx, rev cnames @ cctx, tctx)
                in
                  (DTypeDef (name, Outer $ TDatatype (dt, r)), ctx)
@@ -688,7 +694,8 @@ fun on_sig gctx (comps, r) =
           (case t of
                S.TDatatype (dt, r) =>
                let
-                 val (dt, (tname, cnames)) = on_datatype gctx (sctx, kctx) dt
+                 val dt = on_datatype gctx (sctx, kctx) dt
+                 val (tname, cnames) = get_datatype_names dt
                  val ctx = (sctx, tname :: kctx, rev cnames @ cctx, tctx)
                in
                  (SpecTypeDef ((name, r), TDatatype (dt, r)), ctx)
