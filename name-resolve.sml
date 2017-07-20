@@ -670,10 +670,10 @@ fun on_i_expr_visitor_vtable cast gctx : ('this, context) EV.expr_visitor_vtable
               | NONE => raise Error (r, "Unbound module " ^ m)
         fun visit_scoping_ctx this env (sctx, kctx, cctx, tctx) =
           let
-            val sctx = visit_list (visit_ibinder this) env sctx
-            val kctx = visit_list (visit_tbinder this) env kctx
-            val cctx = visit_list (visit_binder extend_c_data) env cctx
-            val tctx = visit_list (visit_ebinder this) env tctx
+            val _ = visit_list (visit_ibinder this) env $ rev sctx
+            val _ = visit_list (visit_tbinder this) env $ rev kctx
+            val _ = visit_list (visit_binder extend_c_data) env $ rev cctx
+            val _ = visit_list (visit_ebinder this) env $ rev tctx
           in
             ()
           end

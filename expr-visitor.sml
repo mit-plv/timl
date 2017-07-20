@@ -820,10 +820,10 @@ fun default_expr_visitor_vtable
       end
     fun visit_scoping_ctx this env (sctx, kctx, cctx, tctx) =
       let
-        val sctx = visit_list (visit_ibinder this) env sctx
-        val kctx = visit_list (visit_tbinder this) env kctx
-        val cctx = visit_list (visit_cbinder this) env cctx
-        val tctx = visit_list (visit_ebinder this) env tctx
+        val _ = visit_list (visit_ibinder this) env $ rev sctx
+        val _ = visit_list (visit_tbinder this) env $ rev kctx
+        val _ = visit_list (visit_cbinder this) env $ rev cctx
+        val _ = visit_list (visit_ebinder this) env $ rev tctx
       in
         (sctx, kctx, cctx, tctx)
       end
