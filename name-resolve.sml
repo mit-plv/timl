@@ -210,18 +210,10 @@ fun on_ibinds on_anno on_inner ctx (ibinds : ('a, string * 'b, 'c) ibinds) = on_
 
 fun on_tbinds on_anno on_inner ctx (tbinds : ('a, string * 'b, 'c) tbinds) = on_binds on_tbind on_anno on_inner ctx tbinds
                                                                                          
-fun get_datatype_names (Bind (name, tbinds)) =
-    let
-      val (_, (_, constr_decls)) = unfold_binds tbinds
-      val cnames = map (fn (name, core, _) => (fst name, get_constr_inames core)) constr_decls
-    in
-      (fst name, cnames)
-    end
-      
 structure TV = TypeVisitorFn (structure S = S.Type
-                                       structure T = T.Type)
+                              structure T = T.Type)
                                          
-fun on_i_type_visitor_vtable (cast : 'this -> ('this, scontext * kcontext) TV.type_visitor_vtable) gctx : ('this, scontext * kcontext) TV.type_visitor_vtable =
+fun on_i_type_visitor_vtable cast gctx : ('this, scontext * kcontext) TV.type_visitor_vtable =
   let
     fun extend_i this (sctx, kctx) name = (fst name :: sctx, kctx)
     fun extend_t this (sctx, kctx) name = (sctx, fst name :: kctx)
@@ -250,7 +242,7 @@ fun on_i_type_visitor_vtable (cast : 'this -> ('this, scontext * kcontext) TV.ty
             SOME (x, ts, is) =>
             let
               val ts = map (#visit_mtype vtable this ctx) ts
-              val is = map (#visit_idx vtable this ctx) (is : S.idx list)
+              val is = map (#visit_idx vtable this ctx) is
             in
               if S.eq_long_id (x, (NONE, ("nat", dummy))) andalso length ts = 0 andalso length is = 1 then
                 TyNat (hd is, S.get_region_mt t)
@@ -363,58 +355,17 @@ fun on_type gctx ctx b =
 (* 	| S.Uni (Bind ((name, r), t), r_all) => Uni (Bind ((name, r), on_type (sctx, name :: kctx) t), r_all) *)
 (*     end *)
       
-fun on_ptrn gctx (ctx as (sctx, kctx, cctx)) pn =
-    let
-      val on_ptrn = on_ptrn gctx
-    in
-      case pn of
-	  S.ConstrP (Outer ((x, ()), eia), inames, pn, Outer r) =>
-          (case find_constr gctx cctx x of
-	       SOME (x, c_inames) =>
-               let
-                 val inames =
-                     if eia then
-                       inames
-                     else
-                       if length inames = 0 then map (str2ibinder o prefix "__") c_inames
-                       else raise Error (r, "Constructor pattern can't have explicit index pattern arguments. Use [@constructor_name] if you want to write explict index pattern arguments.")
-               in
-                 ConstrP (Outer ((x, ()), true), inames, on_ptrn ctx pn, Outer r)
-               end
-	     | NONE =>
-               raise Error (S.get_region_long_id x, "Unknown constructor " ^ S.str_long_id #1 empty [] x)
-          )
-        | S.VarP ename =>
-          let
-            val name = unBinderName ename
-          in
-            case find_constr gctx cctx (NONE, name) of
-	        SOME (x, c_inames) =>
-                let
-                  val r = snd name
-                  val inames = map (str2ibinder o prefix "__") c_inames
-                in
-                  ConstrP (Outer ((x, ()), true), inames, TTP $ Outer r, Outer r)
-                end
-	      | NONE =>
-                VarP ename
-          end
-        | S.PairP (pn1, pn2) =>
-          PairP (on_ptrn ctx pn1, on_ptrn ctx pn2)
-        | S.TTP r =>
-          TTP r
-        | S.AliasP (name, pn, r) =>
-          AliasP (name, on_ptrn ctx pn, r)
-        | S.AnnoP (pn, Outer t) =>
-          AnnoP (on_ptrn ctx pn, Outer $ on_mtype gctx (sctx, kctx) t)
-    end
-
 fun on_constr gctx (ctx as (sctx, kctx)) ((family, tbinds) : S.mtype S.constr) : mtype constr =
     (on_long_id gctx #2 kctx family,
      on_tbinds return2 (fn kctx => on_constr_core gctx (sctx, kctx)) kctx tbinds)
 
-fun on_return gctx (ctx as (sctx, _)) return = mapPair (Option.map (on_mtype gctx ctx), Option.map (on_idx gctx sctx)) return
-
+val empty_ctx = ([], [], [], [])
+fun add_sorting_skct name (sctx, kctx, cctx, tctx) = (name :: sctx, kctx, cctx, tctx)
+fun add_kinding_skct name (sctx, kctx, cctx, tctx) = (sctx, name :: kctx, cctx, tctx)
+fun add_typing_skct name (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx)
+fun add_ctx (sctxd, kctxd, cctxd, tctxd) (sctx, kctx, cctx, tctx) =
+    (sctxd @ sctx, kctxd @ kctx, cctxd @ cctx, tctxd @ tctx)
+      
 fun shift_return (sctxn, kctxn) (t, d) =
     let
       open Subst
@@ -499,253 +450,563 @@ and copy_anno_rule gctx return bind =
       Unbound.Bind (pn, copy_anno gctx (shift_return offset return) e)
     end
       
-val empty_ctx = ([], [], [], [])
-fun add_sorting_skct name (sctx, kctx, cctx, tctx) = (name :: sctx, kctx, cctx, tctx)
-fun add_kinding_skct name (sctx, kctx, cctx, tctx) = (sctx, name :: kctx, cctx, tctx)
-fun add_typing_skct name (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx)
-fun add_ctx (sctxd, kctxd, cctxd, tctxd) (sctx, kctx, cctx, tctx) =
-    (sctxd @ sctx, kctxd @ kctx, cctxd @ cctx, tctxd @ tctx)
+fun get_datatype_names (Bind (name, tbinds)) =
+    let
+      val (_, (_, constr_decls)) = unfold_binds tbinds
+      val cnames = map (fn (name, core, _) => (fst name, get_constr_inames core)) constr_decls
+    in
+      (fst name, cnames)
+    end
       
-fun on_expr gctx (ctx as (sctx, kctx, cctx, tctx)) e =
-    let
-      val on_expr = on_expr gctx
-      (* val () = println $ sprintf "on_expr $ in context $" [S.str_e ctx e, join " " tctx] *)
-      val skctx = (sctx, kctx)
-    in
-      case e of
-	  S.EVar (x, b) => 
-	  (case find_constr gctx cctx x of
-	       SOME (x, _) => EAppConstr ((x, b), [], [], ETT $ get_region_long_id x, NONE)
-	     | NONE => EVar ((on_long_id gctx #4 tctx x), b)
-          )
-        | S.EConst c => EConst c
-	| S.EUnOp (opr, e, r) => EUnOp (opr, on_expr ctx e, r)
-	| S.EBinOp (opr, e1, e2) =>
-          (case opr of
-	       EBApp => 
-	       let
-                 val e2 = on_expr ctx e2
-	         fun default () = 
-                   EApp (on_expr ctx e1, e2)
-	         val (e1, is) = S.collect_EAppI e1 
-	       in
-	         case e1 of
-		     S.EVar (x, b) =>
-		     (case find_constr gctx cctx x of
-		          SOME (x, _) => EAppConstr ((x, b), [], map (on_idx gctx sctx) is, e2, NONE)
-		        | NONE => default ())
-	           | _ => default ()
-	       end
-	     | _ => EBinOp (opr, on_expr ctx e1, on_expr ctx e2)
-          )
-	| S.ETriOp (opr, e1, e2, e3) => ETriOp (opr, on_expr ctx e1, on_expr ctx e2, on_expr ctx e3)
-	| S.EEI (opr, e, i) =>
-          (case opr of
-	       EEIAppI => 
-	       let
-                 fun default () = 
-                   EAppI (on_expr ctx e, on_idx gctx sctx i)
-	         val (e, is) = S.collect_EAppI e
-                 val is = is @ [i]
-	       in
-	         case e of
-		     S.EVar (x, b) =>
-		     (case find_constr gctx cctx x of
-		          SOME (x, _) => EAppConstr ((x, b), [], map (on_idx gctx sctx) is, ETT (S.get_region_i i), NONE)
-		        | NONE => default ())
-	           | _ => default ()
-	       end
-	     | EEIAscTime =>
-               let
-                 val i = on_idx gctx sctx i
-                 val e = on_expr ctx e
-                 val e = copy_anno (gctx_names gctx) (NONE, SOME i) e
-               in
-                 EAscTime (e, i)
-               end
-          )
-	| S.EET (opr, e, t) =>
-          (case opr of
-	       EETAppT => raise Impossible "name-resolve/EAppT"
-          )
-	| S.ET (opr, t, r) => ET (opr, on_mtype gctx skctx t, r)
-	| S.EAbs bind => 
-          let
-            val (pn, e) = Unbound.unBind bind
-            val pn = on_ptrn gctx (sctx, kctx, cctx) pn
-            val (inames, enames) = ptrn_names pn
-            val ctx = (inames @ sctx, kctx, cctx, enames @ tctx)
-            val e = on_expr ctx e
-          in
-            EAbs $ Unbound.Bind (pn, e)
-          end
-	| S.EAbsI (bind, r_all) =>
-          let
-            val ((name, s), e) = unBindAnno bind
-            val (name, r) = unName name
-          in
-            EAbsI (BindAnno ((IName (name, r), on_sort gctx sctx s), on_expr (add_sorting_skct name ctx) e), r_all)
-          end
-	| S.ELet (return, bind, r) =>
-          let
-            val (decls, e) = Unbound.unBind bind
-            val decls = unTeles decls
-            val return = on_return gctx skctx return
-            val (decls, ctx) = on_decls gctx ctx decls
-          in
-            ELet (return, Unbound.Bind (Teles decls, on_expr ctx e), r)
-          end
-	| S.EAsc (e, t) =>
-          let
-            val t = on_mtype gctx skctx t
-            val e = on_expr ctx e
-            val e = copy_anno (gctx_names gctx) (SOME t, NONE) e
-          in
-            EAsc (e, t)
-          end
-	| S.EAppConstr ((x, b), ts, is, e, ot) => EAppConstr ((on_long_id gctx (map fst o #3) (map fst cctx) x, b), map (on_mtype gctx skctx) ts, map (on_idx gctx sctx) is, on_expr ctx e, Option.map (mapSnd (on_mtype gctx skctx)) ot)
-	| S.ECase (e, return, rules, r) =>
-          let
-            val return = on_return gctx skctx return
-            val rules = map (on_rule gctx ctx) rules
-            val rules = map (copy_anno_rule (gctx_names gctx) return) rules
-          in
-            ECase (on_expr ctx e, return, rules, r)
-          end
-    end
-
-and on_decls gctx (ctx as (sctx, kctx, cctx, tctx)) decls =
-    let
-      fun f (decl, (acc, ctx)) =
-          let val (decl, ctx) = on_decl gctx ctx decl
-          in
-            (decl :: acc, ctx)
-          end
-      val (decls, ctx) = foldl f ([], ctx) decls
-      val decls = rev decls
-    in
-      (decls, ctx)
-    end
-
-and on_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
-    let
-      val on_decl = on_decl gctx
-    in
-      case decl of
-          S.DVal (name, Outer bind, Outer r) =>
-          let
-            val (tnames, e) = Unbound.unBind bind
-            val tnames = map unBinderName tnames
-            val pn = VarP name
-            val ctx' as (sctx', kctx', cctx', _) = (sctx, (rev o map fst) tnames @ kctx, cctx, tctx)
-            val pn = on_ptrn gctx (sctx', kctx', cctx') pn
-            val e = on_expr gctx ctx' e
-            val (inames, enames) = ptrn_names pn
-            val ctx = (inames @ sctx, kctx, cctx, enames @ tctx)
-          in
-            (DVal (name, Outer $ Unbound.Bind (map (Binder o TName) tnames, e), Outer r), ctx)
-          end
-        | S.DValPtrn (pn, Outer e, Outer r) =>
-          let 
-            val pn = on_ptrn gctx (sctx, kctx, cctx) pn
-            val e = on_expr gctx ctx e
-            val (inames, enames) = ptrn_names pn
-            val ctx = (inames @ sctx, kctx, cctx, enames @ tctx)
-          in
-            (DValPtrn (pn, Outer e, Outer r), ctx)
-          end
-	| S.DRec (name, bind, Outer r) => 
+structure EV = ExprVisitorFn (structure S = S
+                              structure T = T)
+                             
+fun on_i_expr_visitor_vtable cast gctx : ('this, context) EV.expr_visitor_vtable =
+  let
+    fun extend_i this (sctx, kctx, cctx, tctx) name = (Name2str name :: sctx, kctx, cctx, tctx)
+    fun extend_t this (sctx, kctx, cctx, tctx) name = (sctx, Name2str name :: kctx, cctx, tctx)
+    fun extend_c this (sctx, kctx, cctx, tctx) name = raise Impossible "import_e/extend_c"
+    fun extend_e this (sctx, kctx, cctx, tctx) name = (sctx, kctx, cctx, Name2str name :: tctx)
+    fun visit_cvar this (sctx, kctx, cctx, tctx) x =
+      on_long_id gctx (map fst o #3) (map fst cctx) x
+    fun for_idx f this (sctx, kctx, cctx, tctx) b = f gctx sctx b
+    fun for_type f this (sctx, kctx, cctx, tctx) b = f gctx (sctx, kctx) b
+    val vtable = 
+        EV.default_expr_visitor_vtable
+          cast
+          extend_i
+          extend_t
+          extend_c
+          extend_e
+          (visit_imposs "import_e/visit_var")
+          visit_cvar
+          (visit_imposs "import_e/visit_mod_projectible")
+          (for_idx on_idx)
+          (for_idx on_sort)
+          (for_type on_mtype)
+          (visit_imposs "import_e/visit_ptrn_constr_tag")
+    fun visit_ibinder this env name =
+      let
+        val vtable = cast this
+        val name = visit_binder (#extend_i vtable this) env name
+      in
+        name
+      end
+    fun visit_tbinder this env name =
+      let
+        val vtable = cast this
+        val name = visit_binder (#extend_t vtable this) env name
+      in
+        name
+      end
+    fun visit_ebinder this env name =
+      let
+        val vtable = cast this
+        val name = visit_binder (#extend_e vtable this) env name
+      in
+        name
+      end
+    fun visit_ConstrP this env (Outer ((x, ()), eia), inames, pn, Outer r) =
+      let
+        val vtable = cast this
+        val (_, _, cctx, _) = #outer env
+      in
+        case find_constr gctx cctx x of
+	    SOME (x, c_inames) =>
+            let
+              val inames =
+                  if eia then
+                    inames
+                  else
+                    if length inames = 0 then map (str2ibinder o prefix "__") c_inames
+                    else raise Error (r, "Constructor pattern can't have explicit index pattern arguments. Use [@constructor_name] if you want to write explict index pattern arguments.")
+              val inames = map (visit_ibinder this env) inames
+              val pn = #visit_ptrn vtable this env pn
+            in
+              ConstrP (Outer ((x, ()), true), inames, pn, Outer r)
+            end
+	  | NONE =>
+            raise Error (S.get_region_long_id x, "Unknown constructor " ^ S.str_long_id #1 empty [] x)
+      end
+    val vtable = EV.override_visit_ConstrP vtable visit_ConstrP
+    fun visit_VarP this env ename =
+      let
+        val vtable = cast this
+        val (_, _, cctx, _) = #outer env
+        val name = unBinderName ename
+      in
+        case find_constr gctx cctx (NONE, name) of
+	    SOME (x, c_inames) =>
+            let
+              val r = snd name
+              val inames = map (str2ibinder o prefix "__") c_inames
+              val inames = map (visit_ibinder this env) inames
+            in
+              ConstrP (Outer ((x, ()), true), inames, TTP $ Outer r, Outer r)
+            end
+	  | NONE =>
+            VarP $ visit_ebinder this env ename
+      end
+    val vtable = EV.override_visit_VarP vtable visit_VarP
+    fun visit_EVar this (_, _, cctx, tctx) (x, b) =
+      case find_constr gctx cctx x of
+	  SOME (x, _) => EAppConstr ((x, b), [], [], ETT $ get_region_long_id x, NONE)
+	| NONE => EVar ((on_long_id gctx #4 tctx x), b)
+    val vtable = EV.override_visit_EVar vtable visit_EVar
+    fun visit_EBinOp this (ctx as (_, _, cctx, _)) (data as (opr, e1, e2)) =
+      case opr of
+	  EBApp => 
 	  let
-            val (name, r1) = unBinderName name
-            val ((tnames, Rebind binds), ((t, d), e)) = Unbound.unBind $ unInner bind
-            val tnames = map unBinderName tnames
-            val binds = unTeles binds
-	    val ctx as (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx)
-            val ctx_ret = ctx
-            val ctx as (sctx, kctx, cctx, tctx) = (sctx, (rev o map fst) tnames @ kctx, cctx, tctx)
-            fun f (bind, (binds, ctx as (sctx, kctx, cctx, tctx))) =
-                case bind of
-                    S.SortingST (name, Outer s) => 
-                    (SortingST (name, Outer $ on_sort gctx sctx s) :: binds, add_sorting_skct (binder2str name) ctx)
-                  | S.TypingST pn =>
-                    let
-                      val pn = on_ptrn gctx (sctx, kctx, cctx) pn
-                      val (inames, enames) = ptrn_names pn
-                    in
-                      (TypingST pn :: binds, (inames @ sctx, kctx, cctx, enames @ tctx))
-                    end
-            val (binds, ctx as (sctx, kctx, cctx, tctx)) = foldl f ([], ctx) binds
-            val binds = rev binds
-            val t = on_mtype gctx (sctx, kctx) t
-            val d = on_idx gctx sctx d
-            val e = on_expr gctx ctx e
-            val e = copy_anno (gctx_names gctx) (SOME t, SOME d) e
-            val decl = DRec (Binder $ EName (name, r1), Inner $ Unbound.Bind ((map (Binder o TName) tnames, Rebind $ Teles binds), ((t, d), e)), Outer r)
-          in
-            (decl, ctx_ret)
-          end
-        | S.DIdxDef (name, Outer s, Outer i) =>
-          (DIdxDef (name, Outer $ on_sort gctx sctx s, Outer $ on_idx gctx sctx i), add_sorting_skct (binder2str name) ctx)
-        | S.DAbsIdx2 (name, Outer s, Outer i) =>
-          (DAbsIdx2 (name, Outer $ on_sort gctx sctx s, Outer $ on_idx gctx sctx i), add_sorting_skct (binder2str name) ctx)
-        | S.DAbsIdx ((name, Outer s, Outer i), Rebind decls, Outer r) =>
+            val vtable = cast this
+            val e2 = #visit_expr vtable this ctx e2
+	    fun default () = 
+              EApp (#visit_expr vtable this ctx e1, e2)
+	    val (e1, is) = S.collect_EAppI e1 
+	  in
+	    case e1 of
+		S.EVar (x, b) =>
+		(case find_constr gctx cctx x of
+		     SOME (x, _) => EAppConstr ((x, b), [], map (#visit_idx vtable this ctx) is, e2, NONE)
+		   | NONE => default ()
+                )
+	      | _ => default ()
+	  end
+	| _ => #visit_EBinOp vtable this ctx data
+    val vtable = EV.override_visit_EBinOp vtable visit_EBinOp
+    fun visit_EEI this (ctx as (_, _, cctx, _)) (data as (opr, e, i)) =
+      case opr of
+	  EEIAppI => 
+	  let
+            val super_vtable = vtable
+            fun default () = #visit_EEI super_vtable this ctx data
+            val vtable = cast this
+	    val (e, is) = S.collect_EAppI e
+            val is = is @ [i]
+	  in
+	    case e of
+		S.EVar (x, b) =>
+		(case find_constr gctx cctx x of
+		     SOME (x, _) => EAppConstr ((x, b), [], map (#visit_idx vtable this ctx) is, ETT (S.get_region_i i), NONE)
+		   | NONE => default ())
+	      | _ => default ()
+	  end
+	| EEIAscTime =>
           let
-            val (name, r1) = unBinderName name
-            val decls = unTeles decls
-            val s = on_sort gctx sctx s
-            val i = on_idx gctx sctx i
-            val ctx = add_sorting_skct name ctx
-            val (decls, ctx) = on_decls gctx ctx decls
-            val decl = DAbsIdx ((Binder $ IName (name, r1), Outer s, Outer i), Rebind $ Teles decls, Outer r)
+            val super_vtable = vtable
+            val e = #visit_EEI super_vtable this ctx data
+            val (e, i) = 
+                case e of
+                    EEI (EEIAscTime, e, i) => (e, i)
+                  | _ => raise Impossible "import_e/visit_EAscTime"
+            val e = copy_anno (gctx_names gctx) (NONE, SOME i) e
           in
-            (decl, ctx)
+            EAscTime (e, i)
           end
-        | S.DTypeDef (name, Outer t) =>
-          (case t of
-               S.TDatatype (dt, r) =>
+    val vtable = EV.override_visit_EEI vtable visit_EEI
+    fun visit_EAsc this ctx data =
+      let
+        val super_vtable = vtable
+        val e = #visit_EAsc super_vtable this ctx data
+        val (e, t) = 
+            case e of
+                EAsc data => data
+              | _ => raise Impossible "import_e/visit_EAsc"
+        val e = copy_anno (gctx_names gctx) (SOME t, NONE) e
+      in
+        EAsc (e, t)
+      end
+    val vtable = EV.override_visit_EAsc vtable visit_EAsc
+    fun visit_ECase this ctx data =
+      let
+        val super_vtable = vtable
+        val e = #visit_ECase super_vtable this ctx data
+        val (e, return, rules, r) =
+            case e of
+                ECase data => data
+              | _ => raise Impossible "import_e/visit_ECase"
+        val rules = map (copy_anno_rule (gctx_names gctx) return) rules
+      in
+        ECase (e, return, rules, r)
+      end
+    val vtable = EV.override_visit_ECase vtable visit_ECase
+    fun visit_DRec this ctx data =
+      let
+        val super_vtable = vtable
+        val d = #visit_DRec super_vtable this ctx data
+        val (name, bind, r) =
+            case d of
+                DRec data => data
+              | _ => raise Impossible "import_e/visit_DRec"
+        val (names, ((t, d), e)) = Unbound.unBind $ unInner bind
+        val e = copy_anno (gctx_names gctx) (SOME t, SOME d) e
+      in
+        DRec (name, Inner $ Unbound.Bind (names, ((t, d), e)), r)
+      end
+    val vtable = EV.override_visit_DRec vtable visit_DRec
+    fun extend_c_data (sctx, kctx, cctx, tctx) a = (sctx, kctx, a :: cctx, tctx)
+    fun visit_DTypeDef this ctx data =
+      let
+        val super_vtable = vtable
+        val d = #visit_DTypeDef super_vtable this ctx data
+        val () =
+          case d of
+               DTypeDef (_, Outer (TDatatype (dt, r))) =>
                let
-                 val dt = on_datatype gctx (sctx, kctx) dt
-                 val (tname, cnames) = get_datatype_names dt
-                 val ctx = (sctx, tname :: kctx, rev cnames @ cctx, tctx)
+                 val (_, cnames) = get_datatype_names dt
+                 val _ = visit_list (visit_binder extend_c_data) ctx $ map Binder cnames
                in
-                 (DTypeDef (name, Outer $ TDatatype (dt, r)), ctx)
+                 ()
                end
-             | _ =>
-               let
-                 val t = on_mtype gctx (sctx, kctx) t
-               in
-                 (DTypeDef (name, Outer t), add_kinding_skct (binder2str name) ctx)
-               end
-          )
-        | S.DOpen (Outer (m, r), _) =>
+             | _ => ()
+      in
+        d
+      end
+    val vtable = EV.override_visit_DTypeDef vtable visit_DTypeDef
+    fun visit_DOpen this ctx (Outer (m, r), _) =
+      let
+        val (m, ctxd) =
+            case ns_lookup_module gctx m of
+                SOME a => a
+              | NONE => raise Error (r, "Unbound module " ^ m)
+        fun visit_scoping_ctx this env (sctx, kctx, cctx, tctx) =
           let
-            val (m, ctxd) =
-                case ns_lookup_module gctx m of
-                    SOME a => a
-                  | NONE => raise Error (r, "Unbound module " ^ m)
-            val ctx = add_ctx ctxd ctx
-            val ctxd = case ctxd of (sctx, kctx, cctx, tctx) =>
-                                    (map (Binder o IName o attach_snd r) sctx,
-                                     map (Binder o TName o attach_snd r) kctx,
-                                     map (Binder o CName o attach_snd r o fst) cctx,
-                                     map (Binder o EName o attach_snd r) tctx
-                                    )
+            val sctx = visit_list (visit_ibinder this) env sctx
+            val kctx = visit_list (visit_tbinder this) env kctx
+            val cctx = visit_list (visit_binder extend_c_data) env cctx
+            val tctx = visit_list (visit_ebinder this) env tctx
           in
-            (DOpen (Outer (m, r), SOME ctxd), ctx)
+            ()
           end
-    end
+        val ctxd = case ctxd of (sctx, kctx, cctx, tctx) =>
+                                (map (Binder o IName o attach_snd r) sctx,
+                                 map (Binder o TName o attach_snd r) kctx,
+                                 map Binder cctx,
+                                 map (Binder o EName o attach_snd r) tctx
+                                )
+        val () = visit_scoping_ctx this ctx ctxd
+        val ctxd = case ctxd of (sctx, kctx, cctx, tctx) =>
+                                (sctx,
+                                 kctx,
+                                 map (Binder o CName o attach_snd r o fst o unBinder) cctx,
+                                 tctx
+                                )
+      in
+        DOpen (Outer (m, r), SOME ctxd)
+      end
+    val vtable = EV.override_visit_DOpen vtable visit_DOpen
+  in
+    vtable
+  end
 
-and on_rule gctx (ctx as (sctx, kctx, cctx, tctx)) bind =
-    let
-      val (pn, e) = Unbound.unBind bind
-      (* val () = println $ sprintf "on_rule $ in context $" [S.str_rule ctx (pn, e), join " " tctx] *)
-      val pn = on_ptrn gctx (sctx, kctx, cctx) pn
-      val (inames, enames) = ptrn_names pn
-      (* val () = println $ sprintf "enames of $: $" [S.str_pn (sctx, kctx, cctx) pn, join " " enames] *)
-      val ctx' = (inames @ sctx, kctx, cctx, enames @ tctx)
-    in
-      Unbound.Bind (pn, on_expr gctx ctx' e)
-    end
+fun new_on_i_expr_visitor a = EV.new_expr_visitor on_i_expr_visitor_vtable a
+    
+fun on_expr gctx ctx b =
+  let
+    val visitor as (EV.ExprVisitor vtable) = new_on_i_expr_visitor gctx
+  in
+    #visit_expr vtable visitor ctx b
+  end
+    
+fun on_decls gctx env decls =
+  let
+    val visitor as (EV.ExprVisitor vtable) = new_on_i_expr_visitor gctx
+    val ctx = env2ctx env
+    val decls = unTeles $ visit_tele (#visit_decl vtable visitor) ctx $ Teles decls
+    val env = !(#current ctx)
+  in
+    (decls, env)
+  end
+    
+(* fun on_ptrn gctx (ctx as (sctx, kctx, cctx)) pn = *)
+(*     let *)
+(*       val on_ptrn = on_ptrn gctx *)
+(*     in *)
+(*       case pn of *)
+(* 	  S.ConstrP (Outer ((x, ()), eia), inames, pn, Outer r) => *)
+(*           (case find_constr gctx cctx x of *)
+(* 	       SOME (x, c_inames) => *)
+(*                let *)
+(*                  val inames = *)
+(*                      if eia then *)
+(*                        inames *)
+(*                      else *)
+(*                        if length inames = 0 then map (str2ibinder o prefix "__") c_inames *)
+(*                        else raise Error (r, "Constructor pattern can't have explicit index pattern arguments. Use [@constructor_name] if you want to write explict index pattern arguments.") *)
+(*                in *)
+(*                  ConstrP (Outer ((x, ()), true), inames, on_ptrn ctx pn, Outer r) *)
+(*                end *)
+(* 	     | NONE => *)
+(*                raise Error (S.get_region_long_id x, "Unknown constructor " ^ S.str_long_id #1 empty [] x) *)
+(*           ) *)
+(*         | S.VarP ename => *)
+(*           let *)
+(*             val name = unBinderName ename *)
+(*           in *)
+(*             case find_constr gctx cctx (NONE, name) of *)
+(* 	        SOME (x, c_inames) => *)
+(*                 let *)
+(*                   val r = snd name *)
+(*                   val inames = map (str2ibinder o prefix "__") c_inames *)
+(*                 in *)
+(*                   ConstrP (Outer ((x, ()), true), inames, TTP $ Outer r, Outer r) *)
+(*                 end *)
+(* 	      | NONE => *)
+(*                 VarP ename *)
+(*           end *)
+(*         | S.PairP (pn1, pn2) => *)
+(*           PairP (on_ptrn ctx pn1, on_ptrn ctx pn2) *)
+(*         | S.TTP r => *)
+(*           TTP r *)
+(*         | S.AliasP (name, pn, r) => *)
+(*           AliasP (name, on_ptrn ctx pn, r) *)
+(*         | S.AnnoP (pn, Outer t) => *)
+(*           AnnoP (on_ptrn ctx pn, Outer $ on_mtype gctx (sctx, kctx) t) *)
+(*     end *)
+
+(* fun on_return gctx (ctx as (sctx, _)) return = mapPair (Option.map (on_mtype gctx ctx), Option.map (on_idx gctx sctx)) return *)
+
+(* fun on_expr gctx (ctx as (sctx, kctx, cctx, tctx)) e = *)
+(*     let *)
+(*       val on_expr = on_expr gctx *)
+(*       (* val () = println $ sprintf "on_expr $ in context $" [S.str_e ctx e, join " " tctx] *) *)
+(*       val skctx = (sctx, kctx) *)
+(*     in *)
+(*       case e of *)
+(* 	  S.EVar (x, b) =>  *)
+(* 	  (case find_constr gctx cctx x of *)
+(* 	       SOME (x, _) => EAppConstr ((x, b), [], [], ETT $ get_region_long_id x, NONE) *)
+(* 	     | NONE => EVar ((on_long_id gctx #4 tctx x), b) *)
+(*           ) *)
+(*         | S.EConst c => EConst c *)
+(* 	| S.EUnOp (opr, e, r) => EUnOp (opr, on_expr ctx e, r) *)
+(* 	| S.EBinOp (opr, e1, e2) => *)
+(*           (case opr of *)
+(* 	       EBApp =>  *)
+(* 	       let *)
+(*                  val e2 = on_expr ctx e2 *)
+(* 	         fun default () =  *)
+(*                    EApp (on_expr ctx e1, e2) *)
+(* 	         val (e1, is) = S.collect_EAppI e1  *)
+(* 	       in *)
+(* 	         case e1 of *)
+(* 		     S.EVar (x, b) => *)
+(* 		     (case find_constr gctx cctx x of *)
+(* 		          SOME (x, _) => EAppConstr ((x, b), [], map (on_idx gctx sctx) is, e2, NONE) *)
+(* 		        | NONE => default ()) *)
+(* 	           | _ => default () *)
+(* 	       end *)
+(* 	     | _ => EBinOp (opr, on_expr ctx e1, on_expr ctx e2) *)
+(*           ) *)
+(* 	| S.ETriOp (opr, e1, e2, e3) => *)
+(*           ETriOp (opr, on_expr ctx e1, on_expr ctx e2, on_expr ctx e3) *)
+(* 	| S.EEI (opr, e, i) => *)
+(*           (case opr of *)
+(* 	       EEIAppI =>  *)
+(* 	       let *)
+(*                  fun default () =  *)
+(*                    EAppI (on_expr ctx e, on_idx gctx sctx i) *)
+(* 	         val (e, is) = S.collect_EAppI e *)
+(*                  val is = is @ [i] *)
+(* 	       in *)
+(* 	         case e of *)
+(* 		     S.EVar (x, b) => *)
+(* 		     (case find_constr gctx cctx x of *)
+(* 		          SOME (x, _) => EAppConstr ((x, b), [], map (on_idx gctx sctx) is, ETT (S.get_region_i i), NONE) *)
+(* 		        | NONE => default ()) *)
+(* 	           | _ => default () *)
+(* 	       end *)
+(* 	     | EEIAscTime => *)
+(*                let *)
+(*                  val i = on_idx gctx sctx i *)
+(*                  val e = on_expr ctx e *)
+(*                  val e = copy_anno (gctx_names gctx) (NONE, SOME i) e *)
+(*                in *)
+(*                  EAscTime (e, i) *)
+(*                end *)
+(*           ) *)
+(* 	| S.EET (opr, e, t) => *)
+(*           (case opr of *)
+(* 	       EETAppT => raise Impossible "name-resolve/EAppT" *)
+(*           ) *)
+(* 	| S.ET (opr, t, r) => ET (opr, on_mtype gctx skctx t, r) *)
+(* 	| S.EAbs bind =>  *)
+(*           let *)
+(*             val (pn, e) = Unbound.unBind bind *)
+(*             val pn = on_ptrn gctx (sctx, kctx, cctx) pn *)
+(*             val (inames, enames) = ptrn_names pn *)
+(*             val ctx = (inames @ sctx, kctx, cctx, enames @ tctx) *)
+(*             val e = on_expr ctx e *)
+(*           in *)
+(*             EAbs $ Unbound.Bind (pn, e) *)
+(*           end *)
+(* 	| S.EAbsI (bind, r_all) => *)
+(*           let *)
+(*             val ((name, s), e) = unBindAnno bind *)
+(*             val (name, r) = unName name *)
+(*           in *)
+(*             EAbsI (BindAnno ((IName (name, r), on_sort gctx sctx s), on_expr (add_sorting_skct name ctx) e), r_all) *)
+(*           end *)
+(* 	| S.ELet (return, bind, r) => *)
+(*           let *)
+(*             val (decls, e) = Unbound.unBind bind *)
+(*             val decls = unTeles decls *)
+(*             val return = on_return gctx skctx return *)
+(*             val (decls, ctx) = on_decls gctx ctx decls *)
+(*           in *)
+(*             ELet (return, Unbound.Bind (Teles decls, on_expr ctx e), r) *)
+(*           end *)
+(* 	| S.EAsc (e, t) => *)
+(*           let *)
+(*             val t = on_mtype gctx skctx t *)
+(*             val e = on_expr ctx e *)
+(*             val e = copy_anno (gctx_names gctx) (SOME t, NONE) e *)
+(*           in *)
+(*             EAsc (e, t) *)
+(*           end *)
+(* 	| S.EAppConstr ((x, b), ts, is, e, ot) => *)
+(*           EAppConstr ((on_long_id gctx (map fst o #3) (map fst cctx) x, b), map (on_mtype gctx skctx) ts, map (on_idx gctx sctx) is, on_expr ctx e, Option.map (mapSnd (on_mtype gctx skctx)) ot) *)
+(* 	| S.ECase (e, return, rules, r) => *)
+(*           let *)
+(*             val return = on_return gctx skctx return *)
+(*             val rules = map (on_rule gctx ctx) rules *)
+(*             val rules = map (copy_anno_rule (gctx_names gctx) return) rules *)
+(*           in *)
+(*             ECase (on_expr ctx e, return, rules, r) *)
+(*           end *)
+(*     end *)
+
+(* and on_decls gctx (ctx as (sctx, kctx, cctx, tctx)) decls = *)
+(*     let *)
+(*       fun f (decl, (acc, ctx)) = *)
+(*           let val (decl, ctx) = on_decl gctx ctx decl *)
+(*           in *)
+(*             (decl :: acc, ctx) *)
+(*           end *)
+(*       val (decls, ctx) = foldl f ([], ctx) decls *)
+(*       val decls = rev decls *)
+(*     in *)
+(*       (decls, ctx) *)
+(*     end *)
+
+(* and on_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl = *)
+(*     let *)
+(*       val on_decl = on_decl gctx *)
+(*     in *)
+(*       case decl of *)
+(*           S.DVal (name, Outer bind, Outer r) => *)
+(*           let *)
+(*             val (tnames, e) = Unbound.unBind bind *)
+(*             val tnames = map unBinderName tnames *)
+(*             val pn = VarP name *)
+(*             val ctx' as (sctx', kctx', cctx', _) = (sctx, (rev o map fst) tnames @ kctx, cctx, tctx) *)
+(*             val pn = on_ptrn gctx (sctx', kctx', cctx') pn *)
+(*             val e = on_expr gctx ctx' e *)
+(*             val (inames, enames) = ptrn_names pn *)
+(*             val ctx = (inames @ sctx, kctx, cctx, enames @ tctx) *)
+(*           in *)
+(*             (DVal (name, Outer $ Unbound.Bind (map (Binder o TName) tnames, e), Outer r), ctx) *)
+(*           end *)
+(*         | S.DValPtrn (pn, Outer e, Outer r) => *)
+(*           let  *)
+(*             val pn = on_ptrn gctx (sctx, kctx, cctx) pn *)
+(*             val e = on_expr gctx ctx e *)
+(*             val (inames, enames) = ptrn_names pn *)
+(*             val ctx = (inames @ sctx, kctx, cctx, enames @ tctx) *)
+(*           in *)
+(*             (DValPtrn (pn, Outer e, Outer r), ctx) *)
+(*           end *)
+(* 	| S.DRec (name, bind, Outer r) =>  *)
+(* 	  let *)
+(*             val (name, r1) = unBinderName name *)
+(*             val ((tnames, Rebind binds), ((t, d), e)) = Unbound.unBind $ unInner bind *)
+(*             val tnames = map unBinderName tnames *)
+(*             val binds = unTeles binds *)
+(* 	    val ctx as (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx) *)
+(*             val ctx_ret = ctx *)
+(*             val ctx as (sctx, kctx, cctx, tctx) = (sctx, (rev o map fst) tnames @ kctx, cctx, tctx) *)
+(*             fun f (bind, (binds, ctx as (sctx, kctx, cctx, tctx))) = *)
+(*                 case bind of *)
+(*                     S.SortingST (name, Outer s) =>  *)
+(*                     (SortingST (name, Outer $ on_sort gctx sctx s) :: binds, add_sorting_skct (binder2str name) ctx) *)
+(*                   | S.TypingST pn => *)
+(*                     let *)
+(*                       val pn = on_ptrn gctx (sctx, kctx, cctx) pn *)
+(*                       val (inames, enames) = ptrn_names pn *)
+(*                     in *)
+(*                       (TypingST pn :: binds, (inames @ sctx, kctx, cctx, enames @ tctx)) *)
+(*                     end *)
+(*             val (binds, ctx as (sctx, kctx, cctx, tctx)) = foldl f ([], ctx) binds *)
+(*             val binds = rev binds *)
+(*             val t = on_mtype gctx (sctx, kctx) t *)
+(*             val d = on_idx gctx sctx d *)
+(*             val e = on_expr gctx ctx e *)
+(*             val e = copy_anno (gctx_names gctx) (SOME t, SOME d) e *)
+(*             val decl = DRec (Binder $ EName (name, r1), Inner $ Unbound.Bind ((map (Binder o TName) tnames, Rebind $ Teles binds), ((t, d), e)), Outer r) *)
+(*           in *)
+(*             (decl, ctx_ret) *)
+(*           end *)
+(*         | S.DIdxDef (name, Outer s, Outer i) => *)
+(*           (DIdxDef (name, Outer $ on_sort gctx sctx s, Outer $ on_idx gctx sctx i), add_sorting_skct (binder2str name) ctx) *)
+(*         | S.DAbsIdx2 (name, Outer s, Outer i) => *)
+(*           (DAbsIdx2 (name, Outer $ on_sort gctx sctx s, Outer $ on_idx gctx sctx i), add_sorting_skct (binder2str name) ctx) *)
+(*         | S.DAbsIdx ((name, Outer s, Outer i), Rebind decls, Outer r) => *)
+(*           let *)
+(*             val (name, r1) = unBinderName name *)
+(*             val decls = unTeles decls *)
+(*             val s = on_sort gctx sctx s *)
+(*             val i = on_idx gctx sctx i *)
+(*             val ctx = add_sorting_skct name ctx *)
+(*             val (decls, ctx) = on_decls gctx ctx decls *)
+(*             val decl = DAbsIdx ((Binder $ IName (name, r1), Outer s, Outer i), Rebind $ Teles decls, Outer r) *)
+(*           in *)
+(*             (decl, ctx) *)
+(*           end *)
+(*         | S.DTypeDef (name, Outer t) => *)
+(*           (case t of *)
+(*                S.TDatatype (dt, r) => *)
+(*                let *)
+(*                  val dt = on_datatype gctx (sctx, kctx) dt *)
+(*                  val (tname, cnames) = get_datatype_names dt *)
+(*                  val ctx = (sctx, tname :: kctx, rev cnames @ cctx, tctx) *)
+(*                in *)
+(*                  (DTypeDef (name, Outer $ TDatatype (dt, r)), ctx) *)
+(*                end *)
+(*              | _ => *)
+(*                let *)
+(*                  val t = on_mtype gctx (sctx, kctx) t *)
+(*                in *)
+(*                  (DTypeDef (name, Outer t), add_kinding_skct (binder2str name) ctx) *)
+(*                end *)
+(*           ) *)
+(*         | S.DOpen (Outer (m, r), _) => *)
+(*           let *)
+(*             val (m, ctxd) = *)
+(*                 case ns_lookup_module gctx m of *)
+(*                     SOME a => a *)
+(*                   | NONE => raise Error (r, "Unbound module " ^ m) *)
+(*             val ctx = add_ctx ctxd ctx *)
+(*             val ctxd = case ctxd of (sctx, kctx, cctx, tctx) => *)
+(*                                     (map (Binder o IName o attach_snd r) sctx, *)
+(*                                      map (Binder o TName o attach_snd r) kctx, *)
+(*                                      map (Binder o CName o attach_snd r o fst) cctx, *)
+(*                                      map (Binder o EName o attach_snd r) tctx *)
+(*                                     ) *)
+(*           in *)
+(*             (DOpen (Outer (m, r), SOME ctxd), ctx) *)
+(*           end *)
+(*     end *)
+
+(* and on_rule gctx (ctx as (sctx, kctx, cctx, tctx)) bind = *)
+(*     let *)
+(*       val (pn, e) = Unbound.unBind bind *)
+(*       (* val () = println $ sprintf "on_rule $ in context $" [S.str_rule ctx (pn, e), join " " tctx] *) *)
+(*       val pn = on_ptrn gctx (sctx, kctx, cctx) pn *)
+(*       val (inames, enames) = ptrn_names pn *)
+(*       (* val () = println $ sprintf "enames of $: $" [S.str_pn (sctx, kctx, cctx) pn, join " " enames] *) *)
+(*       val ctx' = (inames @ sctx, kctx, cctx, enames @ tctx) *)
+(*     in *)
+(*       Unbound.Bind (pn, on_expr gctx ctx' e) *)
+(*     end *)
 
 fun on_sig gctx (comps, r) =
   let

@@ -49,13 +49,13 @@ fun env2ctx env = {outer = env, current = ref env}
 fun visit_abs visit_'p env (Abs p1) =
   Abs $ visit_'p (env2ctx env) p1
 
-fun visit_binder extend (ctx : 'env ctx) (Binder x1) =
+fun visit_binder extend (ctx : 'env ctx) (Binder x) =
   let
     val env = !(#current ctx)
-    val env = extend env x1
+    val env = extend env x
     val () = #current ctx := env
   in
-    Binder x1
+    Binder x
   end
 fun visit_outer visit_'t (ctx : 'env ctx) (Outer t1) = Outer $ visit_'t (#outer ctx) t1
 fun visit_rebind visit_'p (ctx : 'env ctx) (Rebind p1) = Rebind $ visit_'p {outer = !(#current ctx), current = #current ctx} p1
