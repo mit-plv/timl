@@ -1291,16 +1291,16 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                in
                  ret
 	       end
-	     | New =>
+	     | EBNew =>
                let
                  val r = U.get_region_e e_all
                  val i = fresh_i gctx sctx (Base Time) r
                  val (e1, _, d1) = check_mtype (ctx, e1, TyNat (i, r))
                  val (e2, t, d2) = get_mtype (ctx, e2)
                in
-                 (EBinOp (New, e1, e2), TyArray (t, i), d1 %+ d2)
+                 (EBinOp (EBNew, e1, e2), TyArray (t, i), d1 %+ d2)
                end
-	     | Read =>
+	     | EBRead =>
                let
                  val r = U.get_region_e e_all
                  val t = fresh_mt gctx (sctx, kctx) r
@@ -1310,12 +1310,12 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                  val (e2, _, d2) = check_mtype (ctx, e2, TyNat (i2, r))
                  val () = write_le (i2, i1, r)
                in
-                 (EBinOp (Read, e1, e2), t, d1 %+ d2)
+                 (EBinOp (EBRead, e1, e2), t, d1 %+ d2)
                end
-	     | Add =>
+	     | EBAdd =>
 	       let val (e1, _, d1) = check_mtype (ctx, e1, BaseType (Int, dummy))
 	           val (e2, _, d2) = check_mtype (ctx, e2, BaseType (Int, dummy)) in
-	         (EBinOp (Add, e1, e2), BaseType (Int, dummy), d1 %+ d2 %+ T1 dummy)
+	         (EBinOp (EBAdd, e1, e2), BaseType (Int, dummy), d1 %+ d2 %+ T1 dummy)
 	       end
           )
 	| U.ETriOp (Write, e1, e2, e3) =>

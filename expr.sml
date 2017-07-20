@@ -988,9 +988,9 @@ fun str_e gctx (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
              in
                sprintf "($)" [join ", " $ map (str_e ctx) es]
              end
-           | New => sprintf "(new $ $)" [str_e ctx e1, str_e ctx e2]
-           | Read => sprintf "(read $ $)" [str_e ctx e1, str_e ctx e2]
-           | Add => sprintf "($ $ $)" [str_e ctx e1, str_bin_op opr, str_e ctx e2]
+           | EBNew => sprintf "(new $ $)" [str_e ctx e1, str_e ctx e2]
+           | EBRead => sprintf "(read $ $)" [str_e ctx e1, str_e ctx e2]
+           | EBAdd => sprintf "($ $ $)" [str_e ctx e1, str_bin_op opr, str_e ctx e2]
         )
       | ETriOp (Write, e1, e2, e3) => sprintf "(write $ $ $)" [str_e ctx e1, str_e ctx e2, str_e ctx e3]
       | EEI (opr, e, i) =>
@@ -1334,9 +1334,9 @@ fun is_value (e : expr) : bool =
       (case opr of
            EBApp => false
          | EBPair => is_value e1 andalso is_value e2
-         | New => false
-         | Read => false
-         | Add => false
+         | EBNew => false
+         | EBRead => false
+         | EBAdd => false
       )
     | ETriOp _ => false
     | EEI (opr, e, i) =>

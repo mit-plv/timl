@@ -67,9 +67,9 @@ datatype expr_un_op =
 datatype bin_op =
          EBApp
          | EBPair
-         | Add
-         | New
-         | Read
+         | EBAdd
+         | EBNew
+         | EBRead
 
 datatype tri_op =
          Write
@@ -144,9 +144,9 @@ fun str_bin_op opr =
   case opr of
       EBApp => "$"
     | EBPair => "pair"
-    | Add => "+"
-    | New => "new"
-    | Read => "read"
+    | EBAdd => "+"
+    | EBNew => "new"
+    | EBRead => "read"
 
 fun str_expr_EI opr =
   case opr of
@@ -173,8 +173,8 @@ fun str_expr_bin_op opr =
   case opr of
       EBApp => "app"
     | EBPair => "pair"
-    | New => "new"
-    | Read => "read"
-    | Add => "add"
+    | EBNew => "new"
+    | EBRead => "read"
+    | EBAdd => "add"
 
 end

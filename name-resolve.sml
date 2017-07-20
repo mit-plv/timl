@@ -553,26 +553,23 @@ fun on_i_expr_visitor_vtable cast gctx : ('this, context) EV.expr_visitor_vtable
 	  SOME (x, _) => EAppConstr ((x, b), [], [], ETT $ get_region_long_id x, NONE)
 	| NONE => EVar ((on_long_id gctx #4 tctx x), b)
     val vtable = EV.override_visit_EVar vtable visit_EVar
-    fun visit_EBinOp this (ctx as (_, _, cctx, _)) (data as (opr, e1, e2)) =
-      case opr of
-	  EBApp => 
-	  let
-            val vtable = cast this
-            val e2 = #visit_expr vtable this ctx e2
-	    fun default () = 
-              EApp (#visit_expr vtable this ctx e1, e2)
-	    val (e1, is) = S.collect_EAppI e1 
-	  in
-	    case e1 of
-		S.EVar (x, b) =>
-		(case find_constr gctx cctx x of
-		     SOME (x, _) => EAppConstr ((x, b), [], map (#visit_idx vtable this ctx) is, e2, NONE)
-		   | NONE => default ()
-                )
-	      | _ => default ()
-	  end
-	| _ => #visit_EBinOp vtable this ctx data
-    val vtable = EV.override_visit_EBinOp vtable visit_EBinOp
+    fun visit_EApp this (ctx as (_, _, cctx, _)) (e1, e2) =
+      let
+        val vtable = cast this
+        val e2 = #visit_expr vtable this ctx e2
+	fun default () = 
+          EApp (#visit_expr vtable this ctx e1, e2)
+	val (e1, is) = S.collect_EAppI e1 
+      in
+	case e1 of
+	    S.EVar (x, b) =>
+	    (case find_constr gctx cctx x of
+		 SOME (x, _) => EAppConstr ((x, b), [], map (#visit_idx vtable this ctx) is, e2, NONE)
+	       | NONE => default ()
+            )
+	  | _ => default ()
+      end
+    val vtable = EV.override_visit_EApp vtable visit_EApp
     fun visit_EEI this (ctx as (_, _, cctx, _)) (data as (opr, e, i)) =
       case opr of
 	  EEIAppI => 

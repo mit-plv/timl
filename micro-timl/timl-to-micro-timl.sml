@@ -221,9 +221,9 @@ fun on_bin_op opr =
   case opr of
       Op.EBApp => EBApp
     | Op.EBPair => EBPair
-    | Op.Add => EBPrim PEBIntAdd
-    | Op.New => EBNew
-    | Op.Read => EBRead
+    | Op.EBAdd => EBPrim PEBIntAdd
+    | Op.EBNew => EBNew
+    | Op.EBRead => EBRead
 
 fun on_base_type t =
   case t of

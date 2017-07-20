@@ -245,7 +245,7 @@ ty_atom : long_id (VarT long_id)
         | quan sort_bind_plus COMMA ty (Quan (quan, sort_bind_plus, ty, (quanleft, tyright)))
 
 exp : aexp (aexp)
-     | exp PLUS exp (BinOp (Add, exp1, exp2, (exp1left, exp2right)))
+     | exp PLUS exp (BinOp (EBAdd, exp1, exp2, (exp1left, exp2right)))
      | exp DCOLON exp (ECons (exp1, exp2, (exp1left, exp2right)))
      | exp COLON ty (Asc (exp, ty, (expleft, tyright)))
      | exp RTRI idx (AscTime (exp, idx, (expleft, idxright)))
