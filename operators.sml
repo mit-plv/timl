@@ -80,6 +80,7 @@ datatype expr_EI =
 
 datatype expr_ET =
          EETAppT
+         | EETAsc
 
 datatype expr_T =
          ETNever
@@ -155,6 +156,7 @@ fun str_expr_EI opr =
 fun str_expr_ET opr =
   case opr of
       EETAppT => "EETAppT"
+    | EETAsc => "EETAsc"
 
 fun str_expr_const c =
   case c of

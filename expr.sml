@@ -96,7 +96,6 @@ datatype expr =
 	 | EAppConstr of (long_id * bool) * mtype list * idx list * expr * (int * mtype) option
 	 | ECase of expr * return * (ptrn, expr) bind list * region
 	 | ELet of return * (decl tele, expr) bind * region
-	 | EAsc of expr * mtype
 
      and decl =
          DVal of ename binder * (tname binder list, expr) bind outer * region outer
@@ -170,6 +169,7 @@ fun EAppI (e, i) = EEI (EEIAppI, e, i)
 fun EAppIs (f, args) = foldl (swap EAppI) f args
 fun EAppT (e, i) = EET (EETAppT, e, i)
 fun EAppTs (f, args) = foldl (swap EAppT) f args
+fun EAsc (e, t) = EET (EETAsc, e, t)
 fun EAscTime (e, i) = EEI (EEIAscTime, e, i)
 fun ENever (t, r) = ET (ETNever, t, r)
 fun EBuiltin (t, r) = ET (ETBuiltin, t, r)
@@ -236,6 +236,7 @@ fun collect_EAppT e =
            in
              (e, is @ [i])
            end
+         | _ => (e, [])
       )
     | _ => (e, [])
 
@@ -1000,7 +1001,8 @@ fun str_e gctx (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
         )
       | EET (opr, e, t) =>
         (case opr of
-           EETAppT => sprintf "($ {$})" [str_e ctx e, str_mt gctx skctx t]
+             EETAppT => sprintf "($ {$})" [str_e ctx e, str_mt gctx skctx t]
+           | EETAsc => sprintf "($ : $)" [str_e ctx e, str_mt gctx skctx t]
         )
       | ET (opr, t, _) =>
         (case opr of
@@ -1033,7 +1035,6 @@ fun str_e gctx (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
         in
           sprintf "let $$ in $ end" [return, join_prefix " " decls, str_e ctx e]
         end
-      | EAsc (e, t) => sprintf "($ : $)" [str_e ctx e, str_mt gctx skctx t]
       | EAppConstr ((x, b), ts, is, e, _) =>
         sprintf "([$]$$ $)" [
           decorate_var b $ str_long_id #3 gctx cctx x,
@@ -1294,7 +1295,6 @@ fun get_region_e e =
     | EAppConstr ((x, _), _, _, e, _) => combine_region (get_region_long_id x) (get_region_e e)
     | ECase (_, _, _, r) => r
     | ELet (_, _, r) => r
-    | EAsc (e, t) => combine_region (get_region_e e) (get_region_mt t)
                                               
 fun get_region_rule (pn, e) = combine_region (get_region_pn pn) (get_region_e e)
 
@@ -1348,6 +1348,7 @@ fun is_value (e : expr) : bool =
     | EET (opr, e, t) =>
       (case opr of
            EETAppT => false
+         | EETAsc => false
       )
     | ET (opr, t, _) =>
       (case opr of
@@ -1357,7 +1358,6 @@ fun is_value (e : expr) : bool =
     | EAbs _ => true
     | EAbsI _ => true
     | ELet _ => false
-    | EAsc _ => false
     | EAppConstr (_, _, _, e, _) => is_value e
     | ECase _ => false
 
@@ -2748,13 +2748,6 @@ local
             val ((name, s), e) = unBindAnno bind
             val acc = on_s acc s
             val acc = f acc e
-          in
-            acc
-          end
-	| EAsc (e, t) =>
-          let
-            val acc = f acc e
-            val acc = on_mt acc t
           in
             acc
           end

@@ -420,19 +420,19 @@ fun copy_anno gctx (anno as (t, d)) e =
           in
             ELet ((t, d), Unbound.Bind (Teles decls, copy_anno (shift_return (sctxn, kctxn) (t, d')) e), r)
           end
-        | EAsc (e, t') =>
-          let
-            val t = SOME t'
-            val e = copy_anno (t, d) e
-          in
-            EAsc (e, t')
-          end
         | EEI (EEIAscTime, e, d') =>
           let
             val d = SOME d'
             val e = copy_anno (t, d) e
           in
             EAscTime (e, d')
+          end
+        | EET (EETAsc, e, t') =>
+          let
+            val t = SOME t'
+            val e = copy_anno (t, d) e
+          in
+            EAsc (e, t')
           end
         | ET (ETNever, _, _) => e
         | _ =>
@@ -609,7 +609,7 @@ fun on_i_expr_visitor_vtable cast gctx : ('this, context) EV.expr_visitor_vtable
         val e = #visit_EAsc super_vtable this ctx data
         val (e, t) = 
             case e of
-                EAsc data => data
+                EET (EETAsc, e, t) => (e, t)
               | _ => raise Impossible "import_e/visit_EAsc"
         val e = copy_anno (gctx_names gctx) (SOME t, NONE) e
       in

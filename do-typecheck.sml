@@ -1372,9 +1372,16 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	         (EAscTime (e, i), t, i)
 	       end
           )
-	| U.EET (opr, e, i) =>
+	| U.EET (opr, e, t) =>
           (case opr of
 	       EETAppT => raise Impossible "get_mtype()/EAppT"
+	     | EETAsc => 
+	       let
+                 val t = check_kind_Type gctx (skctx, t)
+	         val (e, _, d) = check_mtype (ctx, e, t)
+               in
+	         (EAsc (e, t), t, d)
+	       end
           )
 	| U.ET (opr, t, r) =>
           (case opr of
@@ -1444,12 +1451,6 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
           in
 	    (EAbsI (BindAnno ((iname, s), e), r_all), UniI (s, Bind ((name, r), t), r_all), T0 r_all)
 	  end 
-	| U.EAsc (e, t) => 
-	  let val t = check_kind_Type gctx (skctx, t)
-	      val (e, _, d) = check_mtype (ctx, e, t)
-          in
-	    (EAsc (e, t), t, d)
-	  end
 	| U.EAppConstr ((x, eia), ts, is, e, ot) => 
 	  let
             val () = assert (fn () => null ts) "get_mtype()/EAppConstr: null ts"

@@ -33,7 +33,6 @@ signature EXPR = sig
 	   | EAppConstr of (cvar * bool) * mtype list * idx list * expr * (int * mtype) option
 	   | ECase of expr * return * (ptrn, expr) Unbound.bind list * Region.region
 	   | ELet of return * (decl Unbound.tele, expr) Unbound.bind * Region.region
-	   | EAsc of expr * mtype
 
        and decl =
            DVal of Namespaces.ename Unbound.binder * (Namespaces.tname Unbound.binder list, expr) Unbound.bind Unbound.outer * Region.region Unbound.outer

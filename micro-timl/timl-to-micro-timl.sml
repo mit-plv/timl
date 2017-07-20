@@ -371,6 +371,11 @@ fun on_e (e : S.expr) =
            Op.EEIAppI => EAppI (on_e e, i)
          | Op.EEIAscTime => EAscTime (on_e e, i)
       )
+    | S.EET (opr, e, t) =>
+      (case opr of
+           EETAsc => EAscType (on_e e, on_mt t)
+         | EETAppT => raise Impossible "to-micro-timl/EETAppT"
+      )
     | S.ET (opr, t, r) =>
       (case opr of
            Op.ETNever => ENever (on_mt t)
@@ -413,7 +418,6 @@ fun on_e (e : S.expr) =
     (*   in *)
     (*     Let (return, decs, f (x + m) n e, r) *)
     (*   end *)
-    | S.EAsc (e, t) => EAscType (on_e e, on_mt t)
     | S.EAppConstr ((_, eia), ts, is, e, ot) =>
       let
         fun str_var (_, (x, _)) = str_int x

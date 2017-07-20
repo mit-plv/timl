@@ -28,7 +28,6 @@ type ('this, 'env) expr_visitor_vtable =
        visit_EAppConstr : 'this -> 'env -> (cvar * bool) * mtype list * idx list * expr * (int * mtype) option -> T.expr,
        visit_ECase : 'this -> 'env -> expr * return * (ptrn, expr) bind list * region -> T.expr,
        visit_ELet : 'this -> 'env -> return * (decl tele, expr) bind * region -> T.expr,
-       visit_EAsc : 'this -> 'env -> expr * mtype -> T.expr,
        visit_decl : 'this -> 'env ctx -> decl -> T.decl,
        visit_DVal : 'this -> 'env ctx -> ename binder * (tname binder list, expr) bind outer * region outer -> T.decl,
        visit_DValPtrn : 'this -> 'env ctx -> ptrn * expr outer * region outer -> T.decl,
@@ -45,6 +44,8 @@ type ('this, 'env) expr_visitor_vtable =
        visit_AliasP : 'this -> 'env ctx -> ename binder * ptrn * region outer -> T.ptrn,
        visit_ConstrP : 'this -> 'env ctx -> ((cvar * ptrn_constr_tag) * bool) outer * iname binder list * ptrn * region outer -> T.ptrn,
        visit_AnnoP : 'this -> 'env ctx -> ptrn * mtype outer -> T.ptrn,
+       visit_EAppT : 'this -> 'env -> expr * mtype -> T.expr,
+       visit_EAsc : 'this -> 'env -> expr * mtype -> T.expr,
        visit_var : 'this -> 'env -> var -> T.var,
        visit_cvar : 'this -> 'env -> cvar -> T.cvar,
        visit_mod_projectible : 'this -> 'env -> mod_projectible -> T.mod_projectible,
@@ -74,6 +75,7 @@ fun override_visit_ConstrP (record : ('this, 'env) expr_visitor_vtable) new : ('
     visit_EAppConstr = #visit_EAppConstr record,
     visit_ECase = #visit_ECase record,
     visit_ELet = #visit_ELet record,
+    visit_EAppT = #visit_EAppT record,
     visit_EAsc = #visit_EAsc record,
     visit_decl = #visit_decl record,
     visit_DVal = #visit_DVal record,
@@ -120,6 +122,7 @@ fun override_visit_VarP (record : ('this, 'env) expr_visitor_vtable) new : ('thi
     visit_EAppConstr = #visit_EAppConstr record,
     visit_ECase = #visit_ECase record,
     visit_ELet = #visit_ELet record,
+    visit_EAppT = #visit_EAppT record,
     visit_EAsc = #visit_EAsc record,
     visit_decl = #visit_decl record,
     visit_DVal = #visit_DVal record,
@@ -166,6 +169,7 @@ fun override_visit_EVar (record : ('this, 'env) expr_visitor_vtable) new : ('thi
     visit_EAppConstr = #visit_EAppConstr record,
     visit_ECase = #visit_ECase record,
     visit_ELet = #visit_ELet record,
+    visit_EAppT = #visit_EAppT record,
     visit_EAsc = #visit_EAsc record,
     visit_decl = #visit_decl record,
     visit_DVal = #visit_DVal record,
@@ -212,6 +216,7 @@ fun override_visit_EBinOp (record : ('this, 'env) expr_visitor_vtable) new : ('t
     visit_EAppConstr = #visit_EAppConstr record,
     visit_ECase = #visit_ECase record,
     visit_ELet = #visit_ELet record,
+    visit_EAppT = #visit_EAppT record,
     visit_EAsc = #visit_EAsc record,
     visit_decl = #visit_decl record,
     visit_DVal = #visit_DVal record,
@@ -258,6 +263,7 @@ fun override_visit_EEI (record : ('this, 'env) expr_visitor_vtable) new : ('this
     visit_EAppConstr = #visit_EAppConstr record,
     visit_ECase = #visit_ECase record,
     visit_ELet = #visit_ELet record,
+    visit_EAppT = #visit_EAppT record,
     visit_EAsc = #visit_EAsc record,
     visit_decl = #visit_decl record,
     visit_DVal = #visit_DVal record,
@@ -304,6 +310,7 @@ fun override_visit_EAsc (record : ('this, 'env) expr_visitor_vtable) new : ('thi
     visit_EAppConstr = #visit_EAppConstr record,
     visit_ECase = #visit_ECase record,
     visit_ELet = #visit_ELet record,
+    visit_EAppT = #visit_EAppT record,
     visit_EAsc = new,
     visit_decl = #visit_decl record,
     visit_DVal = #visit_DVal record,
@@ -350,6 +357,7 @@ fun override_visit_ECase (record : ('this, 'env) expr_visitor_vtable) new : ('th
     visit_EAppConstr = #visit_EAppConstr record,
     visit_ECase = new,
     visit_ELet = #visit_ELet record,
+    visit_EAppT = #visit_EAppT record,
     visit_EAsc = #visit_EAsc record,
     visit_decl = #visit_decl record,
     visit_DVal = #visit_DVal record,
@@ -396,6 +404,7 @@ fun override_visit_DRec (record : ('this, 'env) expr_visitor_vtable) new : ('thi
     visit_EAppConstr = #visit_EAppConstr record,
     visit_ECase = #visit_ECase record,
     visit_ELet = #visit_ELet record,
+    visit_EAppT = #visit_EAppT record,
     visit_EAsc = #visit_EAsc record,
     visit_decl = #visit_decl record,
     visit_DVal = #visit_DVal record,
@@ -442,6 +451,7 @@ fun override_visit_DTypeDef (record : ('this, 'env) expr_visitor_vtable) new : (
     visit_EAppConstr = #visit_EAppConstr record,
     visit_ECase = #visit_ECase record,
     visit_ELet = #visit_ELet record,
+    visit_EAppT = #visit_EAppT record,
     visit_EAsc = #visit_EAsc record,
     visit_decl = #visit_decl record,
     visit_DVal = #visit_DVal record,
@@ -488,6 +498,7 @@ fun override_visit_DOpen (record : ('this, 'env) expr_visitor_vtable) new : ('th
     visit_EAppConstr = #visit_EAppConstr record,
     visit_ECase = #visit_ECase record,
     visit_ELet = #visit_ELet record,
+    visit_EAppT = #visit_EAppT record,
     visit_EAsc = #visit_EAsc record,
     visit_decl = #visit_decl record,
     visit_DVal = #visit_DVal record,
@@ -562,7 +573,6 @@ fun default_expr_visitor_vtable
 	  | EAppConstr data => #visit_EAppConstr vtable this env data
 	  | ECase data => #visit_ECase vtable this env data
 	  | ELet data => #visit_ELet vtable this env data
-	  | EAsc data => #visit_EAsc vtable this env data
       end
     fun visit_EVar this env data =
       let
@@ -618,10 +628,28 @@ fun default_expr_visitor_vtable
       let
         val vtable = cast this
         val (opr, e, t) = data
+      in
+        case opr of
+	    EETAsc => #visit_EAsc vtable this env (e, t)
+	  | EETAppT => #visit_EAppT vtable this env (e, t)
+      end
+    fun visit_EAppT this env data = 
+      let
+        val vtable = cast this
+        val (e, t) = data
         val e = #visit_expr vtable this env e
         val t = #visit_mtype vtable this env t
       in
-        T.EET (opr, e, t)
+        T.EET (EETAppT, e, t)
+      end
+    fun visit_EAsc this env data = 
+      let
+        val vtable = cast this
+        val (e, t) = data
+        val e = #visit_expr vtable this env e
+        val t = #visit_mtype vtable this env t
+      in
+        T.EET (EETAsc, e, t)
       end
     fun visit_ET this env data = 
       let
@@ -685,15 +713,6 @@ fun default_expr_visitor_vtable
         val bind = visit_bind (visit_tele (#visit_decl vtable this)) (#visit_expr vtable this) env bind
       in
         T.ELet (return, bind, r)
-      end
-    fun visit_EAsc this env data = 
-      let
-        val vtable = cast this
-        val (e, t) = data
-        val e = #visit_expr vtable this env e
-        val t = #visit_mtype vtable this env t
-      in
-        T.EAsc (e, t)
       end
     fun visit_decl this env data =
       let
@@ -912,6 +931,7 @@ fun default_expr_visitor_vtable
       visit_EAppConstr = visit_EAppConstr,
       visit_ECase = visit_ECase,
       visit_ELet = visit_ELet,
+      visit_EAppT = visit_EAppT,
       visit_EAsc = visit_EAsc,
       visit_decl = visit_decl,
       visit_DVal = visit_DVal,
