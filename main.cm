@@ -34,7 +34,6 @@ type.sig
 type-visitor.sml
 type.sml
 datatype.sml
-pattern.sig
 pattern.sml
 long-id.sml
 expr.sig

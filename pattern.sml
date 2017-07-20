@@ -5,12 +5,12 @@ open Binders
 open Unbound
 open Region
        
-datatype ('var, 'mtype) ptrn =
-	 ConstrP of ('var * bool(*eia*)) outer * iname binder list * ('var, 'mtype) ptrn * region outer (* eia : is explicit index arguments? *)                                         
+datatype ('cvar, 'mtype) ptrn =
+	 ConstrP of ('cvar * bool(*eia*)) outer * iname binder list * ('cvar, 'mtype) ptrn * region outer (* eia : is explicit index arguments? *)                                         
          | VarP of ename binder
-         | PairP of ('var, 'mtype) ptrn * ('var, 'mtype) ptrn
+         | PairP of ('cvar, 'mtype) ptrn * ('cvar, 'mtype) ptrn
          | TTP of region outer
-         | AliasP of ename binder * ('var, 'mtype) ptrn * region outer
-         | AnnoP of ('var, 'mtype) ptrn * 'mtype outer
+         | AliasP of ename binder * ('cvar, 'mtype) ptrn * region outer
+         | AnnoP of ('cvar, 'mtype) ptrn * 'mtype outer
 
 end

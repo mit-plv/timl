@@ -4,35 +4,35 @@ open Pattern
        
 infixr 0 $
        
-type ('this, 'env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor_vtable =
+type ('this, 'env, 'cvar, 'mtype, 'cvar2, 'mtype2) ptrn_visitor_vtable =
      {
-       visit_ptrn : 'this -> 'env ctx -> ('var, 'mtype) ptrn -> ('var2, 'mtype2) ptrn,
-       visit_VarP : 'this -> 'env ctx -> ename binder -> ('var2, 'mtype2) ptrn,
-       visit_TTP : 'this -> 'env ctx -> region outer -> ('var2, 'mtype2) ptrn,
-       visit_PairP : 'this -> 'env ctx -> ('var, 'mtype) ptrn * ('var, 'mtype) ptrn -> ('var2, 'mtype2) ptrn,
-       visit_AliasP : 'this -> 'env ctx -> ename binder * ('var, 'mtype) ptrn * region outer -> ('var2, 'mtype2) ptrn,
-       visit_ConstrP : 'this -> 'env ctx -> ('var * bool) outer * iname binder list * ('var, 'mtype) ptrn * region outer -> ('var2, 'mtype2) ptrn,
-       visit_AnnoP : 'this -> 'env ctx -> ('var, 'mtype) ptrn * 'mtype outer -> ('var2, 'mtype2) ptrn,
-       visit_var : 'this -> 'env -> 'var -> 'var2,
+       visit_ptrn : 'this -> 'env ctx -> ('cvar, 'mtype) ptrn -> ('cvar2, 'mtype2) ptrn,
+       visit_VarP : 'this -> 'env ctx -> ename binder -> ('cvar2, 'mtype2) ptrn,
+       visit_TTP : 'this -> 'env ctx -> region outer -> ('cvar2, 'mtype2) ptrn,
+       visit_PairP : 'this -> 'env ctx -> ('cvar, 'mtype) ptrn * ('cvar, 'mtype) ptrn -> ('cvar2, 'mtype2) ptrn,
+       visit_AliasP : 'this -> 'env ctx -> ename binder * ('cvar, 'mtype) ptrn * region outer -> ('cvar2, 'mtype2) ptrn,
+       visit_ConstrP : 'this -> 'env ctx -> ('cvar * bool) outer * iname binder list * ('cvar, 'mtype) ptrn * region outer -> ('cvar2, 'mtype2) ptrn,
+       visit_AnnoP : 'this -> 'env ctx -> ('cvar, 'mtype) ptrn * 'mtype outer -> ('cvar2, 'mtype2) ptrn,
+       visit_cvar : 'this -> 'env -> 'cvar -> 'cvar2,
        visit_mtype : 'this -> 'env -> 'mtype -> 'mtype2,
        extend_i : 'this -> 'env -> iname -> 'env,
        extend_e : 'this -> 'env -> ename -> 'env
      }
        
-type ('this, 'env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor_interface =
-     ('this, 'env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor_vtable
+type ('this, 'env, 'cvar, 'mtype, 'cvar2, 'mtype2) ptrn_visitor_interface =
+     ('this, 'env, 'cvar, 'mtype, 'cvar2, 'mtype2) ptrn_visitor_vtable
                                        
 (***************** the default visitor  **********************)    
 
 open VisitorUtil
        
 fun default_ptrn_visitor_vtable
-      (cast : 'this -> ('this, 'env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor_interface)
+      (cast : 'this -> ('this, 'env, 'cvar, 'mtype, 'cvar2, 'mtype2) ptrn_visitor_interface)
       extend_i
       extend_e
-      visit_var
+      visit_cvar
       visit_mtype
-    : ('this, 'env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor_vtable =
+    : ('this, 'env, 'cvar, 'mtype, 'cvar2, 'mtype2) ptrn_visitor_vtable =
   let
     fun visit_ibinder this env name =
       let
@@ -99,7 +99,7 @@ fun default_ptrn_visitor_vtable
       let
         val vtable = cast this
         val (x, inames, p, r) = data
-        val x = visit_outer (visit_pair (#visit_var vtable this) return2) env x
+        val x = visit_outer (visit_pair (#visit_cvar vtable this) return2) env x
         val inames = map (visit_ibinder this env) inames
         val p = #visit_ptrn vtable this env p
       in
@@ -114,18 +114,18 @@ fun default_ptrn_visitor_vtable
       visit_AliasP = visit_AliasP,
       visit_AnnoP = visit_AnnoP,
       visit_ConstrP = visit_ConstrP,
-      visit_var = visit_var,
+      visit_cvar = visit_cvar,
       visit_mtype = visit_mtype,
       extend_i = extend_i,
       extend_e = extend_e
     }
   end
 
-datatype ('env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor =
-         PtrnVisitor of (('env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor, 'env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor_interface
+datatype ('env, 'cvar, 'mtype, 'cvar2, 'mtype2) ptrn_visitor =
+         PtrnVisitor of (('env, 'cvar, 'mtype, 'cvar2, 'mtype2) ptrn_visitor, 'env, 'cvar, 'mtype, 'cvar2, 'mtype2) ptrn_visitor_interface
 
-fun ptrn_visitor_impls_interface (this : ('env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor) :
-    (('env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor, 'env, 'var, 'mtype, 'var2, 'mtype2) ptrn_visitor_interface =
+fun ptrn_visitor_impls_interface (this : ('env, 'cvar, 'mtype, 'cvar2, 'mtype2) ptrn_visitor) :
+    (('env, 'cvar, 'mtype, 'cvar2, 'mtype2) ptrn_visitor, 'env, 'cvar, 'mtype, 'cvar2, 'mtype2) ptrn_visitor_interface =
   let
     val PtrnVisitor vtable = this
   in

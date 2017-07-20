@@ -876,7 +876,7 @@ fun default_expr_visitor_vtable
           visit_AliasP = #visit_AliasP vtable,
           visit_AnnoP = #visit_AnnoP vtable,
           visit_ConstrP = #visit_ConstrP vtable,
-          visit_var = visit_cvar_tag,
+          visit_cvar = visit_cvar_tag,
           visit_mtype = #visit_mtype vtable,
           extend_i = #extend_i vtable,
           extend_e = #extend_e vtable
