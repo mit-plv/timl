@@ -570,36 +570,35 @@ fun on_i_expr_visitor_vtable cast gctx : ('this, context) EV.expr_visitor_vtable
 	  | _ => default ()
       end
     val vtable = EV.override_visit_EApp vtable visit_EApp
-    fun visit_EEI this (ctx as (_, _, cctx, _)) (data as (opr, e, i)) =
-      case opr of
-	  EEIAppI => 
-	  let
-            val super_vtable = vtable
-            fun default () = #visit_EEI super_vtable this ctx data
-            val vtable = cast this
-	    val (e, is) = S.collect_EAppI e
-            val is = is @ [i]
-	  in
-	    case e of
-		S.EVar (x, b) =>
-		(case find_constr gctx cctx x of
-		     SOME (x, _) => EAppConstr ((x, b), [], map (#visit_idx vtable this ctx) is, ETT (S.get_region_i i), NONE)
-		   | NONE => default ())
-	      | _ => default ()
-	  end
-	| EEIAscTime =>
-          let
-            val super_vtable = vtable
-            val e = #visit_EEI super_vtable this ctx data
-            val (e, i) = 
-                case e of
-                    EEI (EEIAscTime, e, i) => (e, i)
-                  | _ => raise Impossible "import_e/visit_EAscTime"
-            val e = copy_anno (gctx_names gctx) (NONE, SOME i) e
-          in
-            EAscTime (e, i)
-          end
-    val vtable = EV.override_visit_EEI vtable visit_EEI
+    fun visit_EAppI this (ctx as (_, _, cctx, _)) (data as (e, i)) =
+      let
+        val super_vtable = vtable
+        fun default () = #visit_EAppI super_vtable this ctx data
+        val vtable = cast this
+	val (e, is) = S.collect_EAppI e
+        val is = is @ [i]
+      in
+	case e of
+	    S.EVar (x, b) =>
+	    (case find_constr gctx cctx x of
+		 SOME (x, _) => EAppConstr ((x, b), [], map (#visit_idx vtable this ctx) is, ETT (S.get_region_i i), NONE)
+	       | NONE => default ())
+	  | _ => default ()
+      end
+    val vtable = EV.override_visit_EAppI vtable visit_EAppI
+    fun visit_EAscTime this (ctx as (_, _, cctx, _)) (data as (e, i)) =
+      let
+        val super_vtable = vtable
+        val e = #visit_EAscTime super_vtable this ctx data
+        val (e, i) = 
+            case e of
+                EEI (EEIAscTime, e, i) => (e, i)
+              | _ => raise Impossible "import_e/visit_EAscTime"
+        val e = copy_anno (gctx_names gctx) (NONE, SOME i) e
+      in
+        EAscTime (e, i)
+      end
+    val vtable = EV.override_visit_EAscTime vtable visit_EAscTime
     fun visit_EAsc this ctx data =
       let
         val super_vtable = vtable
