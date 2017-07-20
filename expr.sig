@@ -1,6 +1,5 @@
 signature EXPR = sig
 
-  structure Pattern : PATTERN
   type var
   type cvar
   type mod_projectible

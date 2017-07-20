@@ -67,7 +67,6 @@ structure Type = TypeFn (structure Idx = Idx
                         )
 open Type
 
-structure Pattern = Pattern
 open Pattern
 
 type cvar = long_id

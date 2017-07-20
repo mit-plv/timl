@@ -7,7 +7,7 @@ open Namespaces
 open Binders
 open Operators
 open Region
-open S.Pattern
+open Pattern
 open S
 
 infixr 0 $
@@ -539,7 +539,9 @@ open VisitorUtil
 (* val visit_ibind = Unbound.visit_bind_simp *)
 (* val visit_tbind = Unbound.visit_bind_simp *)
 (* val visit_ebind = Unbound.visit_bind_simp *)
-                    
+
+structure PV = PatternVisitor
+       
 fun default_expr_visitor_vtable
       (cast : 'this -> ('this, 'env) expr_visitor_interface)
       extend_i
@@ -855,66 +857,95 @@ fun default_expr_visitor_vtable
       in
         T.DOpen (m, scp)
       end
-    fun visit_ptrn this env data =
+    fun visit_cvar_tag this env data =
       let
         val vtable = cast this
       in
-        case data of
-            VarP data => #visit_VarP vtable this env data
-          | TTP data => #visit_TTP vtable this env data
-          | PairP data => #visit_PairP vtable this env data
-          | AliasP data => #visit_AliasP vtable this env data
-          | ConstrP data => #visit_ConstrP vtable this env data
-          | AnnoP data => #visit_AnnoP vtable this env data
+        visit_pair (#visit_cvar vtable this) (#visit_ptrn_constr_tag vtable this) env data
       end
-    fun visit_VarP this env data =
+    fun this_impls_ptrn_visitor_interface this :
+        ('this, 'env, cvar * ptrn_constr_tag, mtype, T.cvar * T.ptrn_constr_tag, T.mtype) PV.ptrn_visitor_interface =
       let
         val vtable = cast this
       in
-        T.Pattern.VarP $ visit_ebinder this env data
+        {
+          visit_ptrn = #visit_ptrn vtable,
+          visit_VarP = #visit_VarP vtable,
+          visit_TTP = #visit_TTP vtable,
+          visit_PairP = #visit_PairP vtable,
+          visit_AliasP = #visit_AliasP vtable,
+          visit_AnnoP = #visit_AnnoP vtable,
+          visit_ConstrP = #visit_ConstrP vtable,
+          visit_var = visit_cvar_tag,
+          visit_mtype = #visit_mtype vtable,
+          extend_i = #extend_i vtable,
+          extend_e = #extend_e vtable
+        }
       end
-    fun visit_TTP this env data =
-      T.Pattern.TTP data
-    fun visit_PairP this env data = 
-      let
-        val vtable = cast this
-        val (p1, p2) = data
-        val p1 = #visit_ptrn vtable this env p1
-        val p2 = #visit_ptrn vtable this env p2
-      in
-        T.Pattern.PairP (p1, p2)
-      end
-    fun visit_AliasP this env data =
-      let
-        val vtable = cast this
-        val (name, p, r) = data
-        val name = visit_ebinder this env name
-        val p = #visit_ptrn vtable this env p
-      in
-        T.Pattern.AliasP (name, p, r)
-      end
-    fun visit_AnnoP this env data = 
-      let
-        val vtable = cast this
-        val (p, t) = data
-        val p = #visit_ptrn vtable this env p
-        val t = visit_outer (#visit_mtype vtable this) env t
-      in
-        T.Pattern.AnnoP (p, t)
-      end
-    fun visit_ConstrP this env data =
-      let
-        val vtable = cast this
-        val (x, inames, p, r) = data
-        val x = visit_outer (visit_pair (visit_pair (#visit_cvar vtable this) (#visit_ptrn_constr_tag vtable this)) return2) env x
-        val inames = map (visit_ibinder this env) inames
-        val p = #visit_ptrn vtable this env p
-      in
-        T.Pattern.ConstrP (x, inames, p, r)
-      end
-    (* fun default_visit_binder extend this = visit_binder (extend this) *)
-    (* val visit_ebind = fn this => visit_ebind (#extend_e (cast this) this) *)
-    (* val visit_ibind = fn this => visit_ibind (#extend_i (cast this) this) *)
+    val pv_vtable =
+        PV.default_ptrn_visitor_vtable
+          this_impls_ptrn_visitor_interface
+          extend_i
+          extend_e
+          visit_cvar_tag
+          visit_mtype
+    (* fun visit_ptrn this env data = *)
+    (*   let *)
+    (*     val vtable = cast this *)
+    (*   in *)
+    (*     case data of *)
+    (*         VarP data => #visit_VarP vtable this env data *)
+    (*       | TTP data => #visit_TTP vtable this env data *)
+    (*       | PairP data => #visit_PairP vtable this env data *)
+    (*       | AliasP data => #visit_AliasP vtable this env data *)
+    (*       | ConstrP data => #visit_ConstrP vtable this env data *)
+    (*       | AnnoP data => #visit_AnnoP vtable this env data *)
+    (*   end *)
+    (* fun visit_VarP this env data = *)
+    (*   let *)
+    (*     val vtable = cast this *)
+    (*   in *)
+    (*     VarP $ visit_ebinder this env data *)
+    (*   end *)
+    (* fun visit_TTP this env data = *)
+    (*   TTP data *)
+    (* fun visit_PairP this env data =  *)
+    (*   let *)
+    (*     val vtable = cast this *)
+    (*     val (p1, p2) = data *)
+    (*     val p1 = #visit_ptrn vtable this env p1 *)
+    (*     val p2 = #visit_ptrn vtable this env p2 *)
+    (*   in *)
+    (*     PairP (p1, p2) *)
+    (*   end *)
+    (* fun visit_AliasP this env data = *)
+    (*   let *)
+    (*     val vtable = cast this *)
+    (*     val (name, p, r) = data *)
+    (*     val name = visit_ebinder this env name *)
+    (*     val p = #visit_ptrn vtable this env p *)
+    (*   in *)
+    (*     AliasP (name, p, r) *)
+    (*   end *)
+    (* fun visit_AnnoP this env data =  *)
+    (*   let *)
+    (*     val vtable = cast this *)
+    (*     val (p, t) = data *)
+    (*     val p = #visit_ptrn vtable this env p *)
+    (*     val t = visit_outer (#visit_mtype vtable this) env t *)
+    (*   in *)
+    (*     AnnoP (p, t) *)
+    (*   end *)
+    (* fun visit_ConstrP this env data = *)
+    (*   let *)
+    (*     val vtable = cast this *)
+    (*     val (x, inames, p, r) = data *)
+    (*     val x = visit_outer (visit_pair (visit_pair (#visit_cvar vtable this) (#visit_ptrn_constr_tag vtable this)) return2) env x *)
+    (*     val inames = map (visit_ibinder this env) inames *)
+    (*     val p = #visit_ptrn vtable this env p *)
+    (*   in *)
+    (*     ConstrP (x, inames, p, r) *)
+    (*   end *)
   in
     {
       visit_expr = visit_expr,
@@ -942,13 +973,22 @@ fun default_expr_visitor_vtable
       visit_DAbsIdx = visit_DAbsIdx,
       visit_DTypeDef = visit_DTypeDef,
       visit_DOpen = visit_DOpen,
-      visit_ptrn = visit_ptrn,
-      visit_VarP = visit_VarP,
-      visit_TTP = visit_TTP,
-      visit_PairP = visit_PairP,
-      visit_AliasP = visit_AliasP,
-      visit_AnnoP = visit_AnnoP,
-      visit_ConstrP = visit_ConstrP,
+      
+      (* visit_ptrn = visit_ptrn, *)
+      (* visit_VarP = visit_VarP, *)
+      (* visit_TTP = visit_TTP, *)
+      (* visit_PairP = visit_PairP, *)
+      (* visit_AliasP = visit_AliasP, *)
+      (* visit_AnnoP = visit_AnnoP, *)
+      (* visit_ConstrP = visit_ConstrP, *)
+      visit_ptrn = #visit_ptrn pv_vtable,
+      visit_VarP = #visit_VarP pv_vtable,
+      visit_TTP = #visit_TTP pv_vtable,
+      visit_PairP = #visit_PairP pv_vtable,
+      visit_AliasP = #visit_AliasP pv_vtable,
+      visit_AnnoP = #visit_AnnoP pv_vtable,
+      visit_ConstrP = #visit_ConstrP pv_vtable,
+      
       visit_var = visit_var,
       visit_cvar = visit_cvar,
       visit_mod_projectible = visit_mod_projectible,

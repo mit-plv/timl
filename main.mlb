@@ -44,6 +44,7 @@ pattern.sig
 pattern.sml
 long-id.sml
 expr.sig
+pattern-visitor.sml                                 
 expr-visitor.sml                                 
 expr-trans.sml
 expr.sml
@@ -54,7 +55,6 @@ name-resolve.sml
 package.sml
 typecheck-util.sml
 normalize.sml
-pattern-visitor.sml                                 
 simp-expr.sml
 collect-var.sml
 collect-uvar.sml
