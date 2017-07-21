@@ -1820,7 +1820,7 @@ and is_wf_datatype gctx ctx (Bind (name, tbinds) : U.mtype U.datatype_def, r) : 
       val sorts = map is_wf_bsort sorts
       val nk = (fst name, ((length tnames, sorts), NONE))
       val ctx as (sctx, kctx, _, _) = add_kindingext_skct nk ctx
-      fun make_constr ((name, ibinds, r) : U.mtype U.constr_decl) : mtype constr_decl * (string * mtype constr) =
+      fun make_constr ((name, ibinds, r) : U.mtype U.constr_decl) : mtype constr_decl * (string * mtype constr_info) =
 	let
           val family = (NONE, (0, r))
           val c = (family, fold_binds (tname_kinds, ibinds))

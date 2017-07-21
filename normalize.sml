@@ -210,7 +210,7 @@ fun update_t b =
 
 fun update_ke (k, t) = (update_k k, Option.map update_mt t)
 
-fun update_c ((x, tbinds) : mtype constr) =
+fun update_c ((x, tbinds) : mtype constr_info) =
   let
     val (tname_kinds, ibinds) = unfold_binds tbinds
     val (ns, (t, is)) = unfold_binds ibinds
@@ -557,7 +557,7 @@ fun normalize_c gctx kctx b =
   let
     val visitor as (TypeVisitor vtable) = new_normalize_type_visitor gctx
   in
-    #visit_constr vtable visitor kctx b
+    #visit_constr_info vtable visitor kctx b
   end
     
 (* fun normalize_mt gctx kctx t = *)

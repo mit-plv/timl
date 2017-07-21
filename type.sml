@@ -17,7 +17,7 @@ type kind = int (*number of type arguments*) * bsort list
 type 'mtype constr_core = (sort, name, 'mtype * idx list) ibinds
 type 'mtype constr_decl = name * 'mtype constr_core * region
 (* to be used in typing context *)                                                          
-type 'mtype constr = var(*family*) * (unit, name, 'mtype constr_core) tbinds
+type 'mtype constr_info = var(*family*) * (unit, name, 'mtype constr_core) tbinds
 
 type 'mtype datatype_def = (name(*for datatype self-reference*) * (unit, name, Idx.bsort list * 'mtype constr_decl list) Bind.tbinds) Bind.tbind
 
@@ -154,7 +154,7 @@ fun on_i_c params x n b =
   let
     val visitor as (TypeVisitor vtable) = new_on_i_type_visitor (params, n)
   in
-    #visit_constr vtable visitor x b
+    #visit_constr_info vtable visitor x b
   end
     
 (* fun on_i_t on_i_mt x n b = *)
@@ -243,7 +243,7 @@ fun on_t_c on_var x n b =
   let
     val visitor as (TypeVisitor vtable) = new_on_t_type_visitor (on_var, n)
   in
-    #visit_constr vtable visitor x b
+    #visit_constr_info vtable visitor x b
   end
     
 (* fun on_t_t on_t_mt x n b = *)

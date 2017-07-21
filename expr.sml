@@ -391,7 +391,7 @@ fun AppVar (x, is) = MtAppIs (MtVar x) is
 fun AppV (x, ts, is, r) = MtAppIs (MtApps (MtVar x) ts) is
 
 val VarT = MtVar
-fun constr_type VarT shiftx_long_id ((family, tbinds) : mtype constr) = 
+fun constr_type VarT shiftx_long_id ((family, tbinds) : mtype constr_info) = 
   let
     val (tname_kinds, ibinds) = unfold_binds tbinds
     val tnames = map fst tname_kinds

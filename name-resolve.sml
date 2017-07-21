@@ -281,11 +281,11 @@ fun on_type gctx ctx b =
     #visit_ty vtable visitor ctx b
   end
     
-fun on_constr gctx ctx b =
+fun on_constr_info gctx ctx b =
   let
     val visitor as (TV.TypeVisitor vtable) = new_on_i_type_visitor gctx
   in
-    #visit_constr vtable visitor ctx b
+    #visit_constr_info vtable visitor ctx b
   end
     
 (* fun on_mtype gctx (ctx as (sctx, kctx)) t = *)
@@ -1133,13 +1133,13 @@ val resolve_expr = on_expr
 fun resolve_decls gctx ctx decls = fst (on_decls gctx ctx decls)
 val resolve_prog = on_prog
 
-val resolve_constr = on_constr
+val resolve_constr_info = on_constr_info
 val resolve_kind = on_kind
 
 fun resolve_type_opt ctx e = runError (fn () => on_type ctx e) ()
 fun resolve_expr_opt ctx e = runError (fn () => on_expr ctx e) ()
 
-fun resolve_constr_opt ctx e = runError (fn () => on_constr ctx e) ()
+fun resolve_constr_info_opt ctx e = runError (fn () => on_constr_info ctx e) ()
 fun resolve_kind_opt e = runError (fn () => on_kind e) ()
 
 end

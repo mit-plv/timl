@@ -37,7 +37,7 @@ type scontext = (string (* option *) * sort) list
 (* kinding context *)
 type kcontext = (string * kind_ext) list 
 (* constructor context *)
-type ccontext = (string * mtype constr) list
+type ccontext = (string * mtype constr_info) list
 (* typing context *)
 type tcontext = (string * ty) list
 type context = scontext * kcontext * ccontext * tcontext
@@ -407,7 +407,7 @@ fun fetch_constr a = generic_fetch (package0_snd package0_c) do_fetch_constr #3 
 fun fetch_constr_type gctx (ctx : ccontext, x) =
   constr_type VarT shiftx_long_id $ snd $ fetch_constr gctx (ctx, x)
 
-fun get_family (c : mtype constr) = #1 c
+fun get_family (c : mtype constr_info) = #1 c
 
 fun package0_long_id b = package_long_id 0 b
                                  
