@@ -169,6 +169,13 @@ fun update_t b =
     #visit_ty vtable visitor () b
   end
     
+fun update_c b =
+  let
+    val visitor as (TypeVisitor vtable) = new_update_type_visitor (update_bs, update_i, update_s, update_k)
+  in
+    #visit_constr_info vtable visitor () b
+  end
+    
 (* fun update_mt t = *)
 (*   case t of *)
 (*       UVar (x, r) => load_uvar' update_mt t x *)
@@ -208,20 +215,20 @@ fun update_t b =
 (*       Mono t => Mono (update_mt t) *)
 (*     | Uni (Bind (name, t), r) => Uni (Bind (name, update_t t), r) *)
 
-fun update_ke (k, t) = (update_k k, Option.map update_mt t)
+(* fun update_c ((x, tbinds) : mtype constr_info) = *)
+(*   let *)
+(*     val (tname_kinds, ibinds) = unfold_binds tbinds *)
+(*     val (ns, (t, is)) = unfold_binds ibinds *)
+(*     val ns = map (mapSnd update_s) ns *)
+(*     val t = update_mt t *)
+(*     val is = map update_i is *)
+(*     val ibinds = fold_binds (ns, (t, is)) *)
+(*     val tbinds = fold_binds (tname_kinds, ibinds) *)
+(*   in *)
+(*     (x, tbinds) *)
+(*   end *)
 
-fun update_c ((x, tbinds) : mtype constr_info) =
-  let
-    val (tname_kinds, ibinds) = unfold_binds tbinds
-    val (ns, (t, is)) = unfold_binds ibinds
-    val ns = map (mapSnd update_s) ns
-    val t = update_mt t
-    val is = map update_i is
-    val ibinds = fold_binds (ns, (t, is))
-    val tbinds = fold_binds (tname_kinds, ibinds)
-  in
-    (x, tbinds)
-  end
+fun update_ke (k, t) = (update_k k, Option.map update_mt t)
 
 fun update_ctx (sctx, kctx, cctx, tctx) =
   let
