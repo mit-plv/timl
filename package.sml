@@ -175,9 +175,17 @@ fun package_t_tbinds f_cls f_inner x v ibinds = package_binds package_t_tbind f_
 (* fun package_i_t x v (b : ty) : ty = f x v b *)
 (* end *)
 
+(* fun package_i_c x m ((family, core) : mtype constr) = *)
+(*   let *)
+(*     val core = package_i_tbinds return3 package_i_constr_core x m core *)
+(*   in *)
+(*     (family, core) *)
+(*   end *)
+
 fun package_i_mt a = TypeShift.on_i_mt (package_i_i, package_i_s) a
 fun package_i_t a = TypeShift.on_i_t (package_i_i, package_i_s) a
 fun package_i_constr_core a = TypeShift.on_i_constr_core (package_i_i, package_i_s) a
+fun package_i_c a = TypeShift.on_i_c (package_i_i, package_i_s) a
 
 (* fun package_t_mt x v (b : mtype) : mtype = *)
 (*   let *)
@@ -219,28 +227,21 @@ fun package_i_constr_core a = TypeShift.on_i_constr_core (package_i_i, package_i
 (*       Mono t => Mono (package_t_mt x v t) *)
 (*     | Uni (bind, r) => Uni (package_t_tbind package_t_t x v bind, r) *)
 
+(* fun package_t_c x m ((family, core) : mtype constr) = *)
+(*   let *)
+(*     val core = package_t_tbinds return3 package_t_constr_core x m core *)
+(*     val family = package_long_id x m family *)
+(*   in *)
+(*     (family, core) *)
+(*   end *)
+
 fun package_t_mt a = TypeShift.on_t_mt package_long_id a
 fun package_t_t a = TypeShift.on_t_t package_long_id a
 fun package_t_constr_core a = TypeShift.on_t_constr_core package_long_id a
+fun package_t_c a = TypeShift.on_t_c package_long_id a
 
 fun package0_mt v b = package_t_mt 0 v $ package_i_mt 0 v b
 fun package0_t v b = package_t_t 0 v $ package_i_t 0 v b
-                                 
-fun package_i_c x m ((family, core) : mtype constr) =
-  let
-    val core = package_i_tbinds return3 package_i_constr_core x m core
-  in
-    (family, core)
-  end
-
-fun package_t_c x m ((family, core) : mtype constr) =
-  let
-    val core = package_t_tbinds return3 package_t_constr_core x m core
-    val family = package_long_id x m family
-  in
-    (family, core)
-  end
-
 fun package0_c v b =
   package_t_c 0 v $ package_i_c 0 v b
               

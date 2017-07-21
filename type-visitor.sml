@@ -36,6 +36,7 @@ type ('this, 'env) type_visitor_vtable =
        visit_Uni : 'this -> 'env -> (name * ty) Bind.tbind * region -> T.ty,
        visit_datatype : 'this -> 'env -> mtype datatype_def -> T.mtype T.datatype_def,
        visit_constr_core : 'this -> 'env -> mtype constr_core -> T.mtype T.constr_core,
+       visit_constr : 'this -> 'env -> mtype constr -> T.mtype T.constr,
        visit_var : 'this -> 'env -> var -> T.var,
        visit_bsort : 'this -> 'env -> Idx.bsort -> T.Idx.bsort,
        visit_idx : 'this -> 'env -> Idx.idx -> T.Idx.idx,
@@ -69,6 +70,7 @@ fun override_visit_mtype (record : ('this, 'env) type_visitor_vtable) new =
     visit_Uni = #visit_Uni record,
     visit_datatype = #visit_datatype record,
     visit_constr_core = #visit_constr_core record,
+    visit_constr = #visit_constr record,
     visit_var = #visit_var record,
     visit_bsort = #visit_bsort record,
     visit_idx = #visit_idx record,
@@ -102,6 +104,7 @@ fun override_visit_MtVar (record : ('this, 'env) type_visitor_vtable) new =
     visit_Uni = #visit_Uni record,
     visit_datatype = #visit_datatype record,
     visit_constr_core = #visit_constr_core record,
+    visit_constr = #visit_constr record,
     visit_var = #visit_var record,
     visit_bsort = #visit_bsort record,
     visit_idx = #visit_idx record,
@@ -135,6 +138,7 @@ fun override_visit_MtAppI (record : ('this, 'env) type_visitor_vtable) new =
     visit_Uni = #visit_Uni record,
     visit_datatype = #visit_datatype record,
     visit_constr_core = #visit_constr_core record,
+    visit_constr = #visit_constr record,
     visit_var = #visit_var record,
     visit_bsort = #visit_bsort record,
     visit_idx = #visit_idx record,
@@ -168,6 +172,7 @@ fun override_visit_MtApp (record : ('this, 'env) type_visitor_vtable) new =
     visit_Uni = #visit_Uni record,
     visit_datatype = #visit_datatype record,
     visit_constr_core = #visit_constr_core record,
+    visit_constr = #visit_constr record,
     visit_var = #visit_var record,
     visit_bsort = #visit_bsort record,
     visit_idx = #visit_idx record,
@@ -201,6 +206,7 @@ fun override_visit_UVar (record : ('this, 'env) type_visitor_vtable) new =
     visit_Uni = #visit_Uni record,
     visit_datatype = #visit_datatype record,
     visit_constr_core = #visit_constr_core record,
+    visit_constr = #visit_constr record,
     visit_var = #visit_var record,
     visit_bsort = #visit_bsort record,
     visit_idx = #visit_idx record,
@@ -234,6 +240,7 @@ fun override_extend_t_anno (record : ('this, 'env) type_visitor_vtable) new =
     visit_Uni = #visit_Uni record,
     visit_datatype = #visit_datatype record,
     visit_constr_core = #visit_constr_core record,
+    visit_constr = #visit_constr record,
     visit_var = #visit_var record,
     visit_bsort = #visit_bsort record,
     visit_idx = #visit_idx record,
@@ -472,6 +479,15 @@ fun default_type_visitor_vtable
                      (visit_pair (#visit_mtype vtable this)
                                  (visit_list (#visit_idx vtable this))) env data
       end
+    fun visit_constr this env (data : mtype constr) : T.mtype T.constr =
+      let
+        val vtable = cast this
+      in
+        visit_pair (#visit_var vtable this)
+                   (visit_tbinds this
+                                 return2
+                                 (#visit_constr_core vtable this)) env data
+      end
     fun visit_datatype this env data =
       let
         val vtable = cast this
@@ -514,6 +530,7 @@ fun default_type_visitor_vtable
       visit_Uni = visit_Uni,
       visit_datatype = visit_datatype,
       visit_constr_core = visit_constr_core,
+      visit_constr = visit_constr,
       visit_var = visit_var,
       visit_bsort = visit_bsort,
       visit_idx = visit_idx,

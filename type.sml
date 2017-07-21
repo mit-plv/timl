@@ -16,6 +16,8 @@ type kind = int (*number of type arguments*) * bsort list
 
 type 'mtype constr_core = (sort, name, 'mtype * idx list) ibinds
 type 'mtype constr_decl = name * 'mtype constr_core * region
+(* to be used in typing context *)                                                          
+type 'mtype constr = var(*family*) * (unit, name, 'mtype constr_core) tbinds
 
 type 'mtype datatype_def = (name(*for datatype self-reference*) * (unit, name, Idx.bsort list * 'mtype constr_decl list) Bind.tbinds) Bind.tbind
 
@@ -134,6 +136,13 @@ fun on_i_mt params x n b =
     #visit_mtype vtable visitor x b
   end
     
+fun on_i_t params x n b =
+  let
+    val visitor as (TypeVisitor vtable) = new_on_i_type_visitor (params, n)
+  in
+    #visit_ty vtable visitor x b
+  end
+    
 fun on_i_constr_core params x n b =
   let
     val visitor as (TypeVisitor vtable) = new_on_i_type_visitor (params, n)
@@ -141,11 +150,11 @@ fun on_i_constr_core params x n b =
     #visit_constr_core vtable visitor x b
   end
     
-fun on_i_t params x n b =
+fun on_i_c params x n b =
   let
     val visitor as (TypeVisitor vtable) = new_on_i_type_visitor (params, n)
   in
-    #visit_ty vtable visitor x b
+    #visit_constr vtable visitor x b
   end
     
 (* fun on_i_t on_i_mt x n b = *)
@@ -216,6 +225,13 @@ fun on_t_mt on_var x n b =
     #visit_mtype vtable visitor x b
   end
     
+fun on_t_t on_var x n b =
+  let
+    val visitor as (TypeVisitor vtable) = new_on_t_type_visitor (on_var, n)
+  in
+    #visit_ty vtable visitor x b
+  end
+    
 fun on_t_constr_core on_var x n b =
   let
     val visitor as (TypeVisitor vtable) = new_on_t_type_visitor (on_var, n)
@@ -223,11 +239,11 @@ fun on_t_constr_core on_var x n b =
     #visit_constr_core vtable visitor x b
   end
     
-fun on_t_t on_var x n b =
+fun on_t_c on_var x n b =
   let
     val visitor as (TypeVisitor vtable) = new_on_t_type_visitor (on_var, n)
   in
-    #visit_ty vtable visitor x b
+    #visit_constr vtable visitor x b
   end
     
 (* fun on_t_t on_t_mt x n b = *)
@@ -240,6 +256,14 @@ fun on_t_t on_var x n b =
 (*     f x n b *)
 (*   end *)
 
+(* fun shiftx_i_c x n ((family, tbinds) : mtype constr) : mtype constr = *)
+(*   (family, *)
+(*    on_i_tbinds return3 (on_i_constr_core (shiftx_i_i, shiftx_i_s)) x n tbinds) *)
+
+(* fun shiftx_t_c x n (((m, family), tbinds) : mtype constr) : mtype constr = *)
+(*   ((m, shiftx_id x n family), *)
+(*    on_t_tbinds return3 (on_t_constr_core shiftx_var) x n tbinds) *)
+
 fun shiftx_i_mt x n b = on_i_mt (shiftx_i_i, shiftx_i_s) x n b
 fun shift_i_mt b = shiftx_i_mt 0 1 b
 and shiftx_t_mt x n b = on_t_mt shiftx_var x n b
@@ -249,6 +273,11 @@ fun shiftx_i_t x n b = on_i_t (shiftx_i_i, shiftx_i_s) x n b
 fun shift_i_t b = shiftx_i_t 0 1 b
 fun shiftx_t_t x n b = on_t_t shiftx_var x n b
 fun shift_t_t b = shiftx_t_t 0 1 b
+
+fun shiftx_i_c x n b = on_i_c (shiftx_i_i, shiftx_i_s) x n b
+fun shift_i_c b = shiftx_i_c 0 1 b
+fun shiftx_t_c x n b = on_t_c shiftx_var x n b
+fun shift_t_c b = shiftx_t_c 0 1 b
 
 fun forget_i_mt x n b = on_i_mt (forget_i_i, forget_i_s) x n b
 fun forget_t_mt x n b = on_t_mt forget_var x n b

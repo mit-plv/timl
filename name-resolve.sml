@@ -80,7 +80,7 @@ fun find_constr (gctx : ns_sigcontext) ctx x =
     flip Option.map (find_long_id gctx #3 is_eq_fst_snd ctx x)
          (fn (m, ((i, inames), xr)) => ((m, (i, xr)), inames))
          
-fun on_ibind f ctx (Bind (name, inner) : ((string * 'a) * 'b) ibind) = Bind (name, f (fst name :: ctx) inner)
+(* fun on_ibind f ctx (Bind (name, inner) : ((string * 'a) * 'b) ibind) = Bind (name, f (fst name :: ctx) inner) *)
 
 fun on_quan q =
     case q of
@@ -184,31 +184,31 @@ fun on_kind k = mapSnd (map on_bsort) k
 
 open Bind
        
-fun on_tbind f kctx (Bind (name, b) : ((string * 'a) * 'b) tbind) = 
-  Bind (name, f (fst name :: kctx) b)
+(* fun on_tbind f kctx (Bind (name, b) : ((string * 'a) * 'b) tbind) =  *)
+(*   Bind (name, f (fst name :: kctx) b) *)
 
-fun on_binds on_bind on_anno on_inner ctx ibinds =
-  let
-    val on_binds = on_binds on_bind on_anno on_inner
-  in
-    case ibinds of
-        BindNil inner => BindNil (on_inner ctx inner)
-      | BindCons (anno, bind) =>
-        BindCons (on_anno ctx anno, on_bind on_binds ctx bind)
-  end
-
-fun on_ibinds on_anno on_inner ctx (ibinds : ('a, string * 'b, 'c) ibinds) = on_binds on_ibind on_anno on_inner ctx ibinds
-(* fun on_ibinds on_anno on_inner ctx ibinds = *)
+(* fun on_binds on_bind on_anno on_inner ctx ibinds = *)
 (*   let *)
-(*     val on_ibinds = on_ibinds on_anno on_inner *)
+(*     val on_binds = on_binds on_bind on_anno on_inner *)
 (*   in *)
 (*     case ibinds of *)
 (*         BindNil inner => BindNil (on_inner ctx inner) *)
 (*       | BindCons (anno, bind) => *)
-(*         BindCons (on_anno ctx anno, on_ibind_generic on_ibinds ctx bind) *)
+(*         BindCons (on_anno ctx anno, on_bind on_binds ctx bind) *)
 (*   end *)
 
-fun on_tbinds on_anno on_inner ctx (tbinds : ('a, string * 'b, 'c) tbinds) = on_binds on_tbind on_anno on_inner ctx tbinds
+(* fun on_ibinds on_anno on_inner ctx (ibinds : ('a, string * 'b, 'c) ibinds) = on_binds on_ibind on_anno on_inner ctx ibinds *)
+(* (* fun on_ibinds on_anno on_inner ctx ibinds = *) *)
+(* (*   let *) *)
+(* (*     val on_ibinds = on_ibinds on_anno on_inner *) *)
+(* (*   in *) *)
+(* (*     case ibinds of *) *)
+(* (*         BindNil inner => BindNil (on_inner ctx inner) *) *)
+(* (*       | BindCons (anno, bind) => *) *)
+(* (*         BindCons (on_anno ctx anno, on_ibind_generic on_ibinds ctx bind) *) *)
+(* (*   end *) *)
+
+(* fun on_tbinds on_anno on_inner ctx (tbinds : ('a, string * 'b, 'c) tbinds) = on_binds on_tbind on_anno on_inner ctx tbinds *)
                                                                                          
 structure TV = TypeVisitorFn (structure S = S.Type
                               structure T = T.Type)
@@ -274,18 +274,18 @@ fun on_datatype gctx ctx b =
     #visit_datatype vtable visitor ctx b
   end
     
-fun on_constr_core gctx ctx b =
-  let
-    val visitor as (TV.TypeVisitor vtable) = new_on_i_type_visitor gctx
-  in
-    #visit_constr_core vtable visitor ctx b
-  end
-    
 fun on_type gctx ctx b =
   let
     val visitor as (TV.TypeVisitor vtable) = new_on_i_type_visitor gctx
   in
     #visit_ty vtable visitor ctx b
+  end
+    
+fun on_constr gctx ctx b =
+  let
+    val visitor as (TV.TypeVisitor vtable) = new_on_i_type_visitor gctx
+  in
+    #visit_constr vtable visitor ctx b
   end
     
 (* fun on_mtype gctx (ctx as (sctx, kctx)) t = *)
@@ -355,16 +355,16 @@ fun on_type gctx ctx b =
 (* 	| S.Uni (Bind ((name, r), t), r_all) => Uni (Bind ((name, r), on_type (sctx, name :: kctx) t), r_all) *)
 (*     end *)
       
-fun on_constr gctx (ctx as (sctx, kctx)) ((family, tbinds) : S.mtype S.constr) : mtype constr =
-    (on_long_id gctx #2 kctx family,
-     on_tbinds return2 (fn kctx => on_constr_core gctx (sctx, kctx)) kctx tbinds)
+(* fun on_constr gctx (ctx as (sctx, kctx)) ((family, tbinds) : S.mtype S.constr) : mtype constr = *)
+(*     (on_long_id gctx #2 kctx family, *)
+(*      on_tbinds return2 (fn kctx => on_constr_core gctx (sctx, kctx)) kctx tbinds) *)
 
 val empty_ctx = ([], [], [], [])
 fun add_sorting_skct name (sctx, kctx, cctx, tctx) = (name :: sctx, kctx, cctx, tctx)
 fun add_kinding_skct name (sctx, kctx, cctx, tctx) = (sctx, name :: kctx, cctx, tctx)
 fun add_typing_skct name (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx)
-fun add_ctx (sctxd, kctxd, cctxd, tctxd) (sctx, kctx, cctx, tctx) =
-    (sctxd @ sctx, kctxd @ kctx, cctxd @ cctx, tctxd @ tctx)
+(* fun add_ctx (sctxd, kctxd, cctxd, tctxd) (sctx, kctx, cctx, tctx) = *)
+(*     (sctxd @ sctx, kctxd @ kctx, cctxd @ cctx, tctxd @ tctx) *)
       
 fun shift_return (sctxn, kctxn) (t, d) =
     let

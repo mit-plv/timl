@@ -444,29 +444,29 @@ fun normalize_s b =
         
 fun normalize_k k = mapSnd (map normalize_bs) k
                                       
-fun normalize_ibind f kctx (Bind (name, t) : ('a * 'b) ibind) =
-  Bind (name, f (shiftx_i_kctx 1 kctx) t)
+(* fun normalize_ibind f kctx (Bind (name, t) : ('a * 'b) ibind) = *)
+(*   Bind (name, f (shiftx_i_kctx 1 kctx) t) *)
        
-fun normalize_tbind f kctx k (Bind (name, t) : ((string * 'a) * 'b) tbind) =
-  Bind (name, f (add_kinding (fst name, k) kctx) t)
+(* fun normalize_tbind f kctx k (Bind (name, t) : ((string * 'a) * 'b) tbind) = *)
+(*   Bind (name, f (add_kinding (fst name, k) kctx) t) *)
 
-fun normalize_binds get_cls on_bind f_cls f ctx binds =
-  let
-    val normalize_binds = normalize_binds get_cls on_bind f_cls f
-  in
-    case binds of
-        BindNil a => BindNil (f ctx a)
-      | BindCons (cls, bind) =>
-        let
-          val cls = f_cls cls
-        in
-          BindCons (cls, on_bind normalize_binds ctx (get_cls cls) bind)
-        end
-  end
+(* fun normalize_binds get_cls on_bind f_cls f ctx binds = *)
+(*   let *)
+(*     val normalize_binds = normalize_binds get_cls on_bind f_cls f *)
+(*   in *)
+(*     case binds of *)
+(*         BindNil a => BindNil (f ctx a) *)
+(*       | BindCons (cls, bind) => *)
+(*         let *)
+(*           val cls = f_cls cls *)
+(*         in *)
+(*           BindCons (cls, on_bind normalize_binds ctx (get_cls cls) bind) *)
+(*         end *)
+(*   end *)
 
-fun normalize_ibind' f kctx _ bind = normalize_ibind f kctx bind
-fun normalize_ibinds f_cls f ctx (b : ('classifier, 'name, 'inner) ibinds) = normalize_binds id normalize_ibind' f_cls f ctx b
-fun normalize_tbinds get_cls f_cls f ctx (b : ('classifier, string * 'a, 'inner) tbinds) = normalize_binds get_cls normalize_tbind f_cls f ctx b
+(* fun normalize_ibind' f kctx _ bind = normalize_ibind f kctx bind *)
+(* fun normalize_ibinds f_cls f ctx (b : ('classifier, 'name, 'inner) ibinds) = normalize_binds id normalize_ibind' f_cls f ctx b *)
+(* fun normalize_tbinds get_cls f_cls f ctx (b : ('classifier, string * 'a, 'inner) tbinds) = normalize_binds get_cls normalize_tbind f_cls f ctx b *)
        
 fun normalize_type_visitor_vtable cast gctx : ('this, kcontext) type_visitor_vtable =
   let
@@ -479,7 +479,7 @@ fun normalize_type_visitor_vtable cast gctx : ('this, kcontext) type_visitor_vta
           cast
           extend_i
           extend_t
-          (visit_imposs "normalize_mt/visit_var")
+          visit_noop
           (adapt normalize_bs)
           (adapt normalize_i)
           (adapt normalize_s)
@@ -539,6 +539,13 @@ fun normalize_mt gctx kctx b =
     #visit_mtype vtable visitor kctx b
   end
     
+fun normalize_t gctx kctx b =
+  let
+    val visitor as (TypeVisitor vtable) = new_normalize_type_visitor gctx
+  in
+    #visit_ty vtable visitor kctx b
+  end
+    
 fun normalize_constr_core gctx kctx b =
   let
     val visitor as (TypeVisitor vtable) = new_normalize_type_visitor gctx
@@ -546,11 +553,11 @@ fun normalize_constr_core gctx kctx b =
     #visit_constr_core vtable visitor kctx b
   end
     
-fun normalize_t gctx kctx b =
+fun normalize_c gctx kctx b =
   let
     val visitor as (TypeVisitor vtable) = new_normalize_type_visitor gctx
   in
-    #visit_ty vtable visitor kctx b
+    #visit_constr vtable visitor kctx b
   end
     
 (* fun normalize_mt gctx kctx t = *)
@@ -631,16 +638,16 @@ fun normalize_t gctx kctx b =
 (*       Mono t => Mono (normalize_mt gctx kctx t) *)
 (*     | Uni (Bind (name, t), r) => Uni (Bind (name, normalize_t gctx (add_kinding (fst name, Type) kctx) t), r) *)
 
+(* fun normalize_c gctx kctx ((x, core) : mtype constr) : mtype constr = *)
+(*   let *)
+(*     val core = normalize_tbinds (const_fun Type) id (normalize_constr_core gctx) kctx core *)
+(*   in *)
+(*     (x, core) *)
+(*   end *)
+
 fun normalize_k k = mapSnd (map normalize_bs) k
 
 fun normalize_ke gctx kctx ((k, t) : kind_ext) = (normalize_k k, Option.map (normalize_mt gctx kctx) t)
-
-fun normalize_c gctx kctx ((x, core) : mtype constr) : mtype constr =
-  let
-    val core = normalize_tbinds (const_fun Type) id (normalize_constr_core gctx) kctx core
-  in
-    (x, core)
-  end
 
 fun normalize_ctx gctx ((sctx, kctx, cctx, tctx) : context) =
   let

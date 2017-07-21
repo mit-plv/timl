@@ -390,8 +390,6 @@ fun MtAbsIMany (ctx, t, r) = foldl (fn ((name, s), t) => MtAbsI (s, Bind ((name,
 fun AppVar (x, is) = MtAppIs (MtVar x) is
 fun AppV (x, ts, is, r) = MtAppIs (MtApps (MtVar x) ts) is
 
-type 'mtype constr = var(*family*) * (unit, name, 'mtype constr_core) tbinds
-(* type 'mtype constr = var(*family*) * string list(*type argument names*) * 'mtype constr_core *)
 val VarT = MtVar
 fun constr_type VarT shiftx_long_id ((family, tbinds) : mtype constr) = 
   let
@@ -1422,17 +1420,6 @@ open TypeShift
 
 fun shiftx_id x n (y, r) = (shiftx_v x n y, r)
                              
-fun shiftx_i_c x n ((family, tbinds) : mtype constr) : mtype constr =
-  (family,
-   on_i_tbinds return3 (on_i_constr_core (shiftx_i_i, shiftx_i_s)) x n tbinds)
-
-fun shift_i_c b = shiftx_i_c 0 1 b
-
-fun shiftx_t_c x n (((m, family), tbinds) : mtype constr) : mtype constr =
-  ((m, shiftx_id x n family),
-   on_t_tbinds return3 (on_t_constr_core shiftx_var) x n tbinds)
-fun shift_t_c b = shiftx_t_c 0 1 b
-
 (* forget *)
 
 fun try_forget f a =
@@ -1463,24 +1450,24 @@ fun substx_list f d x v b = map (f d x v) b
 
 open Bind
        
-fun substx_i_ibind f d x v (Bind (name, inner) : ('name * 'b) ibind) =
-  Bind (name, f (d + 1) (x + 1) v inner)
+(* fun substx_i_ibind f d x v (Bind (name, inner) : ('name * 'b) ibind) = *)
+(*   Bind (name, f (d + 1) (x + 1) v inner) *)
        
-fun substx_i_tbind f d x v (Bind (name, inner) : ('name * 'b) tbind) =
-  Bind (name, f d x v inner)
+(* fun substx_i_tbind f d x v (Bind (name, inner) : ('name * 'b) tbind) = *)
+(*   Bind (name, f d x v inner) *)
 
-fun substx_binds substx_bind f_cls f d x v b =
-  let
-    val substx_binds = substx_binds substx_bind f_cls f
-  in
-    case b of
-        BindNil a => BindNil (f d x v a)
-      | BindCons (cls, bind) => BindCons (f_cls d x v cls, substx_bind substx_binds d x v bind)
-  end
+(* fun substx_binds substx_bind f_cls f d x v b = *)
+(*   let *)
+(*     val substx_binds = substx_binds substx_bind f_cls f *)
+(*   in *)
+(*     case b of *)
+(*         BindNil a => BindNil (f d x v a) *)
+(*       | BindCons (cls, bind) => BindCons (f_cls d x v cls, substx_bind substx_binds d x v bind) *)
+(*   end *)
 
-fun substx_i_ibinds f_cls f d x v (b : ('classifier, 'name, 'inner) ibinds) = substx_binds substx_i_ibind f_cls f d x v b
+(* fun substx_i_ibinds f_cls f d x v (b : ('classifier, 'name, 'inner) ibinds) = substx_binds substx_i_ibind f_cls f d x v b *)
                                                                                            
-fun substx_i_tbinds f_cls f d x v (b : ('classifier, 'name, 'inner) tbinds) = substx_binds substx_i_tbind f_cls f d x v b
+(* fun substx_i_tbinds f_cls f d x v (b : ('classifier, 'name, 'inner) tbinds) = substx_binds substx_i_tbind f_cls f d x v b *)
                                                                                            
 (* depth [d] is used for shifting value [v] *)
                                                                                            
@@ -1660,23 +1647,23 @@ fun substx_i_t a = subst_i_t_fn (substx_i_i, substx_i_s) a
 
 fun subst_i_t (v : idx) (b : ty) : ty = substx_i_t 0 0 v b
 
-fun substx_t_ibind f (di, dt) x v (Bind (name, inner) : ('name * 'b) ibind) =
-  Bind (name, f (di + 1, dt) x v inner)
+(* fun substx_t_ibind f (di, dt) x v (Bind (name, inner) : ('name * 'b) ibind) = *)
+(*   Bind (name, f (di + 1, dt) x v inner) *)
 
-fun substx_t_tbind f (di, dt) x v (Bind (name, inner) : ('name * 'b) tbind) =
-  Bind (name, f (di, dt + 1) (x + 1) v inner)
+(* fun substx_t_tbind f (di, dt) x v (Bind (name, inner) : ('name * 'b) tbind) = *)
+(*   Bind (name, f (di, dt + 1) (x + 1) v inner) *)
        
-fun substx_t_ibinds f_cls f d x v (b : ('classifier, 'name, 'inner) ibinds) = substx_binds substx_t_ibind f_cls f d x v b
-(* fun substx_t_ibinds f_cls f d x v b = *)
-  (* case b of *)
-  (*     BindNil a => BindNil (f d x v a) *)
-(*   | BindCons (cls, bind) => BindCons (f_cls d x v cls, substx_t_ibind (substx_t_ibinds f_cls f) d x v bind) *)
+(* fun substx_t_ibinds f_cls f d x v (b : ('classifier, 'name, 'inner) ibinds) = substx_binds substx_t_ibind f_cls f d x v b *)
+(* (* fun substx_t_ibinds f_cls f d x v b = *) *)
+(*   (* case b of *) *)
+(*   (*     BindNil a => BindNil (f d x v a) *) *)
+(* (*   | BindCons (cls, bind) => BindCons (f_cls d x v cls, substx_t_ibind (substx_t_ibinds f_cls f) d x v bind) *) *)
                                                                                            
-fun substx_t_tbinds f_cls f d x v (b : ('classifier, 'name, 'inner) tbinds) = substx_binds substx_t_tbind f_cls f d x v b
-(* fun substx_t_tbinds f_cls f d x v b = *)
-(*   case b of *)
-(*       BindNil a => BindNil (f d x v a) *)
-(*     | BindCons (cls, bind) => BindCons (f_cls d x v cls, substx_t_tbind (substx_t_tbinds f_cls f) d x v bind) *)
+(* fun substx_t_tbinds f_cls f d x v (b : ('classifier, 'name, 'inner) tbinds) = substx_binds substx_t_tbind f_cls f d x v b *)
+(* (* fun substx_t_tbinds f_cls f d x v b = *) *)
+(* (*   case b of *) *)
+(* (*       BindNil a => BindNil (f d x v a) *) *)
+(* (*     | BindCons (cls, bind) => BindCons (f_cls d x v cls, substx_t_tbind (substx_t_tbinds f_cls f) d x v bind) *) *)
 
 (* local *)
 (*   fun f d x v (b : mtype) : mtype = *)
@@ -1709,6 +1696,11 @@ fun substx_t_tbinds f_cls f d x v (b : ('classifier, 'name, 'inner) tbinds) = su
 (* val substx_t_mt = f *)
 (* end *)
 
+(* fun substx_t_t d x (v : mtype) (b : ty) : ty = *)
+(*   case b of *)
+(*       Mono t => Mono (substx_t_mt d x v t) *)
+(*     | Uni (bind, r) => Uni (substx_t_tbind substx_t_t d x v bind, r) *)
+                           
 fun subst_t_type_visitor_vtable cast ((shift_i_t, shift_t_t), d, x, v) : ('this, idepth * tdepth) type_visitor_vtable =
   let
     fun extend_i this (di, dt) _ = (idepth_inc di, dt)
@@ -1750,6 +1742,15 @@ fun subst_t_mt_fn params d x v b =
                                
 fun substx_t_mt a = unuse_idepth_tdepth (subst_t_mt_fn (shiftx_i_mt, shiftx_t_mt)) a
       
+fun subst_t_t_fn params d x v b =
+  let
+    val visitor as (TypeVisitor vtable) = new_subst_t_type_visitor (params, d, x, v)
+  in
+    #visit_ty vtable visitor (IDepth 0, TDepth 0) b
+  end
+                               
+fun substx_t_t a = unuse_idepth_tdepth (subst_t_t_fn (shiftx_i_mt, shiftx_t_mt)) a
+      
 fun subst_t_mt (v : mtype) (b : mtype) : mtype = substx_t_mt (0, 0) 0 v b
                                                              
 fun subst_is_mt is t =
@@ -1757,10 +1758,6 @@ fun subst_is_mt is t =
 fun subst_ts_mt vs b =
   fst (foldl (fn (v, (b, x)) => (substx_t_mt (0, x) x v b, x - 1)) (b, length vs - 1) vs)
       
-fun substx_t_t d x (v : mtype) (b : ty) : ty =
-  case b of
-      Mono t => Mono (substx_t_mt d x v t)
-    | Uni (bind, r) => Uni (substx_t_tbind substx_t_t d x v bind, r)
 fun subst_t_t v b =
   substx_t_t (0, 0) 0 v b
 

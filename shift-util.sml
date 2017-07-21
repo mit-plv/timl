@@ -29,7 +29,7 @@ fun on_binds on_bind on_anno on_inner x n b =
     val on_binds = on_binds on_bind on_anno on_inner
   in
     case b of
-        BindNil inner => 
+        BindNil inner =>
         BindNil (on_inner x n inner)
       | BindCons (anno, bind) =>
         BindCons (on_anno x n anno, on_bind on_binds x n bind)
