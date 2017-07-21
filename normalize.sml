@@ -33,15 +33,16 @@ fun update_idx_visitor_vtable cast () : ('this, unit) idx_visitor_vtable =
       let
         val vtable = cast this
       in
-        case !x of
-            Refined bs => 
-            let 
-              val bs = #visit_bsort vtable this env bs
-              val () = x := Refined bs
-            in
-              bs
-            end
-          | Fresh _ => UVarBS x
+        load_uvar' (#visit_bsort vtable this env) (UVarBS x) x
+        (* case !x of *)
+        (*     Refined bs =>  *)
+        (*     let  *)
+        (*       val bs = #visit_bsort vtable this env bs *)
+        (*       val () = x := Refined bs *)
+        (*     in *)
+        (*       bs *)
+        (*     end *)
+        (*   | Fresh _ => UVarBS x *)
       end
     val vtable = override_visit_UVarBS vtable visit_UVarBS
     fun visit_UVarI this env (data as (x, r)) =
@@ -275,45 +276,6 @@ fun whnf_i i =
       end
     | _ => i
 
-(* Normalize to full normal form (i.e reduce under binders) *)
-
-val normalize_bs = update_bs
-
-fun normalize_i i =
-  case i of
-      UVarI (x, r) => load_uvar' normalize_i i x
-    | IConst _ => i
-    | UnOpI (opr, i, r) => UnOpI (opr, normalize_i i, r)
-    | BinOpI (opr, i1, i2) =>
-      let
-        val i1 = normalize_i i1
-        val i2 = normalize_i i2
-      in
-        case (opr, i1) of
-            (IApp, IAbs (_, Bind (_, i1), _)) => normalize_i (subst_i_i i2 i1)
-          | _ => BinOpI (opr, i1, i2)
-      end
-    | Ite (i1, i2, i3, r) =>
-      let
-        val i1 = normalize_i i1
-        val i2 = normalize_i i2
-        val i3 = normalize_i i3
-      in
-        case i1 of
-            IConst (ICBool b, _) => if b then i2 else i3
-          | _ => Ite (i1, i2, i3, r)
-      end
-    | VarI _ => i
-    | IAbs (b, Bind (name, i), r) => IAbs (normalize_bs b, Bind (name, normalize_i i), r)
-
-fun normalize_p p =
-  case p of
-      Quan (q, bs, Bind (name, p), r) => Quan (q, normalize_bs bs, Bind (name, normalize_p p), r)
-    | BinConn (opr, p1, p2) => BinConn (opr, normalize_p p1, normalize_p p2)
-    | BinPred (opr, i1, i2) => BinPred (opr, normalize_i i1, normalize_i i2)
-    | Not (p, r) => Not (normalize_p p, r)
-    | PTrueFalse _ => p
-                   
 fun whnf_s s =
   case s of
       UVarS (x, r) => load_uvar' whnf_s s x
@@ -328,24 +290,6 @@ fun whnf_s s =
       end
     | _ => s
              
-fun normalize_s s =
-  case s of
-      UVarS (x, r) => load_uvar' normalize_s s x
-    | Basic _ => s
-    | Subset ((b, r1), Bind (name, p), r) => Subset ((normalize_bs b, r1), Bind (name, normalize_p p), r)
-    | SAbs (s_arg, Bind (name, s), r) => SAbs (normalize_bs s_arg, Bind (name, normalize_s s), r)
-    | SApp (s, i) =>
-      let
-        val s = normalize_s s
-        val i = normalize_i i
-      in
-        case s of
-            SAbs (_, Bind (_, s), _) => normalize_s (subst_i_s i s)
-          | _ => SApp (s, i)
-      end
-        
-fun normalize_k k = mapSnd (map normalize_bs) k
-                                      
 fun whnf_mt gctx kctx (t : mtype) : mtype =
   let
     val whnf_mt = whnf_mt gctx
@@ -374,6 +318,141 @@ fun whnf_mt gctx kctx (t : mtype) : mtype =
       | _ => t
   end
 
+(* Normalize to full normal form (i.e reduce under binders) *)
+
+fun normalize_idx_visitor_vtable cast () : ('this, unit) idx_visitor_vtable =
+  let
+    val vtable =
+        update_idx_visitor_vtable
+          cast
+          ()
+    fun visit_BinOpI this env (data as (opr, i1, i2)) =
+      let
+        val vtable = cast this
+        fun normalize_i a = #visit_idx vtable this env a
+        val i1 = normalize_i i1
+        val i2 = normalize_i i2
+      in
+        case (opr, i1) of
+            (IApp, IAbs (_, Bind (_, i1), _)) => normalize_i (subst_i_i i2 i1)
+          | _ => BinOpI (opr, i1, i2)
+      end
+    val vtable = override_visit_BinOpI vtable visit_BinOpI
+    fun visit_Ite this env (data as (i1, i2, i3, r)) =
+      let
+        val vtable = cast this
+        fun normalize_i a = #visit_idx vtable this env a
+        val i1 = normalize_i i1
+        val i2 = normalize_i i2
+        val i3 = normalize_i i3
+      in
+        case i1 of
+            IConst (ICBool b, _) => if b then i2 else i3
+          | _ => Ite (i1, i2, i3, r)
+      end
+    val vtable = override_visit_Ite vtable visit_Ite
+    fun visit_SApp this env (data as (s, i)) =
+      let
+        val vtable = cast this
+        fun normalize_i a = #visit_idx vtable this env a
+        fun normalize_s a = #visit_sort vtable this env a
+        val s = normalize_s s
+        val i = normalize_i i
+      in
+        case s of
+            SAbs (_, Bind (_, s), _) => normalize_s (subst_i_s i s)
+          | _ => SApp (s, i)
+      end
+    val vtable = override_visit_SApp vtable visit_SApp
+  in
+    vtable
+  end
+
+fun new_normalize_idx_visitor a = new_idx_visitor normalize_idx_visitor_vtable a
+    
+fun normalize_bs b =
+  let
+    val visitor as (IdxVisitor vtable) = new_normalize_idx_visitor ()
+  in
+    #visit_bsort vtable visitor () b
+  end
+    
+fun normalize_i b =
+  let
+    val visitor as (IdxVisitor vtable) = new_normalize_idx_visitor ()
+  in
+    #visit_idx vtable visitor () b
+  end
+    
+fun normalize_p b =
+  let
+    val visitor as (IdxVisitor vtable) = new_normalize_idx_visitor ()
+  in
+    #visit_prop vtable visitor () b
+  end
+    
+fun normalize_s b =
+  let
+    val visitor as (IdxVisitor vtable) = new_normalize_idx_visitor ()
+  in
+    #visit_sort vtable visitor () b
+  end
+                   
+(* val normalize_bs = update_bs *)
+
+(* fun normalize_i i = *)
+(*   case i of *)
+(*       UVarI (x, r) => load_uvar' normalize_i i x *)
+(*     | IConst _ => i *)
+(*     | UnOpI (opr, i, r) => UnOpI (opr, normalize_i i, r) *)
+(*     | BinOpI (opr, i1, i2) => *)
+(*       let *)
+(*         val i1 = normalize_i i1 *)
+(*         val i2 = normalize_i i2 *)
+(*       in *)
+(*         case (opr, i1) of *)
+(*             (IApp, IAbs (_, Bind (_, i1), _)) => normalize_i (subst_i_i i2 i1) *)
+(*           | _ => BinOpI (opr, i1, i2) *)
+(*       end *)
+(*     | Ite (i1, i2, i3, r) => *)
+(*       let *)
+(*         val i1 = normalize_i i1 *)
+(*         val i2 = normalize_i i2 *)
+(*         val i3 = normalize_i i3 *)
+(*       in *)
+(*         case i1 of *)
+(*             IConst (ICBool b, _) => if b then i2 else i3 *)
+(*           | _ => Ite (i1, i2, i3, r) *)
+(*       end *)
+(*     | VarI _ => i *)
+(*     | IAbs (b, Bind (name, i), r) => IAbs (normalize_bs b, Bind (name, normalize_i i), r) *)
+
+(* fun normalize_p p = *)
+(*   case p of *)
+(*       Quan (q, bs, Bind (name, p), r) => Quan (q, normalize_bs bs, Bind (name, normalize_p p), r) *)
+(*     | BinConn (opr, p1, p2) => BinConn (opr, normalize_p p1, normalize_p p2) *)
+(*     | BinPred (opr, i1, i2) => BinPred (opr, normalize_i i1, normalize_i i2) *)
+(*     | Not (p, r) => Not (normalize_p p, r) *)
+(*     | PTrueFalse _ => p *)
+                   
+(* fun normalize_s s = *)
+(*   case s of *)
+(*       UVarS (x, r) => load_uvar' normalize_s s x *)
+(*     | Basic _ => s *)
+(*     | Subset ((b, r1), Bind (name, p), r) => Subset ((normalize_bs b, r1), Bind (name, normalize_p p), r) *)
+(*     | SAbs (s_arg, Bind (name, s), r) => SAbs (normalize_bs s_arg, Bind (name, normalize_s s), r) *)
+(*     | SApp (s, i) => *)
+(*       let *)
+(*         val s = normalize_s s *)
+(*         val i = normalize_i i *)
+(*       in *)
+(*         case s of *)
+(*             SAbs (_, Bind (_, s), _) => normalize_s (subst_i_s i s) *)
+(*           | _ => SApp (s, i) *)
+(*       end *)
+        
+fun normalize_k k = mapSnd (map normalize_bs) k
+                                      
 fun normalize_ibind f kctx (Bind (name, t) : ('a * 'b) ibind) =
   Bind (name, f (shiftx_i_kctx 1 kctx) t)
        
