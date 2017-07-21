@@ -116,6 +116,108 @@ fun override_visit_VarI (record : ('this, 'env) idx_visitor_vtable) new =
     extend = #extend record
   }
 
+fun override_visit_UVarBS (record : ('this, 'env) idx_visitor_vtable) new =
+  {
+    visit_bsort = #visit_bsort record,
+    visit_Base = #visit_Base record,
+    visit_BSArrow = #visit_BSArrow record,
+    visit_UVarBS = new,
+    visit_idx = #visit_idx record,
+    visit_VarI = #visit_VarI record,
+    visit_IConst = #visit_IConst record,
+    visit_UnOpI = #visit_UnOpI record,
+    visit_BinOpI = #visit_BinOpI record,
+    visit_Ite = #visit_Ite record,
+    visit_IAbs = #visit_IAbs record,
+    visit_UVarI = #visit_UVarI record,
+    visit_prop = #visit_prop record,
+    visit_PTrueFalse = #visit_PTrueFalse record,
+    visit_BinConn = #visit_BinConn record,
+    visit_Not = #visit_Not record,
+    visit_BinPred = #visit_BinPred record,
+    visit_Quan = #visit_Quan record,
+    visit_sort = #visit_sort record,
+    visit_Basic = #visit_Basic record,
+    visit_Subset = #visit_Subset record,
+    visit_UVarS = #visit_UVarS record,
+    visit_SAbs = #visit_SAbs record,
+    visit_SApp = #visit_SApp record,
+    visit_var = #visit_var record,
+    visit_uvar_bs = #visit_uvar_bs record,
+    visit_uvar_i = #visit_uvar_i record,
+    visit_uvar_s = #visit_uvar_s record,
+    visit_quan = #visit_quan record,
+    extend = #extend record
+  }
+
+fun override_visit_UVarI (record : ('this, 'env) idx_visitor_vtable) new =
+  {
+    visit_bsort = #visit_bsort record,
+    visit_Base = #visit_Base record,
+    visit_BSArrow = #visit_BSArrow record,
+    visit_UVarBS = #visit_UVarBS record,
+    visit_idx = #visit_idx record,
+    visit_VarI = #visit_VarI record,
+    visit_IConst = #visit_IConst record,
+    visit_UnOpI = #visit_UnOpI record,
+    visit_BinOpI = #visit_BinOpI record,
+    visit_Ite = #visit_Ite record,
+    visit_IAbs = #visit_IAbs record,
+    visit_UVarI = new,
+    visit_prop = #visit_prop record,
+    visit_PTrueFalse = #visit_PTrueFalse record,
+    visit_BinConn = #visit_BinConn record,
+    visit_Not = #visit_Not record,
+    visit_BinPred = #visit_BinPred record,
+    visit_Quan = #visit_Quan record,
+    visit_sort = #visit_sort record,
+    visit_Basic = #visit_Basic record,
+    visit_Subset = #visit_Subset record,
+    visit_UVarS = #visit_UVarS record,
+    visit_SAbs = #visit_SAbs record,
+    visit_SApp = #visit_SApp record,
+    visit_var = #visit_var record,
+    visit_uvar_bs = #visit_uvar_bs record,
+    visit_uvar_i = #visit_uvar_i record,
+    visit_uvar_s = #visit_uvar_s record,
+    visit_quan = #visit_quan record,
+    extend = #extend record
+  }
+
+fun override_visit_UVarS (record : ('this, 'env) idx_visitor_vtable) new =
+  {
+    visit_bsort = #visit_bsort record,
+    visit_Base = #visit_Base record,
+    visit_BSArrow = #visit_BSArrow record,
+    visit_UVarBS = #visit_UVarBS record,
+    visit_idx = #visit_idx record,
+    visit_VarI = #visit_VarI record,
+    visit_IConst = #visit_IConst record,
+    visit_UnOpI = #visit_UnOpI record,
+    visit_BinOpI = #visit_BinOpI record,
+    visit_Ite = #visit_Ite record,
+    visit_IAbs = #visit_IAbs record,
+    visit_UVarI = #visit_UVarI record,
+    visit_prop = #visit_prop record,
+    visit_PTrueFalse = #visit_PTrueFalse record,
+    visit_BinConn = #visit_BinConn record,
+    visit_Not = #visit_Not record,
+    visit_BinPred = #visit_BinPred record,
+    visit_Quan = #visit_Quan record,
+    visit_sort = #visit_sort record,
+    visit_Basic = #visit_Basic record,
+    visit_Subset = #visit_Subset record,
+    visit_UVarS = new,
+    visit_SAbs = #visit_SAbs record,
+    visit_SApp = #visit_SApp record,
+    visit_var = #visit_var record,
+    visit_uvar_bs = #visit_uvar_bs record,
+    visit_uvar_i = #visit_uvar_i record,
+    visit_uvar_s = #visit_uvar_s record,
+    visit_quan = #visit_quan record,
+    extend = #extend record
+  }
+
 type ('this, 'env) idx_visitor_interface =
      ('this, 'env) idx_visitor_vtable
                                        

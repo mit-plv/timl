@@ -11,54 +11,128 @@ infixr 0 $
 
 (* update all [Refined] uvars *)         
          
-fun update_bs bs =
-  case bs of
-      UVarBS x =>
-      (case !x of
-           Refined bs => 
-           let 
-             val bs = update_bs bs
-             val () = x := Refined bs
-           in
-             bs
-           end
-         | Fresh _ => bs
-      )
-    | BSArrow (a, b) => BSArrow (update_bs a, update_bs b)
-    | Base _ => bs
-
 fun load_uvar on_refined on_fresh (a as (x, r)) =
   case !x of
       Refined b => on_refined b
     | Fresh _ => on_fresh x
 
 fun load_uvar' on_refined origin x = load_uvar on_refined (const_fun origin) (x, dummy)
+
+fun update_idx_visitor_vtable cast () : ('this, unit) idx_visitor_vtable =
+  let
+    val vtable =
+        default_idx_visitor_vtable
+          cast
+          extend_noop
+          visit_noop
+          visit_noop
+          visit_noop
+          visit_noop
+          visit_noop
+    fun visit_UVarBS this env x =
+      let
+        val vtable = cast this
+      in
+        case !x of
+            Refined bs => 
+            let 
+              val bs = #visit_bsort vtable this env bs
+              val () = x := Refined bs
+            in
+              bs
+            end
+          | Fresh _ => UVarBS x
+      end
+    val vtable = override_visit_UVarBS vtable visit_UVarBS
+    fun visit_UVarI this env (data as (x, r)) =
+      let
+        val vtable = cast this
+      in
+        load_uvar' (#visit_idx vtable this env) (UVarI data) x
+      end
+    val vtable = override_visit_UVarI vtable visit_UVarI
+    fun visit_UVarS this env (data as (x, r)) =
+      let
+        val vtable = cast this
+      in
+        load_uvar' (#visit_sort vtable this env) (UVarS data) x
+      end
+    val vtable = override_visit_UVarS vtable visit_UVarS
+  in
+    vtable
+  end
+
+fun new_update_idx_visitor a = new_idx_visitor update_idx_visitor_vtable a
+    
+fun update_bs b =
+  let
+    val visitor as (IdxVisitor vtable) = new_update_idx_visitor ()
+  in
+    #visit_bsort vtable visitor () b
+  end
+    
+fun update_i b =
+  let
+    val visitor as (IdxVisitor vtable) = new_update_idx_visitor ()
+  in
+    #visit_idx vtable visitor () b
+  end
+    
+fun update_p b =
+  let
+    val visitor as (IdxVisitor vtable) = new_update_idx_visitor ()
+  in
+    #visit_prop vtable visitor () b
+  end
+    
+fun update_s b =
+  let
+    val visitor as (IdxVisitor vtable) = new_update_idx_visitor ()
+  in
+    #visit_sort vtable visitor () b
+  end
                    
-fun update_i i =
-  case i of
-      UVarI (x, r) => load_uvar' update_i i x
-    | IConst _ => i
-    | UnOpI (opr, i, r) => UnOpI (opr, update_i i, r)
-    | BinOpI (opr, i1, i2) => BinOpI (opr, update_i i1, update_i i2)
-    | Ite (i1, i2, i3, r) => Ite (update_i i1, update_i i2, update_i i3, r)
-    | VarI _ => i
-    | IAbs (b, Bind (name, i), r) => IAbs (update_bs b, Bind (name, update_i i), r)
+(* fun update_bs bs = *)
+(*   case bs of *)
+(*       UVarBS x => *)
+(*       (case !x of *)
+(*            Refined bs =>  *)
+(*            let  *)
+(*              val bs = update_bs bs *)
+(*              val () = x := Refined bs *)
+(*            in *)
+(*              bs *)
+(*            end *)
+(*          | Fresh _ => bs *)
+(*       ) *)
+(*     | BSArrow (a, b) => BSArrow (update_bs a, update_bs b) *)
+(*     | Base _ => bs *)
 
-fun update_p p =
-  case p of
-      Quan (q, bs, Bind (name, p), r) => Quan (q, update_bs bs, Bind (name, update_p p), r)
-    | BinConn (opr, p1, p2) => BinConn (opr, update_p p1, update_p p2)
-    | BinPred (opr, i1, i2) => BinPred (opr, update_i i1, update_i i2)
-    | Not (p, r) => Not (update_p p, r)
-    | PTrueFalse _ => p
+(* fun update_i i = *)
+(*   case i of *)
+(*       UVarI (x, r) => load_uvar' update_i i x *)
+(*     | IConst _ => i *)
+(*     | UnOpI (opr, i, r) => UnOpI (opr, update_i i, r) *)
+(*     | BinOpI (opr, i1, i2) => BinOpI (opr, update_i i1, update_i i2) *)
+(*     | Ite (i1, i2, i3, r) => Ite (update_i i1, update_i i2, update_i i3, r) *)
+(*     | VarI _ => i *)
+(*     | IAbs (b, Bind (name, i), r) => IAbs (update_bs b, Bind (name, update_i i), r) *)
 
-fun update_s s =
-  case s of
-      UVarS (x, r) => load_uvar' update_s s x
-    | Basic _ => s
-    | Subset ((b, r1), Bind (name, p), r) => Subset ((update_bs b, r1), Bind (name, update_p p), r)
-    | SAbs (s1, Bind (name, s), r) => SAbs (update_bs s1, Bind (name, update_s s), r)
-    | SApp (s, i) => SApp (update_s s, update_i i)
+(* fun update_p p = *)
+(*   case p of *)
+(*       Quan (q, bs, Bind (name, p), r) => Quan (q, update_bs bs, Bind (name, update_p p), r) *)
+(*     | BinConn (opr, p1, p2) => BinConn (opr, update_p p1, update_p p2) *)
+(*     | BinPred (opr, i1, i2) => BinPred (opr, update_i i1, update_i i2) *)
+(*     | Not (p, r) => Not (update_p p, r) *)
+(*     | PTrueFalse _ => p *)
+
+(* fun update_s s = *)
+(*   case s of *)
+(*       UVarS (x, r) => load_uvar' update_s s x *)
+(*     | Basic _ => s *)
+(*     | Subset ((b, r1), Bind (name, p), r) => Subset ((update_bs b, r1), Bind (name, update_p p), r) *)
+(*     | SAbs (s1, Bind (name, s), r) => SAbs (update_bs s1, Bind (name, update_s s), r) *)
+(*     | SApp (s, i) => SApp (update_s s, update_i i) *)
 
 fun update_k k = mapSnd (map update_bs) k
                       

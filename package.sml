@@ -2,7 +2,6 @@
 (* This is used for packagin things in the top-level context into a module *)
 
 structure Package = struct
-open ExprVisitor
 open Expr
 open Util
 open Subst

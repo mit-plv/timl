@@ -162,7 +162,7 @@ fun process_prog show_result filename gctx prog =
             end
       val vcs = map Normalize.normalize_vc vcs
       val vcs = concatMap VC.simp_vc_vcs vcs
-      val vcs = map fst $ smt_solver false vcs
+      val vcs = map fst $ smt_solver false(*true*) vcs
       val vcs = bigO_solver vcs
       val vcs = map Normalize.normalize_vc vcs
       val vcs = concatMap VC.simp_vc_vcs vcs
