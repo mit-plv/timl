@@ -43,6 +43,7 @@ type ('this, 'env) type_visitor_vtable =
        visit_kind : 'this -> 'env -> kind -> T.kind,
        visit_uvar : 'this -> 'env -> (Idx.bsort, kind, mtype) UVarT.uvar_mt -> (T.Idx.bsort, T.kind, T.mtype) T.UVarT.uvar_mt,
        extend_i : 'this -> 'env -> name -> 'env,
+       extend_t_anno : 'this -> 'env -> name * T.kind -> 'env,
        extend_t : 'this -> 'env -> name -> 'env
      }
        
@@ -75,6 +76,7 @@ fun override_visit_mtype (record : ('this, 'env) type_visitor_vtable) new =
     visit_kind = #visit_kind record,
     visit_uvar = #visit_uvar record,
     extend_i = #extend_i record,
+    extend_t_anno = #extend_t_anno record,
     extend_t = #extend_t record
   }
 
@@ -107,6 +109,7 @@ fun override_visit_MtVar (record : ('this, 'env) type_visitor_vtable) new =
     visit_kind = #visit_kind record,
     visit_uvar = #visit_uvar record,
     extend_i = #extend_i record,
+    extend_t_anno = #extend_t_anno record,
     extend_t = #extend_t record
   }
 
@@ -139,6 +142,40 @@ fun override_visit_MtAppI (record : ('this, 'env) type_visitor_vtable) new =
     visit_kind = #visit_kind record,
     visit_uvar = #visit_uvar record,
     extend_i = #extend_i record,
+    extend_t_anno = #extend_t_anno record,
+    extend_t = #extend_t record
+  }
+
+fun override_visit_MtApp (record : ('this, 'env) type_visitor_vtable) new =
+  {
+    visit_mtype = #visit_mtype record,
+    visit_Arrow = #visit_Arrow record,
+    visit_TyNat = #visit_TyNat record,
+    visit_TyArray = #visit_TyArray record,
+    visit_BaseType = #visit_BaseType record,
+    visit_Unit = #visit_Unit record,
+    visit_Prod = #visit_Prod record,
+    visit_UniI = #visit_UniI record,
+    visit_MtVar = #visit_MtVar record,
+    visit_MtAbs = #visit_MtAbs record,
+    visit_MtApp = new,
+    visit_MtAbsI = #visit_MtAbsI record,
+    visit_MtAppI = #visit_MtAppI record,
+    visit_UVar = #visit_UVar record,
+    visit_TDatatype = #visit_TDatatype record,
+    visit_ty = #visit_ty record,
+    visit_Mono = #visit_Mono record,
+    visit_Uni = #visit_Uni record,
+    visit_datatype = #visit_datatype record,
+    visit_constr_core = #visit_constr_core record,
+    visit_var = #visit_var record,
+    visit_bsort = #visit_bsort record,
+    visit_idx = #visit_idx record,
+    visit_sort = #visit_sort record,
+    visit_kind = #visit_kind record,
+    visit_uvar = #visit_uvar record,
+    extend_i = #extend_i record,
+    extend_t_anno = #extend_t_anno record,
     extend_t = #extend_t record
   }
 
@@ -171,6 +208,40 @@ fun override_visit_UVar (record : ('this, 'env) type_visitor_vtable) new =
     visit_kind = #visit_kind record,
     visit_uvar = #visit_uvar record,
     extend_i = #extend_i record,
+    extend_t_anno = #extend_t_anno record,
+    extend_t = #extend_t record
+  }
+
+fun override_extend_t_anno (record : ('this, 'env) type_visitor_vtable) new =
+  {
+    visit_mtype = #visit_mtype record,
+    visit_Arrow = #visit_Arrow record,
+    visit_TyNat = #visit_TyNat record,
+    visit_TyArray = #visit_TyArray record,
+    visit_BaseType = #visit_BaseType record,
+    visit_Unit = #visit_Unit record,
+    visit_Prod = #visit_Prod record,
+    visit_UniI = #visit_UniI record,
+    visit_MtVar = #visit_MtVar record,
+    visit_MtAbs = #visit_MtAbs record,
+    visit_MtApp = #visit_MtApp record,
+    visit_MtAbsI = #visit_MtAbsI record,
+    visit_MtAppI = #visit_MtAppI record,
+    visit_UVar = #visit_UVar record,
+    visit_TDatatype = #visit_TDatatype record,
+    visit_ty = #visit_ty record,
+    visit_Mono = #visit_Mono record,
+    visit_Uni = #visit_Uni record,
+    visit_datatype = #visit_datatype record,
+    visit_constr_core = #visit_constr_core record,
+    visit_var = #visit_var record,
+    visit_bsort = #visit_bsort record,
+    visit_idx = #visit_idx record,
+    visit_sort = #visit_sort record,
+    visit_kind = #visit_kind record,
+    visit_uvar = #visit_uvar record,
+    extend_i = #extend_i record,
+    extend_t_anno = new,
     extend_t = #extend_t record
   }
 
@@ -310,12 +381,27 @@ fun default_type_visitor_vtable
       in
         T.MtVar data
       end
+    fun extend_t_anno this env (name, _) = 
+      let
+        val vtable = cast this
+      in
+        #extend_t vtable this env name
+      end
+    fun visit_tbind_anno this f env (anno, bind) = 
+      let
+        val vtable = cast this
+        val Bind.Bind (name, t) = bind
+        val t = f (#extend_t_anno vtable this env (name, anno)) t
+        val bind = Bind.Bind (name, t)
+      in
+        (anno, bind)
+      end
     fun visit_MtAbs this env data =
       let
         val vtable = cast this
         val (k, bind, r) = data
         val k = #visit_kind vtable this env k
-        val bind = visit_tbind this (#visit_mtype vtable this) env bind
+        val (k, bind) = visit_tbind_anno this (#visit_mtype vtable this) env (k, bind)
       in
         T.MtAbs (k, bind, r)
       end
@@ -435,6 +521,7 @@ fun default_type_visitor_vtable
       visit_kind = visit_kind,
       visit_uvar = visit_uvar,
       extend_i = extend_i,
+      extend_t_anno = extend_t_anno,
       extend_t = extend_t
     }
   end
