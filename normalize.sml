@@ -25,9 +25,9 @@ fun update_idx_visitor_vtable cast () : ('this, unit) idx_visitor_vtable =
           cast
           extend_noop
           visit_noop
-          visit_noop
-          visit_noop
-          visit_noop
+          (visit_imposs "update/visit_UVarBS")
+          (visit_imposs "update/visit_UVarI")
+          (visit_imposs "update/visit_UVarS")
           visit_noop
     fun visit_UVarBS this env x =
       let
@@ -136,44 +136,85 @@ fun update_s b =
 
 fun update_k k = mapSnd (map update_bs) k
                       
-fun update_mt t =
-  case t of
-      UVar (x, r) => load_uvar' update_mt t x
-    | Unit r => Unit r
-    | Arrow (t1, d, t2) => Arrow (update_mt t1, update_i d, update_mt t2)
-    | TyArray (t, i) => TyArray (update_mt t, update_i i)
-    | TyNat (i, r) => TyNat (update_i i, r)
-    | Prod (t1, t2) => Prod (update_mt t1, update_mt t2)
-    | UniI (s, Bind (name, t1), r) => UniI (update_s s, Bind (name, update_mt t1), r)
-    | MtVar x => MtVar x
-    | MtAbs (k, Bind (name, t), r) => MtAbs (update_k k, Bind (name, update_mt t), r)
-    | MtApp (t1, t2) => MtApp (update_mt t1, update_mt t2)
-    | MtAbsI (s, Bind (name, t), r) => MtAbsI (update_bs s, Bind (name, update_mt t), r)
-    | MtAppI (t, i) => MtAppI (update_mt t, update_i i)
-    | BaseType a => BaseType a
-    | TDatatype (Bind (name, tbinds), r) =>
+fun update_type_visitor_vtable cast () : ('this, unit) type_visitor_vtable =
+  let
+    fun adapt f this env b = f b
+    val vtable =
+        default_type_visitor_vtable
+          cast
+          extend_noop
+          extend_noop
+          visit_noop
+          (adapt update_bs)
+          (adapt update_i)
+          (adapt update_s)
+          (adapt update_k)
+          (visit_imposs "update/visit_UVar")
+    fun visit_UVar this env (data as (x, r)) =
       let
-        val (tname_kinds, (bsorts, decls)) = unfold_binds tbinds
-        val bsorts = map update_bs bsorts
-        fun update_constr_core ibinds =
-          let
-            val (name_sorts, (t, is)) = unfold_binds ibinds
-            val name_sorts = map (mapSnd update_s) name_sorts
-            val t = update_mt t
-            val is = map update_i is
-          in
-            fold_binds (name_sorts, (t, is))
-          end
-        val decls = map (map2_3 update_constr_core) decls
-        val tbinds = fold_binds (tname_kinds, (bsorts, decls))
+        val vtable = cast this
       in
-        TDatatype (Bind (name, tbinds), r)
+        load_uvar' (#visit_mtype vtable this env) (UVar data) x
       end
+    val vtable = override_visit_UVar vtable visit_UVar
+  in
+    vtable
+  end
 
-fun update_t t =
-  case t of
-      Mono t => Mono (update_mt t)
-    | Uni (Bind (name, t), r) => Uni (Bind (name, update_t t), r)
+fun new_update_type_visitor a = new_type_visitor update_type_visitor_vtable a
+    
+fun update_mt b =
+  let
+    val visitor as (TypeVisitor vtable) = new_update_type_visitor ()
+  in
+    #visit_mtype vtable visitor () b
+  end
+    
+fun update_t b =
+  let
+    val visitor as (TypeVisitor vtable) = new_update_type_visitor ()
+  in
+    #visit_ty vtable visitor () b
+  end
+    
+(* fun update_mt t = *)
+(*   case t of *)
+(*       UVar (x, r) => load_uvar' update_mt t x *)
+(*     | Unit r => Unit r *)
+(*     | Arrow (t1, d, t2) => Arrow (update_mt t1, update_i d, update_mt t2) *)
+(*     | TyArray (t, i) => TyArray (update_mt t, update_i i) *)
+(*     | TyNat (i, r) => TyNat (update_i i, r) *)
+(*     | Prod (t1, t2) => Prod (update_mt t1, update_mt t2) *)
+(*     | UniI (s, Bind (name, t1), r) => UniI (update_s s, Bind (name, update_mt t1), r) *)
+(*     | MtVar x => MtVar x *)
+(*     | MtAbs (k, Bind (name, t), r) => MtAbs (update_k k, Bind (name, update_mt t), r) *)
+(*     | MtApp (t1, t2) => MtApp (update_mt t1, update_mt t2) *)
+(*     | MtAbsI (s, Bind (name, t), r) => MtAbsI (update_bs s, Bind (name, update_mt t), r) *)
+(*     | MtAppI (t, i) => MtAppI (update_mt t, update_i i) *)
+(*     | BaseType a => BaseType a *)
+(*     | TDatatype (Bind (name, tbinds), r) => *)
+(*       let *)
+(*         val (tname_kinds, (bsorts, decls)) = unfold_binds tbinds *)
+(*         val bsorts = map update_bs bsorts *)
+(*         fun update_constr_core ibinds = *)
+(*           let *)
+(*             val (name_sorts, (t, is)) = unfold_binds ibinds *)
+(*             val name_sorts = map (mapSnd update_s) name_sorts *)
+(*             val t = update_mt t *)
+(*             val is = map update_i is *)
+(*           in *)
+(*             fold_binds (name_sorts, (t, is)) *)
+(*           end *)
+(*         val decls = map (map2_3 update_constr_core) decls *)
+(*         val tbinds = fold_binds (tname_kinds, (bsorts, decls)) *)
+(*       in *)
+(*         TDatatype (Bind (name, tbinds), r) *)
+(*       end *)
+
+(* fun update_t t = *)
+(*   case t of *)
+(*       Mono t => Mono (update_mt t) *)
+(*     | Uni (Bind (name, t), r) => Uni (Bind (name, update_t t), r) *)
 
 fun update_ke (k, t) = (update_k k, Option.map update_mt t)
 
