@@ -91,12 +91,10 @@ fun get_ctx_and_args sel make_arg on_snd package gctx ctx_local r =
 fun get_sctx_and_args x = get_ctx_and_args #1 VarI x
 fun get_kctx_and_args x = get_ctx_and_args #2 MtVar x
 
-fun package0_noop _ a = a
-                          
 fun fresh_i gctx ctx bsort r = 
   let
     val get_base = get_base refine_UVarS_to_Basic
-    val (ctx, args) = get_sctx_and_args get_base package0_noop gctx ctx r
+    val (ctx, args) = get_sctx_and_args get_base return2 gctx ctx r
     val x = fresh_uvar_i ctx bsort
     val i = UVarI (x, r)
     val i = IApps i args
@@ -107,7 +105,7 @@ fun fresh_i gctx ctx bsort r =
 fun fresh_sort gctx ctx r =
   let
     val get_base = get_base refine_UVarS_to_Basic
-    val (ctx, args) = get_sctx_and_args get_base package0_noop gctx ctx r
+    val (ctx, args) = get_sctx_and_args get_base return2 gctx ctx r
     val x = ref (Fresh (inc (), ctx))
     val s = UVarS (x, r)
     val s = SApps s args
@@ -139,8 +137,8 @@ fun uvar_i_ignore_args (x, info, r) =
 fun fresh_mt gctx (sctx, kctx) r : mtype =
   let
     val get_base = get_base refine_UVarS_to_Basic
-    val (sctx, i_args) = get_sctx_and_args get_base package0_noop gctx sctx r
-    val (kctx, t_args) = get_kctx_and_args get_ke_kind package0_noop gctx kctx r
+    val (sctx, i_args) = get_sctx_and_args get_base return2 gctx sctx r
+    val (kctx, t_args) = get_kctx_and_args get_ke_kind return2 gctx kctx r
     val x = fresh_uvar_mt (sctx, kctx)
     val t = UVar (x, r)
     val t = MtAppIs t i_args

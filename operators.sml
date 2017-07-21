@@ -53,9 +53,11 @@ datatype 'a quan =
          Forall
          | Exists of 'a
 
+type nat = int
+
 datatype expr_const =
          ECTT
-         | ECNat of int
+         | ECNat of nat
          | ECInt of int
 
 datatype expr_un_op =
@@ -65,16 +67,20 @@ datatype expr_un_op =
 datatype bin_op =
          EBApp
          | EBPair
-         | Add
-         | New
-         | Read
+         | EBAdd
+         | EBNew
+         | EBRead
 
 datatype tri_op =
          Write
 
 datatype expr_EI =
          EEIAppI
-         | EEIAscriptionTime
+         | EEIAscTime
+
+datatype expr_ET =
+         EETAppT
+         | EETAsc
 
 datatype expr_T =
          ETNever
@@ -138,8 +144,37 @@ fun str_bin_op opr =
   case opr of
       EBApp => "$"
     | EBPair => "pair"
-    | Add => "+"
-    | New => "new"
-    | Read => "read"
+    | EBAdd => "+"
+    | EBNew => "new"
+    | EBRead => "read"
+
+fun str_expr_EI opr =
+  case opr of
+      EEIAppI => "EEIAppI"
+    | EEIAscTime => "EEIAscTime"
+
+fun str_expr_ET opr =
+  case opr of
+      EETAppT => "EETAppT"
+    | EETAsc => "EETAsc"
+
+fun str_expr_const c =
+  case c of
+      ECTT => "()"
+    | ECInt n => str_int n
+    | ECNat n => sprintf "#$" [str_int n]
+                                
+fun str_expr_un_op opr = 
+  case opr of
+      EUFst => "fst"
+    | EUSnd => "snd"
+
+fun str_expr_bin_op opr =
+  case opr of
+      EBApp => "app"
+    | EBPair => "pair"
+    | EBNew => "new"
+    | EBRead => "read"
+    | EBAdd => "add"
 
 end

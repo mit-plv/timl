@@ -40,7 +40,13 @@ fun process_prog show_result filename gctx prog =
       fun TCctx2NRctx (ctx : TC.context) : NR.context =
           let
             val (sctx, kctx, cctx, tctx) = ctx
-            val cctx = map (fn (name, (_, _, core)) => (name, get_constr_inames core)) cctx
+            fun on_constr (name, (_, tbinds)) =
+              let
+                val (_, core) = unfold_binds tbinds
+              in
+                (name, TC.get_constr_inames core)
+              end
+            val cctx = map on_constr cctx
           in
             (sctx_names sctx, names kctx, cctx, names tctx)
           end
@@ -156,7 +162,7 @@ fun process_prog show_result filename gctx prog =
             end
       val vcs = map Normalize.normalize_vc vcs
       val vcs = concatMap VC.simp_vc_vcs vcs
-      val vcs = map fst $ smt_solver false vcs
+      val vcs = map fst $ smt_solver false(*true*) vcs
       val vcs = bigO_solver vcs
       val vcs = map Normalize.normalize_vc vcs
       val vcs = concatMap VC.simp_vc_vcs vcs
@@ -378,6 +384,7 @@ fun main (prog_name, args : string list) =
     TiML.Error msg => (println msg; failure)
     | IO.Io e => (println (sprintf "IO Error doing $ on $" [#function e, #name e]); failure)
     | Impossible msg => (println ("Impossible: " ^ msg); failure)
+    | Unimpl msg => (println ("Unimpl: " ^ msg); failure)
     | ParseArgsError msg => (println msg; usage (); failure)
                                (* | _ => (println ("Internal error"); failure) *)
 

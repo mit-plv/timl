@@ -24,6 +24,7 @@ fun isPrefix eq xs ys =
       ([], _) => true
     | (x :: xs, y :: ys) => eq (x, y) andalso isPrefix eq xs ys
     | _ => false
+val Cons = op::
 
 fun sprintf s ls =
     String.concat (interleave (String.fields (fn c => c = #"$") s) ls)
@@ -31,18 +32,14 @@ fun printf s ls = print $ sprintf s ls
 fun println s = print (s ^ "\n")
 fun trace s a = (println s; a)
 
+fun isNone opt = not (isSome opt)
 fun default v opt = getOpt (opt, v)
-fun lazy_default v opt = 
+fun lazy_default def opt = 
     case opt of
         SOME a => a
-      | NONE => v ()
-fun isNone opt = not (isSome opt)
-fun SOME_or_fail opt err = 
-  case opt of
-      SOME a => a
-    | NONE => err ()
-infix 0 !!
-fun opt !! err = SOME_or_fail opt err
+      | NONE => def ()
+infixr 0 !!
+fun opt !! def = lazy_default def opt
 fun option2list a =
   case a of
       SOME a => [a]
@@ -65,7 +62,12 @@ val str_int = Int.toString
 fun str_bool b = if b then "true" else "false"
 
 fun id x = x
-fun const a _ = a
+val return1 = id
+fun return2 a1 a2 = a2
+fun return3 a1 a2 a3 = a3
+fun return4 a1 a2 a3 a4 = a4
+fun const_fun c _ = c
+fun ignore x = const_fun () x
 fun self_compose n f =
     if n <= 0 then
       id
@@ -73,7 +75,7 @@ fun self_compose n f =
       (self_compose (n - 1) f) o f
                                    
 fun range n = List.tabulate (n, id)
-fun repeat n a = List.tabulate (n, const a)
+fun repeat n a = List.tabulate (n, const_fun a)
                                
 fun nth_error ls n =
   SOME (List.nth (ls, n)) handle Subscript => NONE
@@ -87,11 +89,14 @@ fun curry f a b = f (a, b)
 fun uncurry f (a, b) = f a b
 fun swap f (a, b) = f (b, a)
 fun flip f a b = f b a
-fun upd4 f (a, b, c, d) = (a, b, c, f d)
+fun map4 f (a, b, c, d) = (a, b, c, f d)
+fun map3_4 f (a, b, c, d) = (a, b, f c, d)
+fun map2_3 f (a, b, c) = (a, f b, c)
 fun attach_fst a b = (a, b)
 fun attach_snd b a = (a, b)
-
 (* fun add_idx ls = ListPair.zip (range (length ls), ls) *)
+fun mapPair2 f1 f2 (a1, a2) (b1, b2) = (f1 (a1, b1), f2 (a2, b2))
+fun add_pair a b = mapPair2 op+ op+ a b
 
 fun findWithIdx f xs =
     let
@@ -108,6 +113,7 @@ fun findWithIdx f xs =
     end
       
 fun findi f xs = findWithIdx (fn (_, x) => f x) xs
+fun index f = Option.map fst o findi f
                              
 fun findOptionWithIdx f xs =
     let
@@ -146,6 +152,8 @@ fun mapWithIdx f ls = rev $ foldlWithIdx (fn (x, acc, n) => f (n, x) :: acc) [] 
 val mapi = mapWithIdx
 fun enumerate c : ('a, 'b) Enum.enum = fn f => (fn init => List.foldl f init c)
                                  
+fun update i f ls = mapi (fn (i', a) => if i' = i then f a else a) ls
+                         
 (* fun find_idx (x : string) ctx = find_by_snd_eq op= x (add_idx ctx) *)
 fun is_eq_snd (x : string) (i, y) = if y = x then SOME i else NONE
 fun find_idx x ctx = findOptionWithIdx (is_eq_snd x) ctx
@@ -186,6 +194,7 @@ fun allSome f (xs : 'a list) =
 fun to_hd i l = List.nth (l, i) :: take i l @ drop (i + 1) l
 
 exception Impossible of string
+exception Unimpl of string
 
 fun singleton x = [x]
 fun mem eq x ls = List.exists (fn y => eq (y, x)) ls

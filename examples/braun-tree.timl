@@ -5,7 +5,7 @@
 
 (* The main functions are [insert], [peek] and [pop]. *)
 
-functor BraunTree (structure K : sig
+functor BraunTree (K : sig
                                type t
                                idx m : Time
                                val le : t * t -- m --> Basic.bool

@@ -96,8 +96,8 @@ datatype exp =
          | App of exp * exp * region
          | AppI of exp * idx * region
          | Case of exp * return * (ptrn * exp) list * region
-         | Ascription of exp * ty * region
-         | AscriptionTime of exp * idx * region
+         | Asc of exp * ty * region
+         | AscTime of exp * idx * region
          | Let of return * decl list * exp * region
          | Const of int * region
          | ConstNat of int * region
@@ -139,7 +139,7 @@ datatype sgn =
 datatype mod =
          ModComponents of decl list * region
          | ModSeal of mod * sgn
-         | ModTransparentAscription of mod * sgn
+         | ModTransparentAsc of mod * sgn
                                                
 datatype top_bind =
          TopModBind of name * mod
@@ -158,7 +158,7 @@ type prog = top_bind list
 (*       | SOME sg => *)
 (*         case sg of *)
 (*             Seal sg => ModSeal (m, sg) *)
-(*           | Transparent sg => ModTransparentAscription (m, sg) *)
+(*           | Transparent sg => ModTransparentAsc (m, sg) *)
 
 type reporter = string * pos * pos -> unit
 

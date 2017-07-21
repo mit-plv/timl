@@ -33,10 +33,12 @@ subjects = lines.map do |x| x[0] end
 descriptions = lines.map do |x| x[1] end
 coms = lines.map do |x| x[5] end
 
+# The 'list' case will generate an error because module "List" exists in stdlib. The time reported will be the time for typechecking stdlib, which can represent (overestimate) the time for typechecking list.timl
+
 results = subjects.zip(descriptions).map do |(sub, desc)|
   fn = "#{sub}.timl"
   start = Time.new
-  system("../main stdlib.pkg #{fn} > /dev/null")
+  system("../main -l stdlib.pkg #{fn} > /dev/null")
   final = Time.new
   contents = File.open(fn).readlines
   [sub, desc, (final - start).round(3).to_s, contents.length.to_s, contents.count { |ln| (ln =~ /absidx|idx|using/) != nil }.to_s]

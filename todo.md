@@ -102,6 +102,7 @@
 - [x] SML supports datatypes instantiated with different type arguments within a constructor, such as [datatype 'a ls = Nil | Cons of 'a * ('a * 'a) ls]. TiML's typechecker also supports this. So TiML's proof should also support this. It has usage in for example Okasaki's implicit queue (thesis Chapter 8).
 - [ ] \(Abondoned. Non-constant subtracter is needed to support minus of `nat` type) Change minus from a binop to an unop where the second operand can only be constant.
 - [ ] Investigate array-msort-in-place.
+- [ ] Generalization has some problems with higher-order uvars.
 
 # To-do Examples:
 

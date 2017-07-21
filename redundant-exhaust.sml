@@ -57,8 +57,6 @@ val op\/ = OrC
 
 fun impossible s = Impossible $ "cover has the wrong type: " ^ s
 
-fun get_family (c : constr) = #1 c
-                                 
 fun cover_neg gctx (ctx as (sctx, kctx, cctx)) (t : mtype) c =
   let
     val neg = cover_neg gctx ctx
@@ -82,28 +80,12 @@ fun cover_neg gctx (ctx as (sctx, kctx, cctx)) (t : mtype) c =
 	(case is_AppV t of
 	     SOME (family, ts, _) =>
 	     let
-               fun get_family_siblings gctx cctx cx =
-                 let
-                   val family = get_family $ snd $ fetch_constr gctx (cctx, cx)
-                   (* val () = println $ sprintf "family: $" [str_mt (gctx_names gctx) (sctx_names sctx, names kctx) (MtVar family)] *)
-                   fun do_fetch_family (cctx, (_, r)) =
-                     let
-                       fun iter (n, (_, c)) =
-                         ((* println (str_mt (gctx_names gctx) (sctx_names sctx, names kctx) (MtVar (get_family c)));  *)
-                          (* println (str_raw_long_id $ get_family c);  *)
-                          if eq_id (snd $ get_family c, snd family) then SOME (NONE, (n, r)) else NONE)
-                     in
-                       rev $ map snd $ mapPartialWithIdx iter cctx
-                     end
-                   fun fetch_family a = generic_fetch (package0_list (package_long_id 0)) do_fetch_family #3 a
-                 in
-                   fetch_family gctx (cctx, cx)
-                 end
-               val all = get_family_siblings gctx cctx x
+               val all = map fst $ get_family_siblings gctx cctx x
                (* val () = println $ sprintf "Family of $: $" [str_long_id #3 (gctx_names gctx) (names cctx) x, str_ls (str_long_id #3 (gctx_names gctx) (names cctx)) all] *)
 	       val others = diff eq_long_id all [x]
                (* val () = println $ sprintf "Family siblings of $: $" [str_long_id #3 (gctx_names gctx) (names cctx) x, str_ls (str_long_id #3 (gctx_names gctx) (names cctx)) others] *)
-               val (_, _, ibinds) = snd $ fetch_constr gctx (cctx, x)
+               val (_, tbinds) = snd $ fetch_constr gctx (cctx, x)
+               val (_, ibinds) = unfold_binds tbinds
                val (_, (t', _)) = unfold_binds ibinds
 	       val t' = subst_ts_mt ts t'
                val covers = ConstrC (x, neg t' c) :: map (fn y => ConstrC (y, TrueC)) others
@@ -316,13 +298,13 @@ fun find_hab deep gctx (ctx as (sctx, kctx, cctx)) (t : mtype) cs =
                                in
                                  ret
                                end
-                             val (name, (family, _, _)) = fetch_constr gctx (cctx, x)
+                             val (name, (family, _)) = fetch_constr gctx (cctx, x)
                              val family = normalize_mt gctx kctx (MtVar family)
                              fun same_constr c =
                                case c of
                                    ConstrC (y, c) =>
                                    let
-                                     val (name', (family', _, _)) = fetch_constr gctx (cctx, y)
+                                     val (name', (family', _)) = fetch_constr gctx (cctx, y)
                                      val family' = normalize_mt gctx kctx $ MtVar family'
                                    in
                                      if eq_constr_long_id ((name', family'), (name, family)) then
@@ -335,7 +317,8 @@ fun find_hab deep gctx (ctx as (sctx, kctx, cctx)) (t : mtype) cs =
                              case allSome same_constr cs of
                                  OK cs' =>
                                  let
-                                   val (_, _, ibinds) = snd $ fetch_constr gctx (cctx, x)
+                                   val (_, tbinds) = snd $ fetch_constr gctx (cctx, x)
+                                   val (_, ibinds) = unfold_binds tbinds
                                    val (_, (t', _)) = unfold_binds ibinds
 		                   val t' = subst_ts_mt ts t'
                                    (* val () = (* Debug. *)println (sprintf "All are $, now try to satisfy $" [str_v (names cctx) x, (join ", " o map (str_cover (names cctx))) (c' :: cs')]) *)

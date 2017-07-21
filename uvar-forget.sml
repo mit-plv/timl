@@ -102,9 +102,34 @@ fun forget_i_i x n b =
     ret
   end
 
-fun forget_i_p x n b = on_i_p forget_i_i x n b
-fun forget_i_s x n b = on_i_s forget_i_i forget_i_p x n b
+fun new_on_i_idx_visitor' on_i n =
+  let
+    fun on_var _ _ _ = raise Impossible "on_i_p'()/on_var"
+    val (IdxVisitor vtable) = new_on_i_idx_visitor (on_var, n)
+    fun visit_idx _ x i = on_i x n i
+    val vtable = override_visit_idx vtable visit_idx
+    val visitor = IdxVisitor vtable
+  in
+    visitor
+  end
 
+fun on_i_p' on_i x n b =
+  let
+    val visitor as (IdxVisitor vtable) = new_on_i_idx_visitor' on_i n
+  in
+    #visit_prop vtable visitor x b
+  end
+    
+fun forget_i_p x n b = on_i_p' forget_i_i x n b
+                               
+fun on_i_s' on_i x n b =
+  let
+    val visitor as (IdxVisitor vtable) = new_on_i_idx_visitor' on_i n
+  in
+    #visit_sort vtable visitor x b
+  end
+    
+fun forget_i_s x n b = on_i_s' forget_i_i x n b
                               
 (* fun forget_i_mt x n b = on_i_mt forget_i_i forget_i_s forget_i_k x n b *)
 fun forget_i_mt x n b =
@@ -177,6 +202,7 @@ fun forget_i_mt x n b =
           | MtAbsI (b, bind, r) => MtAbsI (b, on_i_ibind f x n bind, r)
 	  | BaseType a => BaseType a
           | UVar a => b
+          | TDatatype _ => raise Unimpl "uvar_forget/forget_i_mt()/TDatatype"
       end
     val ret =
         on_App_UVar ()
@@ -188,10 +214,24 @@ fun forget_i_mt x n b =
   end
                                 
                                 
-fun forget_t_mt x n b = on_t_mt forget_v x n b
-fun forget_i_t x n b = on_i_t forget_i_mt x n b
-fun forget_t_t x n b = on_t_t forget_t_mt x n b
+fun new_on_i_type_visitor' on_mt n =
+  let
+    fun imposs _ _ _ = raise Impossible "on_i_t'()/imposs"
+    val (TypeVisitor vtable) = new_on_i_type_visitor ((imposs, imposs), n)
+    fun visit_mtype _ x t = on_mt x n t
+    val vtable = override_visit_mtype vtable visit_mtype
+    val visitor = TypeVisitor vtable
+  in
+    visitor
+  end
 
-fun forget_e_e x n b = on_e_e forget_v x n b
-                              
+fun on_i_t' on_i x n b =
+  let
+    val visitor as (TypeVisitor vtable) = new_on_i_type_visitor' on_i n
+  in
+    #visit_ty vtable visitor x b
+  end
+    
+fun forget_i_t x n b = on_i_t' forget_i_mt x n b
+
 end

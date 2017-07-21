@@ -557,6 +557,7 @@ fun get_higher_kind gctx (ctx as (sctx : scontext, kctx : kcontext), c : U.mtype
                 end
               | _ => error (get_region_mt t, str_mt gctxn ctxn t, "<sort> => <kind>", str_hk, k)
           end
+        | U.TDatatype _ => raise Unimpl "get_higher_kind()/TDatatype"
     val ret =
         main ()
         handle
@@ -789,13 +790,18 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
     (* val () = println $ "sctxn=" ^ (str_ls id sctxn) *)
   in
     case pn of
-	U.ConstrP ((cx, eia), inames, opn, r) =>
- 	let 
-          val c as (family, tnames, ibinds) = snd $ fetch_constr gctx (cctx, cx)
+	U.ConstrP (Outer ((cx, ()), eia), inames, opn, Outer r) =>
+ 	let
+          val inames = map binder2str inames
+          val c as (family, tbinds) = snd $ fetch_constr gctx (cctx, cx)
+          val siblings = map fst $ get_family_siblings gctx cctx cx
+          val pos_in_family = index (curry eq_long_id cx) siblings !! (fn () => raise Impossible "family_pos")
+          val (tname_kinds, ibinds) = unfold_binds tbinds
+          val tnames = map fst tname_kinds
           val (name_sorts, (t1, is')) = unfold_binds ibinds
           val () = if eia then () else raise Impossible "eia shouldn't be false"
           val ts = map (fn _ => fresh_mt gctx (sctx, kctx) r) tnames
-          val is = map (fn b => fresh_i gctx sctx (fresh_bsort ()) r) is'
+          val is = map (fn _ => fresh_i gctx sctx (fresh_bsort ()) r) is'
           val t_constr = MtAppIs (MtApps (MtVar family) ts) is
 	  val () = unify_mt r gctx (sctx, kctx) (t, t_constr)
                    handle
@@ -836,15 +842,16 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
           val () = open_ctx ctxd
           val () = open_premises ps
           val ctx = add_ctx_skc ctxd ctx
-          val pn1 = default (U.TTP dummy) opn
+          val pn1 = opn
           val (pn1, cover, ctxd', nps) = match_ptrn (ctx, pn1, t1)
           val ctxd = add_ctx ctxd' ctxd
           val cover = ConstrC (cx, cover)
         in
-	  (ConstrP ((cx, eia), inames, SOME pn1, r), cover, ctxd, length ps + nps)
+	  (ConstrP (Outer ((cx, (length siblings, pos_in_family)), eia), map str2ibinder inames, pn1, Outer r), cover, ctxd, length ps + nps)
 	end
-      | U.VarP (name, r) =>
+      | U.VarP ename =>
         let
+          val name = binder2str ename
           (* val pcover = combine_covers pcovers *)
           (* val cover = cover_neg cctx t pcover *)
           fun is_first_capital s =
@@ -852,7 +859,7 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
           val () = if is_first_capital name then println $ sprintf "Warning: pattern $ is treated as a wildcard (did you misspell a constructor name?)" [name]
                    else ()
         in
-          (VarP (name, r), TrueC, ctx_from_typing (name, Mono t), 0)
+          (VarP ename, TrueC, ctx_from_typing (name, Mono t), 0)
         end
       | U.PairP (pn1, pn2) =>
         let 
@@ -869,26 +876,28 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
         in
           (PairP (pn1, pn2), PairC (cover1, cover2), ctxd, nps1 + nps2)
         end
-      | U.TTP r =>
+      | U.TTP (Outer r) =>
         let
           val () = unify_mt r gctx (sctx, kctx) (t, Unit dummy)
         in
-          (TTP r, TTC, empty_ctx, 0)
+          (TTP $ Outer r, TTC, empty_ctx, 0)
         end
-      | U.AliasP ((pname, r1), pn, r) =>
-        let val ctxd = ctx_from_typing (pname, Mono t)
-            val (pn, cover, ctxd', nps) = match_ptrn (ctx, pn, t)
-            val ctxd = add_ctx ctxd' ctxd
+      | U.AliasP (ename, pn, r) =>
+        let
+          val pname = binder2str ename
+          val ctxd = ctx_from_typing (pname, Mono t)
+          val (pn, cover, ctxd', nps) = match_ptrn (ctx, pn, t)
+          val ctxd = add_ctx ctxd' ctxd
         in
-          (AliasP ((pname, r1), pn, r), cover, ctxd, nps)
+          (AliasP (ename, pn, r), cover, ctxd, nps)
         end
-      | U.AnnoP (pn1, t') =>
+      | U.AnnoP (pn1, Outer t') =>
         let
           val t' = check_kind_Type gctx ((sctx, kctx), t')
           val () = unify_mt (U.get_region_pn pn) gctx (sctx, kctx) (t, t')
           val (pn1, cover, ctxd, nps) = match_ptrn (ctx, pn1, t')
         in
-          (AnnoP (pn1, t'), cover, ctxd, nps)
+          (AnnoP (pn1, Outer t'), cover, ctxd, nps)
         end
   end
 
@@ -940,7 +949,8 @@ fun expand_rules gctx (ctx as (sctx, kctx, cctx), rules, t, r) =
                               (case is_AppV t of
                                    SOME (family, ts, _) =>
                                    let
-                                     val (_, _, ibinds) = snd $ fetch_constr gctx (cctx, x)
+                                     val (_, tbinds) = snd $ fetch_constr gctx (cctx, x)
+                                     val (_, ibinds) = unfold_binds tbinds
                                      val (name_sorts, (t', _)) = unfold_binds ibinds
 	                             val t' = subst_ts_mt ts t'
                                      (* cut-off so that [expand_rules] won't try deeper and deeper proposals *) 
@@ -951,14 +961,14 @@ fun expand_rules gctx (ctx as (sctx, kctx, cctx), rules, t, r) =
                                               (* else *)
                                               (*   VarP ("_", dummy) *)
                                    in
-                                     ConstrP ((x, true), repeat (length name_sorts) "_", SOME pn', dummy)
+                                     ConstrP (Outer ((x, ()), true), repeat (length name_sorts) $ str2ibinder "_", pn', Outer dummy)
                                    end
                                  | NONE => default ()
                               )
                             | TTH =>
                               (case t of
                                    Unit _ =>
-                                   TTP dummy
+                                   TTP $ Outer dummy
                                  | _ => default ()
                               )
                             | PairH (h1, h2) =>
@@ -967,7 +977,7 @@ fun expand_rules gctx (ctx as (sctx, kctx, cctx), rules, t, r) =
                                    PairP (loop (* cutoff *) t1 h1, loop (* cutoff *) t2 h2)
                                  | _ => default ()
                               )
-                            | TrueH => VarP ("_", dummy)
+                            | TrueH => VarP $ str2ebinder "_"
                         end
                     in
                       (* runError (fn () => loop t hab) () *)
@@ -978,7 +988,7 @@ fun expand_rules gctx (ctx as (sctx, kctx, cctx), rules, t, r) =
                       (* open UnderscoredExpr *)
                     in
                       case pn of
-                          ConstrP ((x, _), _, pn, _) => ConstrC (x, default TrueC $ Option.map ptrn_to_cover pn)
+                          ConstrP (Outer ((x, ()), _), _, pn, _) => ConstrC (x, ptrn_to_cover pn)
                         | VarP _ => TrueC
                         | PairP (pn1, pn2) => PairC (ptrn_to_cover pn1, ptrn_to_cover pn2)
                         | TTP _ => TTC
@@ -989,7 +999,7 @@ fun expand_rules gctx (ctx as (sctx, kctx, cctx), rules, t, r) =
                     case pn of
                         TTP a => U.TTP a
                       | PairP (pn1, pn2) => U.PairP (convert_pn pn1, convert_pn pn2)
-                      | ConstrP (x, inames, opn, r) => U.ConstrP (x, inames, Option.map convert_pn opn, r) 
+                      | ConstrP (x, inames, opn, r) => U.ConstrP (x, inames, convert_pn opn, r) 
                       | VarP a => U.VarP a
                       | AliasP (name, pn, r) => U.AliasP (name, convert_pn pn, r)
                       | AnnoP _ => raise Impossible "convert_pn can't convert AnnoP"
@@ -1181,12 +1191,12 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
     (* val () = print_ctx gctx ctx *)
     fun main () =
       case e_all of
-	  U.Var (info as (x, eia)) =>
+	  U.EVar (x, eia) =>
           let
             val r = U.get_region_long_id x
             fun insert_type_args t =
               case t of
-                  Mono t => t
+                  Mono t => (t, [])
                 | Uni (Bind (_, t), _) =>
                   let
                     (* val t_arg = fresh_mt (sctx, kctx) r *)
@@ -1195,13 +1205,13 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                     val t_arg = check_kind_Type gctx (skctx, t_arg)
                     val t = subst_t_t t_arg t
                     (* val () = println $ str_t skctxn t *)
-                    val t = insert_type_args t
+                    val (t, t_args) = insert_type_args t
                   in
-                    t
+                    (t, t_arg :: t_args)
                   end
             val t = fetch_type gctx (tctx, x)
             (* val () = println $ str_t gctxn skctxn t *)
-            val t = insert_type_args t
+            val (t, t_args) = insert_type_args t
             (* val () = println $ str_mt skctxn t *)
             fun insert_idx_args t_all =
               case t_all of
@@ -1213,26 +1223,30 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                     val i = U.UVarI ((), r)
                     val i = check_sort gctx (sctx, i, s)
                     val t = subst_i_mt i t
+                    val (t, i_args) = insert_idx_args t
                   in
-                    insert_idx_args t
+                    (t, i :: i_args)
                   end
-                | _ => t_all
-            val t = if not eia then
+                | _ => (t_all, [])
+            val (t, i_args) = if not eia then
                       insert_idx_args t
                     else
-                      t
+                      (t, [])
+            val e = EVar (x, true)
+            val e = EAppTs (e, t_args)
+            val e = EAppIs (e, i_args)
           in
-            (Var info, t, T0 dummy)
+            (e, t, T0 dummy)
           end
         | U.EConst (c, r) =>
           (case c of
 	       ECTT => 
-               (TT r, Unit dummy, T0 dummy)
+               (ETT r, Unit dummy, T0 dummy)
 	     | ECInt n => 
-	       (ConstInt (n, r), BaseType (Int, dummy), T0 dummy)
+	       (EConstInt (n, r), BaseType (Int, dummy), T0 dummy)
 	     | ECNat n => 
 	       if n >= 0 then
-	         (ConstNat (n, r), TyNat (ConstIN (n, r), r), T0 r)
+	         (EConstNat (n, r), TyNat (ConstIN (n, r), r), T0 r)
 	       else
 	         raise Error (r, ["Natural number constant must be non-negative"])
           )
@@ -1245,7 +1259,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                  val t2 = fresh_mt gctx (sctx, kctx) r
                  val (e, _, d) = check_mtype (ctx, e, Prod (t1, t2)) 
                in 
-                 (Fst (e, r), t1, d)
+                 (EFst (e, r), t1, d)
 	       end
 	     | EUSnd => 
 	       let 
@@ -1254,17 +1268,17 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                  val t2 = fresh_mt gctx (sctx, kctx) r
                  val (e, _, d) = check_mtype (ctx, e, Prod (t1, t2)) 
                in 
-                 (Snd (e, r), t2, d)
+                 (ESnd (e, r), t2, d)
 	       end
           )
-	| U.BinOp (opr, e1, e2) =>
+	| U.EBinOp (opr, e1, e2) =>
           (case opr of
 	       EBPair => 
 	       let 
                  val (e1, t1, d1) = get_mtype (ctx, e1) 
 	         val (e2, t2, d2) = get_mtype (ctx, e2) 
                in
-	         (Pair (e1, e2), Prod (t1, t2), d1 %+ d2)
+	         (EPair (e1, e2), Prod (t1, t2), d1 %+ d2)
 	       end
 	     | EBApp =>
 	       let
@@ -1273,20 +1287,20 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                  val d = fresh_i gctx sctx (Base Time) r
                  val t = fresh_mt gctx (sctx, kctx) r
                  val (e1, _, d1) = check_mtype (ctx, e1, Arrow (t2, d, t))
-                 val ret = (App (e1, e2), t, d1 %+ d2 %+ T1 dummy %+ d) 
+                 val ret = (EApp (e1, e2), t, d1 %+ d2 %+ T1 dummy %+ d) 
                in
                  ret
 	       end
-	     | New =>
+	     | EBNew =>
                let
                  val r = U.get_region_e e_all
                  val i = fresh_i gctx sctx (Base Time) r
                  val (e1, _, d1) = check_mtype (ctx, e1, TyNat (i, r))
                  val (e2, t, d2) = get_mtype (ctx, e2)
                in
-                 (BinOp (New, e1, e2), TyArray (t, i), d1 %+ d2)
+                 (EBinOp (EBNew, e1, e2), TyArray (t, i), d1 %+ d2)
                end
-	     | Read =>
+	     | EBRead =>
                let
                  val r = U.get_region_e e_all
                  val t = fresh_mt gctx (sctx, kctx) r
@@ -1296,15 +1310,15 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                  val (e2, _, d2) = check_mtype (ctx, e2, TyNat (i2, r))
                  val () = write_le (i2, i1, r)
                in
-                 (BinOp (Read, e1, e2), t, d1 %+ d2)
+                 (EBinOp (EBRead, e1, e2), t, d1 %+ d2)
                end
-	     | Add =>
+	     | EBAdd =>
 	       let val (e1, _, d1) = check_mtype (ctx, e1, BaseType (Int, dummy))
 	           val (e2, _, d2) = check_mtype (ctx, e2, BaseType (Int, dummy)) in
-	         (BinOp (Add, e1, e2), BaseType (Int, dummy), d1 %+ d2 %+ T1 dummy)
+	         (EBinOp (EBAdd, e1, e2), BaseType (Int, dummy), d1 %+ d2 %+ T1 dummy)
 	       end
           )
-	| U.TriOp (Write, e1, e2, e3) =>
+	| U.ETriOp (Write, e1, e2, e3) =>
           let
             val r = U.get_region_e e_all
             val t = fresh_mt gctx (sctx, kctx) r
@@ -1315,7 +1329,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
             val () = write_le (i2, i1, r)
             val (e3, _, d3) = check_mtype (ctx, e3, t)
           in
-            (TriOp (Write, e1, e2, e3), Unit r, d1 %+ d2 %+ d3)
+            (ETriOp (Write, e1, e2, e3), Unit r, d1 %+ d2 %+ d3)
           end
 	| U.EEI (opr, e, i) =>
           (case opr of
@@ -1328,10 +1342,10 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                      let
                        val i = check_sort gctx (sctx, i, s) 
                      in
-	               (AppI (e, i), subst_i_mt i t1, d)
+	               (EAppI (e, i), subst_i_mt i t1, d)
                      end
                    | _ =>
-                     (* If the type is not in the expected form (maybe due to uvar), we try to unify it with the expected template. This may lose generality because the the inferred [s] will always be a base sort. *)
+                     (* If the type is not in the expected form (maybe due to uvar), we try to unify it with the expected template. This may lose generality because the the inferred argument sort will always be a base sort. *)
 	             let 
                        val r = get_region_e e
                        val s = fresh_sort gctx sctx r
@@ -1348,14 +1362,25 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                        (* val () = println "after" *)
                        val i = check_sort gctx (sctx, i, s) 
                      in
-	               (AppI (e, i), subst_i_mt i t1, d)
+	               (EAppI (e, i), subst_i_mt i t1, d)
 	             end
                end
-	     | EEIAscriptionTime => 
+	     | EEIAscTime => 
 	       let val i = check_bsort gctx (sctx, i, Base Time)
 	           val (e, t) = check_time (ctx, e, i)
                in
-	         (AscriptionTime (e, i), t, i)
+	         (EAscTime (e, i), t, i)
+	       end
+          )
+	| U.EET (opr, e, t) =>
+          (case opr of
+	       EETAppT => raise Impossible "get_mtype()/EAppT"
+	     | EETAsc => 
+	       let
+                 val t = check_kind_Type gctx (skctx, t)
+	         val (e, _, d) = check_mtype (ctx, e, t)
+               in
+	         (EAsc (e, t), t, d)
 	       end
           )
 	| U.ET (opr, t, r) =>
@@ -1365,7 +1390,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	         val t = check_kind_Type gctx (skctx, t)
 	         val () = write_prop (False dummy, U.get_region_e e_all)
                in
-	         (Never (t, r), t, T0 r)
+	         (ENever (t, r), t, T0 r)
                end
 	     | ETBuiltin => 
                let
@@ -1373,11 +1398,12 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	         val () = if !is_builtin_enabled then ()
                           else raise Error (r, ["builtin keyword is only available in standard library"])
                in
-	         (Builtin (t, r), t, T0 r)
+	         (EBuiltin (t, r), t, T0 r)
                end
           )
-	| U.Abs (pn, e) => 
+	| U.EAbs bind => 
 	  let
+            val (pn, e) = Unbound.unBind bind
             val r = U.get_region_pn pn
             val t = fresh_mt gctx (sctx, kctx) r
             val skcctx = (sctx, kctx, cctx) 
@@ -1390,10 +1416,12 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
             val () = close_n nps
             val () = close_ctx ctxd
           in
-	    (Abs (pn, e), Arrow (t, d, t1), T0 dummy)
+	    (EAbs $ Unbound.Bind (AnnoP (pn, Outer t), e), Arrow (t, d, t1), T0 dummy)
 	  end
-	| U.Let (return, decls, e, r) => 
+	| U.ELet (return, bind, r) => 
 	  let
+            val (decls, e) = Unbound.unBind bind
+            val decls = unTeles decls
             val return = is_wf_return gctx (skctx, return)
             val (decls, ctxd as (sctxd, kctxd, _, _), nps, ds, ctx) = check_decls (ctx, decls)
 	    val (e, t, d) = get_mtype (ctx, e)
@@ -1406,10 +1434,12 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
             val () = close_n nps
             val () = close_ctx ctxd
           in
-	    (Let (return, decls, e, r), t, d)
+	    (ELet (return, Unbound.Bind (Teles decls, e), r), t, d)
 	  end
-	| U.AbsI (s, Bind ((name, r), e), r_all) => 
+	| U.EAbsI (bind, r_all) => 
 	  let 
+            val ((iname, s), e) = unBindAnno bind
+            val (name, r) = unName iname
 	    val () = if U.is_value e then ()
 		     else raise Error (U.get_region_e e, ["The body of a universal abstraction must be a value"])
             val s = is_wf_sort gctx (sctx, s)
@@ -1419,21 +1449,18 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	    val (e, t, _) = get_mtype (ctx, e) 
             val () = close_ctx ctxd
           in
-	    (AbsI (s, Bind ((name, r), e), r_all), UniI (s, Bind ((name, r), t), r_all), T0 r_all)
+	    (EAbsI (BindAnno ((iname, s), e), r_all), UniI (s, Bind ((name, r), t), r_all), T0 r_all)
 	  end 
-	| U.Ascription (e, t) => 
-	  let val t = check_kind_Type gctx (skctx, t)
-	      val (e, _, d) = check_mtype (ctx, e, t)
-          in
-	    (Ascription (e, t), t, d)
-	  end
-	| U.AppConstr ((x, eia), is, e) => 
-	  let 
+	| U.EAppConstr ((x, eia), ts, is, e, ot) => 
+	  let
+            val () = assert (fn () => null ts) "get_mtype()/EAppConstr: null ts"
+            val () = assert (fn () => isNone ot) "get_mtype()/EAppConstr: isNone ot"
             val tc = fetch_constr_type gctx (cctx, x)
 	    (* delegate to checking [x {is} e] *)
-	    val f = U.Var ((NONE, (0, U.get_region_long_id x)), eia)
-	    val f = foldl (fn (i, e) => U.AppI (e, i)) f is
-	    val e = U.App (f, U.Subst.shift_e_e e)
+	    val f = U.EVar ((NONE, (0, U.get_region_long_id x)), eia)
+	    val f = foldl (fn (i, e) => U.EAppI (e, i)) f is
+            fun u_shift01_e_e a = UnderscoredShiftEE.on_e_e shiftx_long_id 0 1 a
+	    val e = U.EApp (f, u_shift01_e_e e)
             (* val f_name = "__synthesized_constructor" *)
             val f_name = str_long_id #3 (gctx_names gctx) (names cctx) x
 	    val (e, t, d) = get_mtype (add_typing_skct (f_name, tc) ctx, e) 
@@ -1453,22 +1480,32 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                     else if eq_i d2 (T1 dummy) then d1
                     else raise wrong_d
                   | _ => raise wrong_d
-            val (is, e) =
+            val (ts, is, e) =
                 case e of
-                    BinOp (EBApp, f, e) =>
+                    EBinOp (EBApp, f, e) =>
                     let
-                      val (_, is) = collect_AppI f
+                      val (f, is) = collect_EAppI f
+                      val (f, ts) = collect_EAppT f
+                      val () = case f of
+                                   EVar (_, true) => ()
+                                 | _ => raise Impossible "get_mtype()/EAppConstr: EVar (_, true)"
                     in
-                      (is, e)
+                      (ts, is, e)
                     end
-                  | _ => raise Impossible "get_mtype (): U.AppConstr: e in wrong form"
+                  | _ => raise Impossible "get_mtype (): U.EAppConstr: e in wrong form"
+            fun forget_e_e a = ShiftEE.on_e_e forget_long_id a
             val e = forget_e_e 0 1 e
-            val e = AppConstr ((x, eia), is, e)
+            val siblings = get_family_siblings gctx cctx x
+            val pos_in_family = index (curry eq_long_id x) (map fst siblings) !! (fn () => raise Impossible "get_mtype(): family_pos")
+            val family = get_family $ snd $ hd siblings
+            val family_type = MtVar family
+            val e = EAppConstr ((x, true), ts, is, e, SOME (pos_in_family, family_type))
 	  in
 	    (e, t, d)
 	  end
-	| U.Case (e, return, rules, r) => 
+	| U.ECase (e, return, rules, r) => 
 	  let
+            val rules = map Unbound.unBind rules
             val return = if !anno_less then (fst return, NONE) else return
             val (e, t1, d1) = get_mtype (ctx, e)
             val return = is_wf_return gctx (skctx, return)
@@ -1483,7 +1520,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
             fun computed_d () =
               (smart_max_list o map snd) tds
             val (t, d) = mapPair (lazy_default computed_t, lazy_default computed_d) return
-	    val ret = (Case (e, return, rules, r), t, d1 %+ d)
+	    val ret = (ECase (e, return, map Unbound.Bind rules, r), t, d1 %+ d)
           in
             ret
           end
@@ -1496,8 +1533,8 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
     val d = simp_i $ normalize_i d
                    (* val () = println $ str_ls id $ #4 ctxn *)
     (* val () = print (sprintf " Typed $: \n        $\n" [str_e gctxn ctxn e, str_mt gctxn skctxn t]) *)
-                   (* val () = print (sprintf "   Time : $: \n" [str_i sctxn d]) *)
-                   (* val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_mt skctxn t, str_e ctxn e, str_i sctxn d]) *)
+    (* val () = print (sprintf "   Time : $: \n" [str_i sctxn d]) *)
+    (* val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_mt gctxn skctxn t, str_e gctxn ctxn e, str_i gctxn sctxn d]) *)
   in
     (e, t, d)
   end
@@ -1536,6 +1573,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
               | MtAbsI (k, bind, r) => MtAbsI (k, substu_ibind substu x v bind, r)
               | MtAppI (t, i) => MtAppI (substu x v t, i)
 	      | BaseType a => BaseType a
+              | TDatatype _ => raise Unimpl "check_decl()/substu()/TDatatype"
           fun evar_name n =
             if n < 26 then
               "'_" ^ (str o chr) (ord #"a" + n)
@@ -1552,8 +1590,11 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
       (* val () = println $ sprintf "Typing Decl $" [fst $ U.str_decl (gctx_names gctx) (ctx_names ctx) decl] *)
       fun main () = 
         case decl of
-            U.Val (tnames, U.VarP (name, r1), e, r) =>
-            let 
+            U.DVal (ename, Outer bind, Outer r) =>
+            let
+              val name = binder2str ename
+              val (tnames, e) = Unbound.unBind bind
+              val tnames = map unBinderName tnames
               val (e, t, d) = get_mtype (add_kindings_skct (zip ((rev o map fst) tnames, repeat (length tnames) Type)) ctx, e)
               val t = if is_value e then 
                         let
@@ -1567,27 +1608,30 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
                       else
                         raise Error (r, ["explicit type variable cannot be generalized because of value restriction"])
             in
-              (Val (tnames, VarP (name, r1), e, r), ctx_from_typing (name, t), 0, [d])
+              (DVal (ename, Outer $ Unbound.Bind (map (Binder o TName) tnames, e), Outer r), ctx_from_typing (name, t), 0, [d])
             end
-          | U.Val (tnames, pn, e, r) =>
+          | U.DValPtrn (pn, Outer e, Outer r) =>
             let 
-              val () = if length tnames = 0 then ()
-                       else raise Error (r, ["compound pattern can't be generalized, so can't have explicit type variables"])
               val skcctx = (sctx, kctx, cctx) 
               val (e, t, d) = get_mtype (ctx, e)
               val (pn, cover, ctxd, nps) = match_ptrn gctx (skcctx, pn, t)
               val d = shift_ctx_i ctxd d
 	      val () = check_exhaustion gctx (skcctx, t, [cover], get_region_pn pn)
             in
-              (Val (tnames, pn, e, r), ctxd, nps, [d])
+              (DValPtrn (pn, Outer e, Outer r), ctxd, nps, [d])
             end
-	  | U.Rec (tnames, (name, r1), (binds, ((t, d), e)), r) => 
-	    let 
+	  | U.DRec (name, bind, Outer r) => 
+	    let
+              val (name, r1) = unBinderName name
+              val ((tnames, Rebind binds), ((t, d), e)) = Unbound.unBind $ unInner bind
+              val tnames = map unBinderName tnames
+              val binds = unTeles binds
               val ctx as (sctx, kctx, cctx, tctx) = add_kindings_skct (zip ((rev o map fst) tnames, repeat (length tnames) Type)) ctx
               fun f (bind, (binds, ctxd, nps)) =
                 case bind of
-                    U.SortingST (name, s) => 
-                    let 
+                    U.SortingST (name, Outer s) => 
+                    let
+                      val name = unBinderName name
                       val ctx = add_ctx ctxd ctx
                       val s = is_wf_sort gctx (#1 ctx, s)
                       val ctxd' = ctx_from_sorting (fst name, s)
@@ -1632,20 +1676,16 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
               val te = foldr (fn (nm, t) => Uni (Bind (nm, t), r)) te tnames
               fun h bind =
                 case bind of
-                    inl a => SortingST a
+                    inl (name, s) => SortingST (Binder $ IName name, Outer s)
                   | inr (pn, _) => TypingST pn
               val binds = map h binds
+              val decl = DRec (Binder $ EName (name, r1), Inner $ Unbound.Bind ((map (Binder o TName) tnames, Rebind $ Teles binds), ((t, d), e)), Outer r)
             in
-              (Rec (tnames, (name, r1), (binds, ((t, d), e)), r), ctx_from_typing (name, te), 0, [T0 dummy])
+              (decl, ctx_from_typing (name, te), 0, [T0 dummy])
 	    end
-	  | U.Datatype a =>
+          | U.DIdxDef (name, Outer s, Outer i) =>
             let
-              val (a, ctxd) = is_wf_datatype gctx ctx a
-            in
-              (Datatype a, ctxd, 0, [])
-            end
-          | U.IdxDef ((name, r), s, i) =>
-            let
+              val (name, r) = unBinderName name
               val s = is_wf_sort gctx (sctx, s)
               val i = check_sort gctx (sctx, i, s)
               val s = sort_add_idx_eq r s i
@@ -1654,10 +1694,11 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
                                 (* val ps = [BinPred (EqP, VarI (NONE, (0, r)), shift_ctx_i ctxd i)] *)
                                 (* val () = open_premises ps *)
             in
-              (IdxDef ((name, r), s, i), ctxd, 0, [])
+              (DIdxDef (Binder $ IName (name, r), Outer s, Outer i), ctxd, 0, [])
             end
-          | U.AbsIdx2 ((name, r), s, i) =>
+          | U.DAbsIdx2 (name, Outer s, Outer i) =>
             let
+              val (name, r) = unBinderName name
               val s = is_wf_sort gctx (sctx, s)
               val i = check_sort gctx (sctx, i, s)
               val ctxd = ctx_from_sorting (name, s)
@@ -1665,17 +1706,29 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
               val ps = [BinPred (EqP, VarI (NONE, (0, r)), shift_ctx_i ctxd i)]
               val () = open_premises ps
             in
-              (AbsIdx2 ((name, r), s, i), ctxd, length ps, [])
+              (DAbsIdx2 (Binder $ IName (name, r), Outer s, Outer i), ctxd, length ps, [])
             end
-          | U.TypeDef ((name, r), t) =>
+          | U.DTypeDef (name, Outer t) =>
+            (case t of
+                 U.TDatatype (dt, r) =>
+                 let
+                   val (dt, ctxd) = is_wf_datatype gctx ctx (dt, r)
+                 in
+                   (DTypeDef (name, Outer $ TDatatype (dt, r)), ctxd, 0, [])
+                 end
+               | _ =>
+                 let
+                   val (name, r) = unBinderName name
+                   val (t, k) = get_kind gctx ((sctx, kctx), t)
+                   val kinding = (name, KeTypeEq (k, t))
+                 in
+                   (DTypeDef (Binder $ TName (name, r), Outer t), ctx_from_kindingext kinding, 0, [])
+                 end
+            )
+          | U.DAbsIdx ((name, Outer s, Outer i), Rebind decls, Outer r) =>
             let
-              val (t, k) = get_kind gctx ((sctx, kctx), t)
-              val kinding = (name, KeTypeEq (k, t))
-            in
-              (TypeDef ((name, r), t), ctx_from_kindingext kinding, 0, [])
-            end
-          | U.AbsIdx (((name, r1), s, i), decls, r) =>
-            let
+              val (name, r1) = unBinderName name
+              val decls = unTeles decls
               val s = is_wf_sort gctx (sctx, s)
               (* localized the scope of the evars introduced in type-checking absidx's definition *)
               val () = open_paren ()
@@ -1695,17 +1748,18 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
               val () = close_paren ()
               val ctxd = add_ctx ctxd2 ctxd
               val () = open_ctx ctxd
+              val decl = DAbsIdx ((Binder $ IName (name, r1), Outer s, Outer i), Rebind $ Teles decls, Outer r)
             in
-              (AbsIdx (((name, r1), s, i), decls, r), ctxd, 0, ds)
+              (decl, ctxd, 0, ds)
             end
-          | U.Open (m, r) =>
+          | U.DOpen (Outer (m, r), octx) =>
             let
               fun link_module (m, r) (sctx, kctx, cctx, tctx) =
                 let
                   fun sort_set_idx_eq s' i =
                     set_prop r s' (VarI (NONE, (0, r)) %= shift_i_i i)
                   val sctx = mapWithIdx (fn (i, (name, s)) => (name, sort_set_idx_eq s $ VarI (SOME (m, r), (i, r)))) sctx
-                  fun kind_set_type_eq (dt, k, _) t = (dt, k, SOME t)
+                  fun kind_set_type_eq (k, _) t = (k, SOME t)
                   val kctx = mapWithIdx (fn (i, (name, k)) => (name, kind_set_type_eq k $ MtVar (SOME (m, r), (i, r)))) kctx
                 in
                   (sctx, kctx, cctx, tctx)
@@ -1721,7 +1775,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
               val ctxd = clone_module gctx (m, r)
               val () = open_ctx ctxd
             in
-              (Open (m, r), ctxd, 0, [])
+              (DOpen (Outer (m, r), octx), ctxd, 0, [])
             end
       fun extra_msg () = ["when type-checking declaration "] @ indent [fst $ U.str_decl (gctx_names gctx) (ctx_names ctx) decl]
       val ret as (decl, ctxd, nps, ds) =
@@ -1751,7 +1805,7 @@ and check_decls gctx (ctx, decls) : decl list * context * int * idx list * conte
         end
       val (decls, ctxd, nps, ds, ctx) = foldl f ([], empty_ctx, 0, [], ctx) decls
       val decls = rev decls
-      val ctxd = (upd4 o map o mapSnd) (simp_t o update_t) ctxd
+      val ctxd = (map4 o map o mapSnd) (simp_t o update_t) ctxd
       val ds = map simp_i $ map update_i $ rev ds
                    (* val () = println "Typed Decls:" *)
                    (* val () = app println $ str_typing_info (gctx_names gctx) skctxn_old (ctxd, ds) *)
@@ -1759,15 +1813,17 @@ and check_decls gctx (ctx, decls) : decl list * context * int * idx list * conte
       (decls, ctxd, nps, ds, ctx)
     end
 
-and is_wf_datatype gctx ctx ((name, tnames, sorts, constr_decls, r) : U.datatype_def) : datatype_def * context =
-    let 
+and is_wf_datatype gctx ctx (Bind (name, tbinds) : U.mtype U.datatype_def, r) : mtype datatype_def * context =
+    let
+      val (tname_kinds, (sorts, constr_decls)) = unfold_binds tbinds
+      val tnames = map fst tname_kinds
       val sorts = map is_wf_bsort sorts
-      val nk = (name, (true, (length tnames, sorts), NONE))
+      val nk = (fst name, ((length tnames, sorts), NONE))
       val ctx as (sctx, kctx, _, _) = add_kindingext_skct nk ctx
-      fun make_constr ((name, ibinds, r) : U.constr_decl) : constr_decl * (string * constr) =
+      fun make_constr ((name, ibinds, r) : U.mtype U.constr_decl) : mtype constr_decl * (string * mtype constr_info) =
 	let
           val family = (NONE, (0, r))
-          val c = (family, tnames, ibinds)
+          val c = (family, fold_binds (tname_kinds, ibinds))
 	  val t = U.constr_type U.VarT shiftx_long_id c
 	  val t = is_wf_type gctx ((sctx, kctx), t)
 		  handle Error (_, msg) =>
@@ -1798,11 +1854,13 @@ and is_wf_datatype gctx ctx ((name, tnames, sorts, constr_decls, r) : U.datatype
             end
           val (_, ibinds) = constr_from_type t
 	in
-	  ((name, ibinds, r), (name, (family, tnames, ibinds)))
+	  ((name, ibinds, r), (fst name, (family, fold_binds (tname_kinds, ibinds))))
 	end
       val (constr_decls, constrs) = (unzip o map make_constr) constr_decls
+      val dt = Bind (name, fold_binds (tname_kinds, (sorts, constr_decls)))
+      val nk = mapSnd (mapSnd (const_fun (SOME $ TDatatype (dt, r)))) nk
     in
-      ((name, tnames, sorts, constr_decls, r), ([], add_kindingext nk [], rev constrs, []))
+      (dt, ([], add_kindingext nk [], rev constrs, []))
     end
       
 and check_rules gctx (ctx as (sctx, kctx, cctx, tctx), rules, t as (t1, return), r) =
@@ -1923,14 +1981,14 @@ fun link_sig r gctx m (ctx' as (sctx', kctx', cctx', tctx') : context) =
       let
         val (x, k) = fetch_kindext_by_name gctx [] (SOME m, (name, r))
         val () = is_sub_kindext r gctx (sctx', kctx') (k, k')
-        fun kind_add_type_eq (dt, k, t') t =
+        fun kind_add_type_eq (k, t') t =
           case t' of
-              NONE => (dt, k, SOME t)
+              NONE => (k, SOME t)
            |  SOME t' =>
               let
                 val () = unify_mt r gctx (sctx', kctx') (t', t)
               in
-                (dt, k, SOME t')
+                (k, SOME t')
               end
         val k' = kind_add_type_eq k' (MtVar x)
       in
@@ -1996,17 +2054,20 @@ fun is_wf_sig gctx (comps, r) =
             (SpecType ((name, r), k), add_kinding_skct (name, k) ctx)
           end
         | U.SpecTypeDef ((name, r), t) =>
-          let
-            val (t, k) = get_kind gctx ((sctx, kctx), t)
-          in
-            (SpecTypeDef ((name, r), t), add_type_eq_skct (name, (k, t)) ctx)
-          end
-        | U.SpecDatatype a =>
-          let
-            val (a, ctxd) = is_wf_datatype gctx ctx a
-          in
-            (SpecDatatype a, add_ctx ctxd ctx)
-          end
+          (case t of
+               U.TDatatype (dt, r) =>
+               let
+                 val (dt, ctxd) = is_wf_datatype gctx ctx (dt, r)
+               in
+                 (SpecTypeDef ((name, r), TDatatype (dt, r)), add_ctx ctxd ctx)
+               end
+             | _ =>
+               let
+                 val (t, k) = get_kind gctx ((sctx, kctx), t)
+               in
+                 (SpecTypeDef ((name, r), t), add_type_eq_skct (name, (k, t)) ctx)
+               end
+          )
     fun iter (spec, (specs, ctx)) =
       let
         val (spec, ctx) = is_wf_spec ctx spec
@@ -2048,7 +2109,7 @@ fun get_sig gctx m : context =
       in
         sg
       end
-    | U.ModTransparentAscription (m, sg) =>
+    | U.ModTransparentAsc (m, sg) =>
       let
         val sg = is_wf_sig gctx sg
         val sg' = get_sig gctx m
@@ -2100,7 +2161,7 @@ fun check_top_bind gctx (name, bind) =
     
 open CollectMod
        
-fun collect_mod_ke (dt, k, t) = default [] (Option.map collect_mod_mt t)
+fun collect_mod_ke (k, t) = default [] (Option.map collect_mod_mt t)
                                         
 fun collect_mod_ctx ((sctx, kctx, cctx, tctx) : context) =
   let

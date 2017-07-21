@@ -77,6 +77,7 @@ local
       | MtAbsI (b, bind, r) => MtAbsI (b, psubst_aux_is_ibind f d x v bind, r)
       | BaseType a => BaseType a
       | UVar a => b
+      | TDatatype _ => raise Unimpl "psubst_aux_is_mt()/TDatatype"
 in
 val psubst_aux_is_mt = f
 fun psubst_is_mt x v b = f 0 x v b
@@ -102,6 +103,7 @@ local
       | MtAppI (t, i) => MtAppI (f d x v t, i)
       | BaseType a => BaseType a
       | UVar a => b
+      | TDatatype _ => raise Unimpl "psubst_aux_ts_mt()/TDatatype"
 in
 val psubst_aux_ts_mt = f
 fun psubst_ts_mt x v b = f (0, 0) x v b

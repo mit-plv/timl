@@ -76,4 +76,18 @@ fun get_uvar_info x =
                        
 end
                        
-structure Expr = ExprFn (structure Var = IntVar structure UVar = UVar)
+structure Expr = ExprFn (structure Var = IntVar
+                         structure UVarI = UVar
+                         structure UVarT = UVar
+                         type ptrn_constr_tag = int * int
+                        )
+                        
+structure ExprVisitor = ExprVisitorFn (structure S = Expr
+                                       structure T = Expr)
+
+structure ShiftEE = ShiftEEFn (structure S = Expr
+                               structure T = Expr)
+                                      
+structure SubstTE = SubstTEFn (structure S = Expr
+                               structure T = Expr)
+                                      

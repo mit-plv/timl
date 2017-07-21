@@ -15,7 +15,7 @@ datatype cmp_result = Equal | Less | Greater
 end
 
 (* rbt is implemented as a functor parametrized on the key type *)
-functor Rbt (structure K : sig
+functor Rbt (K : sig
                            (* signatures can have both type parameter and index parameter *)
                            type t
                            idx m : Time
@@ -306,7 +306,7 @@ end
                      
 end
 
-structure IntRbt = Rbt (structure K = IntKey)
+structure IntRbt = Rbt (IntKey)
 
 structure TestIntRbt = struct
 open IntRbt

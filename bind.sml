@@ -10,6 +10,8 @@ datatype ('namespace, 'classifier, 'name, 'inner) binds =
          BindNil of 'inner
          | BindCons of 'classifier * ('namespace, 'name * ('namespace, 'classifier, 'name, 'inner) binds) bind
 
+fun unBind (Bind a) = a
+                        
 fun unfold_binds binds =
     case binds of
         BindNil inner => ([], inner)
@@ -32,6 +34,14 @@ type 'body tbind = (type_namespace, 'body) bind
 type ('classifier, 'name, 'inner) ibinds = (idx_namespace, 'classifier, 'name, 'inner) binds
 type ('classifier, 'name, 'inner) tbinds = (type_namespace, 'classifier, 'name, 'inner) binds
                                                                                         
+fun visit_bind extend f env data =
+  let
+    val Bind (name, t) = data
+    val t = f (extend env name) t
+  in
+    Bind (name, t)
+  end
+    
 end
 (*
 structure ExprUtil = struct

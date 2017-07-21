@@ -5,6 +5,8 @@ open Bind
 open UVar
 open Expr
        
+infixr 0 $
+         
 fun collect_uvar_i_i i =
   case i of
       VarI _ => []
@@ -37,24 +39,80 @@ fun collect_uvar_s_s s =
           Refined a => collect_uvar_s_s a
         | Fresh info => [(x, info, r)]
                                           
+structure TypeVisitor = TypeVisitorFn (structure S = Expr
+                                         structure T = Expr)
+open TypeVisitor
+
+(* type 'this collect_uvar_t_vtable = *)
+(*      ('this, ((uvar_name *  *)
+(*                ((string * bsort) list *  *)
+(*                 (string * kind) list),mtype) uvar ref *)
+(*               *  *)
+(*               (uvar_name *  *)
+(*                ((string * bsort) list *  *)
+(*                 (string * kind) list)) * region) list  *)
+(*                                                  ref) type_visitor_vtable      *)
+       
+fun collect_uvar_t_type_visitor_vtable cast () (* : 'this collect_uvar_t_vtable *) =
+  let
+    fun visit_UVar this env (x, r) =
+      let
+        val vtable = cast this
+        val () = 
+            case !x of
+                Refined t => ignore $ #visit_mtype vtable this env t
+              | Fresh info => push_ref env (x, info, r)
+      in
+        UVar (x, r)
+      end
+    val vtable =
+        default_type_visitor_vtable
+          cast
+          extend_noop
+          extend_noop
+          visit_noop
+          visit_noop
+          visit_noop
+          visit_noop
+          visit_noop
+          (visit_imposs "visit_uvar")
+    val vtable = override_visit_UVar vtable visit_UVar
+  in
+    vtable
+  end
+
+fun new_collect_uvar_t_type_visitor params = new_type_visitor collect_uvar_t_type_visitor_vtable params
+    
 fun collect_uvar_t_mt t =
-    case t of
-        Unit _ => []
-      | Arrow (t1, _, t2) => collect_uvar_t_mt t1 @ collect_uvar_t_mt t2
-      | TyArray (t, _) => collect_uvar_t_mt t
-      | TyNat _ => []
-      | Prod (t1, t2) => collect_uvar_t_mt t1 @ collect_uvar_t_mt t2
-      | UniI (s, Bind (name, t1), _) => collect_uvar_t_mt t1
-      | MtVar x => []
-      | MtAbs (_, Bind (_, t), _) => collect_uvar_t_mt t
-      | MtApp (t1, t2) => collect_uvar_t_mt t1 @ collect_uvar_t_mt t2
-      | MtAbsI (_, Bind (_, t), _) => collect_uvar_t_mt t
-      | MtAppI (t, i) => collect_uvar_t_mt t
-      | BaseType _ => []
-      | UVar (x, r) =>
-        case !x of
-            Refined a => collect_uvar_t_mt a
-          | Fresh info => [(x, info, r)]
+  let
+    val visitor as (TypeVisitor vtable) = new_collect_uvar_t_type_visitor ()
+    val result = ref []
+    val t = #visit_mtype vtable visitor result t
+  in
+    !result
+  end
+
+open Bind
+       
+(* fun collect_uvar_t_mt t = *)
+(*     case t of *)
+(*         Unit _ => [] *)
+(*       | Arrow (t1, _, t2) => collect_uvar_t_mt t1 @ collect_uvar_t_mt t2 *)
+(*       | TyArray (t, _) => collect_uvar_t_mt t *)
+(*       | TyNat _ => [] *)
+(*       | Prod (t1, t2) => collect_uvar_t_mt t1 @ collect_uvar_t_mt t2 *)
+(*       | UniI (s, Bind (name, t1), _) => collect_uvar_t_mt t1 *)
+(*       | MtVar x => [] *)
+(*       | MtAbs (_, Bind (_, t), _) => collect_uvar_t_mt t *)
+(*       | MtApp (t1, t2) => collect_uvar_t_mt t1 @ collect_uvar_t_mt t2 *)
+(*       | MtAbsI (_, Bind (_, t), _) => collect_uvar_t_mt t *)
+(*       | MtAppI (t, i) => collect_uvar_t_mt t *)
+(*       | BaseType _ => [] *)
+(*       | TDatatype _ => raise Unimpl "collect_uvar_t_mt()/TDatatype" *)
+(*       | UVar (x, r) => *)
+(*         case !x of *)
+(*             Refined a => collect_uvar_t_mt a *)
+(*           | Fresh info => [(x, info, r)] *)
     
 fun collect_uvar_t_t t =
   case t of

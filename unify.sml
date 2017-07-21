@@ -467,12 +467,11 @@ fun unify_t r gctx ctx (t, t') =
         raise unify_error "poly-type" r (str_t gctxn ctxn t, str_t gctxn ctxn t')
       end
         
-fun is_sub_kindext r gctx ctx (ke as (dt, k, t), ke' as (dt', k', t')) =
+fun is_sub_kindext r gctx ctx (ke as (k, t), ke' as (k', t')) =
   let
     val gctxn = gctx_names gctx
     val sctxn = sctx_names $ #1 ctx
     val kctxn = names $ #2 ctx
-    val () = check_eq r op= (dt, dt')
     val () = unify_k r (k, k')
   in
     case (t, t') of
