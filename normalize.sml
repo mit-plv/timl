@@ -468,76 +468,76 @@ fun normalize_ibind' f kctx _ bind = normalize_ibind f kctx bind
 fun normalize_ibinds f_cls f ctx (b : ('classifier, 'name, 'inner) ibinds) = normalize_binds id normalize_ibind' f_cls f ctx b
 fun normalize_tbinds get_cls f_cls f ctx (b : ('classifier, string * 'a, 'inner) tbinds) = normalize_binds get_cls normalize_tbind f_cls f ctx b
        
-fun normalize_type_visitor_vtable cast () : ('this, kcontext) type_visitor_vtable =
-  let
-    fun adapt f this env b = f b
-    fun extend_t _ _ _ => raise Impossible "normalize_mt/extend_t"
-    val vtable =
-        default_type_visitor_vtable
-          cast
-          extend_noop
-          extend_t
-          (visit_imposs "normalize_mt/visit_var")
-          (adapt normalize_bs)
-          (adapt normalize_i)
-          (adapt normalize_s)
-          (adapt normalize_k)
-          (visit_imposs "update/visit_UVar")
+(* fun normalize_type_visitor_vtable cast () : ('this, kcontext) type_visitor_vtable = *)
+(*   let *)
+(*     fun adapt f this env b = f b *)
+(*     fun extend_t _ _ _ => raise Impossible "normalize_mt/extend_t" *)
+(*     val vtable = *)
+(*         default_type_visitor_vtable *)
+(*           cast *)
+(*           extend_noop *)
+(*           extend_t *)
+(*           (visit_imposs "normalize_mt/visit_var") *)
+(*           (adapt normalize_bs) *)
+(*           (adapt normalize_i) *)
+(*           (adapt normalize_s) *)
+(*           (adapt normalize_k) *)
+(*           (visit_imposs "update/visit_UVar") *)
           
-    fun visit_MtVar this env (data as (x, r)) =
-          | MtVar x => try_retrieve_MtVar (normalize_mt kctx) gctx kctx x
-    fun visit_UVar this env (data as (x, r)) =
-      let
-        val vtable = cast this
-      in
-        load_uvar' (#visit_mtype vtable this env) (UVar data) x
-      end
-    val vtable = override_visit_UVar vtable visit_UVar
-    val vtable =
-        update_type_visitor_vtable
-          cast
-          (normalize_bs, normalize_i, normalize_s, normalize_k)
-    fun visit_MtAppI this env (data as (t, i)) =
-      let
-        val vtable = cast this
-        fun normalize_mt a = #visit_mtype vtable this env a
-        fun normalize_i a = #visit_idx vtable this env a
-        val t = normalize_mt kctx t
-        val i = normalize_i i
-      in
-        case t of
-            MtAbsI (_, Bind (_, t), _) => normalize_mt kctx (subst_i_mt i t)
-          | _ => MtAppI (t, i)
-      end
-    val vtable = override_visit_MtAppI vtable visit_MtAppI
-    fun visit_MtApp this env (data as (t1, t2)) =
-      let
-        val vtable = cast this
-        fun normalize_mt a = #visit_mtype vtable this env a
-        val t1 = normalize_mt kctx t1
-        val t2 = normalize_mt kctx t2
-      in
-        case t1 of
-            MtAbs (_, Bind (_, t1), _) => normalize_mt kctx (subst_t_mt t2 t1)
-          | _ => MtApp (t1, t2)
-      end
-    val vtable = override_visit_MtAppI vtable visit_MtAppI
+(*     fun visit_MtVar this env (data as (x, r)) = *)
+(*           | MtVar x => try_retrieve_MtVar (normalize_mt kctx) gctx kctx x *)
+(*     fun visit_UVar this env (data as (x, r)) = *)
+(*       let *)
+(*         val vtable = cast this *)
+(*       in *)
+(*         load_uvar' (#visit_mtype vtable this env) (UVar data) x *)
+(*       end *)
+(*     val vtable = override_visit_UVar vtable visit_UVar *)
+(*     val vtable = *)
+(*         update_type_visitor_vtable *)
+(*           cast *)
+(*           (normalize_bs, normalize_i, normalize_s, normalize_k) *)
+(*     fun visit_MtAppI this env (data as (t, i)) = *)
+(*       let *)
+(*         val vtable = cast this *)
+(*         fun normalize_mt a = #visit_mtype vtable this env a *)
+(*         fun normalize_i a = #visit_idx vtable this env a *)
+(*         val t = normalize_mt kctx t *)
+(*         val i = normalize_i i *)
+(*       in *)
+(*         case t of *)
+(*             MtAbsI (_, Bind (_, t), _) => normalize_mt kctx (subst_i_mt i t) *)
+(*           | _ => MtAppI (t, i) *)
+(*       end *)
+(*     val vtable = override_visit_MtAppI vtable visit_MtAppI *)
+(*     fun visit_MtApp this env (data as (t1, t2)) = *)
+(*       let *)
+(*         val vtable = cast this *)
+(*         fun normalize_mt a = #visit_mtype vtable this env a *)
+(*         val t1 = normalize_mt kctx t1 *)
+(*         val t2 = normalize_mt kctx t2 *)
+(*       in *)
+(*         case t1 of *)
+(*             MtAbs (_, Bind (_, t1), _) => normalize_mt kctx (subst_t_mt t2 t1) *)
+(*           | _ => MtApp (t1, t2) *)
+(*       end *)
+(*     val vtable = override_visit_MtAppI vtable visit_MtAppI *)
 
                                      
-    fun visit_MtAppI this env (data as (t, i)) =
-    val vtable = override_visit_MtAppI vtable visit_MtAppI
-  in
-    vtable
-  end
+(*     fun visit_MtAppI this env (data as (t, i)) = *)
+(*     val vtable = override_visit_MtAppI vtable visit_MtAppI *)
+(*   in *)
+(*     vtable *)
+(*   end *)
 
-fun new_normalize_type_visitor a = new_type_visitor normalize_type_visitor_vtable a
+(* fun new_normalize_type_visitor a = new_type_visitor normalize_type_visitor_vtable a *)
     
-fun normalize_bs b =
-  let
-    val visitor as (TypeVisitor vtable) = new_normalize_type_visitor ()
-  in
-    #visit_bsort vtable visitor () b
-  end
+(* fun normalize_bs b = *)
+(*   let *)
+(*     val visitor as (TypeVisitor vtable) = new_normalize_type_visitor () *)
+(*   in *)
+(*     #visit_bsort vtable visitor () b *)
+(*   end *)
     
 fun normalize_mt gctx kctx t =
   let
