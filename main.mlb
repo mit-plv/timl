@@ -31,6 +31,7 @@ bind.sml
 visitor-util.sml                                 
 unbound.sml
 module-context.sml
+long-id.sml
 var-uvar.sig
 shift-util.sml
 idx.sig
@@ -41,7 +42,6 @@ type-visitor.sml
 type.sml
 datatype.sml
 pattern.sml
-long-id.sml
 expr.sig
 pattern-visitor.sml                                 
 expr-visitor.sml                                 

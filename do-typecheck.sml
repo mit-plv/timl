@@ -717,7 +717,7 @@ fun forget_ctx_d r gctx (sctx, _, _, _) (sctxd, _, _, _) d =
               val ps = collect_And p1
               fun change (p, (d, p2)) =
                 case p of
-                    BinPred (EqP, VarI (NONE, (x, _)), i) =>
+                    BinPred (EqP, VarI (ID (x, _)), i) =>
                     (substx_i_i_nonconsuming x i d,
                      substx_i_p_nonconsuming x i p2)
                   | _ => (d, p2)
@@ -1083,7 +1083,7 @@ fun add_prop r s p =
     | SApp _ => raise Error (r, ["unsolved unification variable in module (unnormalized application)"])
                              
 fun sort_add_idx_eq r s' i =
-  add_prop r s' (VarI (NONE, (0, r)) %= shift_i_i i)
+  add_prop r s' (VarI (ID (0, r)) %= shift_i_i i)
            
 type typing_info = decl list * context * idx list * context
 
@@ -1457,7 +1457,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
             val () = assert (fn () => isNone ot) "get_mtype()/EAppConstr: isNone ot"
             val tc = fetch_constr_type gctx (cctx, x)
 	    (* delegate to checking [x {is} e] *)
-	    val f = U.EVar ((NONE, (0, U.get_region_long_id x)), eia)
+	    val f = U.EVar ((ID (0, U.get_region_long_id x)), eia)
 	    val f = foldl (fn (i, e) => U.EAppI (e, i)) f is
             fun u_shift01_e_e a = UnderscoredShiftEE.on_e_e shiftx_long_id 0 1 a
 	    val e = U.EApp (f, u_shift01_e_e e)
@@ -1703,7 +1703,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
               val i = check_sort gctx (sctx, i, s)
               val ctxd = ctx_from_sorting (name, s)
               val () = open_ctx ctxd
-              val ps = [BinPred (EqP, VarI (NONE, (0, r)), shift_ctx_i ctxd i)]
+              val ps = [BinPred (EqP, VarI (ID (0, r)), shift_ctx_i ctxd i)]
               val () = open_premises ps
             in
               (DAbsIdx2 (Binder $ IName (name, r), Outer s, Outer i), ctxd, length ps, [])
@@ -1736,7 +1736,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
               (* val () = println $ sprintf "sort and value of absidx $: \n$\n$" [name, str_s (gctx_names gctx) (sctx_names sctx) s, str_i (gctx_names gctx) (sctx_names sctx) i] *)
               val ctxd = ctx_from_sorting (name, s)
               val () = open_ctx ctxd
-              val ps = [BinPred (EqP, VarI (NONE, (0, r)), shift_ctx_i ctxd i)]
+              val ps = [BinPred (EqP, VarI (ID (0, r)), shift_ctx_i ctxd i)]
               val () = open_premises ps
               val (decls, ctxd2, nps, ds, _) = check_decls (add_ctx ctxd ctx, decls)
               val () = if nps = 0 then ()
@@ -1757,10 +1757,10 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
               fun link_module (m, r) (sctx, kctx, cctx, tctx) =
                 let
                   fun sort_set_idx_eq s' i =
-                    set_prop r s' (VarI (NONE, (0, r)) %= shift_i_i i)
-                  val sctx = mapWithIdx (fn (i, (name, s)) => (name, sort_set_idx_eq s $ VarI (SOME (m, r), (i, r)))) sctx
+                    set_prop r s' (VarI (ID (0, r)) %= shift_i_i i)
+                  val sctx = mapWithIdx (fn (i, (name, s)) => (name, sort_set_idx_eq s $ VarI $ QID ((m, r), (i, r)))) sctx
                   fun kind_set_type_eq (k, _) t = (k, SOME t)
-                  val kctx = mapWithIdx (fn (i, (name, k)) => (name, kind_set_type_eq k $ MtVar (SOME (m, r), (i, r)))) kctx
+                  val kctx = mapWithIdx (fn (i, (name, k)) => (name, kind_set_type_eq k $ MtVar $ QID ((m, r), (i, r)))) kctx
                 in
                   (sctx, kctx, cctx, tctx)
                 end
@@ -1822,7 +1822,7 @@ and is_wf_datatype gctx ctx (Bind (name, tbinds) : U.mtype U.datatype_def, r) : 
       val ctx as (sctx, kctx, _, _) = add_kindingext_skct nk ctx
       fun make_constr ((name, ibinds, r) : U.mtype U.constr_decl) : mtype constr_decl * (string * mtype constr_info) =
 	let
-          val family = (NONE, (0, r))
+          val family = ID (0, r)
           val c = (family, fold_binds (tname_kinds, ibinds))
 	  val t = U.constr_type U.VarT shiftx_long_id c
 	  val t = is_wf_type gctx ((sctx, kctx), t)
@@ -1969,7 +1969,7 @@ fun link_sig r gctx m (ctx' as (sctx', kctx', cctx', tctx') : context) =
     fun match_sort ((name, s'), sctx') =
       let
         (* val () = println $ sprintf "before fetch_sort_by_name $.$" [str_v (names gctxn) $ fst m, name] *)
-        val (x, s) = fetch_sort_by_name gctx [] (SOME m, (name, r))
+        val (x, s) = fetch_sort_by_name gctx [] $ QID (m, (name, r))
         val () = is_sub_sort r gctxn (sctx_names sctx') (s, s')
         val s' = sort_add_idx_eq r s' (VarI x)
         val sctx' = open_and add_sorting (name, s') sctx'
@@ -1979,7 +1979,7 @@ fun link_sig r gctx m (ctx' as (sctx', kctx', cctx', tctx') : context) =
     val sctx' = foldr match_sort [] sctx'
     fun match_kind ((name, k'), kctx') =
       let
-        val (x, k) = fetch_kindext_by_name gctx [] (SOME m, (name, r))
+        val (x, k) = fetch_kindext_by_name gctx [] $ QID (m, (name, r))
         val () = is_sub_kindext r gctx (sctx', kctx') (k, k')
         fun kind_add_type_eq (k, t') t =
           case t' of
@@ -1997,7 +1997,7 @@ fun link_sig r gctx m (ctx' as (sctx', kctx', cctx', tctx') : context) =
     val kctx' = foldr match_kind [] kctx'
     fun match_constr_type (name, c) =
       let
-        val (_, t) = fetch_constr_type_by_name gctx [] (SOME m, (name, r))
+        val (_, t) = fetch_constr_type_by_name gctx [] $ QID (m, (name, r))
         val t' = constr_type VarT shiftx_long_id c
       in
         unify_t r gctx (sctx', kctx') (t', t)
@@ -2005,7 +2005,7 @@ fun link_sig r gctx m (ctx' as (sctx', kctx', cctx', tctx') : context) =
     val () = app match_constr_type cctx'
     fun match_type (name, t') =
       let
-        val (_, t) = fetch_type_by_name gctx [] (SOME m, (name, r))
+        val (_, t) = fetch_type_by_name gctx [] $ QID (m, (name, r))
       in
         unify_t r gctx (sctx', kctx') (t, t')
       end
@@ -2143,7 +2143,7 @@ fun check_top_bind gctx (name, bind) =
             let
               fun lookup_functor gctx m =
                 opt_bind (Gctx.find (gctx, m)) is_FunctorBind
-              fun fetch_functor gctx ((m, r) : mod_projectible) =
+              fun fetch_functor gctx ((m, r) : mod_id) =
                 case lookup_functor gctx m of
                     SOME a => a
                   | NONE => raise Error (r, ["Unbound functor " ^ m])

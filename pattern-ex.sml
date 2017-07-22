@@ -793,7 +793,7 @@ fun test () =
                                       
     val IName = fn s => IName (s, dummy)
                               
-    fun IVar n = VarI (NONE, (n, dummy))
+    fun IVar n = VarI (ID (n, dummy))
     val dummy = Outer dummy
                       
     val p = PnAnno (PnPair (PnAnno (PnTT dummy, Outer ()), PnAnno (PnTT dummy, Outer ())), Outer ())
@@ -810,7 +810,7 @@ fun test2 () =
   let
     open Expr
     open Subst
-    fun IVar n = VarI (NONE, (n, dummy))
+    fun IVar n = VarI (ID (n, dummy))
                       
     open MicroTiMLEx
     open MicroTiMLExPP

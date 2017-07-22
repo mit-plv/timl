@@ -39,6 +39,7 @@ open Var
 open BaseSorts
 open BaseTypes
 open Util
+open LongId
 open Operators
 open UVarI
 open UVarT
@@ -47,11 +48,8 @@ open Bind
 
 type id = var * region
 type name = string * region
+type long_id = var long_id
 
-(* Curve out a fragment of module expression that is not a full component list ('struct' in ML) that involves types and terms, to avoid making everything mutually dependent. (This means I can't do module substitution because the result may not be expressible.) It coincides with the concept 'projectible' or 'determinate'. *)
-type mod_projectible = name
-type long_id = mod_projectible option * id
-                         
 structure Idx = IdxFn (structure UVarI = UVarI
                        type base_sort = base_sort
                        type var = long_id
@@ -104,7 +102,7 @@ datatype expr =
          | DAbsIdx2 of iname binder * sort outer * idx outer
          | DAbsIdx of (iname binder * sort outer * idx outer) * decl tele rebind * region outer
          | DTypeDef of tname binder * mtype outer
-         | DOpen of mod_projectible outer * scoping_ctx option
+         | DOpen of mod_id outer * scoping_ctx option
 
 datatype spec =
          SpecVal of name * ty
@@ -125,7 +123,7 @@ type sgn = spec list * region
 
 datatype mod =
          ModComponents of (* mod_comp *)decl list * region
-         (* | ModProjectible of mod_projectible *)
+         (* | ModProjectible of mod_id *)
          | ModSeal of mod * sgn
          | ModTransparentAsc of mod * sgn
 (* | ModFunctorApp of id * mod (* list *) *)
@@ -391,12 +389,12 @@ fun AppVar (x, is) = MtAppIs (MtVar x) is
 fun AppV (x, ts, is, r) = MtAppIs (MtApps (MtVar x) ts) is
 
 val VarT = MtVar
-fun constr_type VarT shiftx_long_id ((family, tbinds) : mtype constr_info) = 
+fun constr_type (VarT : int LongId.long_id -> mtype) shiftx_long_id ((family, tbinds) : mtype constr_info) = 
   let
     val (tname_kinds, ibinds) = unfold_binds tbinds
     val tnames = map fst tname_kinds
     val (ns, (t, is)) = unfold_binds ibinds
-    val ts = map (fn x => VarT (NONE, (x, dummy))) $ rev $ range $ length tnames
+    val ts = map (fn x => VarT (ID (x, dummy))) $ rev $ range $ length tnames
     val t2 = AppV (shiftx_long_id 0 (length tnames) family, ts, is, dummy)
     val t = Arrow (t, T0 dummy, t2)
     val t = foldr (fn ((name, s), t) => UniI (s, Bind (name, t), dummy)) t ns
@@ -426,8 +424,7 @@ fun eq_id ((x, _), (x', _)) =
 
 fun eq_name ((s, _) : name, (s', _)) = s = s'
   
-fun eq_long_id ((m, x) : long_id, (m', x')) =
-  eq_option eq_name (m, m') andalso eq_id (x, x')
+val eq_long_id = fn a => eq_long_id eq_id a
                                         
 fun eq_bs bs bs' =
   case bs of
@@ -606,7 +603,7 @@ fun str_raw_id (x, _) = str_raw_v x
 
 fun str_raw_name (s, _) = s
 
-fun str_raw_long_id (m, x) = sprintf "($, $)" [str_raw_option str_raw_name m, str_raw_id x]
+val str_raw_long_id = fn a => str_raw_long_id str_raw_v a
                        
 fun str_raw_bind f (Bind (_, a)) = sprintf "Bind ($)" [f a]
 
@@ -1186,12 +1183,15 @@ and str_rule gctx (ctx as (sctx, kctx, cctx, tctx)) bind =
 
 (* region calculations *)
 
-fun get_region_long_id (m, (_, r)) =
-  case m of
-      NONE => r
-    | SOME (_, r1) => combine_region r1 r
-
-fun set_region_long_id (m, (x, _)) r = (Option.map (fn (m, _) => (m, r)) m, (x, r))
+fun get_region_long_id id =
+  case id of
+      ID x => snd x
+    | QID (m, x) => combine_region (snd m) (snd x)
+                                         
+fun set_region_long_id id r =
+  case id of
+      ID (x, _) => ID (x, r)
+    | QID ((m, _), (x, _)) => QID ((m, r), (x, r))
                                          
 fun get_region_i i =
   case i of
@@ -1394,8 +1394,6 @@ open ShiftUtil
        
 infixr 0 $
 
-open LongIdUtil
-       
 fun shiftx_long_id x n b = on_v_long_id shiftx_v x n b
 val forget_v = forget_v ForgetError
 fun forget_long_id x n b = on_v_long_id forget_v x n b
@@ -1432,12 +1430,6 @@ fun forget_above_i_i x b = forget_i_i x 100000000 b
 
 exception Error of string
 
-(* if it has the module name part, don't substitute, because this is not the variable you are targeting *)
-fun substx_long_id (constr : long_id -> 'a) x (get_v : unit -> 'a) (long_id as (m, (y, r))) =
-  case m of
-      NONE => substx_v (fn x => constr (NONE, (x, r))) x get_v y
-    | SOME _ => constr long_id
-                       
 (* mimic type class *)
 type 'a shiftable = {
   shift_i : int -> 'a -> 'a,
@@ -1468,9 +1460,10 @@ open Bind
 (* fun substx_i_ibinds f_cls f d x v (b : ('classifier, 'name, 'inner) ibinds) = substx_binds substx_i_ibind f_cls f d x v b *)
                                                                                            
 (* fun substx_i_tbinds f_cls f d x v (b : ('classifier, 'name, 'inner) tbinds) = substx_binds substx_i_tbind f_cls f d x v b *)
+
+val substx_long_id = fn a => substx_long_id substx_v a
                                                                                            
 (* depth [d] is used for shifting value [v] *)
-                                                                                           
 fun subst_i_idx_visitor_vtable cast (shift_i_i, d, x, v) : ('this, int) idx_visitor_vtable =
   let
     fun extend_i this d _ = d + 1
@@ -2090,7 +2083,7 @@ local
                 fun def () = try_forget (forget_i_p 0 1) p
               in
                 case p of
-                    BinConn (Imply, BinPred (BigO, VarI (NONE, (x, _)), f), p) =>
+                    BinConn (Imply, BinPred (BigO, VarI (ID (x, _)), f), p) =>
                     if var2int x = 0 then
                       (* ignore this variable if the only thing mentioning it is a BigO premise *)
                       (case (try_forget (forget_i_p 0 1) p, try_forget (forget_i_i 0 1) f) of
@@ -2140,7 +2133,7 @@ local
                        fun is_var_equals x p =
                          let
                            fun find_var (i1, i2) =
-                             if eq_i i1 (VarI (NONE, (int2var x, dummy))) then
+                             if eq_i i1 (VarI (ID (int2var x, dummy))) then
                                SOME (forget_i_i x 1 i2) handle ForgetError _ => NONE
                              else NONE
                          in
@@ -2477,7 +2470,11 @@ infixr 0 $
 
 fun on_ibind f acc (Bind (_, b) : ('a * 'b) ibind) = f acc b
 
-fun on_long_id acc (m, _) = (option2list $ Option.map fst m) @ acc
+fun on_long_id acc id =
+  case id of
+      ID _ => acc
+    | QID ((m, _), _) => m :: acc
+
 fun collect_mod_long_id b = on_long_id [] b
   
 local

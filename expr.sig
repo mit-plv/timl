@@ -2,7 +2,7 @@ signature EXPR = sig
 
   type var
   type cvar
-  type mod_projectible
+  type mod_id
   type idx
   type sort
   type mtype
@@ -41,6 +41,6 @@ signature EXPR = sig
            | DAbsIdx2 of Namespaces.iname Unbound.binder * sort Unbound.outer * idx Unbound.outer
            | DAbsIdx of (Namespaces.iname Unbound.binder * sort Unbound.outer * idx Unbound.outer) * decl Unbound.tele Unbound.rebind * Region.region Unbound.outer
            | DTypeDef of Namespaces.tname Unbound.binder * mtype Unbound.outer
-           | DOpen of mod_projectible Unbound.outer * scoping_ctx option
+           | DOpen of mod_id Unbound.outer * scoping_ctx option
 
 end

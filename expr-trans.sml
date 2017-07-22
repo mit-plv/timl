@@ -2,7 +2,7 @@ functor SubstTEFn (structure S : EXPR
                    structure T : EXPR
                    sharing type S.var = T.var
                    sharing type S.cvar = T.cvar
-                   sharing type S.mod_projectible = T.mod_projectible
+                   sharing type S.mod_id = T.mod_id
                    sharing type S.idx = T.idx
                    sharing type S.sort = T.sort
                    sharing type S.ptrn_constr_tag = T.ptrn_constr_tag
@@ -23,7 +23,7 @@ infixr 0 $
 (*     val vtable =  *)
 (*     val (name, _) = data *)
 (*     val name = visit_tbinder this env name *)
-(*     val t = visit_outer (#visit_mod_projectible vtable this) env $ TDatatype (Abs data, dummy) *)
+(*     val t = visit_outer (#visit_mod_id vtable this) env $ TDatatype (Abs data, dummy) *)
 (*     val data = case t of *)
 (*                    TDatatype (Abs dt, _) => dt *)
 (*                  | _ => raise Impossible "default_expr_visitor/visit_datatype" *)
@@ -67,7 +67,7 @@ end
 functor ShiftEEFn (structure S : EXPR
                    structure T : EXPR
                    sharing type S.cvar = T.cvar
-                   sharing type S.mod_projectible = T.mod_projectible
+                   sharing type S.mod_id = T.mod_id
                    sharing type S.idx = T.idx
                    sharing type S.sort = T.sort
                    sharing type S.mtype = T.mtype

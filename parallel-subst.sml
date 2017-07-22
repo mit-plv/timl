@@ -6,11 +6,11 @@ open Subst
 fun psubst_aux_is_ibind f d x v (Bind (name, b) : ('a * 'b) ibind) =
   Bind (name, f (d + 1) x v b)
        
-fun apply_depth d (m, (x, r)) =
-  case m of
-      SOME _ => (m, (x, r))
-    | NONE => (NONE, (x + d, r))
-
+fun apply_depth d (id : long_id) : long_id =
+  case id of
+      QID _ => id
+    | ID (x, r) => ID (x + d, r)
+                
 fun psubst_long_id d x get_v default y =
   case findi (curry eq_long_id y) (map (apply_depth d) x) of
       SOME (n, _) => get_v n

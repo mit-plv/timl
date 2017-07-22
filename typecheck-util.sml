@@ -308,7 +308,7 @@ fun fetch_module gctx (m, r) =
       SOME sg => sg
     | NONE => raise Error (r, ["Unbounded module"])
                     
-fun fetch_from_module (params as (package, do_fetch)) (* sigs *) gctx ((m, mr) : mod_projectible, x) =
+fun fetch_from_module (params as (package, do_fetch)) (* sigs *) gctx ((m, mr) : mod_id, x) =
   let
     (* val fetch_from_module = fetch_from_module params (* sigs *) *)
     (* fun fetch_from_module_or_ctx gctx ctx (m, x) = *)
@@ -328,10 +328,10 @@ fun fetch_from_module (params as (package, do_fetch)) (* sigs *) gctx ((m, mr) :
 fun add_error_msg (r, old_msg) new_msg =
   (r, new_msg @ ["Cause:"] @ indent old_msg)
     
-fun generic_fetch package do_fetch sel (ggctx as ((* sigs,  *)gctx : sigcontext)) (fctx, (m, x)) =
-  case m of
-      NONE => do_fetch (fctx, x)
-    | SOME m => fetch_from_module (package, do_fetch o mapFst sel) (* sigs *) gctx (m, x)
+fun generic_fetch package do_fetch sel (ggctx as ((* sigs,  *)gctx : sigcontext)) (fctx, id : 'var LongId.long_id) =
+  case id of
+      ID x => do_fetch (fctx, x)
+    | QID (m, x) => fetch_from_module (package, do_fetch o mapFst sel) (* sigs *) gctx (m, x)
 
 fun do_fetch_sort (ctx, (x, r)) =
   case lookup_sort x ctx of
@@ -348,12 +348,17 @@ fun do_fetch_sort_by_name (ctx, (name, r)) =
 fun package0_snd f m (a, b) = (a, f m b)
 fun package0_pair f g m (a, b) = (f m a, g m b)
 fun package0_list f m ls = map (f m) ls
-                               
-fun fetch_sort_by_name gctx ctx (m, name) =
+
+fun long_id_change_id id x =
+  case id of
+      ID _ => ID x
+    | QID (m, _) => QID (m, x)
+                        
+fun fetch_sort_by_name gctx ctx id =
   let
-    val (x, s) = generic_fetch (package0_snd package0_s) do_fetch_sort_by_name #1 gctx (ctx, (m, name))
+    val (x, s) = generic_fetch (package0_snd package0_s) do_fetch_sort_by_name #1 gctx (ctx, id)
   in
-    ((m, x), s)
+    (long_id_change_id id x, s)
   end
     
 fun do_fetch_kindext (kctx, (a, r)) =
@@ -390,11 +395,11 @@ fun do_fetch_kindext_by_name (kctx, (name, r)) =
       SOME (i, k) => ((i, r), k)
     | NONE => raise Error (r, ["Can't find type variable: " ^ name])
 
-fun fetch_kindext_by_name gctx ctx (m, name) =
+fun fetch_kindext_by_name gctx ctx id =
   let
-    val (x, k) = generic_fetch (package0_snd package0_ke) do_fetch_kindext_by_name #2 gctx (ctx, (m, name))
+    val (x, k) = generic_fetch (package0_snd package0_ke) do_fetch_kindext_by_name #2 gctx (ctx, id)
   in
-    ((m, x), k)
+    (long_id_change_id id x, k)
   end
     
 fun do_fetch_constr (ctx, (x, r)) =
@@ -417,10 +422,14 @@ fun get_family_siblings gctx cctx cx =
     (* val () = println $ sprintf "family: $" [str_mt (gctx_names gctx) (sctx_names sctx, names kctx) (MtVar family)] *)
     fun do_fetch_family (cctx, (_, r)) =
       let
+        fun long_id_get_id id =
+          case id of
+              ID x => x
+            | QID (_, x) => x
         fun iter (n, (_, c)) =
           ((* println (str_mt (gctx_names gctx) (sctx_names sctx, names kctx) (MtVar (get_family c)));  *)
             (* println (str_raw_long_id $ get_family c);  *)
-            if eq_id (snd $ get_family c, snd family) then SOME ((NONE, (n, r)), c) else NONE)
+            if eq_id (long_id_get_id $ get_family c, long_id_get_id family) then SOME ((ID (n, r)), c) else NONE)
       in
         rev $ map snd $ mapPartialWithIdx iter cctx
       end
@@ -434,11 +443,11 @@ fun do_fetch_constr_by_name (ctx, (name, r)) =
       SOME (i, c) => ((i, r), c)
     | NONE => raise Error (r, ["Can't find constructor: " ^ name])
 
-fun fetch_constr_by_name gctx ctx (m, name) =
+fun fetch_constr_by_name gctx ctx id =
   let
-    val (x, c) = generic_fetch (package0_snd package0_c) do_fetch_constr_by_name #3 gctx (ctx, (m, name))
+    val (x, c) = generic_fetch (package0_snd package0_c) do_fetch_constr_by_name #3 gctx (ctx, id)
   in
-    ((m, x), c)
+    (long_id_change_id id x, c)
   end
     
 fun fetch_constr_type_by_name gctx ctx name =
@@ -456,11 +465,11 @@ fun do_fetch_type_by_name (ctx, (name, r)) =
       SOME (i, t) => ((i, r), t)
     | NONE => raise Error (r, ["Can't find variable: " ^ name])
 
-fun fetch_type_by_name gctx ctx (m, name) =
+fun fetch_type_by_name gctx ctx id =
   let
-    val (x, t) = generic_fetch (package0_snd package0_t) do_fetch_type_by_name #4 gctx (ctx, (m, name))
+    val (x, t) = generic_fetch (package0_snd package0_t) do_fetch_type_by_name #4 gctx (ctx, id)
   in
-    ((m, x), t)
+    (long_id_change_id id x, t)
   end
 
 fun try_retrieve_MtVar f gctx kctx x =

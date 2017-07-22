@@ -8,16 +8,14 @@ open Subst
 
 infixr 0 $
 
-fun package_long_id x m (long_id as (m', (y, r)) : long_id) =
-  case m' of
-      NONE =>
+fun package_long_id x m (id : long_id) =
+  case id of
+      ID (y, r) =>
       if y >= x then
-        (SOME m, (y - x, r))
+        QID (m, (y - x, r))
       else
-        long_id
-    | SOME _ =>
-      (* if it has module reference, don't substitute *)
-      long_id
+        id
+    | QID _ => id (* if it has module reference, don't substitute *)
         
 fun package_i_ibind f x v (Bind (name, inner) : ('a * 'b) ibind) =
   Bind (name, f (x + 1) v inner)

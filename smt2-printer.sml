@@ -30,8 +30,13 @@ fun print_idx_bin_op opr =
         
 fun print_i ctx i =
   case i of
-      VarI (_, (n, _)) =>
-      (List.nth (ctx, n) handle Subscript => raise SMTError $ "Unbound variable " ^ str_int n)
+      VarI id =>
+      (case id of
+           ID (n, _) =>
+           (List.nth (ctx, n) handle Subscript => raise SMTError $ "Unbound variable: " ^ str_int n)
+         | QID _ =>
+           raise SMTError $ "Unbound variable: " ^ LongId.str_raw_long_id str_int id
+      )
     | IConst (c, _) =>
       (case c of
            ICNat n => str_int n
@@ -234,8 +239,8 @@ fun conv_base_sort b =
       case b of
           UnitSort => (UnitSort, NONE)
         | BoolSort => (BoolSort, NONE)
-        | Nat => (Nat, SOME (BinPred (LeP, ConstIN (0, dummy), VarI (NONE, (0, dummy)))))
-        | Time => (Time, SOME (BinPred (LeP, ConstIT ("0.0", dummy), VarI (NONE, (0, dummy)))))
+        | Nat => (Nat, SOME (BinPred (LeP, ConstIN (0, dummy), VarI (ID (0, dummy)))))
+        | Time => (Time, SOME (BinPred (LeP, ConstIT ("0.0", dummy), VarI (ID (0, dummy)))))
 
 fun conv_bsort bsort =
   case bsort of

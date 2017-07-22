@@ -32,7 +32,15 @@ fun compare_name (x, x') = String.compare (fst x, fst x')
                                      
 structure LongIdOrdKey = struct
 type ord_key = long_id
-fun compare (a : long_id * long_id) = compare_pair (compare_option compare_name, compare_id) a
+fun compare (a : long_id, a' : long_id) =
+  let
+    fun to_pair id =
+      case id of
+          ID x => (NONE, x)
+        | QID (m, x) => (SOME m, x)
+  in
+    compare_pair (compare_option compare_name, compare_id) (to_pair a, to_pair a')
+  end
 end
 
 structure LongIdBinaryMap = BinaryMapFn (LongIdOrdKey)

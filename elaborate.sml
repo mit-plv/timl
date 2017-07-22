@@ -29,6 +29,11 @@ local
           else NONE
         | _ => NONE
                  
+  fun to_long_id (m, x) =
+    case m of
+        NONE => ID x
+      | SOME m => QID (m, x)
+        
   fun elab_i i =
       case i of
 	  S.VarI (id as (m, (x, r))) =>
@@ -43,8 +48,8 @@ local
                else if x = "_" then
                  UVarI ((), r)
 	       else
-		 VarI id
-             | SOME _ => VarI id
+		 VarI $ to_long_id id
+             | SOME _ => VarI $ to_long_id id
           )
 	| S.ConstIN n =>
 	  ConstIN n
@@ -110,7 +115,7 @@ local
               let
                 val name = "__f"
               in
-                Subset (bs, Bind ((name, r), BinPred (BigO, VarI (NONE, (name, r)), i)), r)
+                Subset (bs, Bind ((name, r), BinPred (BigO, VarI (ID (name, r)), i)), r)
               end
           in
             if name = "BigO" then
@@ -146,7 +151,7 @@ local
       case t of
 	  S.VarT (id as (m, (x, r))) =>
           let
-            fun def () = AppV (id, [], [], r)
+            fun def () = AppV (to_long_id id, [], [], r)
           in
             case m of
                 NONE =>
@@ -171,14 +176,14 @@ local
 	  end
 	| S.AppTT (t1, t2, r) =>
 	  (case is_var_app_ts t1 of
-	       SOME (x, ts) => AppV (x, map elab_mt (ts @ [t2]), [], r)
+	       SOME (x, ts) => AppV (to_long_id x, map elab_mt (ts @ [t2]), [], r)
 	     | NONE => raise Error (r, "Head of type-type application must be a variable"))
 	| S.AppTI (t, i, r) =>
 	  let val (t, is) = get_is t 
 	      val is = is @ [i]
 	  in
 	    case is_var_app_ts t of
-		SOME (x, ts) => AppV (x, map elab_mt ts, map elab_i is, r)
+		SOME (x, ts) => AppV (to_long_id x, map elab_mt ts, map elab_i is, r)
 	      | NONE => raise Error (r, "The form of type-index application can only be [Variable Types Indices]")
 	  end
 
@@ -190,7 +195,7 @@ local
           if isNone (fst name) andalso not eia andalso null inames andalso isNone pn then
             VarP $ Binder $ EName (snd name)
           else
-            ConstrP (Outer ((name, ()), eia), map str2ibinder inames, default (TTP $ Outer r) $ Option.map elab_pn pn, Outer r)
+            ConstrP (Outer ((to_long_id name, ()), eia), map str2ibinder inames, default (TTP $ Outer r) $ Option.map elab_pn pn, Outer r)
         | S.TupleP (pns, r) =>
           (case pns of
                [] => TTP $ Outer r
@@ -267,7 +272,7 @@ local
       case e of
 	  S.Var (id as (m, (x, r)), eia) =>
           let
-            fun def () = EVar (id, eia)
+            fun def () = EVar (to_long_id id, eia)
           in
             case m of
                 NONE =>

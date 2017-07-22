@@ -60,25 +60,30 @@ fun gctx_names (gctx : ns_sigcontext) =
       gctx
     end
       
-fun find_long_id gctx sel eq ctx (m, (x, xr)) =
-    case m of
-        NONE =>
+fun find_long_id gctx sel eq ctx id =
+    case id of
+        ID (x, xr) =>
         opt_bind (findOptionWithIdx (eq x) ctx)
                  (fn x => opt_return (NONE, (x, xr)))
-      | SOME (m, mr) =>
+      | QID ((m, mr), (x, xr)) =>
         opt_bind (ns_lookup_module gctx m)
                  (fn (m, sg) =>
                      opt_bind (findOptionWithIdx (eq x) $ sel sg)
                               (fn x => opt_return (SOME (m, mr), (x, xr))))
-                 
+
+fun to_long_id (m, x) =
+  case m of
+      NONE => ID x
+    | SOME m => QID (m, x)
+                    
 fun on_long_id gctx sel ctx x =
     case find_long_id gctx sel is_eq_snd ctx x of
-        SOME x => x
+        SOME x => to_long_id x
       | NONE => raise Error (S.get_region_long_id x, sprintf "Unbound (long) variable '$' in context: $ $" [S.str_long_id #1 empty [] x, str_ls id ctx, str_ls id $ domain gctx])
                       
 fun find_constr (gctx : ns_sigcontext) ctx x =
     flip Option.map (find_long_id gctx #3 is_eq_fst_snd ctx x)
-         (fn (m, ((i, inames), xr)) => ((m, (i, xr)), inames))
+         (fn (m, ((i, inames), xr)) => (to_long_id (m, (i, xr)), inames))
          
 (* fun on_ibind f ctx (Bind (name, inner) : ((string * 'a) * 'b) ibind) = Bind (name, f (fst name :: ctx) inner) *)
 
@@ -95,7 +100,7 @@ open IdxVisitor
     
 fun import_idx_visitor_vtable cast gctx : ('this, scontext) idx_visitor_vtable =
   let
-    fun extend this env x1 = fst x1 :: env
+    fun extend this env x = fst x :: env
     fun visit_var this env x =
       on_long_id gctx #1 env x
     fun visit_quan _ _ q = on_quan q
@@ -244,9 +249,9 @@ fun on_i_type_visitor_vtable cast gctx : ('this, scontext * kcontext) TV.type_vi
               val ts = map (#visit_mtype vtable this ctx) ts
               val is = map (#visit_idx vtable this ctx) is
             in
-              if S.eq_long_id (x, (NONE, ("nat", dummy))) andalso length ts = 0 andalso length is = 1 then
+              if S.eq_long_id (x, (ID ("nat", dummy))) andalso length ts = 0 andalso length is = 1 then
                 TyNat (hd is, S.get_region_mt t)
-              else if S.eq_long_id (x, (NONE, ("array", dummy))) andalso length ts = 1 andalso length is = 1 then
+              else if S.eq_long_id (x, (ID ("array", dummy))) andalso length ts = 1 andalso length is = 1 then
                 TyArray (hd ts, hd is)
               else
                 default ()
@@ -535,7 +540,7 @@ fun on_i_expr_visitor_vtable cast gctx : ('this, context) EV.expr_visitor_vtable
         val (_, _, cctx, _) = #outer env
         val name = unBinderName ename
       in
-        case find_constr gctx cctx (NONE, name) of
+        case find_constr gctx cctx (ID name) of
 	    SOME (x, c_inames) =>
             let
               val r = snd name

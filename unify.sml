@@ -47,8 +47,8 @@ fun unify_bs r (bs, bs') =
       | _ => raise unify_error "base sort" r (str_bs bs, str_bs bs')
   end
     
-fun V r n = VarI (NONE, (n, r))
-fun TV r n = MtVar (NONE, (n, r))
+fun V r n = VarI (ID (n, r))
+fun TV r n = MtVar (ID (n, r))
                
 fun find_injection (eq : 'a -> 'a -> bool) (xs : 'a list) (ys : 'a list) : int list option =
   let
@@ -313,9 +313,12 @@ fun unify_mt r gctx ctx (t, t') =
                                        
         open CollectVar
         val uncovered = List.filter (fn var => not (List.exists (fn arg => eq_i (VarI var) arg) i_args)) i_vars'
-        fun forget_nonconsuming (var as (m, (x, _))) b =
+        fun forget_nonconsuming (var : long_id) b =
           let
-            val () = if isNone m then () else raise UnifyAppUVarFailed "can't forget moduled variable"
+            val x = case var of
+                         ID (x, _) => x
+                       | QID _ =>
+                         raise UnifyAppUVarFailed "can't forget moduled variable"
             open UVarForget
             val b = normalize_mt gctx kctx b
             val b = forget_i_mt x 1 b

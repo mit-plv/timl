@@ -195,10 +195,10 @@ fun timefun_le is_outer hs a b =
       find_hyp id (fn (a, b) => (shift_i_i a, shift_i_i b)) match_bigO () hyps
     fun use_bigO_hyp hyps i =
       case find_bigO_hyp i hyps of
-          SOME ((VarI (NONE, (f', _)), g), _) =>
+          SOME ((VarI (ID (f', _)), g), _) =>
           let
             val g = simp_i g
-            val i' = simp_i $ ParaSubst.psubst_is_i [(NONE, (f', dummy))] [g] i
+            val i' = simp_i $ ParaSubst.psubst_is_i [(ID (f', dummy))] [g] i
             val hs_ctx = hyps2ctx hs
                                   (* val () = println $ sprintf "timefun_le(): $ ~> $" [str_i [] ctx i, str_i [] ctx i'] *)
           in
@@ -260,7 +260,7 @@ fun by_master_theorem uvar (hs, p) =
     val (uvar_name, uvar_ctx, b) = get_uvar_info uvar !! (fn () => raise Error "not fresh uvar")
     (* val () = println $ sprintf "Running bigO inference for ?$" [str_int uvar_name] *)
     fun ask_smt p = ask_smt_vc (hs, p)
-    fun V n = VarI (NONE, (n, dummy))
+    fun V n = VarI (ID (n, dummy))
     fun to_real i = UnOpI (ToReal, i, dummy)
     val rV = to_real o V
     val use_bigO_hyp = use_bigO_hyp hs
@@ -567,7 +567,12 @@ fun go_through f ls =
         output @ output2
       end
 
-fun outside_arity arity (m, (x, _)) = not (isNone m andalso x < arity)
+fun inside_arity arity id =
+  case id of
+      ID (x, _) => x < arity
+    | QID _ => false
+fun outside_arity arity id =
+  not $ inside_arity arity id
                                                             
 exception MasterTheoremCheckFail of region * string list
 
@@ -658,9 +663,12 @@ fun solve_exists (vc as (hs, p), vcs) =
         open CollectVar
         val vars = dedup eq_long_id $ collect_var_i_i value_side
         val uncovered = List.filter (fn var => not (List.exists (fn arg => eq_i (VarI var) arg) args)) vars
-        fun forget_nonconsuming (var as (m, (x, _))) b =
+        fun forget_nonconsuming (var : long_id) b =
           let
-            val () = if isNone m then () else raise Error "can't forget decorated variable"
+            val x = case var of
+                         ID (x, _) => x
+                       | QID _ =>
+                         raise Error "can't forget decorated variable"
             open UVarForget
             val () = println $ sprintf "forgeting $ in $" [str_i empty hs_ctx (VarI var), str_i empty hs_ctx b]
             val b = forget_i_i x 1 b
@@ -797,7 +805,7 @@ fun solve_fun_compare (vc as (hs, p)) =
             val is = collect_AddI i
             fun par i =
               case i of
-                  BinOpI (IApp, VarI (f, _), n) =>
+                  BinOpI (IApp, VarI (ID (f, _)), n) =>
                   SOME (f, n)
                 | _ => NONE
             val (apps, rest) = partitionOption par is

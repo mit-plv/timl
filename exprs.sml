@@ -1,5 +1,6 @@
 structure StringVar = struct
 open Util
+open LongId
 type var = string
 type name_context = string list * string list * string list * string list
 type global_name_context = name_context Gctx.map
@@ -9,13 +10,10 @@ fun str_raw_v x = x
       
 fun lookup_module gctx m = (m, ([], [], [], []))
                              
-fun str_long_id sel gctx ctx (m, x) =
-  let
-    val m = default "" (Option.map (suffix "." o fst) m)
-    val x = str_v ctx (fst x)
-  in
-    m ^ x
-  end
+fun str_long_id sel gctx ctx id =
+  case id of
+      ID (x, _) => str_v ctx x
+    | QID ((m, _), (x, _)) => m ^ "." ^ str_v ctx x
     
 fun eq_v (x : var, y) = x = y
                               
@@ -29,6 +27,7 @@ end
 
 structure IntVar = struct
 open Util
+open LongId
 open ShiftUtil
 open Gctx
 type var = int
@@ -51,23 +50,16 @@ fun lookup_module gctx m =
       SOME (name, ctx) => (name, ctx)
     | NONE => ("unbound_module_" ^ m, ([], [], [], []))
                 
-fun str_long_id sel gctx ctx (m, x) =
-  let
-    val (mod_name, ctx) =
-        case m of
-            SOME (m, _) =>
-            let
-              val (name, ctx) = lookup_module gctx m
-              val name = name ^ "."
-              val ctx = sel ctx
-            in
-              (name, ctx)
-            end
-          | NONE => ("", ctx)
-    val x = str_id ctx x
-  in
-    mod_name ^ x
-  end
+fun str_long_id sel gctx ctx id =
+  case id of
+      QID ((m, _), x) =>
+      let
+        val (name, ctx) = lookup_module gctx m
+        val ctx = sel ctx
+      in
+        name ^ "." ^ str_id ctx x
+      end
+    | ID x => str_id ctx x
     
 fun eq_v (x : var, y) = x = y
 

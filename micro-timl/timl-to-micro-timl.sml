@@ -269,7 +269,7 @@ fun EInj (ts, n, e) =
       else
         EInr (t, EInj (ts, n-1, e))
 
-fun int2var x = (NONE, (x, dummy))
+fun int2var x = ID (x, dummy)
 
 fun PEqs pairs = combine_And $ map PEq pairs
   
@@ -335,15 +335,15 @@ val trans_mt = on_mt
                  
 val shift_var = LongIdShift.shiftx_var
     
-fun compare_var (m, (y, r)) x =
-  case m of
-      SOME _ => CmpOther
-    | NONE =>
+fun compare_var id x =
+  case id of
+      QID _ => CmpOther
+    | ID (y, r) =>
       if y = x then CmpEq
       else if y > x then
-        CmpGreater (m, (y - 1, r))
+        CmpGreater $ ID (y - 1, r)
       else CmpOther
-    
+             
 fun shift_i_t a = shift_i_t_fn (shiftx_i_i, shiftx_i_s) a
 fun shift_t_t a = shift_t_t_fn shift_var a
 fun subst_t_t a = subst_t_t_fn (compare_var, shift_var, shiftx_i_i, shiftx_i_s) a
@@ -354,7 +354,7 @@ fun normalize_t a = normalize_t_fn (subst0_i_t, subst0_t_t) a
 fun shift_i_e a = shift_i_e_fn (shiftx_i_i, shiftx_i_s, shift_i_t) a
 fun shift_e_e a = shift_e_e_fn shift_var a
 fun subst_e_e a = subst_e_e_fn (compare_var, shift_var, shiftx_i_i, shiftx_i_s, shift_i_t, shift_t_t) a
-fun EV n = EVar (NONE, (n, dummy))
+fun EV n = EVar (ID (n, dummy))
                 
 open PatternEx
 fun shift_e_pn a = shift_e_pn_fn shift_e_e a
@@ -547,11 +547,15 @@ fun test filename =
     fun subst_t_e a = SubstTE.subst_t_e_fn (use_idepth_tdepth substx_t_mt) a
     val e = subst_t_e (IDepth 0, TDepth 1) 1 t_list e
     val e = trans_e e
-    fun short_to_long_id x = (NONE, (x, dummy))
-    fun visit_var (_, _, tctx) (_, (x, _)) = short_to_long_id $ nth_error (map Name2str tctx) x !! (fn () => "__unbound_" ^ str_int x)
+    fun short_to_long_id x = ID (x, dummy)
+    fun visit_var (_, _, tctx) id =
+      case id of
+          ID (x, _) =>
+          short_to_long_id $ nth_error (map Name2str tctx) x !! (fn () => "__unbound_" ^ str_int x)
+        | QID _ => short_to_long_id $ "__unbound_" ^ str_raw_long_id id
     val export = export_fn (visit_var, return2, return2, return2)
     val e = export ([], [], []) e
-    fun str_var (_, (x, _)) = (* str_int  *)x
+    fun str_var x = LongId.str_raw_long_id id(*str_int*) x
     val pp_e = MicroTiMLExPP.pp_e_fn (str_var, str_raw_i, str_raw_s, const_fun "<kind>", const_fun "<ty>")
     val () = pp_e e
   in

@@ -36,7 +36,7 @@ type ('this, 'env) expr_visitor_vtable =
        visit_DAbsIdx2 : 'this -> 'env ctx -> iname binder * sort outer * idx outer -> T.decl,
        visit_DAbsIdx : 'this -> 'env ctx -> (iname binder * sort outer * idx outer) * decl tele rebind * region outer -> T.decl,
        visit_DTypeDef : 'this -> 'env ctx -> tname binder * mtype outer -> T.decl,
-       visit_DOpen : 'this -> 'env ctx -> mod_projectible outer * scoping_ctx option -> T.decl,
+       visit_DOpen : 'this -> 'env ctx -> mod_id outer * scoping_ctx option -> T.decl,
        visit_ptrn : 'this -> 'env ctx -> ptrn -> T.ptrn,
        visit_VarP : 'this -> 'env ctx -> ename binder -> T.ptrn,
        visit_TTP : 'this -> 'env ctx -> region outer -> T.ptrn,
@@ -55,7 +55,7 @@ type ('this, 'env) expr_visitor_vtable =
        visit_EAsc : 'this -> 'env -> expr * mtype -> T.expr,
        visit_var : 'this -> 'env -> var -> T.var,
        visit_cvar : 'this -> 'env -> cvar -> T.cvar,
-       visit_mod_projectible : 'this -> 'env -> mod_projectible -> T.mod_projectible,
+       visit_mod_id : 'this -> 'env -> mod_id -> T.mod_id,
        visit_idx : 'this -> 'env -> idx -> T.idx,
        visit_sort : 'this -> 'env -> sort -> T.sort,
        visit_mtype : 'this -> 'env -> mtype -> T.mtype,
@@ -109,7 +109,7 @@ fun override_visit_ConstrP (record : ('this, 'env) expr_visitor_vtable) new : ('
     visit_EAscTime = #visit_EAscTime record,
     visit_var = #visit_var record,
     visit_cvar = #visit_cvar record,
-    visit_mod_projectible = #visit_mod_projectible record,
+    visit_mod_id = #visit_mod_id record,
     visit_idx = #visit_idx record,
     visit_sort = #visit_sort record,
     visit_mtype = #visit_mtype record,
@@ -163,7 +163,7 @@ fun override_visit_VarP (record : ('this, 'env) expr_visitor_vtable) new : ('thi
     visit_EAscTime = #visit_EAscTime record,
     visit_var = #visit_var record,
     visit_cvar = #visit_cvar record,
-    visit_mod_projectible = #visit_mod_projectible record,
+    visit_mod_id = #visit_mod_id record,
     visit_idx = #visit_idx record,
     visit_sort = #visit_sort record,
     visit_mtype = #visit_mtype record,
@@ -217,7 +217,7 @@ fun override_visit_EVar (record : ('this, 'env) expr_visitor_vtable) new : ('thi
     visit_EAscTime = #visit_EAscTime record,
     visit_var = #visit_var record,
     visit_cvar = #visit_cvar record,
-    visit_mod_projectible = #visit_mod_projectible record,
+    visit_mod_id = #visit_mod_id record,
     visit_idx = #visit_idx record,
     visit_sort = #visit_sort record,
     visit_mtype = #visit_mtype record,
@@ -271,7 +271,7 @@ fun override_visit_EBinOp (record : ('this, 'env) expr_visitor_vtable) new : ('t
     visit_EAscTime = #visit_EAscTime record,
     visit_var = #visit_var record,
     visit_cvar = #visit_cvar record,
-    visit_mod_projectible = #visit_mod_projectible record,
+    visit_mod_id = #visit_mod_id record,
     visit_idx = #visit_idx record,
     visit_sort = #visit_sort record,
     visit_mtype = #visit_mtype record,
@@ -325,7 +325,7 @@ fun override_visit_EApp (record : ('this, 'env) expr_visitor_vtable) new : ('thi
     visit_EAscTime = #visit_EAscTime record,
     visit_var = #visit_var record,
     visit_cvar = #visit_cvar record,
-    visit_mod_projectible = #visit_mod_projectible record,
+    visit_mod_id = #visit_mod_id record,
     visit_idx = #visit_idx record,
     visit_sort = #visit_sort record,
     visit_mtype = #visit_mtype record,
@@ -379,7 +379,7 @@ fun override_visit_EEI (record : ('this, 'env) expr_visitor_vtable) new : ('this
     visit_EAscTime = #visit_EAscTime record,
     visit_var = #visit_var record,
     visit_cvar = #visit_cvar record,
-    visit_mod_projectible = #visit_mod_projectible record,
+    visit_mod_id = #visit_mod_id record,
     visit_idx = #visit_idx record,
     visit_sort = #visit_sort record,
     visit_mtype = #visit_mtype record,
@@ -433,7 +433,7 @@ fun override_visit_EAppI (record : ('this, 'env) expr_visitor_vtable) new : ('th
     visit_EAscTime = #visit_EAscTime record,
     visit_var = #visit_var record,
     visit_cvar = #visit_cvar record,
-    visit_mod_projectible = #visit_mod_projectible record,
+    visit_mod_id = #visit_mod_id record,
     visit_idx = #visit_idx record,
     visit_sort = #visit_sort record,
     visit_mtype = #visit_mtype record,
@@ -487,7 +487,7 @@ fun override_visit_EAscTime (record : ('this, 'env) expr_visitor_vtable) new : (
     visit_EAscTime = new,
     visit_var = #visit_var record,
     visit_cvar = #visit_cvar record,
-    visit_mod_projectible = #visit_mod_projectible record,
+    visit_mod_id = #visit_mod_id record,
     visit_idx = #visit_idx record,
     visit_sort = #visit_sort record,
     visit_mtype = #visit_mtype record,
@@ -541,7 +541,7 @@ fun override_visit_EAsc (record : ('this, 'env) expr_visitor_vtable) new : ('thi
     visit_EAscTime = #visit_EAscTime record,
     visit_var = #visit_var record,
     visit_cvar = #visit_cvar record,
-    visit_mod_projectible = #visit_mod_projectible record,
+    visit_mod_id = #visit_mod_id record,
     visit_idx = #visit_idx record,
     visit_sort = #visit_sort record,
     visit_mtype = #visit_mtype record,
@@ -595,7 +595,7 @@ fun override_visit_ECase (record : ('this, 'env) expr_visitor_vtable) new : ('th
     visit_EAscTime = #visit_EAscTime record,
     visit_var = #visit_var record,
     visit_cvar = #visit_cvar record,
-    visit_mod_projectible = #visit_mod_projectible record,
+    visit_mod_id = #visit_mod_id record,
     visit_idx = #visit_idx record,
     visit_sort = #visit_sort record,
     visit_mtype = #visit_mtype record,
@@ -649,7 +649,7 @@ fun override_visit_DRec (record : ('this, 'env) expr_visitor_vtable) new : ('thi
     visit_EAscTime = #visit_EAscTime record,
     visit_var = #visit_var record,
     visit_cvar = #visit_cvar record,
-    visit_mod_projectible = #visit_mod_projectible record,
+    visit_mod_id = #visit_mod_id record,
     visit_idx = #visit_idx record,
     visit_sort = #visit_sort record,
     visit_mtype = #visit_mtype record,
@@ -703,7 +703,7 @@ fun override_visit_DTypeDef (record : ('this, 'env) expr_visitor_vtable) new : (
     visit_EAscTime = #visit_EAscTime record,
     visit_var = #visit_var record,
     visit_cvar = #visit_cvar record,
-    visit_mod_projectible = #visit_mod_projectible record,
+    visit_mod_id = #visit_mod_id record,
     visit_idx = #visit_idx record,
     visit_sort = #visit_sort record,
     visit_mtype = #visit_mtype record,
@@ -757,7 +757,7 @@ fun override_visit_DOpen (record : ('this, 'env) expr_visitor_vtable) new : ('th
     visit_EAscTime = #visit_EAscTime record,
     visit_var = #visit_var record,
     visit_cvar = #visit_cvar record,
-    visit_mod_projectible = #visit_mod_projectible record,
+    visit_mod_id = #visit_mod_id record,
     visit_idx = #visit_idx record,
     visit_sort = #visit_sort record,
     visit_mtype = #visit_mtype record,
@@ -789,7 +789,7 @@ fun default_expr_visitor_vtable
       extend_e
       visit_var
       visit_cvar
-      visit_mod_projectible
+      visit_mod_id
       visit_idx
       visit_sort
       visit_mtype
@@ -1160,7 +1160,7 @@ fun default_expr_visitor_vtable
       let
         val vtable = cast this
         val (m, scp) = data
-        val m = visit_outer (#visit_mod_projectible vtable this) env m
+        val m = visit_outer (#visit_mod_id vtable this) env m
         val scp = Option.map (visit_scoping_ctx this env) scp
       in
         T.DOpen (m, scp)
@@ -1306,7 +1306,7 @@ fun default_expr_visitor_vtable
       visit_EAscTime = visit_EAscTime,
       visit_var = visit_var,
       visit_cvar = visit_cvar,
-      visit_mod_projectible = visit_mod_projectible,
+      visit_mod_id = visit_mod_id,
       visit_idx = visit_idx,
       visit_sort = visit_sort,
       visit_mtype = visit_mtype,

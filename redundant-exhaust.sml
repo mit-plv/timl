@@ -217,7 +217,7 @@ fun find_hab deep gctx (ctx as (sctx, kctx, cctx)) (t : mtype) cs =
                         if fetch_is_datatype gctx (kctx, family) then
 	                  let
                             fun do_fetch_constrs (cctx, family) =
-                              rev $ map snd $ mapPartialWithIdx (fn (n, (_, c)) => if eq_long_id (get_family c, (NONE, family)) then SOME (NONE, (n, snd family)) else NONE) cctx
+                              rev $ map snd $ mapPartialWithIdx (fn (n, (_, c)) => if eq_long_id (get_family c, ID family) then SOME (ID (n, snd family)) else NONE) cctx
                             fun fetch_constrs a = generic_fetch (package0_list (package_long_id 0)) do_fetch_constrs #3 a
                             val all = fetch_constrs gctx (cctx, family)
                             (* val () = println $ sprintf "Constructors of $: $" [str_long_id #2 (gctx_names gctx) (names kctx) family, str_ls (str_long_id #3 (gctx_names gctx) (names cctx)) all] *)
@@ -329,7 +329,7 @@ fun find_hab deep gctx (ctx as (sctx, kctx, cctx)) (t : mtype) cs =
                                  end
                                | Failed (i, dissident) =>
                                  if conflict c dissident then
-                                   raise Incon $ "conflicts on constructor " ^ str_int (fst $ snd x)
+                                   raise Incon $ "conflicts on constructor " ^ str_raw_long_id x
                                  else
                                    inr (dissident, c :: remove i cs, t)
                            end

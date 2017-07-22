@@ -5,13 +5,13 @@ open Expr
 
 fun collect_var_aux_i_ibind f d acc (Bind (_, b) : ('a * 'b) ibind) = f (d + 1) acc b
 
-fun collect_var_long_id d (m, (x, r)) =
-  case m of
-      SOME _ => [(m, (x, r))]
-    | NONE =>
-      if x >= d then [(NONE, (x - d, r))]
+fun collect_var_long_id d (id : long_id) : long_id list =
+  case id of
+      QID _ => [id]
+    | ID (x, r) =>
+      if x >= d then [ID (x - d, r)]
       else []
-  
+
 local
   fun f d(*depth*) acc b =
     case b of

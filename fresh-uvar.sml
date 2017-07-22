@@ -59,8 +59,8 @@ fun refine_UVarS_to_Basic (x, r, info, args) =
     b
   end
 
-fun V r n = VarI (NONE, (n, r))
-fun TV r n = MtVar (NONE, (n, r))
+fun V r n = VarI (ID (n, r))
+fun TV r n = MtVar (ID (n, r))
 
 fun fresh_uvar_i ctx bsort = ref (Fresh (inc (), ctx, bsort))
 fun fresh_uvar_mt ctx = ref (Fresh (inc (), ctx))
@@ -73,7 +73,7 @@ fun get_ctx_and_args sel make_arg on_snd package gctx ctx_local r =
         val ctx = sel ctx
         val ctx = map (mapFst $ prefix $ mod_name ^ "_") ctx
         val ctx = map (mapSnd (package (mod_name, r) o on_snd)) ctx
-        val args_ctx = mapi (mapFst (fn x => make_arg (SOME (mod_name, r), (x, r)))) ctx
+        val args_ctx = mapi (mapFst (fn x => make_arg $ QID ((mod_name, r), (x, r)))) ctx
       in
         args_ctx
       end
@@ -81,7 +81,7 @@ fun get_ctx_and_args sel make_arg on_snd package gctx ctx_local r =
     val args_global = rev args_global
     val ctx_local = map (mapSnd on_snd) ctx_local
     val ctx_total = ctx_local @ ctx_global
-    val args_local = rev $ map (fn x => make_arg (NONE, (x, r))) $ range $ length ctx_local
+    val args_local = rev $ map (fn x => make_arg (ID (x, r))) $ range $ length ctx_local
     val args_total = args_global @ args_local
     val () = assert (fn () => length ctx_total = length args_total) "length ctx_total = length args_total"
   in

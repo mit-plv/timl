@@ -211,14 +211,14 @@ fun remove_m_i m n i =
     val remove_m_i = remove_m_i m
   in
     case i of
-        VarI (m', (x, r)) =>
-        (case m' of
-             NONE => i (* forall-module must all be on the outermost *)
-           | SOME (m', mr) =>
+        VarI id =>
+        (case id of
+             ID _ => i (* forall-module must all be on the outermost *)
+           | QID ((m', mr), (x, r)) =>
              if m' = m then
-               VarI (NONE, (x + n, r))
+               VarI (ID (x + n, r))
              else
-               VarI (SOME (m', mr), (x, r))
+               VarI $ QID ((m', mr), (x, r))
         )
       | IConst _ => i
       | UnOpI (opr, i, r) => UnOpI (opr, remove_m_i n i, r)
