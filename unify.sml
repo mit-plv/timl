@@ -7,8 +7,8 @@ open Util
 open UVar
 open Subst
 open Normalize
-open TypecheckUtil
 open CollectVar
+open TypecheckUtil
        
 infixr 0 $
 infix 0 !!
@@ -49,7 +49,9 @@ fun unify_bs r (bs, bs') =
     
 fun V r n = VarI (ID (n, r))
 fun TV r n = MtVar (ID (n, r))
-               
+
+open Util
+       
 fun find_injection (eq : 'a -> 'a -> bool) (xs : 'a list) (ys : 'a list) : int list option =
   let
     exception Error

@@ -26,10 +26,12 @@ visitor-util.sml
 unbound.sml
 module-context.sml
 long-id.sml
+to-string-util.sml
 var-uvar.sig
 shift-util.sml
 idx.sig
 idx-visitor.sml
+idx-util.sml
 idx.sml
 idx-trans.sml
 type.sig
@@ -42,6 +44,8 @@ expr.sig
 pattern-visitor.sml                                 
 expr-visitor.sml                                 
 expr-trans.sml
+get-region.sml
+base-sorts.sml
 expr.sml
 underscore-exprs.sml
 uvar-expr.sml
@@ -49,6 +53,9 @@ elaborate.sml
 name-resolve.sml
 package.sml
 typecheck-util.sml
+simp.sml
+hyp.sml
+vc.sml
 normalize.sml
 simp-expr.sml
 collect-var.sml

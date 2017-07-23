@@ -1,7 +1,9 @@
 (* collect open variables *)
 
 structure CollectVar = struct
+
 open Expr
+open Bind
 
 fun collect_var_aux_i_ibind f d acc (Bind (_, b) : ('a * 'b) ibind) = f (d + 1) acc b
 

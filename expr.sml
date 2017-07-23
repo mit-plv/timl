@@ -1,20 +1,3 @@
-structure BaseSorts = struct
-open Util
-(* basic index sort *)
-datatype base_sort =
-         Nat
-         | Time
-	 | BoolSort
-	 | UnitSort
-
-fun str_b (s : base_sort) : string = 
-  case s of
-      Nat => "Nat"
-    | Time => "Time"
-    | BoolSort => "Bool"
-    | UnitSort => "Unit"
-end
-
 structure BaseTypes = struct
 datatype base_type =
          Int
@@ -50,19 +33,21 @@ type id = var * region
 type name = string * region
 type long_id = var long_id
 
-structure Idx = IdxFn (structure UVarI = UVarI
+structure IdxOfExpr = IdxFn (structure UVarI = UVarI
                        type base_sort = base_sort
                        type var = long_id
                        type name = name
                        type region = region
                        type 'idx exists_anno = ('idx -> unit) option
-                      )
+                          )
+structure Idx = IdxOfExpr
 open Idx
 
-structure Type = TypeFn (structure Idx = Idx
+structure TypeOfExpr = TypeFn (structure Idx = Idx
                          structure UVarT = UVarT
                          type base_type = base_type
-                        )
+                            )
+structure Type = TypeOfExpr
 open Type
 
 open Pattern
@@ -237,54 +222,17 @@ fun collect_EAppT e =
       )
     | _ => (e, [])
 
-fun collect_BinOpI_left opr i =
-  case i of
-      BinOpI (opr', i1, i2) =>
-      if opr' = opr then
-        collect_BinOpI_left opr i1 @ [i2]
-      else [i]
-    | _ => [i]
-             
 fun collect_Pair e =
   case e of
       EBinOp (EBPair, e1, e2) =>
       collect_Pair e1 @ [e2]
     | _ => [e]
              
-fun collect_BinOpI opr i =
-  case i of
-      BinOpI (opr', i1, i2) =>
-      if opr' = opr then
-        collect_BinOpI opr i1 @ collect_BinOpI opr i2
-      else [i]
-    | _ => [i]
-             
-fun collect_BinConn opr i =
-  case i of
-      BinConn (opr', i1, i2) =>
-      if opr' = opr then
-        collect_BinConn opr i1 @ collect_BinConn opr i2
-      else [i]
-    | _ => [i]
-             
 fun collect_IApp i =
   case collect_BinOpI_left IApp i of
       f :: args => (f, args)
     | [] => raise Impossible "collect_IApp(): null"
                   
-val collect_AddI_left = collect_BinOpI_left AddI
-                                            
-val collect_AddI = collect_BinOpI AddI
-val collect_MultI = collect_BinOpI MultI
-                                   
-val collect_And = collect_BinConn And
-
-fun combine_AddI zero is = foldl' (fn (i, acc) => acc %+ i) zero is
-fun combine_AddI_Time is = combine_AddI (T0 dummy) is
-fun combine_AddI_Nat is = combine_AddI (N0 dummy) is
-fun combine_AddI_nonempty i is = combine_AddI_Time (i :: is)
-fun combine_MultI is = foldl' (fn (i, acc) => acc %* i) (T1 dummy) is
-                              
 fun collect_IAbs i =
   case i of
       IAbs (b, Bind ((name, _), i), _) =>
@@ -570,13 +518,6 @@ fun eq_mt t t' =
 
 (* pretty-printers *)
 
-type scontext = string list
-type kcontext = string list 
-type ccontext = string list
-type tcontext = string list
-type context = scontext * kcontext * ccontext * tcontext
-type sigcontext = (string * context) list
-                                     
 fun is_time_fun b =
   case b of
       Base Time => SOME 0
@@ -1192,73 +1133,17 @@ fun set_region_long_id id r =
   case id of
       ID (x, _) => ID (x, r)
     | QID ((m, _), (x, _)) => QID ((m, r), (x, r))
+
+structure IdxGetRegion = IdxGetRegionFn (structure Idx = Idx
+                                         val get_region_var = get_region_long_id
+                                         val set_region_var = set_region_long_id)
+open IdxGetRegion
                                          
-fun get_region_i i =
-  case i of
-      VarI x => get_region_long_id x
-    | IConst (_, r) => r
-    | UnOpI (_, _, r) => r
-    | BinOpI (_, i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
-    | Ite (_, _, _, r) => r
-    | IAbs (_, _, r) => r
-    | UVarI (_, r) => r
-
-fun set_region_i i r =
-  case i of
-      VarI x => VarI $ set_region_long_id x r
-    | IConst (a, _) => IConst (a, r)
-    | UnOpI (opr, i, _) => UnOpI (opr, i, r)
-    | BinOpI (opr, i1, i2) => BinOpI (opr, set_region_i i1 r, set_region_i i2 r)
-    | Ite (i1, i2, i3, _) => Ite (i1, i2, i3, r)
-    | IAbs (name, i, _) => IAbs (name, i, r)
-    | UVarI (a, _) => UVarI (a, r)
-
-fun get_region_p p = 
-  case p of
-      PTrueFalse (_, r) => r
-    | Not (_, r) => r
-    | BinConn (_, p1, p2) => combine_region (get_region_p p1) (get_region_p p2)
-    | BinPred (_, i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
-    | Quan (_, _, _, r) => r
-
-fun set_region_p p r = 
-  case p of
-      PTrueFalse (b, _) => PTrueFalse (b, r)
-    | Not (p, _) => Not (p, r)
-    | BinConn (opr, p1, p2) => BinConn (opr, set_region_p p1 r, set_region_p p2 r)
-    | BinPred (opr, i1, i2) => BinPred (opr, set_region_i i1 r, set_region_i i2 r)
-    | Quan (q, bs, bind, _) => Quan (q, bs, bind, r)
-
-fun get_region_s s = 
-  case s of
-      Basic (_, r) => r
-    | Subset (_, _, r) => r
-    | UVarS (_, r) => r
-    | SAbs (_, _, r) => r
-    | SApp (s, i) => combine_region (get_region_s s) (get_region_i i)
-
-fun get_region_mt t = 
-  case t of
-      Arrow (t1, d, t2) => combine_region (get_region_mt t1) (get_region_mt t2)
-    | TyNat (_, r) => r
-    | TyArray (t, i) => combine_region (get_region_mt t) (get_region_i i)
-    | Unit r => r
-    | Prod (t1, t2) => combine_region (get_region_mt t1) (get_region_mt t2)
-    | UniI (_, _, r) => r
-    | MtVar y => get_region_long_id y
-    | MtApp (t1, t2) => combine_region (get_region_mt t1) (get_region_mt t2)
-    | MtAbs (_, _, r) => r
-    | MtAppI (t, i) => combine_region (get_region_mt t) (get_region_i i)
-    | MtAbsI (_, _, r) => r
-    | BaseType (_, r) => r
-    | UVar (_, r) => r
-    | TDatatype (_, r) => r
-
-fun get_region_t t = 
-  case t of
-      Mono t => get_region_mt t
-    | Uni (_, r) => r
-
+structure TypeGetRegion = TypeGetRegionFn (structure Type = Type
+                                           val get_region_var = get_region_long_id
+                                           val get_region_i = get_region_i)
+open TypeGetRegion
+                                         
 fun get_region_binder (Binder (_, (_, r))) = r
                                              
 fun get_region_pn pn = 
@@ -1358,15 +1243,8 @@ fun is_value (e : expr) : bool =
     | EAppConstr (_, _, _, e, _) => is_value e
     | ECase _ => false
 
-datatype ('var, 'prop) hyp = 
-         VarH of 'var
-         | PropH of 'prop
-                      
-fun append_hyps_vc hs vc = mapFst (fn hs' => hs' @ hs) vc
-fun add_hyp_vc h vc = append_hyps_vc [h] vc
-fun append_hyps hs vcs = map (append_hyps_vc hs) vcs
-fun add_hyp h vcs = append_hyps [h] vcs
-                                
+open Hyp
+       
 fun prop2vc p =
   let
   in
@@ -1414,15 +1292,8 @@ structure TypeShift = TypeShiftFn (structure Type = Type
                                  )
 open TypeShift
                                         
-(* shift *)
-
 fun shiftx_id x n (y, r) = (shiftx_v x n y, r)
                              
-(* forget *)
-
-fun try_forget f a =
-  SOME (f a) handle ForgetError _ => NONE
-
 (* ToDo: just a hack now *)
 fun forget_above_i_i x b = forget_i_i x 100000000 b
 
@@ -1651,8 +1522,6 @@ fun subst_ts_mt vs b =
       
 (* VC operations *)
 
-fun hyps2ctx hs = List.mapPartial (fn h => case h of VarH (name, _) => SOME name | _ => NONE) hs
-
 fun str_hyps_conclu gctx (hyps, p) =
   let 
     fun g (h, (hyps, ctx)) =
@@ -1716,649 +1585,9 @@ fun find_hyp forget shift pred x hyps =
   end
     
 end
-                    
-structure Simp = struct
 
-local
-  open Subst
-  open Bind
-  val changed = ref false
-  fun unset () = changed := false
-  fun set () = changed := true
-  fun mark a = (set (); a)
-  fun passi i =
-    let
-      (* val () = println $ str_i [] [] i *)
-      fun r () = get_region_i i
-    in
-      case i of
-	  BinOpI (opr, i1, i2) =>
-          let
-            fun def () = BinOpI (opr, passi i1, passi i2)
-          in
-            case opr of
-	        MaxI =>
-	        if eq_i i1 i2 then
-                  mark i1
-	        else if eq_i i1 (T0 dummy) orelse eq_i i1 (ConstIN (0, dummy)) then
-                  mark i2
-	        else if eq_i i2 (T0 dummy) orelse eq_i i2 (ConstIN (0, dummy)) then
-                  mark i1
-	        else
-                  (case (i1, i2) of
-                       (BinOpI (opr, i1, i2), BinOpI (opr', i1', i2')) =>
-                       if opr = opr' then
-                         if opr = AddI orelse opr = MultI then
-                           if eq_i i1 i1' then
-                             mark $ BinOpI (opr, i1, BinOpI (MaxI, i2, i2'))
-                           else if eq_i i2 i2' then
-                             mark $ BinOpI (opr, BinOpI (MaxI, i1, i1'), i2)
-                           else def ()
-                         else if opr = IApp then
-                           if eq_i i1 i1' then
-                             mark $ BinOpI (opr, i1, BinOpI (MaxI, i2, i2'))
-                           else def ()
-                         else def ()
-                       else def ()
-                     | _ => def ()
-                  )
-	      | MinI =>
-	        if eq_i i1 i2 then
-                  mark i1
-	        else
-		  def ()
-	      | AddI => 
-	        if eq_i i1 (T0 dummy) orelse eq_i i1 (ConstIN (0, dummy)) then
-                  mark i2
-	        else if eq_i i2 (T0 dummy) orelse eq_i i2 (ConstIN (0, dummy)) then
-                  mark i1
-	        else
-                  let
-                    val is = collect_AddI i
-                    val (i', is) = case is of
-                                       i :: is => (i, is)
-                                     | [] => raise Impossible "passi/AddI"
-                    val i' = combine_AddI_nonempty i' is
-                  in
-		    if eq_i i' i then
-                      def ()
-                    else
-                      mark i'
-                  end
-	      | MultI => 
-	        if eq_i i1 (T0 dummy) then
-                  mark $ T0 $ r ()
-	        else if eq_i i2 (T0 dummy) then
-                  mark $ T0 $ r ()
-	        else if eq_i i1 (T1 dummy) then
-                  mark i2
-	        else if eq_i i2 (T1 dummy) then
-                  mark i1
-	        else
-                  (case (i1, i2) of
-                       (IConst (ICNat n1, _), IConst (ICNat n2, _)) =>
-                       mark $ ConstIN (n1 * n2, r ())
-                     | _ =>
-                       let
-                         val i2s = collect_AddI i2
-                         fun pred i =
-                           case i of
-                               IConst (ICNat _, _) => SOME i
-                             | UnOpI (B2n, _, _) => SOME i
-                             | _ => NONE
-                       in
-                         case partitionOptionFirst pred i2s of
-                             SOME (i2, rest) =>
-                             let
-                               val ret = i1 %* i2
-                               val ret =
-                                   case rest of
-                                       [] => ret
-                                     | hd :: rest => ret %+ i1 %* combine_AddI_nonempty hd rest
-                             in
-                               if eq_i ret i then
-                                 def ()
-                               else
-                                 mark ret
-                             end
-                           | NONE => def ()
-                       end
-                  )
-              | IApp =>
-                (case (* passi *) i1 of
-                     IAbs (_, Bind (_, body), _) =>
-                     (* passi $ *) mark $ subst_i_i (passi i2) body
-		   | _ => def ()
-                )
-              | EqI =>
-                if eq_i i1 i2 then
-                  mark $ TrueI $ r ()
-                else def ()
-              | AndI =>
-                if eq_i i1 (TrueI dummy) then
-                  mark i2
-                else if eq_i i2 (TrueI dummy) then
-                  mark i1
-                else if eq_i i1 (FalseI dummy) then
-                  mark $ FalseI $ r ()
-                else if eq_i i2 (FalseI dummy) then
-                  mark $ FalseI $ r ()
-                else
-                  def ()
-              | ExpNI =>
-                let
-                  val r = r ()
-                  fun exp i n =
-                    if n > 0 then
-                      exp i (n-1) %* i
-                    else
-                      N1 r
-                in
-                  case i2 of
-                      IConst (ICNat n, _) => exp i1 n
-                    | UnOpI (B2n, i, _) => Ite (i, i1, N1 r, r)
-                    | _ =>
-                      let
-                        val i2s = collect_AddI i2
-                        fun pred i =
-                          case i of
-                              IConst (ICNat _, _) => SOME i
-                            | UnOpI (B2n, _, _) => SOME i
-                            | _ => NONE
-                      in
-                        case partitionOptionFirst pred i2s of
-                            SOME (i2, rest) => mark $ i1 %^ i2 %* i1 %^ combine_AddI_Nat rest
-                          | NONE => def ()
-                      end
-                end
-              | LtI =>
-                def ()
-              | GeI =>
-                def ()
-              | BoundedMinusI =>
-                def ()
-          end
-        | Ite (i, i1, i2, r) =>
-          if eq_i i (TrueI dummy) then
-            mark i1
-          else if eq_i i (FalseI dummy) then
-            mark i2
-          else
-            Ite (passi i, passi i1, passi i2, r)
-        | UnOpI (opr, i, r) =>
-          let
-            fun default () = UnOpI (opr, passi i, r)
-          in
-            case opr of
-                IUDiv n => DivI (passi i, (n, r))
-              | IUExp s => ExpI (passi i, (s, r))
-              | ToReal =>
-                (case i of
-                     BinOpI (AddI, i1, i2) =>
-                     mark $ BinOpI (AddI, UnOpI (ToReal, i1, r), UnOpI (ToReal, i2, r))
-                   | BinOpI (MultI, i1, i2) =>
-                     mark $ BinOpI (MultI, UnOpI (ToReal, i1, r), UnOpI (ToReal, i2, r))
-                   | _ => default ()
-                )
-              | Neg =>
-                (case i of
-                     IConst (ICBool b, r) => mark $ IConst (ICBool (not b), r)
-                   | _ => default ()
-                )
-              | B2n =>
-                (case i of
-                     IConst (ICBool b, r) => mark $ IConst (ICNat (b2i b), r)
-                   | _ => default ()
-                )
-              | _ => default ()
-          end
-        | IConst _ => i
-        | IAbs (b, Bind (name, i), r) =>
-          IAbs (b, Bind (name, passi i), r)
-        | VarI _ => i
-        | UVarI _ => i
-    end
-      
-  fun passp p =
-    let
-      fun r () = get_region_p p
-                              (* val () = println $ str_p [] [] p *)
-    in
-      case p of
-	  BinConn (opr, p1, p2) =>
-          let
-            fun def () = BinConn (opr, passp p1, passp p2) 
-          in
-            case opr of
-                And =>
-	        if eq_p p1 (True dummy) then
-                  mark p2
-	        else if eq_p p2 (True dummy) then
-                  mark p1
-	        else
-	          def ()
-              | Or =>
-	        if eq_p p1 (False dummy) then
-                  mark p2
-	        else if eq_p p2 (False dummy) then
-                  mark p1
-	        else
-	          def ()
-              | Imply =>
-	        if eq_p p1 (True dummy) then
-                  mark p2
-                else if eq_p p2 (True dummy) then
-                  mark $ True $ r ()
-                else
-                  (case p1 of
-                       BinConn (And, p1a, p1b) =>
-                       mark $ (p1a --> p1b --> p2)
-                     | _ => def ()
-                  )
-              | _ => def ()
-          end
-	| BinPred (opr, i1, i2) =>
-          let
-            fun def () = BinPred (opr, passi i1, passi i2)
-          in
-            case opr of 
-                EqP => if eq_i i1 i2 then
-                         mark $ True $ r ()
-                       else def ()
-              | LeP => if eq_i i1 i2 orelse eq_i i1 (T0 dummy) then
-                         mark $ True $ r ()
-                       else def ()
-              | _ => def ()
-          end
-        | Not (p, r) => Not (passp p, r)
-        | p_all as Quan (q, bs, Bind (name, p), r_all) =>
-          let
-            fun def () = Quan (q, bs, Bind (name, passp p), r_all)
-            fun try_forget_p p =
-              let
-                fun def () = try_forget (forget_i_p 0 1) p
-              in
-                case p of
-                    BinConn (Imply, BinPred (BigO, VarI (ID (x, _)), f), p) =>
-                    if var2int x = 0 then
-                      (* ignore this variable if the only thing mentioning it is a BigO premise *)
-                      (case (try_forget (forget_i_p 0 1) p, try_forget (forget_i_i 0 1) f) of
-                           (SOME p, SOME _) => SOME p
-                         | _ => def ()
-                      )
-                    else def ()
-                  | _ => def ()
-              end                          
-          in
-            case q of
-                Forall =>
-                (case try_forget_p p of
-                     SOME p => (set (); p)
-                   | _ =>
-                     (* try subst if there is a equality premise *)
-                     let
-                       fun collect_Imply_Forall p =
-                         let
-                           fun loop (acc, p) =
-                             case p of
-                                 BinConn (Imply, p1, p2) =>
-                                 loop (map PropH (rev $ collect_And p1) @ acc, p2)
-                               | Quan (Forall, bs, Bind (name, p), r) =>
-                                 loop (VarH (name, (bs, r)) :: acc, p)
-                               | _ => (acc, p)
-                           val (hyps, conclu) = loop ([], p)
-                           val hyps = rev hyps
-                         in
-                           (hyps, conclu)
-                         end
-                       fun combine_Imply_Forall hyps conclu =
-                         let
-                           fun iter (h, conclu) =
-                             case h of
-                                 PropH p =>
-                                 p --> conclu
-                               | VarH (name, (bs, r))  =>
-                                 Quan (Forall, bs, Bind (name, conclu), r)
-                         in
-                           foldr iter conclu hyps
-                         end
-                       val (hyps, conclu) = collect_Imply_Forall p
-                       val hyps = rev hyps
-                       val binds_len = length $ hyps2ctx hyps
-                       (* test whether [p] is [VarI x = _] or [_ = VarI x] *)
-                       fun is_var_equals x p =
-                         let
-                           fun find_var (i1, i2) =
-                             if eq_i i1 (VarI (ID (int2var x, dummy))) then
-                               SOME (forget_i_i x 1 i2) handle ForgetError _ => NONE
-                             else NONE
-                         in
-                           case p of
-                               BinPred (EqP, i1, i2) => firstSuccess find_var [(i1, i2), (i2, i1)]
-                             | _ => NONE
-                         end
-                       fun foldr_hyps shift1 shift2 f init hyps =
-                         let
-                           fun iter (h, (x, acc)) =
-                             case h of
-                                 VarH _ => (shift1 x, Option.map shift2 acc)
-                               | PropH p =>
-                                 case acc of
-                                     SOME _ => (x, acc)
-                                   | NONE => (x, f x p)
-                         in
-                           snd $ foldr iter (init, NONE) hyps
-                         end
-                     in
-                       case foldr_hyps (fn x => var2int (shiftx_v 0 1 (int2var x))) shift_i_i is_var_equals 0 hyps of
-                           SOME i =>
-                           (let
-                             val x = binds_len
-                             val ctxn = map fst $ hyps2ctx hyps
-                             (* val () = println $ sprintf "Substing for $ with $" [str_v (ctxn @ [fst name]) x, str_i ctxn i] *)
-                             (* val () = app println $ str_hyps_conclu (hyps @ [VarH (name, (bs, r_all))], conclu) @ [""]  *)
-                             val conclu = substx_i_p 0 x i conclu
-                             fun subst_hyp n p =
-                               let
-                                 val x = var2int $ forget_v 0 n (int2var x)
-                                 val p =
-                                     case try_forget (forget_i_p x 1) p of
-                                         NONE =>
-                                         let
-                                           val i = forget_i_i 0 n i
-                                         in
-                                           substx_i_p 0 x i p
-                                         end
-                                       | SOME p => p
-                               in
-                                 p
-                               end
-                             fun foldl_hyps f hyps =
-                               let
-                                 fun iter (h, (n, acc)) =
-                                   case h of
-                                       VarH _ => (n + 1, h :: acc)
-                                     | PropH p => (n, PropH (f n p) :: acc)
-                               in
-                                 rev $ snd $ foldl iter (0, []) hyps
-                               end
-                             val hyps = foldl_hyps subst_hyp hyps
-                             (* val () = app println $ str_hyps_conclu (hyps, conclu) @ [""]  *)
-                             val ret = combine_Imply_Forall (rev hyps) conclu
-                           in
-                             mark ret
-                           end
-                            handle ForgetError _ => def ()
-                           )
-                         | NONE => def ()
-                     end
-                )
-              | Exists ins =>
-                (* for unconstrained Time evar, infer it to be 0 *)
-                let
-                  (* val () = println $ str_p [] [] p_all *)
-                  val p = passp p
-                  (* val () = println $ str_bs bs *)
-                  fun base_sort_default_idx b =
-                    case b of
-                        Nat =>
-                        N0 dummy
-                      | Time =>
-                        T0 dummy
-                      | BoolSort =>
-                        FalseI dummy
-                      | UnitSort =>
-                        TTI dummy
-                  fun bsort_default_idx bs =
-                    case bs of
-                        Base b => SOME $ base_sort_default_idx b
-                      | BSArrow (a, b) =>
-                        opt_bind (bsort_default_idx b)
-                                 (fn i => opt_return $ IAbs (a, Bind (("__dummy_default", dummy), i), dummy))
-                      | _ => NONE
-                  val inferred =
-                      opt_bind
-                        (try_forget (forget_i_p 0 1) p)
-                        (fn p =>
-                            opt_bind
-                              (bsort_default_idx bs)
-                              (fn i =>
-                                  opt_return (p, i)))
-                in
-                  case inferred of
-                      SOME (p, v) =>
-                      let
-                        val () = set ()
-                        (* val () = println "before" *)
-                        val () = case ins of
-                                     SOME f => f v
-                                   | NONE => ()
-                                               (* val () = println "after" *)
-                      in
-                        p
-                      end
-                    | _ =>
-                      let
-                        val ps = collect_And p
-                        val (irrelevant, relevant) = partitionOption (try_forget (forget_i_p 0 1)) ps
-                      in
-                        case relevant of
-                            [] => def ()
-                          | _ => combine_And $ Quan (q, bs, Bind (name, combine_And relevant), r_all) :: irrelevant
-                      end
-                end
-          end
-	| PTrueFalse _ => p
-    end
-      
-  fun until_unchanged f a = 
-    let fun loop a =
-	  let
-            val _ = unset ()
-            (* val () = println "before f()" *)
-            val a = f a
-                      (* val () = println "after f()" *)
-          in
-	    if !changed then loop a
-	    else a
-	  end
-    in
-      loop a
-    end
-in
-val simp_i = until_unchanged passi
-fun simp_i_with_plugin plugin i =
-  let
-    fun iter i =
-      let
-        val i = plugin set i
-        val i = passi i
-      in
-        i
-      end
-    val i = until_unchanged iter i
-  in
-    i      
-  end
-fun simp_p p =
-  let
-    (* val () = println $ "Before simp_p: " ^ str_p [] [] p *)
-    val p = until_unchanged passp p
-                            (* val () = println $ "After simp_p:  " ^ str_p [] [] p *)
-                            (* val () = println "" *)
-  in
-    p      
-  end
-fun simp_p_with_plugin plugin p =
-  let
-    fun iter p =
-      let
-        val p = plugin set p
-        val p = passp p
-      in
-        p
-      end
-    val p = until_unchanged iter p
-  in
-    p      
-  end
-    
-end
-
-fun simp_vc (ctx, ps, p, r) = (ctx, map simp_p ps, simp_p p, r)
-
-fun simp_bind f (Bind (name, inner)) = Bind (name, f inner)
-fun simp_binds f_cls f binds =
-  case binds of
-      BindNil a => BindNil (f a)
-    | BindCons (cls, bind) => BindCons (f_cls cls, simp_bind (simp_binds f_cls f) bind)
-
-fun simp_s s =
-  case s of
-      Basic b => Basic b
-    | Subset (b, bind, r) => Subset (b, simp_bind simp_p bind, r)
-    | UVarS u => UVarS u
-    | SAbs (b, bind, r) => SAbs (b, simp_bind simp_s bind, r)
-    | SApp (s, i) =>
-      let
-        val s = simp_s s
-        val i = simp_i i
-      in
-        case s of
-            SAbs (_, Bind (_, s), _) => simp_s (Subst.subst_i_s i s)
-          | _ => SApp (s, i)
-      end
-
-fun simp_mt t =
-  case t of
-      Arrow (t1, d, t2) => Arrow (simp_mt t1, simp_i d, simp_mt t2)
-    | TyNat (i, r) => TyNat (simp_i i, r)
-    | TyArray (t, i) => TyArray (simp_mt t, simp_i i)
-    | Unit r => Unit r
-    | Prod (t1, t2) => Prod (simp_mt t1, simp_mt t2)
-    | UniI (s, bind, r) => UniI (simp_s s, simp_bind simp_mt bind, r)
-    | BaseType a => BaseType a
-    | UVar u => UVar u
-    | MtVar x => MtVar x
-    | MtAbs (k, bind, r) => MtAbs (k, simp_bind simp_mt bind, r)
-    | MtApp (t1, t2) => MtApp (simp_mt t1, simp_mt t2)
-    | MtAbsI (b, bind, r) => MtAbsI (b, simp_bind simp_mt bind, r)
-    | MtAppI (t, i) =>
-      let
-        val t = simp_mt t
-        val i = simp_i i
-      in
-        case t of
-            MtAbsI (_, Bind (_, t), _) => simp_mt (Subst.subst_i_mt i t)
-          | _ => MtAppI (t, i)
-      end
-    | TDatatype (dt, r) =>
-      let
-        fun simp_constr c = simp_binds simp_s (mapPair (simp_mt, map simp_i)) c
-        fun simp_constr_decl ((name, c, r) : mtype constr_decl) : mtype constr_decl = (name, simp_constr c, r)
-        val dt = simp_bind (simp_binds id (mapPair (id, map simp_constr_decl))) dt
-      in
-        TDatatype (dt, r)
-      end
-
-fun simp_t t =
-  case t of
-      Mono t => Mono (simp_mt t)
-    | Uni (Bind (name, t), r) => Uni (Bind (name, simp_t t), r)
-
-end
-
-structure VC = struct
-open Gctx
-open List
-open Util
-open Region
 open Subst
-open Bind
-open Simp
-       
-infixr 1 -->
-infixr 0 $
-         
-fun uniquefy_ls names = foldr (fn (name, acc) => find_unique acc name :: acc) [] names
-                              
-fun uniquefy ctx p =
-    case p of
-        Quan (q, bs, Bind ((name, r), p), r_all) =>
-        let
-            val name = find_unique ctx name
-        in
-            Quan (q, bs, Bind ((name, r), uniquefy (name :: ctx) p), r_all)
-        end
-      | Not (p, r) => Not (uniquefy ctx p, r)
-      | BinConn (opr, p1, p2) => BinConn (opr, uniquefy ctx p1, uniquefy ctx p2)
-      | BinPred _ => p
-      | PTrueFalse _ => p
 
-type vc = (string * bsort, prop) hyp list * prop
-
-fun str_vc show_region filename ((hyps, p) : vc) =
-    let 
-        val region = if show_region then 
-                         [str_region "" filename (get_region_p p)] 
-                     else []
-        fun g (h, (hyps, ctx)) =
-            case h of
-                VarH (name, bs) => (sprintf "$ : $" [name, str_bs bs] :: hyps, name :: ctx)
-              | PropH p => (str_p empty ctx p :: hyps, ctx)
-        val (hyps, ctx) = foldr g ([], []) hyps
-        val hyps = rev hyps
-        val p = str_p empty ctx p
-    in
-        region @
-        (self_compose 2 indent) (hyps @
-                           ["==============="] @
-                           [p])
-    end 
-
-fun simp_hyp h =
-    case h of
-        VarH a => VarH a
-      | PropH p => PropH (simp_p p)
-
-fun simp_vc ((hyps, p) : vc) : vc =
-    let
-      val hyps = map simp_hyp hyps
-      val p = simp_p p
-    in
-      (hyps, p)
-    end
-
-fun prop2vcs p : vc list =
-    let
-    in
-        case p of
-            Quan (Forall, bs, Bind ((name, r), p), r_all) =>
-            let
-                val ps = prop2vcs p
-                val ps = add_hyp (VarH (name, bs)) ps
-            in
-                ps
-            end
-          | BinConn (Imply, p1, p) =>
-            let
-                val ps = prop2vcs p
-                val ps = add_hyp (PropH p1) ps
-            in
-                ps
-            end
-          | BinConn (And, p1, p2) =>
-            prop2vcs p1 @ prop2vcs p2
-          | _ => [([], p)]
-    end
-
-fun vc2prop ((hs, p) : vc) =
-    foldl (fn (h, p) => case h of VarH (name, b) => Quan (Forall, b, Bind ((name, dummy), p), get_region_p p) | PropH p1 => p1 --> p) p hs
-
-fun simp_vc_vcs (vc : vc) : vc list = prop2vcs $ simp_p $ vc2prop $ vc
-          
-end
-                 
 end
 
 (* Test that the result of [ExprFun] matches some signatures. We don't use a signature ascription because signature ascription (transparent or opaque) hides components that are not in the signature. SML should have a "signature check" kind of ascription. *)

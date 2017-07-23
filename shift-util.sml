@@ -75,4 +75,7 @@ fun forget_int ForgetError x n y =
 
 exception ForgetError of int * string
                                  
+fun try_forget f a =
+  SOME (f a) handle ForgetError _ => NONE
+
 end

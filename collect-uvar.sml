@@ -4,6 +4,7 @@ structure CollectUVar = struct
 open Bind
 open UVar
 open Expr
+open Bind
        
 infixr 0 $
          

@@ -91,3 +91,25 @@ structure ShiftEE = ShiftEEFn (structure S = Expr
 structure SubstTE = SubstTEFn (structure S = Expr
                                structure T = Expr)
                                       
+structure Simp = SimpFn (structure Idx = Expr
+                         val get_region_i = Expr.get_region_i
+                         val get_region_p = Expr.get_region_p
+                         val eq_i = Expr.eq_i
+                         val eq_p = Expr.eq_p
+                         val shiftx_v = Expr.shiftx_v
+                         val shift_i_i = Expr.shift_i_i
+                         val forget_v = Expr.forget_v
+                         val forget_i_i = Expr.forget_i_i
+                         val forget_i_p = Expr.forget_i_p
+                         val subst_i_i = Expr.subst_i_i
+                         val subst_i_s = Expr.subst_i_s
+                         val substx_i_p = Expr.substx_i_p
+                        )
+                        
+structure VC = VCFn (structure Idx = Expr
+                     val get_region_p = Expr.get_region_p
+                     val str_bs = Expr.str_bs
+                     val str_p = Expr.str_p
+                     val simp_p = Simp.simp_p
+                    )
+                    

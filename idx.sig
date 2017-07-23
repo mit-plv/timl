@@ -39,4 +39,3 @@ signature IDX = sig
            | SApp of sort * idx
                               
 end
-

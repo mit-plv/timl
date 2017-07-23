@@ -48,6 +48,7 @@ expr.sig
 pattern-visitor.sml                                 
 expr-visitor.sml                                 
 expr-trans.sml
+get-region.sml
 expr.sml
 underscore-exprs.sml
 uvar-expr.sml
@@ -55,6 +56,8 @@ elaborate.sml
 name-resolve.sml
 package.sml
 typecheck-util.sml
+simp.sml
+vc.sml
 normalize.sml
 simp-expr.sml
 collect-var.sml

@@ -1,12 +1,10 @@
 (* variables *)
 signature VAR = sig
   type var
-  type name_context = string list * string list * string list * string list
-  type global_name_context = name_context Gctx.map
   val str_v : string list -> var -> string
   val str_raw_v : var -> string
-  val lookup_module : global_name_context -> string -> string * name_context
-  val str_long_id : (name_context -> string list) -> global_name_context -> string list -> var LongId.long_id -> string
+  val lookup_module : ToStringUtil.global_context -> string -> string * ToStringUtil.context
+  val str_long_id : (ToStringUtil.context -> string list) -> ToStringUtil.global_context -> string list -> var LongId.long_id -> string
   val eq_v : var * var -> bool
                             
   val shiftx_v : int -> int -> var -> var
