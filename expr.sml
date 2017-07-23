@@ -1431,10 +1431,10 @@ fun forget_above_i_i x b = forget_i_i x 100000000 b
 exception Error of string
 
 (* mimic type class *)
-type 'a shiftable = {
-  shift_i : int -> 'a -> 'a,
-  shift_t : int -> 'a -> 'a
-}
+(* type 'a shiftable = { *)
+(*   shift_i : int -> 'a -> 'a, *)
+(*   shift_t : int -> 'a -> 'a *)
+(* } *)
 (* todo: split [shiftable] to [ishiftable] and [tshiftable], or ultimately get rid of it aftering changing to lazy shifting *)                      
 
 fun substx_pair (f1, f2) d x v (b1, b2) = (f1 d x v b1, f2 d x v b2)
@@ -1463,59 +1463,22 @@ open Bind
 
 val substx_long_id = fn a => substx_long_id substx_v a
                                                                                            
-(* depth [d] is used for shifting value [v] *)
-fun subst_i_idx_visitor_vtable cast (shift_i_i, d, x, v) : ('this, int) idx_visitor_vtable =
+fun visit_VarI (d, x, v) env y =
   let
-    fun extend_i this d _ = d + 1
-    fun visit_VarI this env y =
-      let
-        val x = x + env
-        val d = d + env
-      in
-        substx_long_id VarI x (fn () => shift_i_i 0 d v) y
-      end
-    val vtable = 
-        default_idx_visitor_vtable
-          cast
-          extend_i
-          (visit_imposs "subst_i_i/visit_var")
-          visit_noop
-          visit_noop
-          visit_noop
-          visit_noop
-    val vtable = override_visit_VarI vtable visit_VarI
+    val x = x + env
+    val d = d + env
   in
-    vtable
+    substx_long_id VarI x (fn () => shiftx_i_i 0 d v) y
   end
 
-fun new_subst_i_idx_visitor params = new_idx_visitor subst_i_idx_visitor_vtable params
-
-fun subst_i_i_fn params d x v b =
-  let
-    val visitor as (IdxVisitor vtable) = new_subst_i_idx_visitor (params, d, x, v)
-  in
-    #visit_idx vtable visitor 0 b
-  end
-                               
-fun substx_i_i a = subst_i_i_fn shiftx_i_i a
-      
-fun subst_i_p_fn params d x v b =
-  let
-    val visitor as (IdxVisitor vtable) = new_subst_i_idx_visitor (params, d, x, v)
-  in
-    #visit_prop vtable visitor 0 b
-  end
-                               
-fun substx_i_p a = subst_i_p_fn shiftx_i_i a
-      
-fun subst_i_s_fn params d x v b =
-  let
-    val visitor as (IdxVisitor vtable) = new_subst_i_idx_visitor (params, d, x, v)
-  in
-    #visit_sort vtable visitor 0 b
-  end
-                               
-fun substx_i_s a = subst_i_s_fn shiftx_i_i a
+val subst_i_params = visit_VarI
+                     
+structure IdxSubst = IdxSubstFn (Idx)
+open IdxSubst
+                                        
+fun substx_i_i a = subst_i_i_fn subst_i_params a
+fun substx_i_p a = subst_i_p_fn subst_i_params a
+fun substx_i_s a = subst_i_s_fn subst_i_params a
       
 (* local *)
 (*   fun f d(*depth*) x v b = *)
@@ -1589,46 +1552,6 @@ fun subst_i_s (v : idx) (b : sort) : sort = substx_i_s 0 0 v b
 (* val substx_i_mt = f *)
 (* end *)
 
-fun subst_i_type_visitor_vtable cast ((subst_i_i, subst_i_s), d, x, v) : ('this, int) type_visitor_vtable =
-  let
-    fun extend_i this env _ = env + 1
-    fun visit_idx this env b = subst_i_i (d + env) (x + env) v b
-    fun visit_sort this env b = subst_i_s (d + env) (x + env) v b
-  in
-    default_type_visitor_vtable
-      cast
-      extend_i
-      extend_noop
-      visit_noop
-      visit_noop
-      visit_idx
-      visit_sort
-      visit_noop
-      visit_noop
-  end
-
-fun new_subst_i_type_visitor params = new_type_visitor subst_i_type_visitor_vtable params
-    
-fun subst_i_mt_fn substs d x v b =
-  let
-    val visitor as (TypeVisitor vtable) = new_subst_i_type_visitor (substs, d, x, v)
-  in
-    #visit_mtype vtable visitor 0 b
-  end
-
-fun substx_i_mt a = subst_i_mt_fn (substx_i_i, substx_i_s) a
-                               
-fun subst_i_mt (v : idx) (b : mtype) : mtype = substx_i_mt 0 0 v b
-                                                           
-fun subst_i_t_fn substs d x v b =
-  let
-    val visitor as (TypeVisitor vtable) = new_subst_i_type_visitor (substs, d, x, v)
-  in
-    #visit_ty vtable visitor 0 b
-  end
-
-fun substx_i_t a = subst_i_t_fn (substx_i_i, substx_i_s) a
-                               
 (* local *)
 (*   fun f d x v b = *)
 (*     case b of *)
@@ -1638,6 +1561,12 @@ fun substx_i_t a = subst_i_t_fn (substx_i_i, substx_i_s) a
 (* val substx_i_t = f *)
 (* end *)
 
+structure TypeSubst = TypeSubstFn (Type)
+open TypeSubst
+
+fun substx_i_mt a = subst_i_mt_fn (substx_i_i, substx_i_s) a
+fun substx_i_t a = subst_i_t_fn (substx_i_i, substx_i_s) a
+fun subst_i_mt (v : idx) (b : mtype) : mtype = substx_i_mt 0 0 v b
 fun subst_i_t (v : idx) (b : ty) : ty = substx_i_t 0 0 v b
 
 (* fun substx_t_ibind f (di, dt) x v (Bind (name, inner) : ('name * 'b) ibind) = *)
@@ -1694,66 +1623,32 @@ fun subst_i_t (v : idx) (b : ty) : ty = substx_i_t 0 0 v b
 (*       Mono t => Mono (substx_t_mt d x v t) *)
 (*     | Uni (bind, r) => Uni (substx_t_tbind substx_t_t d x v bind, r) *)
                            
-fun subst_t_type_visitor_vtable cast ((shift_i_t, shift_t_t), d, x, v) : ('this, idepth * tdepth) type_visitor_vtable =
+fun visit_MtVar (d, x, v) env y =
   let
-    fun extend_i this (di, dt) _ = (idepth_inc di, dt)
-    fun extend_t this (di, dt) _ = (di, tdepth_inc dt)
     fun add_depth (di, dt) (di', dt') = (idepth_add (di, di'), tdepth_add (dt, dt'))
     fun get_di (di, dt) = di
     fun get_dt (di, dt) = dt
-    fun visit_MtVar this env y =
-      let
-        val x = x + unTDepth (get_dt env)
-        val (di, dt) = add_depth d env
-      in
-        substx_long_id MtVar x (fn () => shift_i_t 0 (unIDepth di) $ shift_t_t 0 (unTDepth dt) v) y
-      end
-    val vtable = 
-        default_type_visitor_vtable
-          cast
-          extend_i
-          extend_t
-          (visit_imposs "subst_t_mt/visit_var")
-          visit_noop
-          visit_noop
-          visit_noop
-          visit_noop
-          visit_noop
-    val vtable = override_visit_MtVar vtable visit_MtVar
+    val x = x + unTDepth (get_dt env)
+    val (di, dt) = add_depth d env
   in
-    vtable
+    substx_long_id MtVar x (fn () => shiftx_i_mt 0 (unIDepth di) $ shiftx_t_mt 0 (unTDepth dt) v) y
   end
+    
+val subst_t_params = visit_MtVar
 
-fun new_subst_t_type_visitor params = new_type_visitor subst_t_type_visitor_vtable params
-
-fun subst_t_mt_fn params d x v b =
-  let
-    val visitor as (TypeVisitor vtable) = new_subst_t_type_visitor (params, d, x, v)
-  in
-    #visit_mtype vtable visitor (IDepth 0, TDepth 0) b
-  end
-                               
-fun substx_t_mt a = unuse_idepth_tdepth (subst_t_mt_fn (shiftx_i_mt, shiftx_t_mt)) a
+fun substx_t_mt a = unuse_idepth_tdepth (subst_t_mt_fn subst_t_params) a
       
-fun subst_t_t_fn params d x v b =
-  let
-    val visitor as (TypeVisitor vtable) = new_subst_t_type_visitor (params, d, x, v)
-  in
-    #visit_ty vtable visitor (IDepth 0, TDepth 0) b
-  end
-                               
-fun substx_t_t a = unuse_idepth_tdepth (subst_t_t_fn (shiftx_i_mt, shiftx_t_mt)) a
+fun substx_t_t a = unuse_idepth_tdepth (subst_t_t_fn subst_t_params) a
       
 fun subst_t_mt (v : mtype) (b : mtype) : mtype = substx_t_mt (0, 0) 0 v b
                                                              
+fun subst_t_t v b = substx_t_t (0, 0) 0 v b
+
 fun subst_is_mt is t =
   fst (foldl (fn (i, (t, x)) => (substx_i_mt x x i t, x - 1)) (t, length is - 1) is)
 fun subst_ts_mt vs b =
   fst (foldl (fn (v, (b, x)) => (substx_t_mt (0, x) x v b, x - 1)) (b, length vs - 1) vs)
       
-fun subst_t_t v b =
-  substx_t_t (0, 0) 0 v b
-
 (* VC operations *)
 
 fun hyps2ctx hs = List.mapPartial (fn h => case h of VarH (name, _) => SOME name | _ => NONE) hs
@@ -1826,6 +1721,7 @@ structure Simp = struct
 
 local
   open Subst
+  open Bind
   val changed = ref false
   fun unset () = changed := false
   fun set () = changed := true
@@ -2378,6 +2274,7 @@ open List
 open Util
 open Region
 open Subst
+open Bind
 open Simp
        
 infixr 1 -->

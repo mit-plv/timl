@@ -5,6 +5,7 @@ structure Package = struct
 open Expr
 open Util
 open Subst
+open Bind
 
 infixr 0 $
 

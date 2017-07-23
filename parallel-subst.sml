@@ -2,6 +2,7 @@
 structure ParaSubst = struct
 open Expr
 open Subst
+open Bind
        
 fun psubst_aux_is_ibind f d x v (Bind (name, b) : ('a * 'b) ibind) =
   Bind (name, f (d + 1) x v b)

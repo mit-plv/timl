@@ -37,9 +37,11 @@ shift-util.sml
 idx.sig
 idx-visitor.sml
 idx.sml
+idx-trans.sml
 type.sig
 type-visitor.sml
 type.sml
+type-trans.sml
 datatype.sml
 pattern.sml
 expr.sig

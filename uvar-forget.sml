@@ -10,6 +10,9 @@ open FreshUVar
 structure SU = SetUtilFn (IntBinarySet)
 open SU
 
+open IdxShift
+open TypeShift
+       
 infixr 0 $
 infix 0 !!
 
@@ -212,7 +215,6 @@ fun forget_i_mt x n b =
   in
     ret
   end
-                                
                                 
 fun new_on_i_type_visitor' on_mt n =
   let

@@ -6,6 +6,7 @@ open Region
 open Expr
 open Simp
 open Subst
+open Bind
 open Package
 open TypecheckUtil
 open UVar
@@ -73,7 +74,9 @@ fun is_wf_bsort (bs : U.bsort) : bsort =
 type sort_type = bsort list
 val Sort : sort_type = []
 fun is_Sort (t : sort_type) = null t
-                      
+
+open Bind
+       
 fun get_sort_type gctx (ctx : scontext, s : U.sort) : sort * sort_type =
   let
     val get_sort_type = get_sort_type gctx
