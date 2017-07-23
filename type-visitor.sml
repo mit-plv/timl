@@ -29,7 +29,7 @@ type ('this, 'env) type_visitor_vtable =
        visit_MtApp : 'this -> 'env -> mtype * mtype -> T.mtype,
        visit_MtAbsI : 'this -> 'env -> bsort * (name * mtype) Bind.ibind  * region -> T.mtype,
        visit_MtAppI : 'this -> 'env -> mtype * idx -> T.mtype,
-       visit_UVar : 'this -> 'env -> (bsort, kind, mtype) UVarT.uvar_mt * region -> T.mtype,
+       visit_UVar : 'this -> 'env -> (bsort, kind, mtype) uvar_mt * region -> T.mtype,
        visit_TDatatype : 'this -> 'env -> mtype datatype_def * region -> T.mtype,
        visit_ty : 'this -> 'env -> ty -> T.ty,
        visit_Mono : 'this -> 'env -> mtype -> T.ty,
@@ -42,7 +42,7 @@ type ('this, 'env) type_visitor_vtable =
        visit_idx : 'this -> 'env -> idx -> T.idx,
        visit_sort : 'this -> 'env -> sort -> T.sort,
        visit_kind : 'this -> 'env -> kind -> T.kind,
-       visit_uvar : 'this -> 'env -> (bsort, kind, mtype) UVarT.uvar_mt -> (T.bsort, T.kind, T.mtype) T.UVarT.uvar_mt,
+       visit_uvar : 'this -> 'env -> (bsort, kind, mtype) uvar_mt -> (T.bsort, T.kind, T.mtype) T.uvar_mt,
        extend_i : 'this -> 'env -> name -> 'env,
        extend_t_anno : 'this -> 'env -> name * T.kind -> 'env,
        extend_t : 'this -> 'env -> name -> 'env

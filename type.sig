@@ -1,6 +1,5 @@
 signature TYPE = sig
 
-  structure UVarT : UVAR_T
   type bsort
   type idx
   type sort
@@ -9,6 +8,7 @@ signature TYPE = sig
   type kind
   type name
   type region
+  type ('bsort, 'kind, 'mtype) uvar_mt         
          
   type 'mtype constr_core = (sort, name, 'mtype * idx list) Bind.ibinds
   type 'mtype constr_decl = name * 'mtype constr_core * region
@@ -31,7 +31,7 @@ signature TYPE = sig
            | MtApp of mtype * mtype
            | MtAbsI of bsort * (name * mtype) Bind.ibind  * region
            | MtAppI of mtype * idx
-           | UVar of (bsort, kind, mtype) UVarT.uvar_mt * region
+           | UVar of (bsort, kind, mtype) uvar_mt * region
            | TDatatype of mtype datatype_def * region
 
   datatype ty = 
