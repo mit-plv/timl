@@ -1,145 +1,139 @@
-functor IdxTransFn (structure Src : IDX
-                  structure Tgt : IDX
-                  val on_base_sort : Src.base_sort -> Tgt.base_sort
-                  val on_var : Src.var -> Tgt.var
-                  val on_name : Src.name -> Tgt.name
-                  val on_r : Src.region -> Tgt.region
-                  val on_exists_anno : (Src.idx -> Tgt.idx) -> Src.idx Src.exists_anno-> Tgt.idx Tgt.exists_anno
-                  val on_uvar_bs : (Src.bsort -> Tgt.bsort) -> Src.bsort Src.UVarI.uvar_bs -> Tgt.bsort Tgt.UVarI.uvar_bs
-                  val on_uvar_s : (Src.bsort -> Tgt.bsort) -> (Src.sort -> Tgt.sort) -> (Src.bsort, Src.sort) Src.UVarI.uvar_s -> (Tgt.bsort, Tgt.sort) Tgt.UVarI.uvar_s
-                  val on_uvar_i : (Src.bsort -> Tgt.bsort) -> (Src.idx -> Tgt.idx) -> (Src.bsort, Src.idx) Src.UVarI.uvar_i -> (Tgt.bsort, Tgt.idx) Tgt.UVarI.uvar_i
-                 ) =
-struct
+(* functor IdxTransFn (structure Src : IDX *)
+(*                   structure Tgt : IDX *)
+(*                   val on_base_sort : Src.base_sort -> Tgt.base_sort *)
+(*                   val on_var : Src.var -> Tgt.var *)
+(*                   val on_name : Src.name -> Tgt.name *)
+(*                   val on_r : Src.region -> Tgt.region *)
+(*                   val on_exists_anno : (Src.idx -> Tgt.idx) -> Src.idx Src.exists_anno-> Tgt.idx Tgt.exists_anno *)
+(*                   val on_uvar_bs : (Src.bsort -> Tgt.bsort) -> Src.bsort Src.UVarI.uvar_bs -> Tgt.bsort Tgt.UVarI.uvar_bs *)
+(*                   val on_uvar_s : (Src.bsort -> Tgt.bsort) -> (Src.sort -> Tgt.sort) -> (Src.bsort, Src.sort) Src.UVarI.uvar_s -> (Tgt.bsort, Tgt.sort) Tgt.UVarI.uvar_s *)
+(*                   val on_uvar_i : (Src.bsort -> Tgt.bsort) -> (Src.idx -> Tgt.idx) -> (Src.bsort, Src.idx) Src.UVarI.uvar_i -> (Tgt.bsort, Tgt.idx) Tgt.UVarI.uvar_i *)
+(*                  ) = *)
+(* struct *)
 
-structure Src = Src
-structure Tgt = Tgt
-val on_var = on_var
-val on_name = on_name
-val on_r = on_r
+(* structure Src = Src *)
+(* structure Tgt = Tgt *)
+(* val on_var = on_var *)
+(* val on_name = on_name *)
+(* val on_r = on_r *)
                   
-open Util
-open Bind
-open Operators
-structure S = Src
-open Tgt
+(* open Util *)
+(* open Bind *)
+(* open Operators *)
+(* structure S = Src *)
+(* open Tgt *)
 
-infixr 0 $
+(* infixr 0 $ *)
 
-fun on_b b =
-    case b of
-        S.Base b => Base $ on_base_sort b
-      | S.BSArrow (a, b) => BSArrow (on_b a, on_b b)
-      | S.UVarBS x => UVarBS $ on_uvar_bs on_b x
+(* fun on_b b = *)
+(*     case b of *)
+(*         S.Base b => Base $ on_base_sort b *)
+(*       | S.BSArrow (a, b) => BSArrow (on_b a, on_b b) *)
+(*       | S.UVarBS x => UVarBS $ on_uvar_bs on_b x *)
 
-fun on_i i =
-  case i of 
-      S.VarI x => VarI $ on_var x
-    | S.IConst (c, r) => IConst (c, on_r r)
-    | S.UnOpI (opr, i, r) => UnOpI (opr, on_i i, on_r r)
-    | S.BinOpI (opr, i1, i2) => BinOpI (opr, on_i i1, on_i i2)
-    | S.Ite (i1, i2, i3, r) => Ite (on_i i1, on_i i2, on_i i3, on_r r)
-    | S.IAbs (b, Bind (name, i), r) => IAbs (on_b b, Bind (on_name name, on_i i), on_r r)
-    | S.UVarI (x, r) => UVarI (on_uvar_i on_b on_i x, on_r r)
+(* fun on_i i = *)
+(*   case i of  *)
+(*       S.VarI x => VarI $ on_var x *)
+(*     | S.IConst (c, r) => IConst (c, on_r r) *)
+(*     | S.UnOpI (opr, i, r) => UnOpI (opr, on_i i, on_r r) *)
+(*     | S.BinOpI (opr, i1, i2) => BinOpI (opr, on_i i1, on_i i2) *)
+(*     | S.Ite (i1, i2, i3, r) => Ite (on_i i1, on_i i2, on_i i3, on_r r) *)
+(*     | S.IAbs (b, Bind (name, i), r) => IAbs (on_b b, Bind (on_name name, on_i i), on_r r) *)
+(*     | S.UVarI (x, r) => UVarI (on_uvar_i on_b on_i x, on_r r) *)
 
-fun on_quan q =
-  case q of
-      Forall => Forall
-    | Exists a => Exists $ on_exists_anno on_i a
+(* fun on_quan q = *)
+(*   case q of *)
+(*       Forall => Forall *)
+(*     | Exists a => Exists $ on_exists_anno on_i a *)
 
-fun on_p p =
-  case p of
-      S.PTrueFalse (b, r) => PTrueFalse (b, on_r r)
-    | S.Not (p, r) => Not (on_p p, on_r r)
-    | S.BinConn (opr, p1, p2) => BinConn (opr, on_p p1, on_p p2)
-    | S.BinPred (opr, i1, i2) => BinPred (opr, on_i i1, on_i i2)
-    | S.Quan (q, b, Bind (name, p), r) => Quan (on_quan q, on_b b, Bind (on_name name, on_p p), on_r r)
+(* fun on_p p = *)
+(*   case p of *)
+(*       S.PTrueFalse (b, r) => PTrueFalse (b, on_r r) *)
+(*     | S.Not (p, r) => Not (on_p p, on_r r) *)
+(*     | S.BinConn (opr, p1, p2) => BinConn (opr, on_p p1, on_p p2) *)
+(*     | S.BinPred (opr, i1, i2) => BinPred (opr, on_i i1, on_i i2) *)
+(*     | S.Quan (q, b, Bind (name, p), r) => Quan (on_quan q, on_b b, Bind (on_name name, on_p p), on_r r) *)
 
-fun on_s s =
-  case s of
-      S.Basic (b, r) => Basic (on_b b, on_r r)
-    | S.Subset ((b, r1), Bind (name, p), r) => Subset ((on_b b, on_r r1), Bind (on_name name, on_p p), on_r r)
-    | S.SAbs (b, Bind (name, s), r) => SAbs (on_b b, Bind (on_name name, on_s s), on_r r)
-    | S.SApp (s, i) => SApp (on_s s, on_i i)
-    | S.UVarS (x, r) => UVarS (on_uvar_s on_b on_s x, on_r r)
+(* fun on_s s = *)
+(*   case s of *)
+(*       S.Basic (b, r) => Basic (on_b b, on_r r) *)
+(*     | S.Subset ((b, r1), Bind (name, p), r) => Subset ((on_b b, on_r r1), Bind (on_name name, on_p p), on_r r) *)
+(*     | S.SAbs (b, Bind (name, s), r) => SAbs (on_b b, Bind (on_name name, on_s s), on_r r) *)
+(*     | S.SApp (s, i) => SApp (on_s s, on_i i) *)
+(*     | S.UVarS (x, r) => UVarS (on_uvar_s on_b on_s x, on_r r) *)
 
-end
+(* end *)
 
-signature IDX_TRANS = sig
-  structure Src : IDX
-  structure Tgt : IDX
-  val on_b : Src.bsort -> Tgt.bsort
-  val on_i : Src.idx -> Tgt.idx
-  val on_s : Src.sort -> Tgt.sort
-  val on_var : Src.var -> Tgt.var
-  val on_name : Src.name -> Tgt.name
-  val on_r : Src.region -> Tgt.region
-end
+(* signature IDX_TRANS = sig *)
+(*   structure Src : IDX *)
+(*   structure Tgt : IDX *)
+(*   val on_b : Src.bsort -> Tgt.bsort *)
+(*   val on_i : Src.idx -> Tgt.idx *)
+(*   val on_s : Src.sort -> Tgt.sort *)
+(*   val on_var : Src.var -> Tgt.var *)
+(*   val on_name : Src.name -> Tgt.name *)
+(*   val on_r : Src.region -> Tgt.region *)
+(* end *)
                         
-functor TypeTransFn (structure Src : TYPE
-                   structure Tgt : TYPE
-                   structure IdxTrans : IDX_TRANS
-                   val on_base_type : Src.base_type -> Tgt.base_type
-                   val on_k : Src.kind -> Tgt.kind
-                   val on_uvar_mt : (Src.Idx.bsort -> Tgt.Idx.bsort) -> (Src.kind -> Tgt.kind) -> (Src.mtype -> Tgt.mtype) -> (Src.Idx.bsort, Src.kind, Src.mtype) Src.UVarT.uvar_mt -> (Tgt.Idx.bsort, Tgt.kind, Tgt.mtype) Tgt.UVarT.uvar_mt
-                   sharing IdxTrans.Src = Src.Idx
-                   sharing IdxTrans.Tgt = Tgt.Idx
-                   sharing type  Src.var = Src.Idx.var
-                   sharing type  Src.name = Src.Idx.name
-                   sharing type  Src.region = Src.Idx.region
-                   sharing type  Tgt.var = Tgt.Idx.var
-                   sharing type  Tgt.name = Tgt.Idx.name
-                   sharing type  Tgt.region = Tgt.Idx.region
-                   sharing type Src.name = Tgt.name
-                  ) =
-struct
+(* functor TypeTransFn (structure Src : TYPE *)
+(*                      structure Tgt : TYPE *)
+(*                      structure IdxTrans : IDX_TRANS *)
+(*                      val on_base_type : Src.base_type -> Tgt.base_type *)
+(*                      val on_k : Src.kind -> Tgt.kind *)
+(*                      val on_uvar_mt : (Src.bsort -> Tgt.bsort) -> (Src.kind -> Tgt.kind) -> (Src.mtype -> Tgt.mtype) -> (Src.bsort, Src.kind, Src.mtype) Src.UVarT.uvar_mt -> (Tgt.bsort, Tgt.kind, Tgt.mtype) Tgt.UVarT.uvar_mt *)
+(*                      sharing IdxTrans.Src = Src.Idx *)
+(*                      sharing IdxTrans.Tgt = Tgt.Idx *)
+(*                      sharing type Src.name = Tgt.name *)
+(*                     ) = *)
+(* struct *)
 
-open Util
-open Unbound
-open Bind
-structure S = Src
-open Tgt
-open IdxTrans
+(* open Util *)
+(* open Unbound *)
+(* open Bind *)
+(* structure S = Src *)
+(* open Tgt *)
+(* open IdxTrans *)
        
-infixr 0 $
+(* infixr 0 $ *)
          
-fun on_mt t =
-  case t of
-      S.Arrow (t1, i, t2) => Arrow (on_mt t1, on_i i, on_mt t2)
-    | S.TyNat (i, r) => TyNat (on_i i, on_r r)
-    | S.TyArray (t, i) => TyArray (on_mt t, on_i i)
-    | S.Unit r => Unit $ on_r r
-    | S.Prod (t1, t2) => Prod (on_mt t1, on_mt t2)
-    | S.UniI (s, Bind (name, t), r) => UniI (on_s s, Bind (on_name name, on_mt t), on_r r)
-    | S.MtVar x => MtVar $ on_var x
-    | S.MtApp (t1, t2) => MtApp (on_mt t1, on_mt t2)
-    | S.MtAbs (k, Bind (name, t), r) => MtAbs (on_k k, Bind (on_name name, on_mt t), on_r r)
-    | S.MtAppI (t, i) => MtAppI (on_mt t, on_i i)
-    | S.MtAbsI (b, Bind (name, t), r) => MtAbsI (on_b b, Bind (on_name name, on_mt t), on_r r)
-    | S.BaseType (t, r) => BaseType (on_base_type t, on_r r)
-    | S.UVar (x, r) => UVar (on_uvar_mt on_b on_k on_mt x, on_r r)
-    | S.TDatatype (dt, r) => TDatatype (on_dt dt, on_r r)
+(* fun on_mt t = *)
+(*   case t of *)
+(*       S.Arrow (t1, i, t2) => Arrow (on_mt t1, on_i i, on_mt t2) *)
+(*     | S.TyNat (i, r) => TyNat (on_i i, on_r r) *)
+(*     | S.TyArray (t, i) => TyArray (on_mt t, on_i i) *)
+(*     | S.Unit r => Unit $ on_r r *)
+(*     | S.Prod (t1, t2) => Prod (on_mt t1, on_mt t2) *)
+(*     | S.UniI (s, Bind (name, t), r) => UniI (on_s s, Bind (on_name name, on_mt t), on_r r) *)
+(*     | S.MtVar x => MtVar $ on_var x *)
+(*     | S.MtApp (t1, t2) => MtApp (on_mt t1, on_mt t2) *)
+(*     | S.MtAbs (k, Bind (name, t), r) => MtAbs (on_k k, Bind (on_name name, on_mt t), on_r r) *)
+(*     | S.MtAppI (t, i) => MtAppI (on_mt t, on_i i) *)
+(*     | S.MtAbsI (b, Bind (name, t), r) => MtAbsI (on_b b, Bind (on_name name, on_mt t), on_r r) *)
+(*     | S.BaseType (t, r) => BaseType (on_base_type t, on_r r) *)
+(*     | S.UVar (x, r) => UVar (on_uvar_mt on_b on_k on_mt x, on_r r) *)
+(*     | S.TDatatype (dt, r) => TDatatype (on_dt dt, on_r r) *)
 
-and on_dt (Bind (name, tbinds)) =
-    let
-      val (tname_kinds, (bsorts, constrs)) = unfold_binds tbinds
-      val bsorts = map on_b bsorts
-      fun on_constr_core ibinds =
-        let
-          val (name_sorts, (t, is)) = unfold_binds ibinds
-          val name_sorts = map (mapSnd on_s) name_sorts
-          val t = on_mt t
-          val is = map on_i is
-          val ibinds = fold_binds (name_sorts, (t, is))
-        in
-          ibinds
-        end
-      val constrs = map (fn (name, c, r) => (name, on_constr_core c, on_r r)) constrs
-      val tbinds = fold_binds (tname_kinds, (bsorts, constrs))
-    in
-      Bind (name, tbinds)
-    end
+(* and on_dt (Bind (name, tbinds)) = *)
+(*     let *)
+(*       val (tname_kinds, (bsorts, constrs)) = unfold_binds tbinds *)
+(*       val bsorts = map on_b bsorts *)
+(*       fun on_constr_core ibinds = *)
+(*         let *)
+(*           val (name_sorts, (t, is)) = unfold_binds ibinds *)
+(*           val name_sorts = map (mapSnd on_s) name_sorts *)
+(*           val t = on_mt t *)
+(*           val is = map on_i is *)
+(*           val ibinds = fold_binds (name_sorts, (t, is)) *)
+(*         in *)
+(*           ibinds *)
+(*         end *)
+(*       val constrs = map (fn (name, c, r) => (name, on_constr_core c, on_r r)) constrs *)
+(*       val tbinds = fold_binds (tname_kinds, (bsorts, constrs)) *)
+(*     in *)
+(*       Bind (name, tbinds) *)
+(*     end *)
 
-end
+(* end *)
 
 structure TiML2MicroTiML = struct
 

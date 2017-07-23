@@ -13,8 +13,8 @@ functor TypeShiftFn (structure Type : TYPE
                      structure ShiftableVar : SHIFTABLE_VAR
                      sharing type Type.var = ShiftableVar.var
                      structure ShiftableIdx : SHIFTABLE_IDX
-                     sharing type Type.Idx.idx = ShiftableIdx.idx 
-                     sharing type Type.Idx.sort = ShiftableIdx.sort
+                     sharing type Type.idx = ShiftableIdx.idx 
+                     sharing type Type.sort = ShiftableIdx.sort
                     ) = struct
 
 open Type

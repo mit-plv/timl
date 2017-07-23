@@ -2,7 +2,8 @@ signature EXPR_EX = sig
   structure Idx : IDX
   structure Type : TYPE
   sharing type Type.var = Idx.var
-  sharing Type.Idx = Idx
+  sharing type Type.idx = Idx.idx
+  sharing type Type.sort = Idx.sort
   include EXPR
   sharing type var = Idx.var
   sharing type idx = Idx.idx
