@@ -19,6 +19,11 @@ exception Error of string
 open SMT2Printer
 open SMTSolver
 
+structure UnderscoredCollectMod = CollectModFn (structure Expr = UnderscoredExpr
+                                     val on_var = collect_mod_long_id
+                                     val on_mod_id = collect_mod_mod_id
+                                    )
+                                    
 fun process_prog show_result filename gctx prog =
     let
       fun print_result show_region filename old_gctxn gctx =
@@ -83,7 +88,7 @@ fun process_prog show_result filename gctx prog =
               nodes
             end
               
-          val ms = dedup $ UnderscoredExpr.CollectMod.collect_mod_prog prog
+          val ms = dedup $ UnderscoredCollectMod.collect_mod_prog prog
           val ms = to_list $ trans_closure (get_dependency_graph gctx) $ to_set ms
           (* val () = println $ "before restrict: " ^ str_int (Gctx.length gctx) *)
           val gctx = MU.restrict ms gctx

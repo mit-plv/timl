@@ -2161,9 +2161,21 @@ fun check_top_bind gctx (name, bind) =
   in
     gctxd
   end
-    
+
+fun collect_mod_long_id acc id =
+  case id of
+      ID _ => acc
+    | QID ((m, _), _) => m :: acc
+
+fun collect_mod_mod_id acc (m, _) = m :: acc
+
+structure CollectMod = CollectModFn (structure Expr = Expr
+                                     val on_var = collect_mod_long_id
+                                     val on_mod_id = collect_mod_mod_id
+                                    )
+local
 open CollectMod
-       
+in
 fun collect_mod_ke (k, t) = default [] (Option.map collect_mod_mt t)
                                         
 fun collect_mod_ctx ((sctx, kctx, cctx, tctx) : context) =
@@ -2176,7 +2188,8 @@ fun collect_mod_ctx ((sctx, kctx, cctx, tctx) : context) =
   in
     acc
   end
-    
+end
+
 fun collect_mod_sgntr b =
   case b of
       Sig ctx => collect_mod_ctx ctx

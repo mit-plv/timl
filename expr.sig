@@ -43,4 +43,46 @@ signature EXPR = sig
            | DTypeDef of Namespaces.tname Unbound.binder * mtype Unbound.outer
            | DOpen of mod_id Unbound.outer * scoping_ctx option
 
+  type ty
+  type kind
+         
+  type name = string * Region.region
+                         
+  datatype spec =
+           SpecVal of name * ty
+           | SpecIdx of name * sort
+           | SpecType of name * kind
+           | SpecTypeDef of name * mtype
+                                     
+  type sgn = spec list * Region.region
+  (* datatype sgn = *)
+  (*          SigComponents of spec list * Region.region *)
+  (*          | SigVar of id *)
+  (*          | SigWhere of sgn * (id * mtype) *)
+
+  (* and sig_comp = *)
+  (*     ScSpec of name * spec * Region.region *)
+  (* | ScModSpec of name * sgn *)
+  (* | Include of sgn *)
+
+  datatype mod =
+           ModComponents of (* mod_comp *)decl list * Region.region
+           (* | ModProjectible of mod_id *)
+           | ModSeal of mod * sgn
+           | ModTransparentAsc of mod * sgn
+  (* | ModFunctorApp of id * mod (* list *) *)
+                                          
+  (* and mod_comp = *)
+  (*     McDecl of decl *)
+  (* | McModBind of name * mod *)
+
+  datatype top_bind =
+           TopModBind of mod
+           (* | TopSigBind of name * sgn *)
+           (* | TopModSpec of name * sgn *)
+           | TopFunctorBind of (name * sgn) (* list *) * mod
+           | TopFunctorApp of mod_id * mod_id (* list *)
+
+  type prog = (name * top_bind) list
+
 end

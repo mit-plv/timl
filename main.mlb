@@ -64,6 +64,7 @@ fresh-uvar.sml
 uvar-forget.sml
 unify.sml
 redundant-exhaust.sml
+collect-mod.sml
 do-typecheck.sml
 trivial-solver.sml
 post-typecheck.sml
@@ -74,7 +75,6 @@ long-id-map.sml
 bigO-solver.sml
 main.sml
 pp-util.sml
-
 micro-timl/micro-timl.sml
 nouvar-expr.sml
 visitor.sml                                 
