@@ -327,7 +327,7 @@ fun on_mt (t : S.mtype) =
 
 val trans_mt = on_mt
                  
-val shift_var = LongIdShift.shiftx_var
+val shift_var = LongIdSubst.shiftx_var
     
 fun compare_var id x =
   case id of

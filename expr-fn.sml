@@ -1266,76 +1266,8 @@ fun prop2vc p =
       | _ => ([], p)
   end
 
-structure Subst = struct
-open Util
-open ShiftUtil
-       
-infixr 0 $
-
-fun shiftx_long_id x n b = on_v_long_id shiftx_v x n b
-val forget_v = forget_v ForgetError
-fun forget_long_id x n b = on_v_long_id forget_v x n b
-                                        
-structure LongIdShift = struct
-type var = long_id
-val shiftx_var = shiftx_long_id
-val forget_var = forget_long_id
-end
-
-structure IdxShift = IdxShiftFn (structure Idx = Idx
-                                 structure ShiftableVar = LongIdShift)
-open IdxShift
-                                        
-structure TypeShift = TypeShiftFn (structure Type = Type
-                                  structure ShiftableVar = LongIdShift
-                                  structure ShiftableIdx = IdxShift
-                                 )
-open TypeShift
-                                        
-(* ToDo: just a hack now *)
-fun forget_above_i_i x b = forget_i_i x 100000000 b
-
-(* subst *)
-
-exception Error of string
-
-val substx_long_id = fn a => substx_long_id substx_v a
-                                                                                           
-fun visit_VarI (d, x, v) env y =
-  let
-    val x = x + env
-    val d = d + env
-  in
-    substx_long_id VarI x (fn () => shiftx_i_i 0 d v) y
-  end
-
-structure IdxSubst = IdxSubstFn (structure Idx = Idx
-                                 val visit_VarI = visit_VarI
-                                )
-open IdxSubst
-                                        
-fun visit_MtVar (d, x, v) env y =
-  let
-    fun add_depth (di, dt) (di', dt') = (idepth_add (di, di'), tdepth_add (dt, dt'))
-    fun get_di (di, dt) = di
-    fun get_dt (di, dt) = dt
-    val x = x + unTDepth (get_dt env)
-    val (di, dt) = add_depth d env
-  in
-    substx_long_id MtVar x (fn () => shiftx_i_mt 0 (unIDepth di) $ shiftx_t_mt 0 (unTDepth dt) v) y
-  end
-    
-structure TypeSubst = TypeSubstFn (structure Type = Type
-                                   val visit_MtVar = visit_MtVar
-                                   val substx_i_i = substx_i_i
-                                   val substx_i_s = substx_i_s
-                                  )
-open TypeSubst
-
-end
-
-open Subst
-open IdxOfExpr
+structure Idx = IdxOfExpr
+open Idx
 
 end
 

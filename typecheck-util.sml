@@ -410,7 +410,7 @@ fun do_fetch_constr (ctx, (x, r)) =
 fun fetch_constr a = generic_fetch (package0_snd package0_c) do_fetch_constr #3 a
                                    
 fun fetch_constr_type gctx (ctx : ccontext, x) =
-  constr_type VarT shiftx_long_id $ snd $ fetch_constr gctx (ctx, x)
+  constr_type VarT LongIdSubst.shiftx_long_id $ snd $ fetch_constr gctx (ctx, x)
 
 fun get_family (c : mtype constr_info) = #1 c
 
@@ -451,7 +451,7 @@ fun fetch_constr_by_name gctx ctx id =
   end
     
 fun fetch_constr_type_by_name gctx ctx name =
-  mapSnd (constr_type VarT shiftx_long_id) $ fetch_constr_by_name gctx ctx name
+  mapSnd (constr_type VarT LongIdSubst.shiftx_long_id) $ fetch_constr_by_name gctx ctx name
 
 fun do_fetch_type (tctx, (x, r)) =
   case lookup_type x tctx of

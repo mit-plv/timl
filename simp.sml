@@ -20,9 +20,7 @@ signature SIMP_PARAMS = sig
   val get_region_p : Idx.prop -> Region.region
   val eq_i : Idx.idx -> Idx.idx -> bool
   val eq_p : Idx.prop -> Idx.prop -> bool
-  val shiftx_v  : int -> int -> int -> int
   val shift_i_i : Idx.idx -> Idx.idx
-  val forget_v : int -> int -> int -> int
   val forget_i_i : int -> int -> Idx.idx -> Idx.idx
   val forget_i_p : int -> int -> Idx.prop -> Idx.prop
   val subst_i_i : Idx.idx -> Idx.idx -> Idx.idx
@@ -391,6 +389,8 @@ local
                          in
                            snd $ foldr iter (init, NONE) hyps
                          end
+                       val shiftx_v = shiftx_int
+                       fun forget_v a = forget_int ForgetError a
                      in
                        case foldr_hyps (fn x => shiftx_v 0 1 x) shift_i_i is_var_equals 0 hyps of
                            SOME i =>

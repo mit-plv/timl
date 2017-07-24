@@ -373,7 +373,7 @@ fun add_typing_skct name (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: t
       
 fun shift_return (sctxn, kctxn) (t, d) =
     let
-      open Subst
+      open UnderscoredSubst
     in
       (Option.map (fn t => shiftx_t_mt 0 kctxn $ shiftx_i_mt 0 sctxn t) t,
        Option.map (fn d => shiftx_i_i 0 sctxn d) d)

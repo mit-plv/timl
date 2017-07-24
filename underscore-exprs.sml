@@ -50,6 +50,11 @@ structure UnderscoredExpr = ExprFn (structure Var = IntVar
                                     type ptrn_constr_tag = unit
                                    )
 
+structure UnderscoredSubst = SubstFn (structure Idx = UnderscoredExpr.Idx
+                                      structure Type = UnderscoredExpr.Type
+                                      structure SubstableVar = LongIdSubst
+)
+                          
 structure UnderscoredExprVisitor = ExprVisitorFn (structure S = UnderscoredExpr
                                                   structure T = UnderscoredExpr)
 

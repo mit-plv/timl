@@ -1468,7 +1468,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	    (* delegate to checking [x {is} e] *)
 	    val f = U.EVar ((ID (0, U.get_region_long_id x)), eia)
 	    val f = foldl (fn (i, e) => U.EAppI (e, i)) f is
-            fun u_shift01_e_e a = UnderscoredShiftEE.on_e_e shiftx_long_id 0 1 a
+            fun u_shift01_e_e a = UnderscoredShiftEE.on_e_e LongIdSubst.shiftx_long_id 0 1 a
 	    val e = U.EApp (f, u_shift01_e_e e)
             (* val f_name = "__synthesized_constructor" *)
             val f_name = str_long_id #3 (gctx_names gctx) (names cctx) x
@@ -1502,7 +1502,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                       (ts, is, e)
                     end
                   | _ => raise Impossible "get_mtype (): U.EAppConstr: e in wrong form"
-            fun forget_e_e a = ShiftEE.on_e_e forget_long_id a
+            fun forget_e_e a = ShiftEE.on_e_e LongIdSubst.forget_long_id a
             val e = forget_e_e 0 1 e
             val siblings = get_family_siblings gctx cctx x
             val pos_in_family = index (curry eq_long_id x) (map fst siblings) !! (fn () => raise Impossible "get_mtype(): family_pos")
@@ -1833,7 +1833,7 @@ and is_wf_datatype gctx ctx (Bind (name, tbinds) : U.mtype U.datatype_def, r) : 
 	let
           val family = ID (0, r)
           val c = (family, fold_binds (tname_kinds, ibinds))
-	  val t = U.constr_type U.VarT shiftx_long_id c
+	  val t = U.constr_type U.VarT LongIdSubst.shiftx_long_id c
 	  val t = is_wf_type gctx ((sctx, kctx), t)
 		  handle Error (_, msg) =>
 			 raise Error (r, 
@@ -2007,7 +2007,7 @@ fun link_sig r gctx m (ctx' as (sctx', kctx', cctx', tctx') : context) =
     fun match_constr_type (name, c) =
       let
         val (_, t) = fetch_constr_type_by_name gctx [] $ QID (m, (name, r))
-        val t' = constr_type VarT shiftx_long_id c
+        val t' = constr_type VarT LongIdSubst.shiftx_long_id c
       in
         unify_t r gctx (sctx', kctx') (t', t)
       end

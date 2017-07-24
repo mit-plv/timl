@@ -81,7 +81,12 @@ structure Expr = ExprFn (structure Var = IntVar
                          structure UVarT = UVar
                          type ptrn_constr_tag = int * int
                         )
-                        
+
+structure Subst = SubstFn (structure Idx = Expr.Idx
+                           structure Type = Expr.Type
+                           structure SubstableVar = LongIdSubst
+)
+                          
 structure ExprVisitor = ExprVisitorFn (structure S = Expr
                                        structure T = Expr)
 
@@ -96,14 +101,12 @@ structure Simp = SimpFn (structure Idx = Expr
                          val get_region_p = Expr.get_region_p
                          val eq_i = Expr.eq_i
                          val eq_p = Expr.eq_p
-                         val shiftx_v = Expr.shiftx_v
-                         val shift_i_i = Expr.shift_i_i
-                         val forget_v = Expr.forget_v
-                         val forget_i_i = Expr.forget_i_i
-                         val forget_i_p = Expr.forget_i_p
-                         val subst_i_i = Expr.subst_i_i
-                         val subst_i_s = Expr.subst_i_s
-                         val substx_i_p = Expr.substx_i_p
+                         val shift_i_i = Subst.shift_i_i
+                         val forget_i_i = Subst.forget_i_i
+                         val forget_i_p = Subst.forget_i_p
+                         val subst_i_i = Subst.subst_i_i
+                         val subst_i_s = Subst.subst_i_s
+                         val substx_i_p = Subst.substx_i_p
                         )
                         
 structure VC = VCFn (structure Idx = Expr
