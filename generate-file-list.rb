@@ -1,12 +1,60 @@
+#!/usr/bin/env ruby
+
+def usage
+ puts "usage: THIS_SCRIPT [smlnj|mlton|Makefile]"  
+end
+
+def wrong_arguments
+  puts "wrong arguments"
+  usage
+  exit 1
+end
+
+if ARGV.size != 1 then
+  wrong_arguments
+end
+
+target = ARGV[0]
+
+if target == "smlnj" then
+  target = :smlnj
+elsif target == "mlton" then
+  target = :mlton
+elsif target == "Makefile" then
+  target = :Makefile
+else
+  wrong_arguments
+end
+
+if target == :smlnj then
   
+print %{
+Group is
+      
+cont-smlnj.sml
+}
+
+elsif target == :mlton then
+
+print %{  
 $(SML_LIB)/basis/basis.mlb
 $(SML_LIB)/basis/build/sources.mlb
 $(SML_LIB)/mlyacc-lib/mlyacc-lib.mlb
 $(SML_LIB)/smlnj-lib/Util/smlnj-lib.mlb
 $(SML_LIB)/smlnj-lib/PP/pp-lib.mlb
+}
 
+end
+
+if target == :mlton || target == :Makefile then
+  
+print %{
 cont-mlton.sml
+}
 
+end
+
+print %{
 enumerator.sml
 util.sml
 string-key.sml
@@ -16,7 +64,24 @@ map-util.sml
 unique-map.sml
 region.sml
 operators.sml
-  
+}
+
+if target == :smlnj || target == :Makefile then
+
+print %{  
+sexp/sexp.sml
+sexp/sexp.grm
+sexp/sexp.lex
+sexp/parser.sml
+parser/ast.sml
+parser/timl.grm
+parser/timl.lex
+parser/parser.sml
+}
+
+elsif target == :mlton then
+
+print %{  
 sexp/sexp.sml
 sexp/sexp.grm.sig
 sexp/sexp.grm.sml
@@ -27,7 +92,11 @@ parser/timl.grm.sig
 parser/timl.grm.sml
 parser/timl.lex.sml
 parser/parser.sml
+}
 
+end
+
+print %{
 module-context.sml
 to-string-util.sml
 long-id.sml
@@ -95,5 +164,21 @@ micro-timl/micro-timl-ex.sml
 micro-timl/micro-timl-ex-pp.sml
 pattern-ex.sml
 micro-timl/timl-to-micro-timl.sml
-  
+}
+
+if target == :smlnj then
+
+print %{  
+$/basis.cm
+$/smlnj-lib.cm
+$/ml-yacc-lib.cm
+$/pp-lib.cm
+}
+
+elsif target == :mlton || target == :Makefile then
+
+print %{  
 mlton-main.sml
+}
+
+end

@@ -1,4 +1,3 @@
-  
 $(SML_LIB)/basis/basis.mlb
 $(SML_LIB)/basis/build/sources.mlb
 $(SML_LIB)/mlyacc-lib/mlyacc-lib.mlb
@@ -16,7 +15,7 @@ map-util.sml
 unique-map.sml
 region.sml
 operators.sml
-  
+
 sexp/sexp.sml
 sexp/sexp.grm.sig
 sexp/sexp.grm.sml
@@ -95,5 +94,5 @@ micro-timl/micro-timl-ex.sml
 micro-timl/micro-timl-ex-pp.sml
 pattern-ex.sml
 micro-timl/timl-to-micro-timl.sml
-  
+       
 mlton-main.sml

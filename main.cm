@@ -1,3 +1,4 @@
+
 Group is
       
 cont-smlnj.sml
@@ -11,7 +12,7 @@ map-util.sml
 unique-map.sml
 region.sml
 operators.sml
-
+  
 sexp/sexp.sml
 sexp/sexp.grm
 sexp/sexp.lex
@@ -50,6 +51,8 @@ expr-trans.sml
 int-var.sml
 simp.sml
 vc.sml
+subst.sml
+long-id-subst.sml
 expr.sml
 underscore-exprs.sml
 elaborate.sml
@@ -86,7 +89,7 @@ micro-timl/micro-timl-ex.sml
 micro-timl/micro-timl-ex-pp.sml
 pattern-ex.sml
 micro-timl/timl-to-micro-timl.sml
-       
+  
 $/basis.cm
 $/smlnj-lib.cm
 $/ml-yacc-lib.cm

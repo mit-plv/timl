@@ -28,29 +28,39 @@ parser/timl.grm \
 parser/timl.lex \
 parser/parser.sml \
 \
+module-context.sml \
+to-string-util.sml \
+long-id.sml \
+var-uvar.sig \
+base-sorts.sml \
 bind.sml \
 visitor-util.sml \
 unbound.sml \
-module-context.sml \
-long-id.sml \
-var-uvar.sig \
-shift-util.sml \
 idx.sig \
 idx-visitor.sml \
 idx.sml \
+shift-util.sml \
 idx-trans.sml \
+idx-util.sml \
 type.sig \
 type-visitor.sml \
 type.sml \
 type-trans.sml \
 pattern.sml \
-expr.sig \
 pattern-visitor.sml \
+get-region.sml \
+hyp.sml \
+expr.sig \
+expr-fn.sml \
 expr-visitor.sml \
 expr-trans.sml \
-expr-fn.sml \
-underscore-exprs.sml \
+int-var.sml \
+simp.sml \
+vc.sml \
+subst.sml \
+long-id-subst.sml \
 expr.sml \
+underscore-exprs.sml \
 elaborate.sml \
 name-resolve.sml \
 package.sml \
@@ -64,6 +74,8 @@ fresh-uvar.sml \
 uvar-forget.sml \
 unify.sml \
 redundant-exhaust.sml \
+collect-mod.sml \
+simp-type.sml \
 typecheck-main.sml \
 trivial-solver.sml \
 post-typecheck.sml \
@@ -93,12 +105,20 @@ main: main.mlb $(FILES)
 	mllex sexp/sexp.lex
 	mlton $(MLTON_FLAGS) main.mlb
 
+main.mlb: generate-file-list.rb
+	ruby generate-file-list.rb mlton > main.mlb
+
 profile:
 	mlprof -show-line true -raw true main mlmon.out
 
 smlnj: main.cm
 	./format.rb ml-build -Ccontrol.poly-eq-warn=false -Ccompiler-mc.error-non-exhaustive-match=true -Ccompiler-mc.error-non-exhaustive-bind=true main.cm Main.main main-image
 
+main.cm: generate-file-list.rb
+	ruby generate-file-list.rb smlnj > main.cm
+
 clean:
 	rm -f main
 	rm -f main-image*
+	rm main.cm
+	rm main.mlb
