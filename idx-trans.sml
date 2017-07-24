@@ -132,6 +132,9 @@ structure IdxVisitor = IdxVisitorFn (structure S = Idx
                                      structure T = Idx)
 open IdxVisitor
                                          
+(* fun substx_pair (f1, f2) d x v (b1, b2) = (f1 d x v b1, f2 d x v b2) *)
+(* fun substx_list f d x v b = map (f d x v) b *)
+
 (* depth [d] is used for shifting value [v] *)
 fun subst_i_idx_visitor_vtable cast (visit_VarI, d, x, v) : ('this, int) idx_visitor_vtable =
   let

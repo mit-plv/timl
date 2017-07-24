@@ -44,6 +44,68 @@ fun match_bigO f hyps hyp =
       if eq_i f' f then SOME g else NONE
     | _ => NONE
              
+fun str_hyps_conclu gctx (hyps, p) =
+  let 
+    fun g (h, (hyps, ctx)) =
+      case h of
+          VarH ((name, _), (bs, _)) => (sprintf "$ : $" [name, str_bs bs] :: hyps, name :: ctx)
+        | PropH p => (str_p gctx ctx p :: hyps, ctx)
+    val (hyps, ctx) = foldr g ([], []) hyps
+    val hyps = rev hyps
+    val p = str_p gctx ctx p
+  in
+    hyps @
+    ["==============="] @
+    [p]
+  end 
+
+fun shiftx_hyp x n hyp =
+  case hyp of
+      VarH _ => hyp
+    | PropH p => PropH (shiftx_i_p x n p)
+                       
+fun shiftx_hyps x n hyps =
+  case hyps of
+      [] => hyps
+    | hyp :: hyps =>
+      let
+        val d = case hyp of
+                    VarH _ => 1
+                  | PropH _ => 0
+      in
+        shiftx_hyp x n hyp :: shiftx_hyps (x + d) n hyps
+      end
+
+(* find something about [x] in [hyps]. [x] is expressed as being in the innermost of [hyps] (so [x] can see all variables in [hyps]). *)
+fun find_hyp forget shift pred x hyps =
+  let
+    exception Error
+    fun runError m _ =
+      SOME (m ())
+      handle
+      Error => NONE
+      | ForgetError _ => NONE
+    fun do_forget hyp x =
+      case hyp of
+          VarH _ => forget x
+        | PropH _ => x
+    fun do_shift hyp (p as (y, hyps)) =
+      case hyp of
+          VarH _ => (shift y, shiftx_hyps 0 1 hyps)
+        | PropH _ => p
+    fun loop x hyps () =
+      let
+        val (hyp, hyps) = case hyps of hyp :: hyps => (hyp, hyps) | [] => raise Error
+        val x = do_forget hyp x
+      in
+        case pred x hyps hyp of
+            SOME y => do_shift hyp (y, hyps)
+          | NONE => do_shift hyp (loop x hyps ())
+      end
+  in
+    runError (loop x hyps) ()
+  end
+    
 fun find_bigO_hyp f_i hyps =
   find_hyp (forget_i_i 0 1) shift_i_i match_bigO f_i hyps
            

@@ -1292,45 +1292,12 @@ structure TypeShift = TypeShiftFn (structure Type = Type
                                  )
 open TypeShift
                                         
-fun shiftx_id x n (y, r) = (shiftx_v x n y, r)
-                             
 (* ToDo: just a hack now *)
 fun forget_above_i_i x b = forget_i_i x 100000000 b
 
 (* subst *)
 
 exception Error of string
-
-(* mimic type class *)
-(* type 'a shiftable = { *)
-(*   shift_i : int -> 'a -> 'a, *)
-(*   shift_t : int -> 'a -> 'a *)
-(* } *)
-(* todo: split [shiftable] to [ishiftable] and [tshiftable], or ultimately get rid of it aftering changing to lazy shifting *)                      
-
-fun substx_pair (f1, f2) d x v (b1, b2) = (f1 d x v b1, f2 d x v b2)
-fun substx_list f d x v b = map (f d x v) b
-
-open Bind
-       
-(* fun substx_i_ibind f d x v (Bind (name, inner) : ('name * 'b) ibind) = *)
-(*   Bind (name, f (d + 1) (x + 1) v inner) *)
-       
-(* fun substx_i_tbind f d x v (Bind (name, inner) : ('name * 'b) tbind) = *)
-(*   Bind (name, f d x v inner) *)
-
-(* fun substx_binds substx_bind f_cls f d x v b = *)
-(*   let *)
-(*     val substx_binds = substx_binds substx_bind f_cls f *)
-(*   in *)
-(*     case b of *)
-(*         BindNil a => BindNil (f d x v a) *)
-(*       | BindCons (cls, bind) => BindCons (f_cls d x v cls, substx_bind substx_binds d x v bind) *)
-(*   end *)
-
-(* fun substx_i_ibinds f_cls f d x v (b : ('classifier, 'name, 'inner) ibinds) = substx_binds substx_i_ibind f_cls f d x v b *)
-                                                                                           
-(* fun substx_i_tbinds f_cls f d x v (b : ('classifier, 'name, 'inner) tbinds) = substx_binds substx_i_tbind f_cls f d x v b *)
 
 val substx_long_id = fn a => substx_long_id substx_v a
                                                                                            
@@ -1347,83 +1314,6 @@ structure IdxSubst = IdxSubstFn (structure Idx = Idx
                                 )
 open IdxSubst
                                         
-(* local *)
-(*   fun f d(*depth*) x v b = *)
-(*     case b of *)
-(* 	VarI y => substx_long_id VarI x (fn () => shiftx_i_i 0 d v) y *)
-(*       | IConst c => IConst c *)
-(*       | UnOpI (opr, i, r) => UnOpI (opr, f d x v i, r) *)
-(*       | BinOpI (opr, d1, d2) => BinOpI (opr, f d x v d1, f d x v d2) *)
-(*       | Ite (i1, i2, i3, r) => Ite (f d x v i1, f d x v i2, f d x v i3, r) *)
-(*       | IAbs (b, bind, r) => IAbs (b, substx_i_ibind f d x v bind, r) *)
-(*       | UVarI a => b *)
-(* in *)
-(* val substx_i_i = f *)
-(* end *)
-
-(* local *)
-(*   fun f d x v b = *)
-(*     case b of *)
-(* 	PTrueFalse b => PTrueFalse b *)
-(*       | Not (p, r) => Not (f d x v p, r) *)
-(*       | BinConn (opr,p1, p2) => BinConn (opr, f d x v p1, f d x v p2) *)
-(*       | BinPred (opr, d1, d2) => BinPred (opr, substx_i_i d x v d1, substx_i_i d x v d2) *)
-(*       | Quan (q, bs, bind, r) => Quan (q, bs, substx_i_ibind f d x v bind, r) *)
-(* in *)
-(* val substx_i_p = f *)
-(* end *)
-
-(* local *)
-(*   fun f d x v b = *)
-(*     case b of *)
-(* 	Basic s => Basic s *)
-(*       | Subset (b, bind, r) => Subset (b, substx_i_ibind substx_i_p d x v bind, r) *)
-(*       | UVarS a => b *)
-(*       | SAbs (b, bind, r) => SAbs (b, substx_i_ibind f d x v bind, r) *)
-(*       | SApp (s, i) => SApp (f d x v s, substx_i_i d x v i) *)
-(* in *)
-(* val substx_i_s = f *)
-(* end *)
-
-(* local *)
-(*   fun f d x v b = *)
-(*     case b of *)
-(* 	Arrow (t1, i, t2) => Arrow (f d x v t1, substx_i_i d x v i, f d x v t2) *)
-(*       | TyNat (i, r) => TyNat (substx_i_i d x v i, r) *)
-(*       | TyArray (t, i) => TyArray (f d x v t, substx_i_i d x v i) *)
-(*       | Unit r => Unit r *)
-(*       | Prod (t1, t2) => Prod (f d x v t1, f d x v t2) *)
-(*       | UniI (s, bind, r) => UniI (substx_i_s d x v s, substx_i_ibind f d x v bind, r) *)
-(*       | MtVar y => MtVar y *)
-(*       | MtApp (t1, t2) => MtApp (f d x v t1, f d x v t2) *)
-(*       | MtAbs (k, bind, r) => MtAbs (k, substx_i_tbind f d x v bind, r) *)
-(*       | MtAppI (t, i) => MtAppI (f d x v t, substx_i_i d x v i) *)
-(*       | MtAbsI (b, bind, r) => MtAbsI (b, substx_i_ibind f d x v bind, r) *)
-(*       | BaseType a => BaseType a *)
-(*       | UVar a => b *)
-(*       | TDatatype (Abs dt, r) => *)
-(*         let *)
-(*           fun on_constr d x v b = substx_i_ibinds substx_i_s (substx_pair (f, substx_list substx_i_i)) d x v b *)
-(*           fun on_constr_decl d x v (name, c, r) = (name, on_constr d x v c, r) *)
-(*           val dt = Bind $ from_Unbound dt *)
-(*           val Bind dt = substx_i_tbind (substx_i_tbinds return4 (substx_pair (return4, substx_list on_constr_decl))) d x v dt *)
-(*           val dt = to_Unbound dt *)
-(*         in *)
-(*           TDatatype (Abs dt, r) *)
-(*         end *)
-(* in *)
-(* val substx_i_mt = f *)
-(* end *)
-
-(* local *)
-(*   fun f d x v b = *)
-(*     case b of *)
-(* 	Mono t => Mono (substx_i_mt d x v t) *)
-(*       | Uni (bind, r) => Uni (substx_i_tbind f d x v bind, r) *)
-(* in *)
-(* val substx_i_t = f *)
-(* end *)
-
 fun visit_MtVar (d, x, v) env y =
   let
     fun add_depth (di, dt) (di', dt') = (idepth_add (di, di'), tdepth_add (dt, dt'))
@@ -1442,124 +1332,6 @@ structure TypeSubst = TypeSubstFn (structure Type = Type
                                   )
 open TypeSubst
 
-(* fun substx_t_ibind f (di, dt) x v (Bind (name, inner) : ('name * 'b) ibind) = *)
-(*   Bind (name, f (di + 1, dt) x v inner) *)
-
-(* fun substx_t_tbind f (di, dt) x v (Bind (name, inner) : ('name * 'b) tbind) = *)
-(*   Bind (name, f (di, dt + 1) (x + 1) v inner) *)
-       
-(* fun substx_t_ibinds f_cls f d x v (b : ('classifier, 'name, 'inner) ibinds) = substx_binds substx_t_ibind f_cls f d x v b *)
-(* (* fun substx_t_ibinds f_cls f d x v b = *) *)
-(*   (* case b of *) *)
-(*   (*     BindNil a => BindNil (f d x v a) *) *)
-(* (*   | BindCons (cls, bind) => BindCons (f_cls d x v cls, substx_t_ibind (substx_t_ibinds f_cls f) d x v bind) *) *)
-                                                                                           
-(* fun substx_t_tbinds f_cls f d x v (b : ('classifier, 'name, 'inner) tbinds) = substx_binds substx_t_tbind f_cls f d x v b *)
-(* (* fun substx_t_tbinds f_cls f d x v b = *) *)
-(* (*   case b of *) *)
-(* (*       BindNil a => BindNil (f d x v a) *) *)
-(* (*     | BindCons (cls, bind) => BindCons (f_cls d x v cls, substx_t_tbind (substx_t_tbinds f_cls f) d x v bind) *) *)
-
-(* local *)
-(*   fun f d x v (b : mtype) : mtype = *)
-(*     case b of *)
-(* 	Arrow (t1, i, t2) => Arrow (f d x v t1, i, f d x v t2) *)
-(*       | TyNat (i, r) => TyNat (i, r) *)
-(*       | TyArray (t, i) => TyArray (f d x v t, i) *)
-(*       | Unit r => Unit r *)
-(*       | Prod (t1, t2) => Prod (f d x v t1, f d x v t2) *)
-(*       | UniI (s, bind, r) => UniI (s, substx_t_ibind f d x v bind, r) *)
-(*       | MtVar y => *)
-(*         substx_long_id MtVar x (fn () => shiftx_i_mt 0 (fst d) $ shiftx_t_mt 0 (snd d) v) y *)
-(*       | MtAbs (k, bind, r) => MtAbs (k, substx_t_tbind f d x v bind, r) *)
-(*       | MtApp (t1, t2) => MtApp (f d x v t1, f d x v t2) *)
-(*       | MtAbsI (s, bind, r) => MtAbsI (s, substx_t_ibind f d x v bind, r) *)
-(*       | MtAppI (t, i) => MtAppI (f d x v t, i) *)
-(*       | BaseType a => BaseType a *)
-(*       | UVar a => b *)
-(*       | TDatatype (Abs dt, r) => *)
-(*         let *)
-(*           fun on_constr d x v b = substx_t_ibinds return4 (substx_pair (f, return4)) d x v b *)
-(*           fun on_constr_decl d x v (name, c, r) = (name, on_constr d x v c, r) *)
-(*           val dt = Bind $ from_Unbound dt *)
-(*           val Bind dt = substx_t_tbind (substx_t_tbinds return4 (substx_pair (return4, substx_list on_constr_decl))) d x v dt *)
-(*           val dt = to_Unbound dt *)
-(*         in *)
-(*           TDatatype (Abs dt, r) *)
-(*         end *)
-(* in *)
-(* val substx_t_mt = f *)
-(* end *)
-
-(* fun substx_t_t d x (v : mtype) (b : ty) : ty = *)
-(*   case b of *)
-(*       Mono t => Mono (substx_t_mt d x v t) *)
-(*     | Uni (bind, r) => Uni (substx_t_tbind substx_t_t d x v bind, r) *)
-                           
-(* VC operations *)
-
-fun str_hyps_conclu gctx (hyps, p) =
-  let 
-    fun g (h, (hyps, ctx)) =
-      case h of
-          VarH ((name, _), (bs, _)) => (sprintf "$ : $" [name, str_bs bs] :: hyps, name :: ctx)
-        | PropH p => (str_p gctx ctx p :: hyps, ctx)
-    val (hyps, ctx) = foldr g ([], []) hyps
-    val hyps = rev hyps
-    val p = str_p gctx ctx p
-  in
-    hyps @
-    ["==============="] @
-    [p]
-  end 
-
-fun shiftx_hyp x n hyp =
-  case hyp of
-      VarH _ => hyp
-    | PropH p => PropH (shiftx_i_p x n p)
-                       
-fun shiftx_hyps x n hyps =
-  case hyps of
-      [] => hyps
-    | hyp :: hyps =>
-      let
-        val d = case hyp of
-                    VarH _ => 1
-                  | PropH _ => 0
-      in
-        shiftx_hyp x n hyp :: shiftx_hyps (x + d) n hyps
-      end
-
-(* find something about [x] in [hyps]. [x] is expressed as being in the innermost of [hyps] (so [x] can see all variables in [hyps]). *)
-fun find_hyp forget shift pred x hyps =
-  let
-    exception Error
-    fun runError m _ =
-      SOME (m ())
-      handle
-      Error => NONE
-      | ForgetError _ => NONE
-    fun do_forget hyp x =
-      case hyp of
-          VarH _ => forget x
-        | PropH _ => x
-    fun do_shift hyp (p as (y, hyps)) =
-      case hyp of
-          VarH _ => (shift y, shiftx_hyps 0 1 hyps)
-        | PropH _ => p
-    fun loop x hyps () =
-      let
-        val (hyp, hyps) = case hyps of hyp :: hyps => (hyp, hyps) | [] => raise Error
-        val x = do_forget hyp x
-      in
-        case pred x hyps hyp of
-            SOME y => do_shift hyp (y, hyps)
-          | NONE => do_shift hyp (loop x hyps ())
-      end
-  in
-    runError (loop x hyps) ()
-  end
-    
 end
 
 open Subst
