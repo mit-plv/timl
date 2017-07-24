@@ -1,5 +1,6 @@
 structure SimpExpr = struct
 
+open Simp
 open Normalize
 open PatternVisitor
 open ExprVisitor

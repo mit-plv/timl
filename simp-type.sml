@@ -1,6 +1,13 @@
-functor SimpTypeFn (structure Type : TYPE) = struct
+
+
+functor SimpTypeFn (structure Type : TYPE
+                    val simp_i : Type.idx -> Type.idx
+                    val simp_s : Type.sort -> Type.sort
+                    val subst_i_mt : Type.idx -> Type.mtype -> Type.mtype
+                   ) = struct
 
 open Type
+open SimpUtil
        
 fun simp_mt t =
   case t of
@@ -22,7 +29,7 @@ fun simp_mt t =
         val i = simp_i i
       in
         case t of
-            MtAbsI (_, Bind (_, t), _) => simp_mt (Subst.subst_i_mt i t)
+            MtAbsI (_, Bind (_, t), _) => simp_mt (subst_i_mt i t)
           | _ => MtAppI (t, i)
       end
     | TDatatype (dt, r) =>

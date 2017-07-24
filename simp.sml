@@ -1,3 +1,15 @@
+structure SimpUtil = struct
+
+open Bind
+       
+fun simp_bind f (Bind (name, inner)) = Bind (name, f inner)
+fun simp_binds f_cls f binds =
+  case binds of
+      BindNil a => BindNil (f a)
+    | BindCons (cls, bind) => BindCons (f_cls cls, simp_bind (simp_binds f_cls f) bind)
+
+end
+
 signature SIMP_PARAMS = sig
   structure Idx : IDX where type var = int LongId.long_id
                                  and type base_sort = BaseSorts.base_sort
@@ -22,6 +34,7 @@ functor SimpFn (Params : SIMP_PARAMS) = struct
 
 open Params
 open Idx
+open SimpUtil
 open Region
 open Operators
 open Util
@@ -535,12 +548,6 @@ fun simp_p_with_plugin plugin p =
 end
 
 fun simp_vc (ctx, ps, p, r) = (ctx, map simp_p ps, simp_p p, r)
-
-fun simp_bind f (Bind (name, inner)) = Bind (name, f inner)
-fun simp_binds f_cls f binds =
-  case binds of
-      BindNil a => BindNil (f a)
-    | BindCons (cls, bind) => BindCons (f_cls cls, simp_bind (simp_binds f_cls f) bind)
 
 fun simp_s s =
   case s of

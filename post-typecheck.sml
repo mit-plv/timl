@@ -327,7 +327,7 @@ fun vces_to_vcs vces =
         val p = f2_to_prop f
         (* val () = println "Props: " *)
         (* val () = println $ Expr.str_p [] [] p *)
-        val p = Expr.Simp.simp_p p
+        val p = Simp.simp_p p
       in
         p
       end

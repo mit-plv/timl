@@ -10,15 +10,14 @@ structure TC = TypeCheck
 open TC
 structure SU = SetUtilFn (StringBinarySet)
 structure MU = MapUtilFn (Gctx.Map)
+open SMT2Printer
+open SMTSolver
 
 infixr 0 $
 infix 0 !!
 
 exception Error of string
                      
-open SMT2Printer
-open SMTSolver
-
 structure UnderscoredCollectMod = CollectModFn (structure Expr = UnderscoredExpr
                                      val on_var = collect_mod_long_id
                                      val on_mod_id = collect_mod_mod_id

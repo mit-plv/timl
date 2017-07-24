@@ -3,7 +3,8 @@ structure S = Ast
 structure E = NamefulExpr
 open S
 open E
-
+open Bind
+       
 infixr 0 $
 
 exception Error of region * string

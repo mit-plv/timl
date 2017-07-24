@@ -66,6 +66,7 @@ uvar-forget.sml
 unify.sml
 redundant-exhaust.sml
 collect-mod.sml
+simp-type.sml
 do-typecheck.sml
 trivial-solver.sml
 post-typecheck.sml

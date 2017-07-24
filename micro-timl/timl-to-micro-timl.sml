@@ -281,12 +281,12 @@ fun on_mt (t : S.mtype) =
     | S.TyArray (t, i) => TArr (on_mt t, i)
     | S.Unit _ => TUnit
     | S.Prod (t1, t2) => TProd (on_mt t1, on_mt t2)
-    | S.UniI (s, S.Bind (name, t), r) => TQuanI (Forall, BindAnno ((IName name, s), on_mt t))
+    | S.UniI (s, Bind.Bind (name, t), r) => TQuanI (Forall, BindAnno ((IName name, s), on_mt t))
     | S.MtVar x => TVar x
     | S.MtApp (t1, t2) => TAppT (on_mt t1, on_mt t2)
-    | S.MtAbs (k, S.Bind (name, t), _) => TAbsT $ BindAnno ((TName name, on_k k), on_mt t)
+    | S.MtAbs (k, Bind.Bind (name, t), _) => TAbsT $ BindAnno ((TName name, on_k k), on_mt t)
     | S.MtAppI (t, i) => TAppI (on_mt t, i)
-    | S.MtAbsI (b, S.Bind (name, t), _) => TAbsI $ BindAnno ((IName name, b), on_mt t)
+    | S.MtAbsI (b, Bind.Bind (name, t), _) => TAbsI $ BindAnno ((IName name, b), on_mt t)
     | S.BaseType (t, r) => TConst (on_base_type t)
     | S.UVar (x, _) =>
     (* exfalso x *)
@@ -308,7 +308,7 @@ fun on_mt (t : S.mtype) =
             val prop = PEqs $ zip (is, formal_iargs)
             (* val extra_sort_name = "__datatype_constraint" *)
             val extra_sort_name = "__VC"
-            val extra_sort = Subset ((BSUnit, dummy), S.Bind ((extra_sort_name, dummy), prop), dummy)
+            val extra_sort = Subset ((BSUnit, dummy), Bind.Bind ((extra_sort_name, dummy), prop), dummy)
             val t = on_mt t
             val t = TExistsIMany (map (mapFst IName) $ ((extra_sort_name, dummy), extra_sort) :: rev name_sorts, t)
           in

@@ -1167,6 +1167,12 @@ fun str_gctx old_gctxn gctx =
 (*     lines *)
 (*   end *)
 
+structure SimpType = SimpTypeFn (structure Type = Expr
+                                 val simp_i = simp_i
+                                 val simp_s = simp_s
+                                 val subst_i_mt = subst_i_mt
+                        )
+                        
 fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, tctx : tcontext), e_all : U.expr) : expr * mtype * idx =
   let
     val get_mtype = get_mtype gctx
@@ -1532,7 +1538,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
     handle
     Error (r, msg) => raise Error (r, msg @ extra_msg ())
     | Impossible msg => raise Impossible $ join_lines $ msg :: extra_msg ()
-    val t = simp_mt $ normalize_mt gctx kctx t
+    val t = SimpType.simp_mt $ normalize_mt gctx kctx t
     val d = simp_i $ normalize_i d
                    (* val () = println $ str_ls id $ #4 ctxn *)
     (* val () = print (sprintf " Typed $: \n        $\n" [str_e gctxn ctxn e, str_mt gctxn skctxn t]) *)
@@ -1808,7 +1814,7 @@ and check_decls gctx (ctx, decls) : decl list * context * int * idx list * conte
         end
       val (decls, ctxd, nps, ds, ctx) = foldl f ([], empty_ctx, 0, [], ctx) decls
       val decls = rev decls
-      val ctxd = (map4 o map o mapSnd) (simp_t o update_t) ctxd
+      val ctxd = (map4 o map o mapSnd) (SimpType.simp_t o update_t) ctxd
       val ds = map simp_i $ map update_i $ rev ds
                    (* val () = println "Typed Decls:" *)
                    (* val () = app println $ str_typing_info (gctx_names gctx) skctxn_old (ctxd, ds) *)
