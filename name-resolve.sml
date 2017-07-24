@@ -6,6 +6,7 @@ open Region
 open Gctx
 open List
 structure SS = NamefulToString
+structure SE = NamefulEqual
        
 exception Error of region * string
 
@@ -250,9 +251,9 @@ fun on_i_type_visitor_vtable cast gctx : ('this, scontext * kcontext) TV.type_vi
               val ts = map (#visit_mtype vtable this ctx) ts
               val is = map (#visit_idx vtable this ctx) is
             in
-              if S.eq_var (x, (ID ("nat", dummy))) andalso length ts = 0 andalso length is = 1 then
+              if SE.eq_var (x, (ID ("nat", dummy))) andalso length ts = 0 andalso length is = 1 then
                 TyNat (hd is, S.get_region_mt t)
-              else if S.eq_var (x, (ID ("array", dummy))) andalso length ts = 1 andalso length is = 1 then
+              else if SE.eq_var (x, (ID ("array", dummy))) andalso length ts = 1 andalso length is = 1 then
                 TyArray (hd ts, hd is)
               else
                 default ()

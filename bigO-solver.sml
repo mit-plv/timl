@@ -1,4 +1,5 @@
 structure BigOSolver = struct
+open Equal
 open UVar
 open Expr
 open Subst

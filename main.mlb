@@ -58,6 +58,7 @@ expr-trans.sml
 int-var.sml
 simp.sml
 vc.sml
+equal.sml
 subst.sml
 long-id-subst.sml
 expr-ex.sig

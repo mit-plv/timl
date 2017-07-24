@@ -3,6 +3,8 @@
 
 structure RedundantExhaust = struct
 open Util
+open Equal
+open Equal
 open Expr
 open Normalize
 

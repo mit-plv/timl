@@ -313,7 +313,7 @@ fun main libraries filenames =
             ()
           else
             (* app println $ "Admitted axioms: \n" :: concatMap (str_admit true) admits *)
-            app println $ "Admitted axioms: \n" :: (concatMap (str_admit false) $ dedup (fn ((_, p), (_, p')) => Expr.eq_p p p') admits)
+            app println $ "Admitted axioms: \n" :: (concatMap (str_admit false) $ dedup (fn ((_, p), (_, p')) => Equal.eq_p p p') admits)
     in
       (prog, gctx, admits)
     end

@@ -431,7 +431,7 @@ fun get_family_siblings gctx cctx cx =
         fun iter (n, (_, c)) =
           ((* println (str_mt (gctx_names gctx) (sctx_names sctx, names kctx) (MtVar (get_family c)));  *)
             (* println (str_raw_long_id $ get_family c);  *)
-            if eq_id (long_id_get_id $ get_family c, long_id_get_id family) then SOME ((ID (n, r)), c) else NONE)
+            if LongIdHasEqual.eq_id (long_id_get_id $ get_family c, long_id_get_id family) then SOME ((ID (n, r)), c) else NONE)
       in
         rev $ map snd $ mapPartialWithIdx iter cctx
       end

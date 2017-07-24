@@ -3,15 +3,12 @@ signature SUBSTABLE_VAR = sig
   val substx_var : (var -> 'a) -> int -> (unit -> 'a) -> var -> 'a
 end
                            
-functor SubstFn (structure Idx : IDX
-                 structure Type : TYPE
+functor SubstFn (structure IdxType : IDX_TYPE
                  structure SubstableVar : SUBSTABLE_VAR
-                 sharing type Idx.var = SubstableVar.var
-                 sharing type Type.var = Idx.var
-                 sharing type Type.idx = Idx.idx
-                 sharing type Type.sort = Idx.sort
+                 sharing type IdxType.Idx.var = SubstableVar.var
                 ) = struct
 
+open IdxType
 open SubstableVar
 open Util
 open ShiftUtil

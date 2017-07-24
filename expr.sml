@@ -81,7 +81,25 @@ structure Expr = ExprFn (structure Var = IntVar
                          structure UVarT = UVar
                          type ptrn_constr_tag = int * int
                         )
-
+structure LongIdHasEqual = struct
+open LongId
+fun eq_id ((x, _), (x', _)) = x = x'
+fun eq_var a = eq_long_id eq_id a
+end
+                             
+structure HasEqual = struct
+open Expr
+open LongIdHasEqual
+fun eq_name ((s, _) : name, (s', _)) = s = s'
+end
+                       
+structure Equal = EqualFn (structure IdxType = struct
+                           structure Idx = Expr.Idx
+                           structure Type = Expr.Type
+                           end
+                           structure HasEqual = HasEqual
+                          )
+                          
 structure IntLongIdCanToString = struct
 
 open LongId
@@ -120,14 +138,17 @@ end
 structure CanToString = struct
 open Expr
 open IntLongIdCanToString
+val eq_i = Equal.eq_i
 end
                        
 structure ToString = ToStringFn (structure Expr = Expr
                                  structure CanToString = CanToString
                                 )
                                 
-structure Subst = SubstFn (structure Idx = Expr.Idx
+structure Subst = SubstFn (structure IdxType = struct
+                           structure Idx = Expr.Idx
                            structure Type = Expr.Type
+                           end
                            structure SubstableVar = LongIdSubst
 )
                           
@@ -143,8 +164,8 @@ structure SubstTE = SubstTEFn (structure S = Expr
 structure Simp = SimpFn (structure Idx = Expr
                          val get_region_i = Expr.get_region_i
                          val get_region_p = Expr.get_region_p
-                         val eq_i = Expr.eq_i
-                         val eq_p = Expr.eq_p
+                         val eq_i = Equal.eq_i
+                         val eq_p = Equal.eq_p
                          val shift_i_i = Subst.shift_i_i
                          val forget_i_i = Subst.forget_i_i
                          val forget_i_p = Subst.forget_i_p

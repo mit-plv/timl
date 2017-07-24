@@ -1,5 +1,6 @@
 (* parallel substitution *)
 structure ParaSubst = struct
+open Equal
 open Expr
 open Subst
 open Bind

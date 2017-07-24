@@ -24,6 +24,18 @@ structure NamefulExpr = ExprFn (structure Var = StringVar
                                 type ptrn_constr_tag = unit
                                )
                                
+structure NamefulHasEqual = struct
+open NamefulExpr
+open LongIdHasEqual
+end
+                       
+structure NamefulEqual = EqualFn (structure IdxType = struct
+                           structure Idx = NamefulExpr.Idx
+                           structure Type = NamefulExpr.Type
+                           end
+                           structure HasEqual = NamefulHasEqual
+                          )
+                          
 structure StringLongIdCanToString = struct
 
 open LongId
@@ -46,6 +58,7 @@ end
 structure NamefulCanToString = struct
 open NamefulExpr
 open StringLongIdCanToString
+val eq_i = NamefulEqual.eq_i
 end
                        
 structure NamefulToString = ToStringFn (structure Expr = NamefulExpr
@@ -58,17 +71,32 @@ structure UnderscoredExpr = ExprFn (structure Var = IntVar
                                     type ptrn_constr_tag = unit
                                    )
 
+structure UnderscoredHasEqual = struct
+open UnderscoredExpr
+open LongIdHasEqual
+end
+                       
+structure UnderscoredEqual = EqualFn (structure IdxType = struct
+                           structure Idx = UnderscoredExpr.Idx
+                           structure Type = UnderscoredExpr.Type
+                           end
+                           structure HasEqual = UnderscoredHasEqual
+                          )
+                          
 structure UnderscoredCanToString = struct
 open UnderscoredExpr
 open IntLongIdCanToString
+val eq_i = UnderscoredEqual.eq_i
 end
                        
 structure UnderscoredToString = ToStringFn (structure Expr = UnderscoredExpr
                                             structure CanToString = UnderscoredCanToString
                                 )
                                 
-structure UnderscoredSubst = SubstFn (structure Idx = UnderscoredExpr.Idx
+structure UnderscoredSubst = SubstFn (structure IdxType = struct
+                                      structure Idx = UnderscoredExpr.Idx
                                       structure Type = UnderscoredExpr.Type
+                                      end
                                       structure SubstableVar = LongIdSubst
 )
                           
