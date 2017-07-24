@@ -13,7 +13,7 @@ datatype cover =
          | FalseC
          | AndC of cover * cover
          | OrC of cover * cover
-         | ConstrC of long_id * cover
+         | ConstrC of var * cover
          | PairC of cover * cover
          | TTC
 
@@ -21,7 +21,7 @@ fun combine_covers covers = foldl' (swap OrC) FalseC covers
 
 datatype habitant =
          TrueH
-         | ConstrH of long_id * habitant
+         | ConstrH of var * habitant
          | PairH of habitant * habitant
          | TTH
 
@@ -34,7 +34,7 @@ fun str_cover gctx cctx c =
       | FalseC => "False"
       | AndC (c1, c2) => sprintf "($ /\\ $)" [str_cover cctx c1, str_cover cctx c2]
       | OrC (c1, c2) => sprintf "($ \\/ $)" [str_cover cctx c1, str_cover cctx c2]
-      | ConstrC (x, c) => sprintf "($ $)" [str_long_id #3 gctx cctx x, str_cover cctx c]
+      | ConstrC (x, c) => sprintf "($ $)" [str_var #3 gctx cctx x, str_cover cctx c]
       | PairC (c1, c2) => sprintf "($, $)" [str_cover cctx c1, str_cover cctx c2]
       | TTC => "()"
   end
@@ -45,7 +45,7 @@ fun str_habitant gctx cctx c =
   in
     case c of
         TrueH => "_"
-      | ConstrH (x, c) => sprintf "($ $)" [str_long_id #3 gctx cctx x, str_habitant cctx c]
+      | ConstrH (x, c) => sprintf "($ $)" [str_var #3 gctx cctx x, str_habitant cctx c]
       | PairH (c1, c2) => sprintf "($, $)" [str_habitant cctx c1, str_habitant cctx c2]
       | TTH => "()"
   end
@@ -82,7 +82,7 @@ fun cover_neg gctx (ctx as (sctx, kctx, cctx)) (t : mtype) c =
 	     let
                val all = map fst $ get_family_siblings gctx cctx x
                (* val () = println $ sprintf "Family of $: $" [str_long_id #3 (gctx_names gctx) (names cctx) x, str_ls (str_long_id #3 (gctx_names gctx) (names cctx)) all] *)
-	       val others = diff eq_long_id all [x]
+	       val others = diff eq_var all [x]
                (* val () = println $ sprintf "Family siblings of $: $" [str_long_id #3 (gctx_names gctx) (names cctx) x, str_ls (str_long_id #3 (gctx_names gctx) (names cctx)) others] *)
                val (_, tbinds) = snd $ fetch_constr gctx (cctx, x)
                val (_, ibinds) = unfold_binds tbinds
@@ -217,7 +217,7 @@ fun find_hab deep gctx (ctx as (sctx, kctx, cctx)) (t : mtype) cs =
                         if fetch_is_datatype gctx (kctx, family) then
 	                  let
                             fun do_fetch_constrs (cctx, family) =
-                              rev $ map snd $ mapPartialWithIdx (fn (n, (_, c)) => if eq_long_id (get_family c, ID family) then SOME (ID (n, snd family)) else NONE) cctx
+                              rev $ map snd $ mapPartialWithIdx (fn (n, (_, c)) => if eq_var (get_family c, ID family) then SOME (ID (n, snd family)) else NONE) cctx
                             fun fetch_constrs a = generic_fetch (package0_list (package_long_id 0)) do_fetch_constrs #3 a
                             val all = fetch_constrs gctx (cctx, family)
                             (* val () = println $ sprintf "Constructors of $: $" [str_long_id #2 (gctx_names gctx) (names kctx) family, str_ls (str_long_id #3 (gctx_names gctx) (names cctx)) all] *)

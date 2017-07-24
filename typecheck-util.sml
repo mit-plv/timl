@@ -7,8 +7,9 @@ open Util
 open Expr
 open Subst
 open Package
-open List
+open IntLongIdCanToString
 open ToString
+open List
        
 infixr 0 $
 
@@ -369,7 +370,7 @@ fun do_fetch_kindext (kctx, (a, r)) =
 
 fun fetch_kindext gctx (kctx, x) =
   generic_fetch package0_ke do_fetch_kindext #2 gctx (kctx, x)
-  handle Error e => raise Error $ add_error_msg e [sprintf "Unbound name '$' in type context $ and module context $" [str_long_id #2 (gctx_names gctx) (names kctx) x, str_ls fst kctx, str_ls id $ domain gctx]]
+  handle Error e => raise Error $ add_error_msg e [sprintf "Unbound name '$' in type context $ and module context $" [str_var #2 (gctx_names gctx) (names kctx) x, str_ls fst kctx, str_ls id $ domain gctx]]
 
 (* fun do_fetch_kind (kctx, (a, r)) = *)
 (*     case lookup_kind a kctx of *)

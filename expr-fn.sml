@@ -322,7 +322,7 @@ fun eq_id ((x, _), (x', _)) =
 
 fun eq_name ((s, _) : name, (s', _)) = s = s'
   
-val eq_long_id = fn a => eq_long_id eq_id a
+val eq_var = fn a => eq_long_id eq_id a
                                         
 fun eq_bs bs bs' =
   case bs of
@@ -339,7 +339,7 @@ fun eq_i i i' =
   let
     fun loop i i' =
       case i of
-          VarI x => (case i' of VarI x' => eq_long_id (x, x') | _ => false)
+          VarI x => (case i' of VarI x' => eq_var (x, x') | _ => false)
         | IConst (c, _) => (case i' of IConst (c', _) => c = c' | _ => false)
         | UnOpI (opr, i, _) => (case i' of UnOpI (opr', i', _) => opr = opr' andalso loop i i' | _ => false)
         | BinOpI (opr, i1, i2) => (case i' of BinOpI (opr', i1', i2') => opr = opr' andalso loop i1 i1' andalso loop i2 i2' | _ => false)
@@ -431,7 +431,7 @@ fun eq_mt t t' =
         )
       | MtVar x =>
         (case t' of
-             MtVar x' => eq_long_id (x, x')
+             MtVar x' => eq_var (x, x')
            | _ => false
         )
       | MtAbs (k, Bind (_, t), r) =>

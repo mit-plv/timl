@@ -5,6 +5,7 @@ open T
 open Region
 open Gctx
 open List
+structure SS = NamefulToString
        
 exception Error of region * string
 
@@ -79,7 +80,7 @@ fun to_long_id (m, x) =
 fun on_long_id gctx sel ctx x =
     case find_long_id gctx sel is_eq_snd ctx x of
         SOME x => to_long_id x
-      | NONE => raise Error (S.get_region_long_id x, sprintf "Unbound (long) variable '$' in context: $ $" [S.str_long_id #1 empty [] x, str_ls id ctx, str_ls id $ domain gctx])
+      | NONE => raise Error (S.get_region_long_id x, sprintf "Unbound (long) variable '$' in context: $ $" [SS.str_var #1 empty [] x, str_ls id ctx, str_ls id $ domain gctx])
                       
 fun find_constr (gctx : ns_sigcontext) ctx x =
     flip Option.map (find_long_id gctx #3 is_eq_fst_snd ctx x)
@@ -249,9 +250,9 @@ fun on_i_type_visitor_vtable cast gctx : ('this, scontext * kcontext) TV.type_vi
               val ts = map (#visit_mtype vtable this ctx) ts
               val is = map (#visit_idx vtable this ctx) is
             in
-              if S.eq_long_id (x, (ID ("nat", dummy))) andalso length ts = 0 andalso length is = 1 then
+              if S.eq_var (x, (ID ("nat", dummy))) andalso length ts = 0 andalso length is = 1 then
                 TyNat (hd is, S.get_region_mt t)
-              else if S.eq_long_id (x, (ID ("array", dummy))) andalso length ts = 1 andalso length is = 1 then
+              else if S.eq_var (x, (ID ("array", dummy))) andalso length ts = 1 andalso length is = 1 then
                 TyArray (hd ts, hd is)
               else
                 default ()
@@ -317,9 +318,9 @@ fun on_constr_info gctx ctx b =
 (*                   val ts = map (on_mtype ctx) ts *)
 (*                   val is = map (on_idx gctx sctx) is *)
 (*                 in *)
-(*                   if S.eq_long_id (x, (NONE, ("nat", dummy))) andalso length ts = 0 andalso length is = 1 then *)
+(*                   if S.eq_var (x, (NONE, ("nat", dummy))) andalso length ts = 0 andalso length is = 1 then *)
 (*                     TyNat (hd is, S.get_region_mt t) *)
-(*                   else if S.eq_long_id (x, (NONE, ("array", dummy))) andalso length ts = 1 andalso length is = 1 then *)
+(*                   else if S.eq_var (x, (NONE, ("array", dummy))) andalso length ts = 1 andalso length is = 1 then *)
 (*                     TyArray (hd ts, hd is) *)
 (*                   else *)
 (*                     default () *)
@@ -532,7 +533,7 @@ fun on_i_expr_visitor_vtable cast gctx : ('this, context) EV.expr_visitor_vtable
               ConstrP (Outer ((x, ()), true), inames, pn, Outer r)
             end
 	  | NONE =>
-            raise Error (S.get_region_long_id x, "Unknown constructor " ^ S.str_long_id #1 empty [] x)
+            raise Error (S.get_region_long_id x, "Unknown constructor " ^ SS.str_var #1 empty [] x)
       end
     val vtable = EV.override_visit_ConstrP vtable visit_ConstrP
     fun visit_VarP this env ename =

@@ -1,10 +1,6 @@
 (* variables *)
 signature VAR = sig
   type var
-  val str_v : string list -> var -> string
-  val str_raw_v : var -> string
-  val lookup_module : ToStringUtil.global_context -> string -> string * ToStringUtil.context
-  val str_long_id : (ToStringUtil.context -> string list) -> ToStringUtil.global_context -> string list -> var LongId.long_id -> string
   val eq_v : var * var -> bool
 end
 

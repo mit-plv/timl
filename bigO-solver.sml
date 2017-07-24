@@ -131,7 +131,7 @@ fun use_bigO_hyp hs i =
 local
   open CollectVar
 in
-  fun contains i x = mem eq_long_id x $ collect_var_i_i i
+  fun contains i x = mem eq_var x $ collect_var_i_i i
 end
 
 local
@@ -410,7 +410,7 @@ fun by_master_theorem uvar (hs, p) =
     fun filter_arg_v ((v, b), vset) =
       case v of
           SOME x =>
-          if not (eq_bs (update_bs b) (Base Nat)) orelse contains main_arg x orelse mem eq_long_id x vset then
+          if not (eq_bs (update_bs b) (Base Nat)) orelse contains main_arg x orelse mem eq_var x vset then
             (NONE, vset)
           else
             (v, x :: vset)
@@ -435,7 +435,7 @@ fun by_master_theorem uvar (hs, p) =
     (* we check that all variables on the LHS that are not covered by the passive arguments on the RHS will be <= the main argument so can be soundly treated as the main argument *)
     fun get_main_arg_class classes =
       let
-        val uncovered = diff eq_long_id (domain classes) $ somes args_v
+        val uncovered = diff eq_var (domain classes) $ somes args_v
         val () = app (fn x => if ask_smt (VarI x %<= main_arg) then () else raise Error $ sprintf "not_covered > main_arg, not_covered=$, main_arg=$, is_outer(not_covered)=$" [str_i empty hs_ctx (VarI x), str_i empty hs_ctx main_arg, str_bool (is_outer x)]) uncovered
         val main_arg_class = mult_class_entries $ map (get_class classes) uncovered
       in
@@ -723,7 +723,7 @@ fun solve_exists (vc as (hs, p), vcs) =
                            
         val args = map normalize_i args
         open CollectVar
-        val vars = dedup eq_long_id $ collect_var_i_i value_side
+        val vars = dedup eq_var $ collect_var_i_i value_side
         val uncovered = List.filter (fn var => not (List.exists (fn arg => eq_i (VarI var) arg) args)) vars
         fun forget_nonconsuming (var : long_id) b =
           let

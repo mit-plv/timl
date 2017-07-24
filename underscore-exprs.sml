@@ -1,22 +1,6 @@
 structure StringVar = struct
-open Util
-open LongId
 type var = string
-type name_context = string list * string list * string list * string list
-type global_name_context = name_context Gctx.map
-                                        
-fun str_v ctx x : string = x
-fun str_raw_v x = x
-      
-fun lookup_module gctx m = (m, ([], [], [], []))
-                             
-fun str_long_id sel gctx ctx id =
-  case id of
-      ID (x, _) => str_v ctx x
-    | QID ((m, _), (x, _)) => m ^ "." ^ str_v ctx x
-    
 fun eq_v (x : var, y) = x = y
-                              
 end
 
 structure Underscore = struct
@@ -40,6 +24,34 @@ structure NamefulExpr = ExprFn (structure Var = StringVar
                                 type ptrn_constr_tag = unit
                                )
                                
+structure StringLongIdCanToString = struct
+
+open LongId
+open Gctx
+       
+fun str_raw_v x = x
+fun str_raw_var a = str_raw_long_id str_raw_v a
+                                    
+fun str_v ctx x : string = x
+                                    
+fun lookup_module gctx m = (m, ([], [], [], []))
+                
+fun str_var sel gctx ctx id =
+  case id of
+      ID (x, _) => str_v ctx x
+    | QID ((m, _), (x, _)) => m ^ "." ^ str_v ctx x
+    
+end
+                                   
+structure NamefulCanToString = struct
+open NamefulExpr
+open StringLongIdCanToString
+end
+                       
+structure NamefulToString = ToStringFn (structure Expr = NamefulExpr
+                                 structure CanToString = NamefulCanToString
+                                )
+                                
 structure UnderscoredExpr = ExprFn (structure Var = IntVar
                                     structure UVarI = Underscore
                                     structure UVarT = Underscore
@@ -47,25 +59,8 @@ structure UnderscoredExpr = ExprFn (structure Var = IntVar
                                    )
 
 structure UnderscoredCanToString = struct
-(* fun str_raw_id (x, _) = str_raw_v x *)
-(* val str_raw_long_id = fn a => str_raw_long_id str_raw_v a *)
 open UnderscoredExpr
-fun str_raw_var a = str_raw_long_id str_raw_v a
-                                    
-fun str_id ctx (x, _) =
-  str_v ctx x
-        
-fun str_var sel gctx ctx id =
-  case id of
-      QID ((m, _), x) =>
-      let
-        val (name, ctx) = lookup_module gctx m
-        val ctx = sel ctx
-      in
-        name ^ "." ^ str_id ctx x
-      end
-    | ID x => str_id ctx x
-    
+open IntLongIdCanToString
 end
                        
 structure UnderscoredToString = ToStringFn (structure Expr = UnderscoredExpr

@@ -799,7 +799,7 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
           val inames = map binder2str inames
           val c as (family, tbinds) = snd $ fetch_constr gctx (cctx, cx)
           val siblings = map fst $ get_family_siblings gctx cctx cx
-          val pos_in_family = index (curry eq_long_id cx) siblings !! (fn () => raise Impossible "family_pos")
+          val pos_in_family = index (curry eq_var cx) siblings !! (fn () => raise Impossible "family_pos")
           val (tname_kinds, ibinds) = unfold_binds tbinds
           val tnames = map fst tname_kinds
           val (name_sorts, (t1, is')) = unfold_binds ibinds
@@ -815,7 +815,7 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
                      val got = str_mt gctxn skctxn t_constr
                    in
                      raise Error
-                           (r, sprintf "Type of constructor $ doesn't match datatype " [str_long_id #3 gctxn (names cctx) cx] ::
+                           (r, sprintf "Type of constructor $ doesn't match datatype " [str_var #3 gctxn (names cctx) cx] ::
                                indent ["expect: " ^ expect,
                                        "got: " ^ got])
                    end
@@ -1472,7 +1472,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
             fun u_shift01_e_e a = UnderscoredShiftEE.on_e_e LongIdSubst.shiftx_long_id 0 1 a
 	    val e = U.EApp (f, u_shift01_e_e e)
             (* val f_name = "__synthesized_constructor" *)
-            val f_name = str_long_id #3 (gctx_names gctx) (names cctx) x
+            val f_name = str_var #3 (gctx_names gctx) (names cctx) x
 	    val (e, t, d) = get_mtype (add_typing_skct (f_name, tc) ctx, e) 
             (* val () = println $ str_i sctxn d *)
             val d = update_i d
@@ -1506,7 +1506,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
             fun forget_e_e a = ShiftEE.on_e_e LongIdSubst.forget_long_id a
             val e = forget_e_e 0 1 e
             val siblings = get_family_siblings gctx cctx x
-            val pos_in_family = index (curry eq_long_id x) (map fst siblings) !! (fn () => raise Impossible "get_mtype(): family_pos")
+            val pos_in_family = index (curry eq_var x) (map fst siblings) !! (fn () => raise Impossible "get_mtype(): family_pos")
             val family = get_family $ snd $ hd siblings
             val family_type = MtVar family
             val e = EAppConstr ((x, true), ts, is, e, SOME (pos_in_family, family_type))

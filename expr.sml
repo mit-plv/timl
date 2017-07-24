@@ -82,15 +82,28 @@ structure Expr = ExprFn (structure Var = IntVar
                          type ptrn_constr_tag = int * int
                         )
 
-structure CanToString = struct
-(* fun str_raw_id (x, _) = str_raw_v x *)
-(* val str_raw_long_id = fn a => str_raw_long_id str_raw_v a *)
-open Expr
+structure IntLongIdCanToString = struct
+
+open LongId
+open Gctx
+       
+fun str_raw_v x = str_int x
 fun str_raw_var a = str_raw_long_id str_raw_v a
                                     
+fun str_v ctx x : string =
+  (* sprintf "%$" [str_int x] *)
+  case nth_error ctx x of
+      SOME name => name
+    | NONE => "unbound_" ^ str_int x
+                                   
 fun str_id ctx (x, _) =
   str_v ctx x
         
+fun lookup_module gctx m =
+  case nth_error2 gctx m of
+      SOME (name, ctx) => (name, ctx)
+    | NONE => ("unbound_module_" ^ m, ([], [], [], []))
+                
 fun str_var sel gctx ctx id =
   case id of
       QID ((m, _), x) =>
@@ -102,6 +115,11 @@ fun str_var sel gctx ctx id =
       end
     | ID x => str_id ctx x
     
+end
+                                   
+structure CanToString = struct
+open Expr
+open IntLongIdCanToString
 end
                        
 structure ToString = ToStringFn (structure Expr = Expr

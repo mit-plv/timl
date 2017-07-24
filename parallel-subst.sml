@@ -13,7 +13,7 @@ fun apply_depth d (id : long_id) : long_id =
     | ID (x, r) => ID (x + d, r)
                 
 fun psubst_long_id d x get_v default y =
-  case findi (curry eq_long_id y) (map (apply_depth d) x) of
+  case findi (curry eq_var y) (map (apply_depth d) x) of
       SOME (n, _) => get_v n
     | NONE => default
           
