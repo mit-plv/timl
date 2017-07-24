@@ -1587,6 +1587,7 @@ fun find_hyp forget shift pred x hyps =
 end
 
 open Subst
+open IdxOfExpr
 
 end
 
