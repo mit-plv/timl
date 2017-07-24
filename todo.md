@@ -103,6 +103,7 @@
 - [ ] \(Abondoned. Non-constant subtracter is needed to support minus of `nat` type) Change minus from a binop to an unop where the second operand can only be constant.
 - [ ] Investigate array-msort-in-place.
 - [ ] Generalization has some problems with higher-order uvars.
+- [ ] Simplify modules in output.
 
 # To-do Examples:
 
