@@ -414,6 +414,7 @@ fun on_e (e : S.expr) =
     (*   end *)
     | S.EAppConstr ((_, eia), ts, is, e, ot) =>
       let
+        open ToString
         fun str_var (_, (x, _)) = str_int x
         val pp_t = MicroTiMLPP.pp_t_fn (str_var, str_bs, str_raw_i, str_raw_s, const_fun "<kind>")
         val (pos, t) = ot !! (fn () => raise Impossible "to-micro-timl/AppConstr/ot")
@@ -546,7 +547,7 @@ fun test filename =
       case id of
           ID (x, _) =>
           short_to_long_id $ nth_error (map Name2str tctx) x !! (fn () => "__unbound_" ^ str_int x)
-        | QID _ => short_to_long_id $ "__unbound_" ^ str_raw_long_id id
+        | QID _ => short_to_long_id $ "__unbound_" ^ str_raw_var id
     val export = export_fn (visit_var, return2, return2, return2)
     val e = export ([], [], []) e
     fun str_var x = LongId.str_raw_long_id id(*str_int*) x

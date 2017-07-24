@@ -5,7 +5,7 @@ signature TYPE = sig
   type sort
   type base_type
   type var
-  type kind
+  type kind = int (*number of type arguments*) * bsort list
   type name
   type region
   type ('bsort, 'kind, 'mtype) uvar_mt         

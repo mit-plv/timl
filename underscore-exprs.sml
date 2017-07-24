@@ -46,6 +46,32 @@ structure UnderscoredExpr = ExprFn (structure Var = IntVar
                                     type ptrn_constr_tag = unit
                                    )
 
+structure UnderscoredCanToString = struct
+(* fun str_raw_id (x, _) = str_raw_v x *)
+(* val str_raw_long_id = fn a => str_raw_long_id str_raw_v a *)
+open UnderscoredExpr
+fun str_raw_var a = str_raw_long_id str_raw_v a
+                                    
+fun str_id ctx (x, _) =
+  str_v ctx x
+        
+fun str_var sel gctx ctx id =
+  case id of
+      QID ((m, _), x) =>
+      let
+        val (name, ctx) = lookup_module gctx m
+        val ctx = sel ctx
+      in
+        name ^ "." ^ str_id ctx x
+      end
+    | ID x => str_id ctx x
+    
+end
+                       
+structure UnderscoredToString = ToStringFn (structure Expr = UnderscoredExpr
+                                            structure CanToString = UnderscoredCanToString
+                                )
+                                
 structure UnderscoredSubst = SubstFn (structure Idx = UnderscoredExpr.Idx
                                       structure Type = UnderscoredExpr.Type
                                       structure SubstableVar = LongIdSubst

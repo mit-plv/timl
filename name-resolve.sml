@@ -407,6 +407,7 @@ fun copy_anno gctx (anno as (t, d)) e =
             val (decls, e) = Unbound.unBind bind
             val decls = unTeles decls
             val (t, d) = (copy t' t, copy d' d)
+            open UnderscoredToString
             val (_, (sctx, kctx, _, _)) = str_decls gctx ([], [], [], []) decls
             val (sctxn, kctxn) = (length sctx, length kctx)
             fun is_match_var decl =

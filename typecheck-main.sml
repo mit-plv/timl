@@ -14,6 +14,7 @@ open Unify
 open FreshUVar
 open UVarForget
 open Util
+structure US = UnderscoredToString
 
 infixr 0 $
 infix 0 !!
@@ -336,7 +337,7 @@ and get_bsort (gctx : sigcontext) (ctx : scontext, i : U.idx) : idx * bsort =
       val ret = main ()
                 handle
                 Error (r, msg) =>
-                raise Error (r, msg @ ["when sort-checking index "] @ indent [U.str_i (gctx_names gctx) (sctx_names ctx) i])
+                raise Error (r, msg @ ["when sort-checking index "] @ indent [US.str_i (gctx_names gctx) (sctx_names ctx) i])
                 (* raise Error (r, msg @ [sprintf "when sort-checking index $ in context $" [U.str_i (gctx_names gctx) (sctx_names ctx) i, str_ls (fn (name, sort) => sprintf "\n$: $" [name, sort]) $ str_sctx (gctx_names gctx) ctx]]) *)
       (* val () = println $ sprintf "get_bsort() result: $ : $" [str_i (gctx_names gctx) (sctx_names ctx) (fst ret), str_bs (snd ret)] *)
     in
@@ -564,7 +565,7 @@ fun get_higher_kind gctx (ctx as (sctx : scontext, kctx : kcontext), c : U.mtype
     val ret =
         main ()
         handle
-        Error (r, msg) => raise Error (r, msg @ ["when kind-checking of type "] @ indent [U.str_mt gctxn ctxn c])
+        Error (r, msg) => raise Error (r, msg @ ["when kind-checking of type "] @ indent [US.str_mt gctxn ctxn c])
   in
     ret
   end
@@ -1533,7 +1534,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
           in
             ret
           end
-    fun extra_msg () = ["when type-checking"] @ indent [U.str_e gctxn ctxn e_all]
+    fun extra_msg () = ["when type-checking"] @ indent [US.str_e gctxn ctxn e_all]
     val (e, t, d) = main ()
     handle
     Error (r, msg) => raise Error (r, msg @ extra_msg ())
@@ -1786,7 +1787,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
             in
               (DOpen (Outer (m, r), octx), ctxd, 0, [])
             end
-      fun extra_msg () = ["when type-checking declaration "] @ indent [fst $ U.str_decl (gctx_names gctx) (ctx_names ctx) decl]
+      fun extra_msg () = ["when type-checking declaration "] @ indent [fst $ US.str_decl (gctx_names gctx) (ctx_names ctx) decl]
       val ret as (decl, ctxd, nps, ds) =
           main ()
                (* handle *)

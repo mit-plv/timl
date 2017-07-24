@@ -1,18 +1,3 @@
-signature EXPR_EX = sig
-  structure Idx : IDX
-  structure Type : TYPE
-  sharing type Type.var = Idx.var
-  sharing type Type.idx = Idx.idx
-  sharing type Type.sort = Idx.sort
-  include EXPR
-  sharing type var = Idx.var
-  sharing type idx = Idx.idx
-  sharing type sort = Idx.sort
-  sharing type mtype = Type.mtype
-  sharing type ty = Type.ty
-  sharing type cvar = var
-end
-
 signature COLLECT_MOD_PARAMS = sig
   structure Expr : EXPR_EX
   val on_var : string list -> Expr.var -> string list

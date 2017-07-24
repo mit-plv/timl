@@ -8,6 +8,7 @@ open Expr
 open Subst
 open Package
 open List
+open ToString
        
 infixr 0 $
 

@@ -329,7 +329,7 @@ fun find_hab deep gctx (ctx as (sctx, kctx, cctx)) (t : mtype) cs =
                                  end
                                | Failed (i, dissident) =>
                                  if conflict c dissident then
-                                   raise Incon $ "conflicts on constructor " ^ str_raw_long_id x
+                                   raise Incon $ "conflicts on constructor " ^ str_raw_var x
                                  else
                                    inr (dissident, c :: remove i cs, t)
                            end

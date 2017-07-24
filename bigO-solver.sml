@@ -166,7 +166,7 @@ val add_classes = foldl' add_class M.empty
 
 fun trim_class cls = M.filter (fn (c, k) => not (c = 0 andalso k = 0)) cls
                               
-fun str_cls cls = str_ls (fn (x, (c, k)) => sprintf "$=>($,$)" [str_raw_long_id x, str_int c, str_int k]) $ M.listItemsi $ cls
+fun str_cls cls = str_ls (fn (x, (c, k)) => sprintf "$=>($,$)" [str_raw_var x, str_int c, str_int k]) $ M.listItemsi $ cls
                          
 (* summarize [i] in the form n_1^c_1 * (log n_1)^k_1 * ... * n_s^c_s * (log n_s)^k_s, and [n_1 => (c_1, k_1), ..., n_s => (c_s, k_s)] will be the [i]'s "asymptotic class". [n_1, ..., n_s] are the variable. *)
 (* variables satisfy [is_outer] is considered constants from the outer environment *)

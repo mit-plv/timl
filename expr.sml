@@ -82,6 +82,32 @@ structure Expr = ExprFn (structure Var = IntVar
                          type ptrn_constr_tag = int * int
                         )
 
+structure CanToString = struct
+(* fun str_raw_id (x, _) = str_raw_v x *)
+(* val str_raw_long_id = fn a => str_raw_long_id str_raw_v a *)
+open Expr
+fun str_raw_var a = str_raw_long_id str_raw_v a
+                                    
+fun str_id ctx (x, _) =
+  str_v ctx x
+        
+fun str_var sel gctx ctx id =
+  case id of
+      QID ((m, _), x) =>
+      let
+        val (name, ctx) = lookup_module gctx m
+        val ctx = sel ctx
+      in
+        name ^ "." ^ str_id ctx x
+      end
+    | ID x => str_id ctx x
+    
+end
+                       
+structure ToString = ToStringFn (structure Expr = Expr
+                                 structure CanToString = CanToString
+                                )
+                                
 structure Subst = SubstFn (structure Idx = Expr.Idx
                            structure Type = Expr.Type
                            structure SubstableVar = LongIdSubst
@@ -111,8 +137,8 @@ structure Simp = SimpFn (structure Idx = Expr
                         
 structure VC = VCFn (structure Idx = Expr
                      val get_region_p = Expr.get_region_p
-                     val str_bs = Expr.str_bs
-                     val str_p = Expr.str_p
+                     val str_bs = ToString.str_bs
+                     val str_p = ToString.str_p
                      val simp_p = Simp.simp_p
                     )
                     

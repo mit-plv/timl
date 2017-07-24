@@ -1,4 +1,4 @@
-functor IdxUtilFn (structure Idx : IDX
+functor IdxUtilFn (structure Idx : IDX where type name = string * Region.region
                    val dummy : Idx.region
                   ) = struct
 
@@ -86,5 +86,22 @@ fun collect_BinConn opr i =
     | _ => [i]
              
 val collect_And = collect_BinConn And
+
+fun collect_IApp i =
+  case collect_BinOpI_left IApp i of
+      f :: args => (f, args)
+    | [] => raise Impossible "collect_IApp(): null"
+
+open Bind
+       
+fun collect_IAbs i =
+  case i of
+      IAbs (b, Bind ((name, _), i), _) =>
+      let
+        val (bs_names, i) = collect_IAbs i
+      in
+        ((b, name) :: bs_names, i)
+      end
+    | _ => ([], i)
 
 end
