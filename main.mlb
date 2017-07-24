@@ -53,7 +53,7 @@ get-region.sml
 base-sorts.sml
 idx-util.sml
 hyp.sml
-expr.sml
+expr-fn.sml
 underscore-exprs.sml
 simp.sml
 vc.sml
@@ -73,7 +73,7 @@ unify.sml
 redundant-exhaust.sml
 collect-mod.sml
 simp-type.sml
-do-typecheck.sml
+typecheck-main.sml
 trivial-solver.sml
 post-typecheck.sml
 typecheck.sml

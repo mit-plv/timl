@@ -1,5 +1,5 @@
 structure PostTypeCheck = struct
-open DoTypeCheck
+open TypeCheckMain
        
 infixr 0 $
          

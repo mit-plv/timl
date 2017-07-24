@@ -1,7 +1,7 @@
 structure TypeCheck = struct
-open DoTypeCheck
+open TypeCheckMain
 open PostTypeCheck
        
-val anno_less = DoTypeCheck.anno_less
+val anno_less = TypeCheckMain.anno_less
                   
 end

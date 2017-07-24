@@ -49,7 +49,7 @@ expr.sig \
 pattern-visitor.sml \
 expr-visitor.sml \
 expr-trans.sml \
-expr.sml \
+expr-fn.sml \
 underscore-exprs.sml \
 uvar-expr.sml \
 elaborate.sml \
@@ -65,7 +65,7 @@ fresh-uvar.sml \
 uvar-forget.sml \
 unify.sml \
 redundant-exhaust.sml \
-do-typecheck.sml \
+typecheck-main.sml \
 trivial-solver.sml \
 post-typecheck.sml \
 typecheck.sml \

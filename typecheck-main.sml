@@ -1,4 +1,4 @@
-structure DoTypeCheck = struct
+structure TypeCheckMain = struct
 structure U = UnderscoredExpr
 open CollectUVar
 open RedundantExhaust
