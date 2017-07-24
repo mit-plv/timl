@@ -84,8 +84,9 @@ fun forget_i_i x n b =
       end
     fun structural () =
       let
+        open LongIdSubst
         val f = forget_i_i
-        val on_v = LongIdSubst.forget_v
+        val on_v = forget_v
       in
         case b of
 	    VarI y => VarI $ on_v_long_id on_v x n y

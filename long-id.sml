@@ -21,16 +21,4 @@ fun str_raw_long_id str_raw_v id =
       ID (x, _) => str_raw_v x
     | QID ((m, _), (x, _)) => sprintf "QID ($, $)" [m, str_raw_v x]
                        
-(* if it has module reference, don't shift/forget *)
-fun on_v_long_id on_v x n (id : 'var long_id) : 'var long_id =
-  case id of
-      ID (y, r) => ID (on_v x n y, r)
-    | QID _ => id
-    
-(* if it has the module name part, don't substitute, because this is not the variable you are targeting *)
-fun substx_long_id substx_v (constr : 'var long_id -> 'a) x (get_v : unit -> 'a) (id : 'var long_id) =
-  case id of
-      ID (y, r) => substx_v (fn x => constr (ID (x, r))) x get_v y
-    | QID _ => constr id
-
 end
