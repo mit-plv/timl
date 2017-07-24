@@ -119,7 +119,9 @@ fun forget_i_s x n b = on_i_s forget_var x n b
                               
 end
 
-functor IdxSubstFn (Idx : IDX) = struct
+functor IdxSubstFn (structure Idx : IDX
+                    val visit_VarI : int * int * Idx.idx -> int -> Idx.var -> Idx.idx
+                   ) = struct
 
 open Idx
 open Util
@@ -171,4 +173,14 @@ fun subst_i_s_fn params d x v b =
     #visit_sort vtable visitor 0 b
   end
                                
+val subst_i_params = visit_VarI
+                     
+fun substx_i_i a = subst_i_i_fn subst_i_params a
+fun substx_i_p a = subst_i_p_fn subst_i_params a
+fun substx_i_s a = subst_i_s_fn subst_i_params a
+      
+fun subst_i_i v b = substx_i_i 0 0 v b
+fun subst_i_p (v : idx) (b : prop) : prop = substx_i_p 0 0 v b
+fun subst_i_s (v : idx) (b : sort) : sort = substx_i_s 0 0 v b
+
 end

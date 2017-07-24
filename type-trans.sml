@@ -57,7 +57,7 @@ infixr 0 $
 (* and on_i_constr_core on_i on_s on_i_mt x n b = on_i_ibinds on_s (on_pair (on_i_mt, on_list on_i)) x n b *)
                                     
 structure TypeVisitor = TypeVisitorFn (structure S = Type
-                                         structure T = Type)
+                                       structure T = Type)
 open TypeVisitor
                                          
 fun on_i_type_visitor_vtable cast ((on_i, on_s), n) : ('this, int) type_visitor_vtable =
@@ -236,7 +236,11 @@ fun forget_t_t x n b = on_t_t forget_var x n b
 
 end
 
-functor TypeSubstFn (Type : TYPE) = struct
+functor TypeSubstFn (structure Type : TYPE
+                     val visit_MtVar : (Namespaces.idepth * Namespaces.tdepth) * int * Type.mtype -> Namespaces.idepth * Namespaces.tdepth -> Type.var -> Type.mtype
+                     val substx_i_i : int -> int -> Type.idx -> Type.idx -> Type.idx
+                     val substx_i_s : int -> int -> Type.idx -> Type.sort -> Type.sort
+                    ) = struct
 
 open Type
 open Util
@@ -316,5 +320,23 @@ fun subst_t_t_fn params d x v b =
   in
     #visit_ty vtable visitor (IDepth 0, TDepth 0) b
   end
-                               
+
+val subst_i_params = (substx_i_i, substx_i_s)
+fun substx_i_mt a = subst_i_mt_fn subst_i_params a
+fun substx_i_t a = subst_i_t_fn subst_i_params a
+fun subst_i_mt (v : idx) (b : mtype) : mtype = substx_i_mt 0 0 v b
+fun subst_i_t (v : idx) (b : ty) : ty = substx_i_t 0 0 v b
+
+val subst_t_params = visit_MtVar
+
+fun substx_t_mt a = unuse_idepth_tdepth (subst_t_mt_fn subst_t_params) a
+fun substx_t_t a = unuse_idepth_tdepth (subst_t_t_fn subst_t_params) a
+fun subst_t_mt (v : mtype) (b : mtype) : mtype = substx_t_mt (0, 0) 0 v b
+fun subst_t_t v b = substx_t_t (0, 0) 0 v b
+
+fun subst_is_mt is t =
+  fst (foldl (fn (i, (t, x)) => (substx_i_mt x x i t, x - 1)) (t, length is - 1) is)
+fun subst_ts_mt vs b =
+  fst (foldl (fn (v, (b, x)) => (substx_t_mt (0, x) x v b, x - 1)) (b, length vs - 1) vs)
+      
 end

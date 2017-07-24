@@ -1342,15 +1342,11 @@ fun visit_VarI (d, x, v) env y =
     substx_long_id VarI x (fn () => shiftx_i_i 0 d v) y
   end
 
-val subst_i_params = visit_VarI
-                     
-structure IdxSubst = IdxSubstFn (Idx)
+structure IdxSubst = IdxSubstFn (structure Idx = Idx
+                                 val visit_VarI = visit_VarI
+                                )
 open IdxSubst
                                         
-fun substx_i_i a = subst_i_i_fn subst_i_params a
-fun substx_i_p a = subst_i_p_fn subst_i_params a
-fun substx_i_s a = subst_i_s_fn subst_i_params a
-      
 (* local *)
 (*   fun f d(*depth*) x v b = *)
 (*     case b of *)
@@ -1388,10 +1384,6 @@ fun substx_i_s a = subst_i_s_fn subst_i_params a
 (* in *)
 (* val substx_i_s = f *)
 (* end *)
-
-fun subst_i_i v b = substx_i_i 0 0 v b
-fun subst_i_p (v : idx) (b : prop) : prop = substx_i_p 0 0 v b
-fun subst_i_s (v : idx) (b : sort) : sort = substx_i_s 0 0 v b
 
 (* local *)
 (*   fun f d x v b = *)
@@ -1432,13 +1424,23 @@ fun subst_i_s (v : idx) (b : sort) : sort = substx_i_s 0 0 v b
 (* val substx_i_t = f *)
 (* end *)
 
-structure TypeSubst = TypeSubstFn (Type)
+fun visit_MtVar (d, x, v) env y =
+  let
+    fun add_depth (di, dt) (di', dt') = (idepth_add (di, di'), tdepth_add (dt, dt'))
+    fun get_di (di, dt) = di
+    fun get_dt (di, dt) = dt
+    val x = x + unTDepth (get_dt env)
+    val (di, dt) = add_depth d env
+  in
+    substx_long_id MtVar x (fn () => shiftx_i_mt 0 (unIDepth di) $ shiftx_t_mt 0 (unTDepth dt) v) y
+  end
+    
+structure TypeSubst = TypeSubstFn (structure Type = Type
+                                   val visit_MtVar = visit_MtVar
+                                   val substx_i_i = substx_i_i
+                                   val substx_i_s = substx_i_s
+                                  )
 open TypeSubst
-
-fun substx_i_mt a = subst_i_mt_fn (substx_i_i, substx_i_s) a
-fun substx_i_t a = subst_i_t_fn (substx_i_i, substx_i_s) a
-fun subst_i_mt (v : idx) (b : mtype) : mtype = substx_i_mt 0 0 v b
-fun subst_i_t (v : idx) (b : ty) : ty = substx_i_t 0 0 v b
 
 (* fun substx_t_ibind f (di, dt) x v (Bind (name, inner) : ('name * 'b) ibind) = *)
 (*   Bind (name, f (di + 1, dt) x v inner) *)
@@ -1494,32 +1496,6 @@ fun subst_i_t (v : idx) (b : ty) : ty = substx_i_t 0 0 v b
 (*       Mono t => Mono (substx_t_mt d x v t) *)
 (*     | Uni (bind, r) => Uni (substx_t_tbind substx_t_t d x v bind, r) *)
                            
-fun visit_MtVar (d, x, v) env y =
-  let
-    fun add_depth (di, dt) (di', dt') = (idepth_add (di, di'), tdepth_add (dt, dt'))
-    fun get_di (di, dt) = di
-    fun get_dt (di, dt) = dt
-    val x = x + unTDepth (get_dt env)
-    val (di, dt) = add_depth d env
-  in
-    substx_long_id MtVar x (fn () => shiftx_i_mt 0 (unIDepth di) $ shiftx_t_mt 0 (unTDepth dt) v) y
-  end
-    
-val subst_t_params = visit_MtVar
-
-fun substx_t_mt a = unuse_idepth_tdepth (subst_t_mt_fn subst_t_params) a
-      
-fun substx_t_t a = unuse_idepth_tdepth (subst_t_t_fn subst_t_params) a
-      
-fun subst_t_mt (v : mtype) (b : mtype) : mtype = substx_t_mt (0, 0) 0 v b
-                                                             
-fun subst_t_t v b = substx_t_t (0, 0) 0 v b
-
-fun subst_is_mt is t =
-  fst (foldl (fn (i, (t, x)) => (substx_i_mt x x i t, x - 1)) (t, length is - 1) is)
-fun subst_ts_mt vs b =
-  fst (foldl (fn (v, (b, x)) => (substx_t_mt (0, x) x v b, x - 1)) (b, length vs - 1) vs)
-      
 (* VC operations *)
 
 fun str_hyps_conclu gctx (hyps, p) =
