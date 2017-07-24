@@ -1,5 +1,5 @@
 signature EXPR_PARAMS = sig
-  type var
+  type v
   structure UVarI : UVAR_I
   structure UVarT :  UVAR_T
   type ptrn_constr_tag
@@ -17,9 +17,9 @@ open Operators
 open Region
 open Bind
 
-type id = var * region
+type id = v * region
 type name = string * region
-type long_id = var long_id
+type long_id = v long_id
 
 structure IdxOfExpr = IdxFn (structure UVarI = UVarI
                              type base_sort = base_sort
