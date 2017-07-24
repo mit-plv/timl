@@ -43,7 +43,6 @@ type.sig \
 type-visitor.sml \
 type.sml \
 type-trans.sml \
-datatype.sml \
 pattern.sml \
 expr.sig \
 pattern-visitor.sml \

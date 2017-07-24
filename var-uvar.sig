@@ -10,9 +10,6 @@ signature VAR = sig
   val shiftx_v : int -> int -> var -> var
   val forget_v : (int * string -> exn) -> int -> int -> var -> var
   val substx_v : (var -> 'value) -> int -> (unit -> 'value) -> var -> 'value
-
-  val int2var : int -> var
-  val var2int : var -> int
 end
 
 (* unification variables ('uvars') for indices and sorts *)                  
