@@ -1245,27 +1245,6 @@ fun is_value (e : expr) : bool =
 
 open Hyp
        
-fun prop2vc p =
-  let
-  in
-    case p of
-        Quan (Forall, bs, Bind ((name, r), p), r_all) =>
-        let
-          val vc = prop2vc p
-          val vc = add_hyp_vc (VarH (name, (bs, r_all))) vc
-        in
-          vc
-        end
-      | BinConn (Imply, p1, p) =>
-        let
-          val vc = prop2vc p
-          val vc = add_hyp_vc (PropH p1) vc
-        in
-          vc
-        end
-      | _ => ([], p)
-  end
-
 structure Idx = IdxOfExpr
 open Idx
 

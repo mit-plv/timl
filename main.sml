@@ -278,6 +278,26 @@ fun main libraries filenames =
       fun str_admit show_region (filename, p) =
           let
             open Expr
+            fun prop2vc p =
+              let
+              in
+                case p of
+                    Quan (Forall, bs, Bind ((name, r), p), r_all) =>
+                    let
+                      val vc = prop2vc p
+                      val vc = add_hyp_vc (VarH (name, (bs, r_all))) vc
+                    in
+                      vc
+                    end
+                  | BinConn (Imply, p1, p) =>
+                    let
+                      val vc = prop2vc p
+                      val vc = add_hyp_vc (PropH p1) vc
+                    in
+                      vc
+                    end
+                  | _ => ([], p)
+              end
             val vc = prop2vc p
             (* val r = get_region_p p *)
             val r = get_region_p $ snd vc
