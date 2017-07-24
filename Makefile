@@ -51,7 +51,7 @@ expr-visitor.sml \
 expr-trans.sml \
 expr-fn.sml \
 underscore-exprs.sml \
-uvar-expr.sml \
+expr.sml \
 elaborate.sml \
 name-resolve.sml \
 package.sml \
