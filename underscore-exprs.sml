@@ -17,10 +17,6 @@ fun str_long_id sel gctx ctx id =
     
 fun eq_v (x : var, y) = x = y
                               
-fun shiftx_v x n y = y
-fun forget_v ForgetError x n y =  y
-fun substx_v Var x v y = raise Impossible "Can't do StringVar.substx_v()"
-
 end
 
 structure Underscore = struct

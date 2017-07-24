@@ -36,15 +36,4 @@ fun str_long_id sel gctx ctx id =
     
 fun eq_v (x : var, y) = x = y
 
-val shiftx_v = shiftx_int
-val forget_v = forget_int
-                 
-fun substx_v Var x v y =
-  if y = x then
-    v ()
-  else if y > x then
-    Var (y - 1)
-  else
-    Var y
-
 end

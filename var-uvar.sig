@@ -6,10 +6,6 @@ signature VAR = sig
   val lookup_module : ToStringUtil.global_context -> string -> string * ToStringUtil.context
   val str_long_id : (ToStringUtil.context -> string list) -> ToStringUtil.global_context -> string list -> var LongId.long_id -> string
   val eq_v : var * var -> bool
-                            
-  val shiftx_v : int -> int -> var -> var
-  val forget_v : (int * string -> exn) -> int -> int -> var -> var
-  val substx_v : (var -> 'value) -> int -> (unit -> 'value) -> var -> 'value
 end
 
 (* unification variables ('uvars') for indices and sorts *)                  
