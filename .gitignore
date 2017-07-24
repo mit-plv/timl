@@ -35,3 +35,6 @@ main
 *.model
 *.lisp
 *.smt2
+
+main.cm
+main.mlb
