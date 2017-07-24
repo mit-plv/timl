@@ -1138,12 +1138,14 @@ structure IdxGetRegion = IdxGetRegionFn (structure Idx = Idx
                                          val get_region_var = get_region_long_id
                                          val set_region_var = set_region_long_id)
 open IdxGetRegion
-                                         
 structure TypeGetRegion = TypeGetRegionFn (structure Type = Type
                                            val get_region_var = get_region_long_id
                                            val get_region_i = get_region_i)
 open TypeGetRegion
-                                         
+(* mlton needs these two lines *)                                         
+structure Idx = IdxOfExpr
+open Idx
+
 fun get_region_binder (Binder (_, (_, r))) = r
                                              
 fun get_region_pn pn = 
@@ -1242,11 +1244,6 @@ fun is_value (e : expr) : bool =
     | ELet _ => false
     | EAppConstr (_, _, _, e, _) => is_value e
     | ECase _ => false
-
-open Hyp
-       
-structure Idx = IdxOfExpr
-open Idx
 
 end
 
