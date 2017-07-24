@@ -4,9 +4,7 @@ signature IDX = sig
   type var
   type name
   type region
-  type 'bsort uvar_bs
-  type ('bsort, 'idx) uvar_i
-  type ('bsort, 'sort) uvar_s
+  include UVAR_I
   type 'idx exists_anno
          
   datatype bsort = 

@@ -76,7 +76,7 @@ fun get_uvar_info x =
                        
 end
                        
-structure Expr = ExprFn (structure Var = IntVar
+structure Expr = ExprFn (type var = int
                          structure UVarI = UVar
                          structure UVarT = UVar
                          type ptrn_constr_tag = int * int
@@ -88,6 +88,7 @@ fun eq_var a = eq_long_id eq_id a
 end
                              
 structure HasEqual = struct
+open UVar
 open Expr
 open LongIdHasEqual
 fun eq_name ((s, _) : name, (s', _)) = s = s'
@@ -136,6 +137,7 @@ fun str_var sel gctx ctx id =
 end
                                    
 structure CanToString = struct
+open UVar
 open Expr
 open IntLongIdCanToString
 val eq_i = Equal.eq_i

@@ -8,7 +8,7 @@ signature TYPE = sig
   type kind = int (*number of type arguments*) * bsort list
   type name
   type region
-  type ('bsort, 'kind, 'mtype) uvar_mt         
+  include UVAR_T
          
   type 'mtype constr_core = (sort, name, 'mtype * idx list) Bind.ibinds
   type 'mtype constr_decl = name * 'mtype constr_core * region

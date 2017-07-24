@@ -1,8 +1,3 @@
-structure StringVar = struct
-type var = string
-fun eq_v (x : var, y) = x = y
-end
-
 structure Underscore = struct
 type 'bsort uvar_bs = unit
 type ('bsort, 'idx) uvar_i = unit
@@ -18,13 +13,14 @@ fun eq_uvar_s (_, _) = false
 fun eq_uvar_mt (_, _) = false
 end
 
-structure NamefulExpr = ExprFn (structure Var = StringVar
+structure NamefulExpr = ExprFn (type var = string
                                 structure UVarI = Underscore
                                 structure UVarT = Underscore
                                 type ptrn_constr_tag = unit
                                )
                                
 structure NamefulHasEqual = struct
+open Underscore
 open NamefulExpr
 open LongIdHasEqual
 end
@@ -56,6 +52,7 @@ fun str_var sel gctx ctx id =
 end
                                    
 structure NamefulCanToString = struct
+open Underscore
 open NamefulExpr
 open StringLongIdCanToString
 val eq_i = NamefulEqual.eq_i
@@ -65,13 +62,14 @@ structure NamefulToString = ToStringFn (structure Expr = NamefulExpr
                                  structure CanToString = NamefulCanToString
                                 )
                                 
-structure UnderscoredExpr = ExprFn (structure Var = IntVar
+structure UnderscoredExpr = ExprFn (type var = int
                                     structure UVarI = Underscore
                                     structure UVarT = Underscore
                                     type ptrn_constr_tag = unit
                                    )
 
 structure UnderscoredHasEqual = struct
+open Underscore
 open UnderscoredExpr
 open LongIdHasEqual
 end
@@ -84,6 +82,7 @@ structure UnderscoredEqual = EqualFn (structure IdxType = struct
                           )
                           
 structure UnderscoredCanToString = struct
+open Underscore
 open UnderscoredExpr
 open IntLongIdCanToString
 val eq_i = UnderscoredEqual.eq_i

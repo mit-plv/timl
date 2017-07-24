@@ -8,10 +8,8 @@ end
 
 signature HAS_EQUAL = sig
   type var
-  type 'bsort uvar_bs
-  type ('bsort, 'idx) uvar_i
-  type ('bsort, 'sort) uvar_s
-  type ('sort, 'kind, 'mtype) uvar_mt
+  include UVAR_I
+  include UVAR_T
   val eq_var : var * var -> bool
   val eq_uvar_bs : 'bsort uvar_bs * 'bsort uvar_bs -> bool
   val eq_uvar_i : ('bsort, 'idx) uvar_i * ('bsort, 'idx) uvar_i -> bool

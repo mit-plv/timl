@@ -1,20 +1,19 @@
 signature EXPR_PARAMS = sig
-  structure Var : VAR
+  type var
   structure UVarI : UVAR_I
-  structure UVarT : UVAR_T
+  structure UVarT :  UVAR_T
   type ptrn_constr_tag
 end
                           
 functor ExprFn (Params : EXPR_PARAMS) = struct
 open Params
-open Var
+open UVarI
+open UVarT
 open BaseSorts
 open BaseTypes
 open Util
 open LongId
 open Operators
-open UVarI
-open UVarT
 open Region
 open Bind
 
@@ -23,12 +22,12 @@ type name = string * region
 type long_id = var long_id
 
 structure IdxOfExpr = IdxFn (structure UVarI = UVarI
-                       type base_sort = base_sort
-                       type var = long_id
-                       type name = name
-                       type region = region
-                       type 'idx exists_anno = ('idx -> unit) option
-                          )
+                             type base_sort = base_sort
+                             type var = long_id
+                             type name = name
+                             type region = region
+                             type 'idx exists_anno = ('idx -> unit) option
+                            )
 structure Idx = IdxOfExpr
 open Idx
 

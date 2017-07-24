@@ -100,7 +100,7 @@ print %{
 module-context.sml
 to-string-util.sml
 long-id.sml
-var-uvar.sig
+uvar.sig
 base-sorts.sml
 bind.sml
 visitor-util.sml                                 
@@ -124,7 +124,6 @@ base-types.sml
 expr-fn.sml
 expr-visitor.sml                                 
 expr-trans.sml
-int-var.sml
 simp.sml
 vc.sml
 equal.sml

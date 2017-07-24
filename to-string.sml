@@ -1,10 +1,8 @@
 signature CAN_TO_STRING = sig
   type var
   type idx
-  type 'bsort uvar_bs
-  type ('bsort, 'idx) uvar_i
-  type ('bsort, 'sort) uvar_s
-  type ('sort, 'kind, 'mtype) uvar_mt
+  include UVAR_I
+  include UVAR_T
   val str_raw_var : var -> string
   val str_var : (ToStringUtil.context -> string list) -> ToStringUtil.global_context -> string list -> var -> string
   val lookup_module : ToStringUtil.global_context -> string -> string * ToStringUtil.context
