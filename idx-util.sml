@@ -4,6 +4,9 @@ functor IdxUtilFn (structure Idx : IDX where type name = string * Region.region
 
 open Idx
 open Operators
+open Util
+       
+infixr 0 $
 
 (* some shorthands *)
 
@@ -104,4 +107,11 @@ fun collect_IAbs i =
       end
     | _ => ([], i)
 
+fun is_time_fun b =
+  case b of
+      Base Time => SOME 0
+    | BSArrow (Base Nat, b) =>
+      opt_bind (is_time_fun b) (fn n => opt_return $ 1 + n)
+    | _ => NONE
+             
 end

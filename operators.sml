@@ -135,6 +135,11 @@ fun str_bin_pred opr =
     | GtP => ">"
     | BigO => "<=="
 
+fun strip_quan q =
+  case q of
+      Forall => Forall
+    | Exists _ => Exists ()
+                         
 fun str_quan q =
     case q of
         Forall => "forall"

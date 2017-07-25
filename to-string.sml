@@ -13,16 +13,13 @@ signature CAN_TO_STRING = sig
   val eq_i : idx -> idx -> bool
 end
 
-functor ToStringFn (type bsort (* a workaround for dependent signature specialization for Type.kind *)
-                    structure Expr : EXPR_EX where type Idx.base_sort = BaseSorts.base_sort
+functor ToStringFn (structure Expr : EXPR_EX where type Idx.base_sort = BaseSorts.base_sort
                                                and type Type.base_type = BaseTypes.base_type
                                                and type Idx.region = Region.region
                                                and type Idx.name = string * Region.region
                                                and type Type.name = string * Region.region
                                                and type Type.region = Region.region
                                                and type mod_id = string * Region.region
-                                               and type Type.kind = int * bsort list
-                                               and type Type.bsort = bsort
                     structure CanToString : CAN_TO_STRING
                     sharing type Expr.Type.bsort = Expr.Idx.bsort
                     sharing type CanToString.var = Expr.var
@@ -37,6 +34,8 @@ open CanToString
 open Expr
 open Idx
 open Type
+open Gctx
+open List
 open Util
 open BaseSorts
 open BaseTypes
@@ -57,27 +56,295 @@ open Bind
 
 infixr 0 $
          
-(* pretty-printers *)
+structure NamefulIdx = IdxFn (structure UVarI = struct
+                              type 'a uvar_bs = string
+                              type ('a, 'b) uvar_i = string
+                              type ('a, 'b) uvar_s = string
+                              end
+                             type base_sort = base_sort
+                             type var = string
+                             type name = name
+                             type region = region
+                             type 'idx exists_anno = unit
+                            )
+(* open NamefulIdx *)
+(* structure T = NamefulIdx *)
 
-fun is_time_fun b =
-  case b of
-      Base Time => SOME 0
-    | BSArrow (Base Nat, b) =>
-      opt_bind (is_time_fun b) (fn n => opt_return $ 1 + n)
-    | _ => NONE
-             
-fun str_bs (s : bsort) =
-  case s of
-      Base s => str_b s
-    | BSArrow (s1, s2) =>
-      let
-        fun default () = sprintf "($ => $)" [str_bs s1, str_bs s2]
-      in
-        case is_time_fun s of
-            SOME n => if n = 0 then "Time" else sprintf "(Fun $)" [str_int n]
-          | NONE => default ()
-      end
-    | UVarBS u => str_uvar_bs str_bs u
+structure NamefulIdxUtil = IdxUtilFn (structure Idx = NamefulIdx
+                                      val dummy = dummy
+                              )
+                             
+structure IdxVisitor = IdxVisitorFn (structure S = Idx
+                                     structure T = NamefulIdx)
+(* open IdxVisitor *)
+structure IV = IdxVisitor
+                           
+(***************** the "export" visitor: convertnig de Bruijn indices to nameful terms **********************)
+    
+fun export_idx_visitor_vtable cast gctx (* : ((* 'this *)string list IV.idx_visitor, ToStringUtil.scontext) IV.idx_visitor_vtable *) =
+  let
+    fun extend this env name = fst name :: env
+    fun visit_var this ctx x =
+      str_var #1 gctx ctx x
+    val str_i = str_i gctx
+    val str_s = str_s gctx
+    fun visit_uvar_bs this ctx u =
+      str_uvar_bs str_bs u
+    fun visit_uvar_i this ctx u =
+      str_uvar_i (str_bs, str_i []) u
+    fun visit_uvar_s this ctx u =
+      str_uvar_s (str_s []) u
+  in
+    IV.default_idx_visitor_vtable
+      cast
+      extend
+      visit_var
+      visit_uvar_bs
+      visit_uvar_i
+      visit_uvar_s
+      (ignore_this_env strip_quan)
+  end
+
+and new_export_idx_visitor a = IV.new_idx_visitor export_idx_visitor_vtable a
+    
+and export_bs gctx ctx b =
+  let
+    val visitor as (IV.IdxVisitor vtable) = new_export_idx_visitor gctx
+  in
+    #visit_bsort vtable visitor ctx b
+  end
+
+and export_i gctx ctx b =
+  let
+    val visitor as (IV.IdxVisitor vtable) = new_export_idx_visitor gctx
+  in
+    #visit_idx vtable visitor ctx b
+  end
+
+and export_p gctx ctx b =
+  let
+    val visitor as (IV.IdxVisitor vtable) = new_export_idx_visitor gctx
+  in
+    #visit_prop vtable visitor ctx b
+  end
+
+and export_s gctx ctx b =
+  let
+    val visitor as (IV.IdxVisitor vtable) = new_export_idx_visitor gctx
+  in
+    #visit_sort vtable visitor ctx b
+  end
+
+and strn_bs s =
+  let
+    open NamefulIdx
+    open NamefulIdxUtil
+  in
+    case s of
+        Base s => str_b s
+      | BSArrow (s1, s2) =>
+        let
+          fun default () = sprintf "($ => $)" [strn_bs s1, strn_bs s2]
+        in
+          case is_time_fun s of
+              SOME n => if n = 0 then "Time" else sprintf "(Fun $)" [str_int n]
+            | NONE => default ()
+        end
+      | UVarBS u => u
+  end
+
+and strn_i i =
+    let
+      open NamefulIdx
+      open NamefulIdxUtil
+    in
+    (* case is_IApp_UVarI i of *)
+    (*     SOME ((x, _), args) => sprintf "($ ...)" [str_uvar_i (str_bs, str_i []) x] *)
+    (*   | NONE => *)
+      case i of
+          VarI x => x
+        | IConst (c, _) => str_idx_const c
+        | UnOpI (opr, i, _) =>
+          (case opr of
+               IUDiv n => sprintf "($ / $)" [strn_i i, str_int n]
+             | IUExp s => sprintf "($ ^ $)" [strn_i i, s]
+             | _ => sprintf "($ $)" [str_idx_un_op opr, strn_i i]
+          )
+        | BinOpI (opr, i1, i2) =>
+          (case opr of
+               IApp =>
+               let
+                 val (f, is) = collect_IApp i
+                 val is = f :: is
+               in
+                 sprintf "($)" [join " " $ map strn_i is]
+               end
+             | AddI =>
+               let
+                 val is = collect_AddI_left i
+               in
+                 sprintf "($)" [join " + " $ map strn_i is]
+               end
+             | _ => sprintf "($ $ $)" [strn_i i1, str_idx_bin_op opr, strn_i i2]
+          )
+        | Ite (i1, i2, i3, _) => sprintf "(ite $ $ $)" [strn_i i1, strn_i i2, strn_i i3]
+        | IAbs _ =>
+          let
+            val (bs_names, i) = collect_IAbs i
+          in
+            sprintf "(fn $ => $)" [join " " $ map (fn (b, name) => sprintf "($ : $)" [name, strn_bs b]) bs_names, strn_i i]
+          end
+        (* | IAbs ((name, _), i, _) => sprintf "(fn $ => $)" [name, strn_i (name :: ctx) i] *)
+        | UVarI (u, _) => u
+    end
+                                 
+and strn_p p =
+  let
+    open NamefulIdx
+  in
+    case p of
+        PTrueFalse (b, _) => str_bool b
+      | Not (p, _) => sprintf "(~ $)" [strn_p p]
+      | BinConn (opr, p1, p2) => sprintf "($ $ $)" [strn_p p1, str_bin_conn opr, strn_p p2]
+      (* | BinPred (BigO, i1, i2) => sprintf "($ $ $)" [strn_bin_pred BigO, strn_i ctx i1, strn_i ctx i2] *)
+      | BinPred (opr, i1, i2) => sprintf "($ $ $)" [strn_i i1, str_bin_pred opr, strn_i i2]
+      | Quan (q, bs, Bind ((name, _), p), _) => sprintf "($ ($ : $) $)" [str_quan q, name, strn_bs bs, strn_p p]
+  end
+
+and strn_s s =
+  let
+    open NamefulIdx
+    open NamefulIdxUtil
+  in
+    (* case is_SApp_UVarS s of *)
+    (*     SOME ((x, _), args) => sprintf "($ ...)" [str_uvar_s (strn_s []) x] *)
+    (*   | NONE => *)
+    case s of
+        Basic (bs, _) => strn_bs bs
+      | Subset ((bs, _), Bind ((name, _), p), _) =>
+        let
+          fun default () = sprintf "{ $ : $ | $ }" [name, strn_bs bs, strn_p p]
+        in
+          case (is_time_fun bs, p) of
+              (SOME arity, BinPred (BigO, VarI x, i2)) =>
+              if x = name then
+                sprintf "BigO $ $" [str_int arity, strn_i i2]
+              else
+                default ()
+            | _ => default ()
+        end
+      | UVarS (u, _) => u
+      | SAbs (s1, Bind ((name, _), s), _) =>
+        sprintf "(fn $ : $ => $)" [name, strn_bs s1, strn_s s]
+      | SApp (s, i) => sprintf "($ $)" [strn_s s, strn_i i]
+  end
+
+and str_bs b =
+  let
+    val b = export_bs empty [] b
+  in
+    strn_bs b
+  end
+    
+and str_i gctx ctx b =
+  let
+    val b = export_i gctx ctx b
+  in
+    strn_i b
+  end
+    
+and str_p gctx ctx b =
+  let
+    val b = export_p gctx ctx b
+  in
+    strn_p b
+  end
+    
+and str_s gctx ctx b =
+  let
+    val b = export_s gctx ctx b
+  in
+    strn_s b
+  end
+    
+(* (***************** the "export" visitor: convertnig de Bruijn indices to nameful terms **********************) *)
+
+(* type naming_ctx = iname list * tname list * ename list *)
+(* fun export_expr_visitor_vtable cast (visit_var, visit_idx, visit_sort, visit_ty) : ('this, naming_ctx, 'var, 'idx, 'sort, 'kind, 'ty, 'var2, 'idx2, 'sort2, 'kind, 'ty2) expr_visitor_vtable = *)
+(*   let *)
+(*     fun extend_i this (sctx, kctx, tctx) name = (name :: sctx, kctx, tctx) *)
+(*     fun extend_t this (sctx, kctx, tctx) name = (sctx, name :: kctx, tctx) *)
+(*     fun extend_e this (sctx, kctx, tctx) name = (sctx, kctx, name :: tctx) *)
+(*     fun only_s f this (sctx, kctx, tctx) name = f sctx name *)
+(*     fun only_sk f this (sctx, kctx, tctx) name = f (sctx, kctx) name *)
+(*   in *)
+(*     default_expr_visitor_vtable *)
+(*       cast *)
+(*       extend_i *)
+(*       extend_t *)
+(*       extend_e *)
+(*       (ignore_this visit_var) *)
+(*       (only_s visit_idx) *)
+(*       (only_s visit_sort) *)
+(*       (only_sk visit_ty) *)
+(*   end *)
+
+(* fun new_export_expr_visitor params = new_expr_visitor export_expr_visitor_vtable params *)
+    
+(* fun export_fn params ctx e = *)
+(*   let *)
+(*     val visitor as (ExprVisitor vtable) = new_export_expr_visitor params *)
+(*   in *)
+(*     #visit_expr vtable visitor ctx e *)
+(*   end *)
+    
+(* (***************** the "import" (or name-resolving) visitor: converting nameful terms to de Bruijn indices **********************)     *)
+    
+(* fun import_idx_visitor_vtable cast gctx : ('this, scontext) idx_visitor_vtable = *)
+(*   let *)
+(*     fun extend this env x = fst x :: env *)
+(*     fun visit_var this env x = *)
+(*       on_long_id gctx #1 env x *)
+(*     fun visit_quan _ _ q = on_quan q *)
+(*   in *)
+(*     default_idx_visitor_vtable *)
+(*       cast *)
+(*       extend *)
+(*       visit_var *)
+(*       visit_noop *)
+(*       visit_noop *)
+(*       visit_noop *)
+(*       visit_quan *)
+(*   end *)
+
+(* fun new_import_idx_visitor a = new_idx_visitor import_idx_visitor_vtable a *)
+    
+(* fun on_bsort b = *)
+(*   let *)
+(*     val visitor as (IdxVisitor vtable) = new_import_idx_visitor empty *)
+(*   in *)
+(*     #visit_bsort vtable visitor [] b *)
+(*   end *)
+    
+(* fun on_idx gctx ctx b = *)
+(*   let *)
+(*     val visitor as (IdxVisitor vtable) = new_import_idx_visitor gctx *)
+(*   in *)
+(*     #visit_idx vtable visitor ctx b *)
+(*   end *)
+    
+(* fun str_bs (s : bsort) = *)
+(*   case s of *)
+(*       Base s => str_b s *)
+(*     | BSArrow (s1, s2) => *)
+(*       let *)
+(*         fun default () = sprintf "($ => $)" [str_bs s1, str_bs s2] *)
+(*       in *)
+(*         case is_time_fun s of *)
+(*             SOME n => if n = 0 then "Time" else sprintf "(Fun $)" [str_int n] *)
+(*           | NONE => default () *)
+(*       end *)
+(*     | UVarBS u => str_uvar_bs str_bs u *)
 
 fun str_raw_option f a = case a of SOME a => sprintf "SOME ($)" [f a] | NONE => "NONE"
 
@@ -137,90 +404,90 @@ fun str_raw_e e =
     | EEI (opr, e, i) => sprintf "EEI ($, $, $)" [str_expr_EI opr, str_raw_e e, str_raw_i i]
     | _ => "<exp>"
 
-fun str_i gctx ctx (i : idx) : string =
-  let
-    val str_i = str_i gctx
-  in
-    (* case is_IApp_UVarI i of *)
-    (*     SOME ((x, _), args) => sprintf "($ ...)" [str_uvar_i (str_bs, str_i []) x] *)
-    (*   | NONE => *)
-    case i of
-        VarI x => str_var #1 gctx ctx x
-      | IConst (c, _) => str_idx_const c
-      | UnOpI (opr, i, _) =>
-        (case opr of
-             IUDiv n => sprintf "($ / $)" [str_i ctx i, str_int n]
-           | IUExp s => sprintf "($ ^ $)" [str_i ctx i, s]
-           | _ => sprintf "($ $)" [str_idx_un_op opr, str_i ctx i]
-        )
-      | BinOpI (opr, i1, i2) =>
-        (case opr of
-             IApp =>
-             let
-               val (f, is) = collect_IApp i
-               val is = f :: is
-             in
-               sprintf "($)" [join " " $ map (str_i ctx) $ is]
-             end
-           | AddI =>
-             let
-               val is = collect_AddI_left i
-             in
-               sprintf "($)" [join " + " $ map (str_i ctx) is]
-             end
-           | _ => sprintf "($ $ $)" [str_i ctx i1, str_idx_bin_op opr, str_i ctx i2]
-        )
-      | Ite (i1, i2, i3, _) => sprintf "(ite $ $ $)" [str_i ctx i1, str_i ctx i2, str_i ctx i3]
-      | IAbs _ =>
-        let
-          val (bs_names, i) = collect_IAbs i
-          val names = map snd bs_names
-        in
-          sprintf "(fn $ => $)" [join " " $ map (fn (b, name) => sprintf "($ : $)" [name, str_bs b]) bs_names, str_i (rev names @ ctx) i]
-        end
-      (* | IAbs ((name, _), i, _) => sprintf "(fn $ => $)" [name, str_i (name :: ctx) i] *)
-      | UVarI (u, _) => str_uvar_i (str_bs, str_i []) u
-  end
+(* fun str_i gctx ctx (i : idx) : string = *)
+(*   let *)
+(*     val str_i = str_i gctx *)
+(*   in *)
+(*     (* case is_IApp_UVarI i of *) *)
+(*     (*     SOME ((x, _), args) => sprintf "($ ...)" [str_uvar_i (str_bs, str_i []) x] *) *)
+(*     (*   | NONE => *) *)
+(*     case i of *)
+(*         VarI x => str_var #1 gctx ctx x *)
+(*       | IConst (c, _) => str_idx_const c *)
+(*       | UnOpI (opr, i, _) => *)
+(*         (case opr of *)
+(*              IUDiv n => sprintf "($ / $)" [str_i ctx i, str_int n] *)
+(*            | IUExp s => sprintf "($ ^ $)" [str_i ctx i, s] *)
+(*            | _ => sprintf "($ $)" [str_idx_un_op opr, str_i ctx i] *)
+(*         ) *)
+(*       | BinOpI (opr, i1, i2) => *)
+(*         (case opr of *)
+(*              IApp => *)
+(*              let *)
+(*                val (f, is) = collect_IApp i *)
+(*                val is = f :: is *)
+(*              in *)
+(*                sprintf "($)" [join " " $ map (str_i ctx) $ is] *)
+(*              end *)
+(*            | AddI => *)
+(*              let *)
+(*                val is = collect_AddI_left i *)
+(*              in *)
+(*                sprintf "($)" [join " + " $ map (str_i ctx) is] *)
+(*              end *)
+(*            | _ => sprintf "($ $ $)" [str_i ctx i1, str_idx_bin_op opr, str_i ctx i2] *)
+(*         ) *)
+(*       | Ite (i1, i2, i3, _) => sprintf "(ite $ $ $)" [str_i ctx i1, str_i ctx i2, str_i ctx i3] *)
+(*       | IAbs _ => *)
+(*         let *)
+(*           val (bs_names, i) = collect_IAbs i *)
+(*           val names = map snd bs_names *)
+(*         in *)
+(*           sprintf "(fn $ => $)" [join " " $ map (fn (b, name) => sprintf "($ : $)" [name, str_bs b]) bs_names, str_i (rev names @ ctx) i] *)
+(*         end *)
+(*       (* | IAbs ((name, _), i, _) => sprintf "(fn $ => $)" [name, str_i (name :: ctx) i] *) *)
+(*       | UVarI (u, _) => str_uvar_i (str_bs, str_i []) u *)
+(*   end *)
 
-fun str_p gctx ctx p =
-  let
-    val str_p = str_p gctx
-  in
-    case p of
-        PTrueFalse (b, _) => str_bool b
-      | Not (p, _) => sprintf "(~ $)" [str_p ctx p]
-      | BinConn (opr, p1, p2) => sprintf "($ $ $)" [str_p ctx p1, str_bin_conn opr, str_p ctx p2]
-      (* | BinPred (BigO, i1, i2) => sprintf "($ $ $)" [str_bin_pred BigO, str_i ctx i1, str_i ctx i2] *)
-      | BinPred (opr, i1, i2) => sprintf "($ $ $)" [str_i gctx ctx i1, str_bin_pred opr, str_i gctx ctx i2]
-      | Quan (q, bs, Bind ((name, _), p), _) => sprintf "($ ($ : $) $)" [str_quan q, name, str_bs bs, str_p (name :: ctx) p]
-  end
+(* fun str_p gctx ctx p = *)
+(*   let *)
+(*     val str_p = str_p gctx *)
+(*   in *)
+(*     case p of *)
+(*         PTrueFalse (b, _) => str_bool b *)
+(*       | Not (p, _) => sprintf "(~ $)" [str_p ctx p] *)
+(*       | BinConn (opr, p1, p2) => sprintf "($ $ $)" [str_p ctx p1, str_bin_conn opr, str_p ctx p2] *)
+(*       (* | BinPred (BigO, i1, i2) => sprintf "($ $ $)" [str_bin_pred BigO, str_i ctx i1, str_i ctx i2] *) *)
+(*       | BinPred (opr, i1, i2) => sprintf "($ $ $)" [str_i gctx ctx i1, str_bin_pred opr, str_i gctx ctx i2] *)
+(*       | Quan (q, bs, Bind ((name, _), p), _) => sprintf "($ ($ : $) $)" [str_quan q, name, str_bs bs, str_p (name :: ctx) p] *)
+(*   end *)
 
-fun str_s gctx ctx (s : sort) : string =
-  let
-    val str_s = str_s gctx
-  in
-    (* case is_SApp_UVarS s of *)
-    (*     SOME ((x, _), args) => sprintf "($ ...)" [str_uvar_s (str_s []) x] *)
-    (*   | NONE => *)
-    case s of
-        Basic (bs, _) => str_bs bs
-      | Subset ((bs, _), Bind ((name, _), p), _) =>
-        let
-          fun default () = sprintf "{ $ : $ | $ }" [name, str_bs bs, str_p gctx (name :: ctx) p]
-        in
-          case (is_time_fun bs, p) of
-              (SOME arity, BinPred (BigO, VarI x, i2)) =>
-              if str_var #1 gctx (name :: ctx) x = name then
-                sprintf "BigO $ $" [str_int arity, str_i gctx (name :: ctx) i2]
-              else
-                default ()
-            | _ => default ()
-        end
-      | UVarS (u, _) => str_uvar_s (str_s []) u
-      | SAbs (s1, Bind ((name, _), s), _) =>
-        sprintf "(fn $ : $ => $)" [name, str_bs s1, str_s (name :: ctx) s]
-      | SApp (s, i) => sprintf "($ $)" [str_s ctx s, str_i gctx ctx i]
-  end
+(* fun str_s gctx ctx (s : sort) : string = *)
+(*   let *)
+(*     val str_s = str_s gctx *)
+(*   in *)
+(*     (* case is_SApp_UVarS s of *) *)
+(*     (*     SOME ((x, _), args) => sprintf "($ ...)" [str_uvar_s (str_s []) x] *) *)
+(*     (*   | NONE => *) *)
+(*     case s of *)
+(*         Basic (bs, _) => str_bs bs *)
+(*       | Subset ((bs, _), Bind ((name, _), p), _) => *)
+(*         let *)
+(*           fun default () = sprintf "{ $ : $ | $ }" [name, str_bs bs, str_p gctx (name :: ctx) p] *)
+(*         in *)
+(*           case (is_time_fun bs, p) of *)
+(*               (SOME arity, BinPred (BigO, VarI x, i2)) => *)
+(*               if str_var #1 gctx (name :: ctx) x = name then *)
+(*                 sprintf "BigO $ $" [str_int arity, str_i gctx (name :: ctx) i2] *)
+(*               else *)
+(*                 default () *)
+(*             | _ => default () *)
+(*         end *)
+(*       | UVarS (u, _) => str_uvar_s (str_s []) u *)
+(*       | SAbs (s1, Bind ((name, _), s), _) => *)
+(*         sprintf "(fn $ : $ => $)" [name, str_bs s1, str_s (name :: ctx) s] *)
+(*       | SApp (s, i) => sprintf "($ $)" [str_s ctx s, str_i gctx ctx i] *)
+(*   end *)
 
 datatype 'a bind = 
          KindingT of string
