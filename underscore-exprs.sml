@@ -25,12 +25,13 @@ open NamefulExpr
 open LongIdHasEqual
 end
                        
-structure NamefulEqual = EqualFn (structure IdxType = struct
-                           structure Idx = NamefulExpr.Idx
-                           structure Type = NamefulExpr.Type
-                           end
-                           structure HasEqual = NamefulHasEqual
-                          )
+structure NamefulEqual = EqualFn (type bsort = NamefulExpr.Type.bsort
+                                  structure IdxType = struct
+                                  structure Idx = NamefulExpr.Idx
+                                  structure Type = NamefulExpr.Type
+                                  end
+                                  structure HasEqual = NamefulHasEqual
+                                 )
                           
 structure StringLongIdCanToString = struct
 
@@ -58,8 +59,9 @@ open StringLongIdCanToString
 val eq_i = NamefulEqual.eq_i
 end
                        
-structure NamefulToString = ToStringFn (structure Expr = NamefulExpr
-                                 structure CanToString = NamefulCanToString
+structure NamefulToString = ToStringFn (type bsort = NamefulExpr.Type.bsort
+                                        structure Expr = NamefulExpr
+                                        structure CanToString = NamefulCanToString
                                 )
                                 
 structure UnderscoredExpr = ExprFn (type v = int
@@ -74,11 +76,12 @@ open UnderscoredExpr
 open LongIdHasEqual
 end
                        
-structure UnderscoredEqual = EqualFn (structure IdxType = struct
-                           structure Idx = UnderscoredExpr.Idx
-                           structure Type = UnderscoredExpr.Type
-                           end
-                           structure HasEqual = UnderscoredHasEqual
+structure UnderscoredEqual = EqualFn (type bsort = UnderscoredExpr.Type.bsort
+                                      structure IdxType = struct
+                                      structure Idx = UnderscoredExpr.Idx
+                                      structure Type = UnderscoredExpr.Type
+                                      end
+                                      structure HasEqual = UnderscoredHasEqual
                           )
                           
 structure UnderscoredCanToString = struct
@@ -88,7 +91,8 @@ open IntLongIdCanToString
 val eq_i = UnderscoredEqual.eq_i
 end
                        
-structure UnderscoredToString = ToStringFn (structure Expr = UnderscoredExpr
+structure UnderscoredToString = ToStringFn (type bsort = UnderscoredExpr.Type.bsort
+                                            structure Expr = UnderscoredExpr
                                             structure CanToString = UnderscoredCanToString
                                 )
                                 

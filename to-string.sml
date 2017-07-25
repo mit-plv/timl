@@ -13,13 +13,16 @@ signature CAN_TO_STRING = sig
   val eq_i : idx -> idx -> bool
 end
 
-functor ToStringFn (structure Expr : EXPR_EX where type Idx.base_sort = BaseSorts.base_sort
+functor ToStringFn (type bsort (* a workaround for dependent signature specialization for Type.kind *)
+                    structure Expr : EXPR_EX where type Idx.base_sort = BaseSorts.base_sort
                                                and type Type.base_type = BaseTypes.base_type
                                                and type Idx.region = Region.region
                                                and type Idx.name = string * Region.region
                                                and type Type.name = string * Region.region
                                                and type Type.region = Region.region
-                                                        and type mod_id = string * Region.region
+                                               and type mod_id = string * Region.region
+                                               and type Type.kind = int * bsort list
+                                               and type Type.bsort = bsort
                     structure CanToString : CAN_TO_STRING
                     sharing type Expr.Type.bsort = Expr.Idx.bsort
                     sharing type CanToString.var = Expr.var

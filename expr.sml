@@ -94,7 +94,8 @@ open LongIdHasEqual
 fun eq_name ((s, _) : name, (s', _)) = s = s'
 end
                        
-structure Equal = EqualFn (structure IdxType = struct
+structure Equal = EqualFn (type bsort = Expr.Type.bsort
+                           structure IdxType = struct
                            structure Idx = Expr.Idx
                            structure Type = Expr.Type
                            end
@@ -143,7 +144,8 @@ open IntLongIdCanToString
 val eq_i = Equal.eq_i
 end
                        
-structure ToString = ToStringFn (structure Expr = Expr
+structure ToString = ToStringFn (type bsort = Expr.Type.bsort
+                                 structure Expr = Expr
                                  structure CanToString = CanToString
                                 )
                                 

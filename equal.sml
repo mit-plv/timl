@@ -17,8 +17,11 @@ signature HAS_EQUAL = sig
   val eq_uvar_mt : ('sort, 'kind, 'mtype) uvar_mt * ('sort, 'kind, 'mtype) uvar_mt -> bool
 end
                         
-functor EqualFn (structure IdxType : IDX_TYPE where type Idx.base_sort = BaseSorts.base_sort
-                                                         and type Type.base_type = BaseTypes.base_type
+functor EqualFn (type bsort (* a workaround for dependent signature specialization for Type.kind *)
+                 structure IdxType : IDX_TYPE where type Idx.base_sort = BaseSorts.base_sort
+                                                and type Type.base_type = BaseTypes.base_type
+                                                and type Type.kind = int * bsort list
+                                                and type Type.bsort = bsort
                  sharing type IdxType.Type.bsort = IdxType.Idx.bsort
                  structure HasEqual : HAS_EQUAL
                  sharing type HasEqual.var = IdxType.Idx.var
