@@ -132,6 +132,7 @@ long-id-subst.sml
 expr-ex.sig
 type-util.sml
 expr-util.sml
+expr-simp-fn.sml
 to-string.sml
 expr.sml
 underscore-exprs.sml

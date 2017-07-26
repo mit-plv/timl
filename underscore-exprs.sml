@@ -56,7 +56,6 @@ structure NamefulCanToString = struct
 open Underscore
 open NamefulExpr
 open StringLongIdCanToString
-val eq_i = NamefulEqual.eq_i
 end
                        
 structure NamefulToString = ToStringFn (type bsort = NamefulExpr.Type.bsort
@@ -88,7 +87,6 @@ structure UnderscoredCanToString = struct
 open Underscore
 open UnderscoredExpr
 open IntLongIdCanToString
-val eq_i = UnderscoredEqual.eq_i
 end
                        
 structure UnderscoredToString = ToStringFn (type bsort = UnderscoredExpr.Type.bsort

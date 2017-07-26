@@ -141,7 +141,6 @@ structure CanToString = struct
 open UVar
 open Expr
 open IntLongIdCanToString
-val eq_i = Equal.eq_i
 end
                        
 structure ToString = ToStringFn (type bsort = Expr.Type.bsort

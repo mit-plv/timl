@@ -1336,4 +1336,12 @@ fun new_expr_visitor vtable params =
     ExprVisitor vtable
   end
     
+fun visit_decls visitor ctx decls =
+  let
+    val ExprVisitor vtable = visitor
+    val decls = unTeles $ visit_tele (#visit_decl vtable visitor) ctx $ Teles decls
+  in
+    decls
+  end
+    
 end

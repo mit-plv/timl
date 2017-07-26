@@ -715,7 +715,7 @@ fun on_decls gctx env decls =
   let
     val visitor as (EV.ExprVisitor vtable) = new_on_i_expr_visitor gctx
     val ctx = env2ctx env
-    val decls = unTeles $ visit_tele (#visit_decl vtable visitor) ctx $ Teles decls
+    val decls = EV.visit_decls visitor ctx decls
     val env = !(#current ctx)
   in
     (decls, env)
