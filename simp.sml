@@ -118,11 +118,13 @@ local
                        let
                          open Real
                          infixr 0 !!
-                         val x1 = fromString x1 !! (fn () => raise Impossible "simp_i/wrong time syntax")
-                         val x2 = fromString x2 !! (fn () => raise Impossible "simp_i/wrong time syntax")
+                         val x1 = fromString x1 !! (fn () => raise Impossible "simp_i/illegal const")
+                         val x2 = fromString x2 !! (fn () => raise Impossible "simp_i/illegal const")
                        in
-                         ConstIT (toString (x1 + x2), r ())
+                         mark $ ConstIT (toString (x1 + x2), r ())
                        end
+                     | (IConst (ICNat n1, _), IConst (ICNat n2, _)) =>
+                       mark $ ConstIN (n1 + n2, r ())
                      | _ =>
                        let
                          val is = collect_AddI i
@@ -250,6 +252,8 @@ local
                      mark $ BinOpI (AddI, UnOpI (ToReal, i1, r), UnOpI (ToReal, i2, r))
                    | BinOpI (MultI, i1, i2) =>
                      mark $ BinOpI (MultI, UnOpI (ToReal, i1, r), UnOpI (ToReal, i2, r))
+                   | IConst (ICNat n, _) =>
+                     mark $ ConstIT (str_int n, r)
                    | _ => default ()
                 )
               | Neg =>
