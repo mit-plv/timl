@@ -18,11 +18,11 @@ fun package_long_id x m (id : long_id) =
         id
     | QID _ => id (* if it has module reference, don't substitute *)
         
-fun package_i_ibind f x v (Bind (name, inner) : ('a * 'b) ibind) =
-  Bind (name, f (x + 1) v inner)
+(* fun package_i_ibind f x v (Bind (name, inner) : ('a * 'b) ibind) = *)
+(*   Bind (name, f (x + 1) v inner) *)
 
-fun package_i_tbind f x v (Bind (name, inner)) =
-  Bind (name, f x v inner)
+(* fun package_i_tbind f x v (Bind (name, inner)) = *)
+(*   Bind (name, f x v inner) *)
 
 (* fun package_i_idx_visitor_vtable cast (on_var, n) : ('this, int) idx_visitor_vtable = *)
 (*   let *)
@@ -92,22 +92,22 @@ fun package_i_s a  = IdxShift.on_i_s package_long_id a
 fun package0_i v = package_i_i 0 v
 fun package0_s v = package_i_s 0 v
                                
-fun package_t_ibind f x v (Bind (name, inner) : ('a * 'b) ibind) =
-  Bind (name, f x v inner)
+(* fun package_t_ibind f x v (Bind (name, inner) : ('a * 'b) ibind) = *)
+(*   Bind (name, f x v inner) *)
 
-fun package_t_tbind f x v (Bind (name, inner) : ('a * 'b) tbind) =
-  Bind (name, f (x + 1) v inner)
+(* fun package_t_tbind f x v (Bind (name, inner) : ('a * 'b) tbind) = *)
+(*   Bind (name, f (x + 1) v inner) *)
 
-fun package_binds on_bind f_cls f_inner x v ibinds =
-  let
-    val package_binds = package_binds on_bind f_cls f_inner
-  in
-    case ibinds of
-        BindNil inner => BindNil $ f_inner x v inner
-      | BindCons (cls, bind) => BindCons (f_cls x v cls, on_bind package_binds x v bind)
-  end
+(* fun package_binds on_bind f_cls f_inner x v ibinds = *)
+(*   let *)
+(*     val package_binds = package_binds on_bind f_cls f_inner *)
+(*   in *)
+(*     case ibinds of *)
+(*         BindNil inner => BindNil $ f_inner x v inner *)
+(*       | BindCons (cls, bind) => BindCons (f_cls x v cls, on_bind package_binds x v bind) *)
+(*   end *)
     
-fun package_i_ibinds f_cls f_inner x v ibinds = package_binds package_i_ibind f_cls f_inner x v ibinds
+(* fun package_i_ibinds f_cls f_inner x v ibinds = package_binds package_i_ibind f_cls f_inner x v ibinds *)
 (* fun package_i_ibinds f_cls f_inner x v ibinds = *)
 (*   let *)
 (*     val package_i_ibinds = package_i_ibinds f_cls f_inner *)
@@ -117,7 +117,7 @@ fun package_i_ibinds f_cls f_inner x v ibinds = package_binds package_i_ibind f_
 (*       | BindCons (cls, bind) => BindCons (f_cls x v cls, package_i_ibind package_i_ibinds x v bind) *)
 (*   end *)
     
-fun package_t_ibinds f_cls f_inner x v ibinds = package_binds package_t_ibind f_cls f_inner x v ibinds
+(* fun package_t_ibinds f_cls f_inner x v ibinds = package_binds package_t_ibind f_cls f_inner x v ibinds *)
 (* fun package_t_ibinds f_cls f_inner x v ibinds = *)
 (*   let *)
 (*     val package_t_ibinds = package_t_ibinds f_cls f_inner *)
@@ -127,8 +127,8 @@ fun package_t_ibinds f_cls f_inner x v ibinds = package_binds package_t_ibind f_
 (*       | BindCons (cls, bind) => BindCons (f_cls x v cls, package_t_ibind package_t_ibinds x v bind) *)
 (*   end *)
     
-fun package_i_tbinds f_cls f_inner x v ibinds = package_binds package_i_tbind f_cls f_inner x v ibinds
-fun package_t_tbinds f_cls f_inner x v ibinds = package_binds package_t_tbind f_cls f_inner x v ibinds
+(* fun package_i_tbinds f_cls f_inner x v ibinds = package_binds package_i_tbind f_cls f_inner x v ibinds *)
+(* fun package_t_tbinds f_cls f_inner x v ibinds = package_binds package_t_tbind f_cls f_inner x v ibinds *)
 
 (* fun package_i_mt x v (b : mtype) : mtype = *)
 (*   let *)

@@ -3,8 +3,11 @@
 structure CollectVar = struct
 
 open Expr
+open Subst
 open Bind
 
+infixr 0 $
+         
 fun collect_var_aux_i_ibind f d acc (Bind (_, b) : ('a * 'b) ibind) = f (d + 1) acc b
 
 fun collect_var_long_id d (id : long_id) : long_id list =
@@ -14,35 +17,58 @@ fun collect_var_long_id d (id : long_id) : long_id list =
       if x >= d then [ID (x - d, r)]
       else []
 
-local
-  fun f d(*depth*) acc b =
-    case b of
-	VarI x => collect_var_long_id d x @ acc
-      | IConst _ => acc
-      | UnOpI (opr, i, r) => f d acc i
-      | BinOpI (opr, i1, i2) => 
-        let
-          val acc = f d acc i1
-          val acc = f d acc i2
-        in
-          acc
-        end
-      | Ite (i1, i2, i3, r) =>
-        let
-          val acc = f d acc i1
-          val acc = f d acc i2
-          val acc = f d acc i3
-        in
-          acc
-        end
-      | IAbs (b, bind, r) =>
-        collect_var_aux_i_ibind f d acc bind
-      | UVarI a => acc
-in
-val collect_var_aux_i_i = f
-fun collect_var_i_i b = f 0 [] b
-end
+fun collect_var_long_id' output d _ (id : long_id) =
+  let
+    val () = 
+        case id of
+            QID _ => output id
+          | ID (x, r) =>
+            if x >= d then output $ ID (x - d, r)
+            else ()
+  in
+    id
+  end
 
+fun collect_var_aux_i_i d acc b =
+  let
+    val r = ref acc
+    fun output id = push_ref r id
+    val _ = IdxShift.on_i_i (collect_var_long_id' output) d 0 b
+    val acc = !r
+  in
+    acc
+  end
+             
+(* local *)
+(*   fun f d(*depth*) acc b = *)
+(*     case b of *)
+(* 	VarI x => collect_var_long_id d x @ acc *)
+(*       | IConst _ => acc *)
+(*       | UnOpI (opr, i, r) => f d acc i *)
+(*       | BinOpI (opr, i1, i2) =>  *)
+(*         let *)
+(*           val acc = f d acc i1 *)
+(*           val acc = f d acc i2 *)
+(*         in *)
+(*           acc *)
+(*         end *)
+(*       | Ite (i1, i2, i3, r) => *)
+(*         let *)
+(*           val acc = f d acc i1 *)
+(*           val acc = f d acc i2 *)
+(*           val acc = f d acc i3 *)
+(*         in *)
+(*           acc *)
+(*         end *)
+(*       | IAbs (b, bind, r) => *)
+(*         collect_var_aux_i_ibind f d acc bind *)
+(*       | UVarI a => acc *)
+(* in *)
+(* val collect_var_aux_i_i = f *)
+(* end *)
+
+fun collect_var_i_i b = collect_var_aux_i_i 0 [] b
+                          
 local
   fun f d acc b =
     case b of
