@@ -852,7 +852,6 @@ structure NamefulExpr = ExprSimpFn (
   type sort = NamefulIdx.sort
   type mtype = NamefulType.mtype
   type ptrn_constr_tag = ptrn_constr_tag
-  type ptrn = (cvar * ptrn_constr_tag, mtype) Pattern.ptrn
   type ty = NamefulType.ty
   type kind = NamefulType.kind
 )

@@ -50,7 +50,6 @@ structure ExprCore = ExprSimpFn (
   type sort = sort
   type mtype = mtype
   type ptrn_constr_tag = ptrn_constr_tag
-  type ptrn = (cvar * ptrn_constr_tag, mtype) ptrn
   type ty = ty
   type kind = kind
 )

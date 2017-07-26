@@ -7,16 +7,18 @@ signature EXPR = sig
   type sort
   type mtype
   type ptrn_constr_tag
+  type ty
+  type kind
+         
   type ptrn = (cvar * ptrn_constr_tag, mtype) Pattern.ptrn
-  (* val ptrn_names : ptrn -> string list * string list *)
-
+                                              
   type return = mtype option * idx option
                                    
   datatype stbind = 
-           SortingST of Namespaces.iname Unbound.binder * sort Unbound.outer
+           SortingST of Binders.ibinder * sort Unbound.outer
            | TypingST of ptrn
 
-  type scoping_ctx = Namespaces.iname Unbound.binder list * Namespaces.tname Unbound.binder list * Namespaces.cname Unbound.binder list * Namespaces.ename Unbound.binder list
+  type scoping_ctx = Binders.ibinder list * Binders.tbinder list * Binders.cbinder list * Binders.ebinder list
                                                                                        
   datatype expr =
 	   EVar of var * bool(*explicit index arguments (EIA)*)
@@ -34,20 +36,17 @@ signature EXPR = sig
 	   | ELet of return * (decl Unbound.tele, expr) Unbound.bind * Region.region
 
        and decl =
-           DVal of Namespaces.ename Unbound.binder * (Namespaces.tname Unbound.binder list, expr) Unbound.bind Unbound.outer * Region.region Unbound.outer
+           DVal of Binders.ebinder * (Binders.tbinder list, expr) Unbound.bind Unbound.outer * Region.region Unbound.outer
            | DValPtrn of ptrn * expr Unbound.outer * Region.region Unbound.outer
-           | DRec of Namespaces.ename Unbound.binder * (Namespaces.tname Unbound.binder list * stbind Unbound.tele Unbound.rebind, (mtype * idx) * expr) Unbound.bind Unbound.inner * Region.region Unbound.outer
-           | DIdxDef of Namespaces.iname Unbound.binder * sort Unbound.outer * idx Unbound.outer
-           | DAbsIdx2 of Namespaces.iname Unbound.binder * sort Unbound.outer * idx Unbound.outer
-           | DAbsIdx of (Namespaces.iname Unbound.binder * sort Unbound.outer * idx Unbound.outer) * decl Unbound.tele Unbound.rebind * Region.region Unbound.outer
-           | DTypeDef of Namespaces.tname Unbound.binder * mtype Unbound.outer
+           | DRec of Binders.ebinder * (Binders.tbinder list * stbind Unbound.tele Unbound.rebind, (mtype * idx) * expr) Unbound.bind Unbound.inner * Region.region Unbound.outer
+           | DIdxDef of Binders.ibinder * sort Unbound.outer * idx Unbound.outer
+           | DAbsIdx2 of Binders.ibinder * sort Unbound.outer * idx Unbound.outer
+           | DAbsIdx of (Binders.ibinder * sort Unbound.outer * idx Unbound.outer) * decl Unbound.tele Unbound.rebind * Region.region Unbound.outer
+           | DTypeDef of Binders.tbinder * mtype Unbound.outer
            | DOpen of mod_id Unbound.outer * scoping_ctx option
 
-  type ty
-  type kind
-         
   type name = string * Region.region
-                         
+
   datatype spec =
            SpecVal of name * ty
            | SpecIdx of name * sort

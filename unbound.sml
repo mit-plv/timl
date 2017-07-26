@@ -134,6 +134,7 @@ end
 structure Namespaces = NamespacesFn (type name = string * Region.region)
                                     
 structure Binders = struct
+
 structure BinderUtil = BinderUtilFn (structure Binders = Unbound
                                      structure Names = Namespaces
                                     )
@@ -144,7 +145,12 @@ open Namespaces
 open BinderUtil
        
 infixr 0 $
-         
+
+type ibinder = Namespaces.iname Unbound.binder
+type tbinder = Namespaces.tname Unbound.binder
+type cbinder = Namespaces.cname Unbound.binder
+type ebinder = Namespaces.ename Unbound.binder
+                     
 fun Name2str n = fst $ unName n
 fun unBinderName n = (unName o unBinder) n
 fun binder2str (Binder n) = Name2str n
