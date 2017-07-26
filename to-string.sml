@@ -6,6 +6,9 @@ signature CAN_TO_STRING = sig
   val str_raw_var : var -> string
   val str_var : (ToStringUtil.context -> string list) -> ToStringUtil.global_context -> string list -> var -> string
   val lookup_module : ToStringUtil.global_context -> string -> string * ToStringUtil.context
+  val map_uvar_bs : ('bsort -> 'bsort2) -> 'bsort uvar_bs -> 'bsort2 uvar_bs
+  val map_uvar_i : ('bsort -> 'bsort2) * ('idx -> 'idx2) -> ('bsort, 'idx) uvar_i -> ('bsort2, 'idx2) uvar_i
+  val map_uvar_s : ('bsort -> 'bsort2) * ('sort -> 'sort2) -> ('bsort, 'sort) uvar_s -> ('bsort2, 'sort2) uvar_s
   val str_uvar_bs : ('a -> string) -> 'a uvar_bs -> string
   val str_uvar_i : ('bsort -> string) * ('idx -> string) -> ('bsort, 'idx) uvar_i -> string
   val str_uvar_s : ('sort -> string) -> ('bsort, 'sort) uvar_s -> string
@@ -55,10 +58,17 @@ open Bind
 
 infixr 0 $
 
+(* structure StringUVar = struct *)
+(* type 'a uvar_bs = string *)
+(* type ('a, 'b) uvar_i = string *)
+(* type ('a, 'b) uvar_s = string *)
+(* type ('a, 'b, 'c) uvar_mt = string *)
+(* end *)
+                         
 structure StringUVar = struct
-type 'a uvar_bs = string
-type ('a, 'b) uvar_i = string
-type ('a, 'b) uvar_s = string
+type 'a uvar_bs = 'a uvar_bs
+type ('a, 'b) uvar_i = ('a, 'b) uvar_i
+type ('a, 'b) uvar_s = ('a, 'b) uvar_s
 type ('a, 'b, 'c) uvar_mt = string
 end
                          
@@ -88,14 +98,24 @@ fun export_idx_visitor_vtable cast gctx (* : ((* 'this *)string list IV.idx_visi
     fun extend this env name = fst name :: env
     fun visit_var this ctx x =
       str_var #1 gctx ctx x
-    val str_i = str_i gctx
-    val str_s = str_s gctx
     fun visit_uvar_bs this ctx u =
-      str_uvar_bs str_bs u
+      let
+        val vtable = cast this
+      in
+        map_uvar_bs (#visit_bsort vtable this []) u
+      end
     fun visit_uvar_i this ctx u =
-      str_uvar_i (str_bs, str_i []) u
+      let
+        val vtable = cast this
+      in
+        map_uvar_i (#visit_bsort vtable this [], #visit_idx vtable this []) u
+      end
     fun visit_uvar_s this ctx u =
-      str_uvar_s (str_s []) u
+      let
+        val vtable = cast this
+      in
+        map_uvar_s (#visit_bsort vtable this [], #visit_sort vtable this []) u
+      end
   in
     IV.default_idx_visitor_vtable
       cast
@@ -107,37 +127,37 @@ fun export_idx_visitor_vtable cast gctx (* : ((* 'this *)string list IV.idx_visi
       (ignore_this_env strip_quan)
   end
 
-and new_export_idx_visitor a = IV.new_idx_visitor export_idx_visitor_vtable a
+fun new_export_idx_visitor a = IV.new_idx_visitor export_idx_visitor_vtable a
     
-and export_bs b =
+fun export_bs b =
   let
     val visitor as (IV.IdxVisitor vtable) = new_export_idx_visitor empty
   in
     #visit_bsort vtable visitor [] b
   end
 
-and export_i gctx ctx b =
+fun export_i gctx ctx b =
   let
     val visitor as (IV.IdxVisitor vtable) = new_export_idx_visitor gctx
   in
     #visit_idx vtable visitor ctx b
   end
 
-and export_p gctx ctx b =
+fun export_p gctx ctx b =
   let
     val visitor as (IV.IdxVisitor vtable) = new_export_idx_visitor gctx
   in
     #visit_prop vtable visitor ctx b
   end
 
-and export_s gctx ctx b =
+fun export_s gctx ctx b =
   let
     val visitor as (IV.IdxVisitor vtable) = new_export_idx_visitor gctx
   in
     #visit_sort vtable visitor ctx b
   end
 
-and strn_bs s =
+fun strn_bs s =
   let
     open NamefulIdx
     open NamefulIdxUtil
@@ -152,10 +172,11 @@ and strn_bs s =
               SOME n => if n = 0 then "Time" else sprintf "(Fun $)" [str_int n]
             | NONE => default ()
         end
-      | UVarBS u => u
+      | UVarBS u =>
+        str_uvar_bs strn_bs u
   end
 
-and strn_i i =
+fun strn_i i =
     let
       open NamefulIdx
       open NamefulIdxUtil
@@ -197,10 +218,11 @@ and strn_i i =
             sprintf "(fn $ => $)" [join " " $ map (fn (b, name) => sprintf "($ : $)" [name, strn_bs b]) bs_names, strn_i i]
           end
         (* | IAbs ((name, _), i, _) => sprintf "(fn $ => $)" [name, strn_i (name :: ctx) i] *)
-        | UVarI (u, _) => u
+        | UVarI (u, _) =>
+          str_uvar_i (strn_bs, strn_i) u
     end
                                  
-and strn_p p =
+fun strn_p p =
   let
     open NamefulIdx
   in
@@ -213,7 +235,7 @@ and strn_p p =
       | Quan (q, bs, Bind ((name, _), p), _) => sprintf "($ ($ : $) $)" [str_quan q, name, strn_bs bs, strn_p p]
   end
 
-and strn_s s =
+fun strn_s s =
   let
     open NamefulIdx
     open NamefulIdxUtil
@@ -235,27 +257,28 @@ and strn_s s =
                 default ()
             | _ => default ()
         end
-      | UVarS (u, _) => u
+      | UVarS (u, _) =>
+        str_uvar_s strn_s u
       | SAbs (s1, Bind ((name, _), s), _) =>
         sprintf "(fn $ : $ => $)" [name, strn_bs s1, strn_s s]
       | SApp (s, i) => sprintf "($ $)" [strn_s s, strn_i i]
   end
 
-and str_bs b =
+fun str_bs b =
   let
     val b = export_bs b
   in
     strn_bs b
   end
     
-and str_i gctx ctx b =
+fun str_i gctx ctx b =
   let
     val b = export_i gctx ctx b
   in
     strn_i b
   end
     
-and str_s gctx ctx b =
+fun str_s gctx ctx b =
   let
     val b = export_s gctx ctx b
   in

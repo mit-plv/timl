@@ -1,3 +1,5 @@
+(* name resolving and annotation propogation *)
+
 structure NameResolve = struct
 structure S = NamefulExpr
 structure T = UnderscoredExpr
@@ -26,11 +28,6 @@ datatype sgntr =
          Sig of (* ns_sigcontext *  *)context
          | FunctorBind of (string * context) (* list *) * context
                                                             
-fun is_FunctorBind s =
-  case s of
-      FunctorBind a => SOME a
-    | _ => NONE
-
 type ns_sigcontext = sgntr Gctx.map
                                    
 fun runError m _ =
@@ -1093,6 +1090,11 @@ fun on_sig gctx (comps, r) =
     ((comps, r), ctx)
   end
     
+fun is_FunctorBind s =
+  case s of
+      FunctorBind a => SOME a
+    | _ => NONE
+
 fun on_module gctx m =
     case m of
         S.ModComponents (comps, r) =>

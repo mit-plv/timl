@@ -1,16 +1,20 @@
 structure Underscore = struct
+open Util
 type 'bsort uvar_bs = unit
 type ('bsort, 'idx) uvar_i = unit
 type ('bsort, 'sort) uvar_s = unit
 type ('sort, 'kind, 'mtype) uvar_mt = unit
+fun eq_uvar_bs _ = false
+fun eq_uvar_i _ = false
+fun eq_uvar_s _ = false
+fun eq_uvar_mt _ = false
+fun map_uvar_bs _ = id
+fun map_uvar_i _ = id
+fun map_uvar_s _ = id
 fun str_uvar_bs _ _ = "_"
-fun str_uvar_s _ _ = "_"
 fun str_uvar_i _ _ = "_"
+fun str_uvar_s _ _ = "_"
 fun str_uvar_mt _ _ = "_"
-fun eq_uvar_i (_, _) = false
-fun eq_uvar_bs (_, _) = false
-fun eq_uvar_s (_, _) = false
-fun eq_uvar_mt (_, _) = false
 end
 
 structure NamefulExpr = IdxTypeExprFn (type v = string

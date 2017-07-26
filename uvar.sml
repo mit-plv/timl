@@ -29,6 +29,30 @@ type ('bsort, 'sort) uvar_s = (uvar_name * (string * 'bsort) list(*context*), 's
 (* uvar for (mono-)type *)                  
 type ('bsort, 'kind, 'mtype) uvar_mt = (uvar_name * ((string * 'bsort) list(*index context*) * (string * 'kind) list(*type context*)), 'mtype) uvar_ref
 
+(* mapping will break sharing of uvars *)
+fun map_ref f r = ref $ f (!r)
+                      
+fun map_uvar_bs f_bs x =
+  flip map_ref x $
+       (fn u => case u of
+                    Fresh name => Fresh name
+                  | Refined b => Refined $ f_bs b
+       )
+
+fun map_uvar_i (f_bs, f_i) x =
+  flip map_ref x $
+       (fn u => case u of
+                    Fresh (name, ctx, b) => Fresh (name, map (mapSnd f_bs) ctx, f_bs b)
+                  | Refined i => Refined $ f_i i
+       )
+
+fun map_uvar_s (f_bs, f_s) x =
+  flip map_ref x $
+       (fn u => case u of
+                    Fresh (name, ctx) => Fresh (name, map (mapSnd f_bs) ctx)
+                  | Refined s => Refined $ f_s s
+       )
+
 fun refine (x : ('a, 'b) uvar_ref) (v : 'b) = 
   case !x of
       Refined _ => raise Impossible "refine(): should only refine Fresh uvar"
