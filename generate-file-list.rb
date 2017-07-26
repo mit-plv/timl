@@ -121,6 +121,7 @@ get-region.sml
 hyp.sml
 expr.sig
 base-types.sml
+expr-simp-fn.sml
 expr-fn.sml
 expr-visitor.sml                                 
 expr-trans.sml
@@ -132,7 +133,6 @@ long-id-subst.sml
 expr-ex.sig
 type-util.sml
 expr-util.sml
-expr-simp-fn.sml
 to-string.sml
 expr.sml
 underscore-exprs.sml
