@@ -338,69 +338,26 @@ structure IdxGetRegion = IdxGetRegionFn (structure Idx = Idx
                                          val get_region_var = get_region_long_id
                                          val set_region_var = set_region_long_id)
 open IdxGetRegion
+       
 structure TypeGetRegion = TypeGetRegionFn (structure Type = Type
                                            val get_region_var = get_region_long_id
                                            val get_region_i = get_region_i)
 open TypeGetRegion
-(* mlton needs these two lines *)                                         
+       
+structure ExprGetRegion = ExprGetRegionFn (structure Expr = ExprCore
+                                           val get_region_var = get_region_long_id
+                                           val get_region_cvar = get_region_long_id
+                                           val get_region_i = get_region_i
+                                           val get_region_mt = get_region_mt
+                                          )
+open ExprGetRegion
+
+(* mlton needs these lines *)                                         
 structure Idx = IdxOfExpr
 open Idx
-
-fun get_region_binder (Binder (_, (_, r))) = r
-                                             
-fun get_region_pn pn = 
-  case pn of
-      ConstrP (_, _, _, Outer r) => r
-    | VarP name => get_region_binder name
-    | PairP (pn1, pn2) => combine_region (get_region_pn pn1) (get_region_pn pn2)
-    | TTP (Outer r) => r
-    | AliasP (_, _, Outer r) => r
-    | AnnoP (pn, Outer t) => combine_region (get_region_pn pn) (get_region_mt t)
-
-fun get_region_bind fp ft bind =
-  let
-    val (p, t) = Unbound.unBind bind
-  in
-    combine_region (fp p) (ft t)
-  end
-    
-fun get_region_e e = 
-  case e of
-      EVar (x, _) => get_region_long_id x
-    | EConst (_, r) => r
-    | EUnOp (_, _, r) => r
-    | EBinOp (_, e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
-    | ETriOp (_, e1, _, e3) => combine_region (get_region_e e1) (get_region_e e3)
-    | EEI (_, e, i) => combine_region (get_region_e e) (get_region_i i)
-    | EET (_, e, t) => combine_region (get_region_e e) (get_region_mt t)
-    | ET (_, _, r) => r
-    | EAbs bind => get_region_bind get_region_pn get_region_e bind
-    | EAbsI (_, r) => r
-    | EAppConstr ((x, _), _, _, e, _) => combine_region (get_region_long_id x) (get_region_e e)
-    | ECase (_, _, _, r) => r
-    | ELet (_, _, r) => r
-                                              
-fun get_region_rule (pn, e) = combine_region (get_region_pn pn) (get_region_e e)
-
-fun get_region_dec dec =
-  case dec of
-      DVal (_, _, Outer r) => r
-    | DValPtrn (_, _, Outer r) => r
-    | DRec (_, _, Outer r) => r
-    | DIdxDef (name, _, Outer i) => combine_region (get_region_binder name) (get_region_i i)
-    | DAbsIdx2 (name, _, Outer i) => combine_region (get_region_binder name) (get_region_i i)
-    | DAbsIdx (_, _, Outer r) => r
-    | DTypeDef (name, Outer t) => combine_region (get_region_binder name) (get_region_mt t)
-    | DOpen (Outer (_, r), _) => r
-
-fun get_region_sig (_, r) = r
-
-fun get_region_m m =
-  case m of
-      ModComponents (_, r) => r
-    | ModSeal (m, sg) => combine_region (get_region_m m) (get_region_sig sg)
-    | ModTransparentAsc (m, sg) => combine_region (get_region_m m) (get_region_sig sg)
-
+structure Type = TypeOfExpr
+open Type
+       
 fun is_value (e : expr) : bool =
   case e of
       EVar _ => true

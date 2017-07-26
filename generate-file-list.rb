@@ -118,11 +118,11 @@ type.sml
 type-trans.sml
 pattern.sml
 pattern-visitor.sml                                 
-get-region.sml
 hyp.sml
 expr.sig
 expr-visitor.sml                                 
 expr-fn.sml
+get-region.sml
 base-types.sml
 idx-type-expr.sig
 idx-type-expr-fn.sml
