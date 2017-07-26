@@ -727,7 +727,7 @@ fun solve_exists (vc as (hs, p), vcs) =
         open CollectVar
         val vars = dedup eq_var $ collect_var_i_i value_side
         val uncovered = List.filter (fn var => not (List.exists (fn arg => eq_i (VarI var) arg) args)) vars
-        fun forget_nonconsuming (var : long_id) b =
+        fun forget_nonconsuming (var : var) b =
           let
             val x = case var of
                          ID (x, _) => x

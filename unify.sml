@@ -1,13 +1,13 @@
 (* unification *)
 
 structure Unify = struct
+open CollectVar
 open ParaSubst
 open Expr
 open Util
 open UVar
 open Subst
 open Normalize
-open CollectVar
 open TypecheckUtil
        
 infixr 0 $
@@ -317,7 +317,7 @@ fun unify_mt r gctx ctx (t, t') =
                                        
         open CollectVar
         val uncovered = List.filter (fn var => not (List.exists (fn arg => eq_i (VarI var) arg) i_args)) i_vars'
-        fun forget_nonconsuming (var : long_id) b =
+        fun forget_nonconsuming (var : var) b =
           let
             val x = case var of
                          ID (x, _) => x
