@@ -416,6 +416,7 @@ fun on_e (e : S.expr) =
     (*   end *)
     | S.EAppConstr ((_, eia), ts, is, e, ot) =>
       let
+        open ToStringRaw
         open ToString
         fun str_var (_, (x, _)) = str_int x
         val pp_t = MicroTiMLPP.pp_t_fn (str_var, str_bs, str_raw_i, str_raw_s, const_fun "<kind>")

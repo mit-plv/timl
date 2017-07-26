@@ -16,8 +16,7 @@ open LongIdHasEqual
 fun eq_name ((s, _) : name, (s', _)) = s = s'
 end
                        
-structure Equal = EqualFn (type bsort = Expr.Type.bsort
-                           structure IdxType = struct
+structure Equal = EqualFn (structure IdxType = struct
                            structure Idx = Expr.Idx
                            structure Type = Expr.Type
                            end
@@ -65,10 +64,13 @@ open Expr
 open IntLongIdCanToString
 end
                        
-structure ToString = ToStringFn (type bsort = Expr.Type.bsort
-                                 structure Expr = Expr
+structure ToString = ToStringFn (structure Expr = Expr
                                  structure CanToString = CanToString
                                 )
+                                
+structure ToStringRaw = ToStringRawFn (structure Expr = Expr
+                                    open CanToString
+                                   )
                                 
 structure Subst = SubstFn (structure IdxType = struct
                            structure Idx = Expr.Idx

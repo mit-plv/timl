@@ -9,6 +9,7 @@ open Subst
 open Bind
 open Package
 open TypecheckUtil
+open ToStringRaw
 open UVar
 open Unify
 open FreshUVar

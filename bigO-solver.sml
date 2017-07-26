@@ -1,5 +1,6 @@
 structure BigOSolver = struct
 open Equal
+open ToStringRaw
 open UVar
 open Expr
 open Subst

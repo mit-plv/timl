@@ -30,8 +30,7 @@ open NamefulExpr
 open LongIdHasEqual
 end
                        
-structure NamefulEqual = EqualFn (type bsort = NamefulExpr.Type.bsort
-                                  structure IdxType = struct
+structure NamefulEqual = EqualFn (structure IdxType = struct
                                   structure Idx = NamefulExpr.Idx
                                   structure Type = NamefulExpr.Type
                                   end
@@ -63,8 +62,7 @@ open NamefulExpr
 open StringLongIdCanToString
 end
                        
-structure NamefulToString = ToStringFn (type bsort = NamefulExpr.Type.bsort
-                                        structure Expr = NamefulExpr
+structure NamefulToString = ToStringFn (structure Expr = NamefulExpr
                                         structure CanToString = NamefulCanToString
                                 )
                                 
@@ -80,8 +78,7 @@ open UnderscoredExpr
 open LongIdHasEqual
 end
                        
-structure UnderscoredEqual = EqualFn (type bsort = UnderscoredExpr.Type.bsort
-                                      structure IdxType = struct
+structure UnderscoredEqual = EqualFn (structure IdxType = struct
                                       structure Idx = UnderscoredExpr.Idx
                                       structure Type = UnderscoredExpr.Type
                                       end
@@ -94,8 +91,7 @@ open UnderscoredExpr
 open IntLongIdCanToString
 end
                        
-structure UnderscoredToString = ToStringFn (type bsort = UnderscoredExpr.Type.bsort
-                                            structure Expr = UnderscoredExpr
+structure UnderscoredToString = ToStringFn (structure Expr = UnderscoredExpr
                                             structure CanToString = UnderscoredCanToString
                                 )
                                 
