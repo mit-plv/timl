@@ -53,6 +53,13 @@ fun map_uvar_s (f_bs, f_s) x =
                   | Refined s => Refined $ f_s s
        )
 
+fun map_uvar_mt (f_bs, f_k, f_mt) x =
+  flip map_ref x $
+       (fn u => case u of
+                    Fresh (name, (sctx, kctx)) => Fresh (name, (map (mapSnd f_bs) sctx, map (mapSnd f_k) kctx))
+                  | Refined t => Refined $ f_mt t
+       )
+
 fun refine (x : ('a, 'b) uvar_ref) (v : 'b) = 
   case !x of
       Refined _ => raise Impossible "refine(): should only refine Fresh uvar"

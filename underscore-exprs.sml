@@ -11,6 +11,7 @@ fun eq_uvar_mt _ = false
 fun map_uvar_bs _ = id
 fun map_uvar_i _ = id
 fun map_uvar_s _ = id
+fun map_uvar_mt _ = id
 fun str_uvar_bs _ _ = "_"
 fun str_uvar_i _ _ = "_"
 fun str_uvar_s _ _ = "_"

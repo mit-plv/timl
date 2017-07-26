@@ -9,6 +9,7 @@ signature CAN_TO_STRING = sig
   val map_uvar_bs : ('bsort -> 'bsort2) -> 'bsort uvar_bs -> 'bsort2 uvar_bs
   val map_uvar_i : ('bsort -> 'bsort2) * ('idx -> 'idx2) -> ('bsort, 'idx) uvar_i -> ('bsort2, 'idx2) uvar_i
   val map_uvar_s : ('bsort -> 'bsort2) * ('sort -> 'sort2) -> ('bsort, 'sort) uvar_s -> ('bsort2, 'sort2) uvar_s
+  val map_uvar_mt : ('bsort -> 'bsort2) * ('kind -> 'kind2) * ('mtype -> 'mtype2) -> ('bsort, 'kind, 'mtype) uvar_mt -> ('bsort2, 'kind2, 'mtype2) uvar_mt
   val str_uvar_bs : ('a -> string) -> 'a uvar_bs -> string
   val str_uvar_i : ('bsort -> string) * ('idx -> string) -> ('bsort, 'idx) uvar_i -> string
   val str_uvar_s : ('sort -> string) -> ('bsort, 'sort) uvar_s -> string
@@ -69,7 +70,7 @@ structure StringUVar = struct
 type 'a uvar_bs = 'a uvar_bs
 type ('a, 'b) uvar_i = ('a, 'b) uvar_i
 type ('a, 'b) uvar_s = ('a, 'b) uvar_s
-type ('a, 'b, 'c) uvar_mt = string
+type ('a, 'b, 'c) uvar_mt = ('a, 'b, 'c) uvar_mt
 end
                          
 structure NamefulIdx = IdxFn (structure UVarI = StringUVar
@@ -572,12 +573,12 @@ fun export_type_visitor_vtable cast gctx (* : ((string list * string list) TV.ty
     fun visit_var this (sctx, kctx) x =
       str_var #2 gctx kctx x
     fun for_idx f this (sctx, kctx) data = f gctx sctx data
-    val str_mt = str_mt gctx
     fun visit_uvar_mt this ctx u =
       let
-        (* fun str_region ((left, right) : region) = sprintf "($,$)-($,$)" [str_int (#line left), str_int (#col left), str_int (#line right), str_int (max (#col right) 0)] *)
+        val vtable = cast this
+        val empty_ctx = ([], [])
       in
-        (* (surround "[" "] " $ str_region r) ^ *) str_uvar_mt (str_raw_bs, str_raw_k, str_mt ([], [])) u
+        map_uvar_mt (#visit_bsort vtable this empty_ctx, #visit_kind vtable this empty_ctx, #visit_mtype vtable this empty_ctx) u
       end
   in
     TV.default_type_visitor_vtable
@@ -592,16 +593,16 @@ fun export_type_visitor_vtable cast gctx (* : ((string list * string list) TV.ty
       visit_uvar_mt
   end
 
-and new_export_type_visitor a = TV.new_type_visitor export_type_visitor_vtable a
+fun new_export_type_visitor a = TV.new_type_visitor export_type_visitor_vtable a
     
-and export_mt gctx ctx b =
+fun export_mt gctx ctx b =
   let
     val visitor as (TV.TypeVisitor vtable) = new_export_type_visitor gctx
   in
     #visit_mtype vtable visitor ctx b
   end
 
-and strn_mt t =
+fun strn_mt t =
   let
     open NamefulIdxUtil
     open NamefulType
@@ -695,7 +696,12 @@ and strn_mt t =
         (* sprintf "(fn {$ : $} => $)" [name, strn_s gctx sctx s, strn_mt (name :: sctx, kctx) t] *)
         strn_abs t
       | BaseType (bt, _) => str_bt bt
-      | UVar (u, r) => u
+      | UVar (u, r) =>
+        let
+          (* fun str_region ((left, right) : region) = sprintf "($,$)-($,$)" [str_int (#line left), str_int (#col left), str_int (#line right), str_int (max (#col right) 0)] *)
+        in
+          (* (surround "[" "] " $ str_region r) ^ *) str_uvar_mt (strn_bs, strn_k, strn_mt) u
+        end
       | TDatatype (dt, _) => "(datatype ...)"
   end
 
@@ -711,7 +717,7 @@ and strn_uni (binds, t) =
       sprintf "(forall$, $)" [join_prefix " " binds, strn_mt t]
     end
       
-and str_mt gctx ctx b =
+fun str_mt gctx ctx b =
   let
     val b = export_mt gctx ctx b
   in

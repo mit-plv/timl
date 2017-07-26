@@ -419,7 +419,7 @@ sorting : LCUR id_plus COLON sort RCUR (sortings (id_plus, sort, (LCURleft, RCUR
         | LCUR prop RCUR (
             let
               val r = (LCURleft, RCURright)
-              val id = ("__omitted_subset_id_name", r)
+              val id = ("__tt", r)
               val bsort = Base ("Unit", r)
             in
               [(id, Subset (bsort, id, prop, r), r)]
