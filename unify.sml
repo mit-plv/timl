@@ -151,6 +151,8 @@ fun unify_i r gctxn ctxn (i, i') =
     ()
   end
 
+open Bind
+       
 fun is_sub_sort r gctxn ctxn (s : sort, s' : sort) =
   let
     val is_sub_sort = is_sub_sort r gctxn

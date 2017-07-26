@@ -351,6 +351,8 @@ fun subst_e_e a = subst_e_e_fn (compare_var, shift_var, shiftx_i_i, shiftx_i_s, 
 fun EV n = EVar (ID (n, dummy))
                 
 open PatternEx
+structure S = TiML
+                
 fun shift_e_pn a = shift_e_pn_fn shift_e_e a
                                  
 fun on_e (e : S.expr) =

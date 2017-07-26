@@ -93,18 +93,19 @@ fun on_quan q =
 
 structure IdxVisitor = IdxVisitorFn (structure S = S.Idx
                                      structure T = T.Idx)
-open IdxVisitor
+(* open IdxVisitor *)
+structure IV = IdxVisitor
                            
 (***************** the "import" (or name-resolving) visitor: converting nameful terms to de Bruijn indices **********************)    
     
-fun import_idx_visitor_vtable cast gctx : ('this, scontext) idx_visitor_vtable =
+fun import_idx_visitor_vtable cast gctx : ('this, scontext) IV.idx_visitor_vtable =
   let
     fun extend this env x = fst x :: env
     fun visit_var this env x =
       on_long_id gctx #1 env x
     fun visit_quan _ _ q = on_quan q
   in
-    default_idx_visitor_vtable
+    IV.default_idx_visitor_vtable
       cast
       extend
       visit_var
@@ -114,32 +115,32 @@ fun import_idx_visitor_vtable cast gctx : ('this, scontext) idx_visitor_vtable =
       visit_quan
   end
 
-fun new_import_idx_visitor a = new_idx_visitor import_idx_visitor_vtable a
+fun new_import_idx_visitor a = IV.new_idx_visitor import_idx_visitor_vtable a
     
 fun on_bsort b =
   let
-    val visitor as (IdxVisitor vtable) = new_import_idx_visitor empty
+    val visitor as (IV.IdxVisitor vtable) = new_import_idx_visitor empty
   in
     #visit_bsort vtable visitor [] b
   end
     
 fun on_idx gctx ctx b =
   let
-    val visitor as (IdxVisitor vtable) = new_import_idx_visitor gctx
+    val visitor as (IV.IdxVisitor vtable) = new_import_idx_visitor gctx
   in
     #visit_idx vtable visitor ctx b
   end
     
 fun on_prop gctx ctx b =
   let
-    val visitor as (IdxVisitor vtable) = new_import_idx_visitor gctx
+    val visitor as (IV.IdxVisitor vtable) = new_import_idx_visitor gctx
   in
     #visit_prop vtable visitor ctx b
   end
     
 fun on_sort gctx ctx b =
   let
-    val visitor as (IdxVisitor vtable) = new_import_idx_visitor gctx
+    val visitor as (IV.IdxVisitor vtable) = new_import_idx_visitor gctx
   in
     #visit_sort vtable visitor ctx b
   end

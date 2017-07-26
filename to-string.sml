@@ -87,77 +87,6 @@ structure NamefulIdxUtil = IdxUtilFn (structure Idx = NamefulIdx
                                       val dummy = dummy
                               )
                              
-structure IdxVisitor = IdxVisitorFn (structure S = Idx
-                                     structure T = NamefulIdx)
-(* open IdxVisitor *)
-structure IV = IdxVisitor
-                           
-(******** the "export" visitor: convertnig de Bruijn indices to nameful terms **************)
-    
-fun export_idx_visitor_vtable cast gctx (* : ((* 'this *)string list IV.idx_visitor, ToStringUtil.scontext) IV.idx_visitor_vtable *) =
-  let
-    fun extend this env name = fst name :: env
-    fun visit_var this ctx x =
-      str_var #1 gctx ctx x
-    fun visit_uvar_bs this ctx u =
-      let
-        val vtable = cast this
-      in
-        map_uvar_bs (#visit_bsort vtable this []) u
-      end
-    fun visit_uvar_i this ctx u =
-      let
-        val vtable = cast this
-      in
-        map_uvar_i (#visit_bsort vtable this [], #visit_idx vtable this []) u
-      end
-    fun visit_uvar_s this ctx u =
-      let
-        val vtable = cast this
-      in
-        map_uvar_s (#visit_bsort vtable this [], #visit_sort vtable this []) u
-      end
-  in
-    IV.default_idx_visitor_vtable
-      cast
-      extend
-      visit_var
-      visit_uvar_bs
-      visit_uvar_i
-      visit_uvar_s
-      (ignore_this_env strip_quan)
-  end
-
-fun new_export_idx_visitor a = IV.new_idx_visitor export_idx_visitor_vtable a
-    
-fun export_bs b =
-  let
-    val visitor as (IV.IdxVisitor vtable) = new_export_idx_visitor empty
-  in
-    #visit_bsort vtable visitor [] b
-  end
-
-fun export_i gctx ctx b =
-  let
-    val visitor as (IV.IdxVisitor vtable) = new_export_idx_visitor gctx
-  in
-    #visit_idx vtable visitor ctx b
-  end
-
-fun export_p gctx ctx b =
-  let
-    val visitor as (IV.IdxVisitor vtable) = new_export_idx_visitor gctx
-  in
-    #visit_prop vtable visitor ctx b
-  end
-
-fun export_s gctx ctx b =
-  let
-    val visitor as (IV.IdxVisitor vtable) = new_export_idx_visitor gctx
-  in
-    #visit_sort vtable visitor ctx b
-  end
-
 fun strn_bs s =
   let
     open NamefulIdx
@@ -264,6 +193,14 @@ fun strn_s s =
         sprintf "(fn $ : $ => $)" [name, strn_bs s1, strn_s s]
       | SApp (s, i) => sprintf "($ $)" [strn_s s, strn_i i]
   end
+
+structure ExportIdx = ExportIdxFn (structure Params = struct
+                                   structure S = Idx
+                                   structure T = NamefulIdx
+                                   end
+                                   open CanToString
+                                  )
+open ExportIdx
 
 fun str_bs b =
   let
@@ -515,8 +452,6 @@ fun str_raw_e e =
 (*       | SApp (s, i) => sprintf "($ $)" [str_s ctx s, str_i gctx ctx i] *)
 (*   end *)
 
-fun export_k (n, sorts) = (n, map export_bs sorts)
-  
 (* val str_Type = "*" *)
 val str_Type = "Type"
                  
@@ -525,8 +460,6 @@ fun strn_k (n, sorts) : string =
   else
     sprintf "($$$)" [if n = 0 then "" else join " => " (repeat n str_Type) ^ " => ", if null sorts then "" else join " => " (map strn_bs sorts) ^ " => ", str_Type]
 
-fun str_k a = (strn_k o export_k) a
-    
 datatype 'a bind = 
          KindingT of string
          | SortingT of string * 'a
@@ -560,46 +493,6 @@ fun collect_Uni_UniI t =
     val binds = map (mapFst fst) binds
   in
     (map KindingT tnames @ map SortingT binds, t)
-  end
-
-structure TypeVisitor = TypeVisitorFn (structure S = Type
-                                     structure T = NamefulType)
-structure TV = TypeVisitor
-                           
-fun export_type_visitor_vtable cast gctx (* : ((string list * string list) TV.type_visitor, string list * string list) TV.type_visitor_vtable *) =
-  let
-    fun extend_i this (sctx, kctx) name = (fst name :: sctx, kctx)
-    fun extend_t this (sctx, kctx) name = (sctx, fst name :: kctx)
-    fun visit_var this (sctx, kctx) x =
-      str_var #2 gctx kctx x
-    fun for_idx f this (sctx, kctx) data = f gctx sctx data
-    fun visit_uvar_mt this ctx u =
-      let
-        val vtable = cast this
-        val empty_ctx = ([], [])
-      in
-        map_uvar_mt (#visit_bsort vtable this empty_ctx, #visit_kind vtable this empty_ctx, #visit_mtype vtable this empty_ctx) u
-      end
-  in
-    TV.default_type_visitor_vtable
-      cast
-      extend_i
-      extend_t
-      visit_var
-      (ignore_this_env export_bs)
-      (for_idx export_i)
-      (for_idx export_s)
-      (ignore_this_env export_k)
-      visit_uvar_mt
-  end
-
-fun new_export_type_visitor a = TV.new_type_visitor export_type_visitor_vtable a
-    
-fun export_mt gctx ctx b =
-  let
-    val visitor as (TV.TypeVisitor vtable) = new_export_type_visitor gctx
-  in
-    #visit_mtype vtable visitor ctx b
   end
 
 fun strn_mt t =
@@ -717,6 +610,17 @@ and strn_uni (binds, t) =
       sprintf "(forall$, $)" [join_prefix " " binds, strn_mt t]
     end
       
+structure ExportType = ExportTypeFn (structure Params = struct
+                                     structure S = Type
+                                     structure T = NamefulType
+                                     end
+                                     open CanToString
+                                     open ExportIdx
+                                  )
+open ExportType
+
+fun str_k a = (strn_k o export_k) a
+    
 fun str_mt gctx ctx b =
   let
     val b = export_mt gctx ctx b
@@ -724,13 +628,6 @@ fun str_mt gctx ctx b =
     strn_mt b
   end
     
-fun export_t gctx ctx b =
-  let
-    val visitor as (TV.TypeVisitor vtable) = new_export_type_visitor gctx
-  in
-    #visit_ty vtable visitor ctx b
-  end
-
 fun strn_t t =
   let
     open NamefulType
@@ -887,71 +784,8 @@ structure NamefulExpr = ExprFn (
 
 structure NamefulExprUtil = ExprUtilFn (NamefulExpr)
                              
-structure ToStringExprVisitor = ExprVisitorFn (structure S = Expr
-                                       structure T = NamefulExpr)
-structure EV = ToStringExprVisitor
-
 open LongId
        
-fun export_expr_visitor_vtable cast gctx =
-  let
-    fun extend_i this (sctx, kctx, cctx, tctx) name = (Name2str name :: sctx, kctx, cctx, tctx)
-    fun extend_t this (sctx, kctx, cctx, tctx) name = (sctx, Name2str name :: kctx, cctx, tctx)
-    fun extend_c this (sctx, kctx, cctx, tctx) name = (sctx, kctx, Name2str name :: cctx, tctx)
-    fun extend_e this (sctx, kctx, cctx, tctx) name = (sctx, kctx, cctx, Name2str name :: tctx)
-    fun visit_cvar this (sctx, kctx, cctx, tctx) x =
-      str_var #3 gctx cctx x
-    fun visit_var this (sctx, kctx, cctx, tctx) x =
-      str_var #4 gctx tctx x
-    fun visit_mod_id this (sctx, kctx, cctx, tctx) (m, r) =
-      fst $ lookup_module gctx m
-    fun for_idx f this (sctx, kctx, cctx, tctx) data = f gctx sctx data
-    fun for_type f this (sctx, kctx, cctx, tctx) data = f gctx (sctx, kctx) data
-  in
-    EV.default_expr_visitor_vtable
-      cast
-      extend_i
-      extend_t
-      extend_c
-      extend_e
-      visit_var
-      visit_cvar
-      visit_mod_id
-      (for_idx export_i)
-      (for_idx export_s)
-      (for_type export_mt)
-      visit_noop
-  end
-
-fun new_export_expr_visitor a = EV.new_expr_visitor export_expr_visitor_vtable a
-    
-fun export_e gctx ctx b =
-  let
-    val visitor as (EV.ExprVisitor vtable) = new_export_expr_visitor gctx
-  in
-    #visit_expr vtable visitor ctx b
-  end
-
-fun export_decl gctx env b =
-  let
-    val visitor as (EV.ExprVisitor vtable) = new_export_expr_visitor gctx
-    val ctx = env2ctx env
-    val b = #visit_decl vtable visitor ctx b
-    val env = !(#current ctx)
-  in
-    (b, env)
-  end
-
-fun export_decls gctx env b =
-  let
-    val visitor = new_export_expr_visitor gctx
-    val ctx = env2ctx env
-    val b = EV.visit_decls visitor ctx b
-    val env = !(#current ctx)
-  in
-    (b, env)
-  end
-
 fun strn_pn pn =
   let
   in
@@ -1158,6 +992,16 @@ and strn_rule bind =
     in
       sprintf "$ => $" [strn_pn pn, strn_e e]
     end
+
+structure ExportExpr = ExportExprFn (structure Params = struct
+                                     structure S = Expr
+                                     structure T = NamefulExpr
+                                     end
+                                     open CanToString
+                                     open ExportIdx
+                                     open ExportType
+                                  )
+open ExportExpr
 
 fun str_e gctx ctx b =
   let

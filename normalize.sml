@@ -249,6 +249,8 @@ fun update_sgntr sg =
 fun update_gctx gctx =
   map (mapSnd update_sgntr) gctx
 
+open Bind
+       
 (* Normalize to weak head normal form (WHNF) (i.e. only reveal head structure). Efficient for equivalence test. *)      
 fun whnf_i i =
   case i of

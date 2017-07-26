@@ -1,7 +1,11 @@
-functor ExprVisitorFn (structure S : EXPR
-                       structure T : EXPR
-                    ) = struct
+signature EXPR_VISITOR_PARAMS = sig
+structure S : EXPR
+structure T : EXPR
+end
 
+functor ExprVisitorFn (Params : EXPR_VISITOR_PARAMS) = struct
+
+open Params
 open Unbound
 open Namespaces
 open Binders

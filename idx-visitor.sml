@@ -1,10 +1,14 @@
-functor IdxVisitorFn (structure S : IDX
-                      structure T : IDX
-                      sharing type S.base_sort = T.base_sort
-                      sharing type S.name = T.name
-                      sharing type S.region = T.region
-                     ) = struct
+signature IDX_VISITOR_PARAMS = sig
+  structure S : IDX
+  structure T : IDX
+  sharing type S.base_sort = T.base_sort
+  sharing type S.name = T.name
+  sharing type S.region = T.region
+end
 
+functor IdxVisitorFn (Params : IDX_VISITOR_PARAMS) = struct
+
+open Params
 open Unbound
 open Namespaces
 open Binders

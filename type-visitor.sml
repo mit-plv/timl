@@ -1,10 +1,14 @@
-functor TypeVisitorFn (structure S : TYPE
-                        structure T : TYPE
-                        sharing type S.base_type = T.base_type
-                        sharing type S.name = T.name
-                        sharing type S.region = T.region
-                       ) = struct
+signature TYPE_VISITOR_PARAMS = sig
+  structure S : TYPE
+  structure T : TYPE
+  sharing type S.base_type = T.base_type
+  sharing type S.name = T.name
+  sharing type S.region = T.region
+end
 
+functor TypeVisitorFn (Params : TYPE_VISITOR_PARAMS) = struct
+
+open Params
 open Unbound
 open Namespaces
 open Binders

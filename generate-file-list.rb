@@ -133,6 +133,7 @@ subst.sml
 long-id-subst.sml
 type-util.sml
 expr-util.sml
+export.sml
 to-string.sml
 uvar.sml
 expr.sml
