@@ -1,5 +1,5 @@
 signature COLLECT_MOD_PARAMS = sig
-  structure Expr : EXPR_EX
+  structure Expr : IDX_TYPE_EXPR
   val on_var : string list -> Expr.var -> string list
   val on_mod_id : string list -> Expr.mod_id -> string list
 end

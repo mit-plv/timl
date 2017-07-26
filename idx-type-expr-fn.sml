@@ -1,11 +1,11 @@
-signature EXPR_PARAMS = sig
+signature IDX_TYPE_EXPR_PARAMS = sig
   type v
   structure UVarI : UVAR_I
   structure UVarT :  UVAR_T
   type ptrn_constr_tag
 end
                           
-functor ExprFn (Params : EXPR_PARAMS) = struct
+functor IdxTypeExprFn (Params : IDX_TYPE_EXPR_PARAMS) = struct
 open Params
 open UVarI
 open UVarT
@@ -448,8 +448,9 @@ fun is_value (e : expr) : bool =
 end
 
 (* Test that the result of [ExprFun] matches some signatures. We don't use a signature ascription because signature ascription (transparent or opaque) hides components that are not in the signature. SML should have a "signature check" kind of ascription. *)
-functor TestExprFnSignatures (Params : EXPR_PARAMS) = struct
-structure M : IDX = ExprFn (Params)
-structure M2 : TYPE = ExprFn (Params)
-structure M3 : EXPR = ExprFn (Params)
+functor TestIdxTypeExprFnSignatures (Params : IDX_TYPE_EXPR_PARAMS) = struct
+structure M : IDX = IdxTypeExprFn (Params)
+structure M2 : TYPE = IdxTypeExprFn (Params)
+structure M3 : EXPR = IdxTypeExprFn (Params)
+structure M4 : IDX_TYPE_EXPR = IdxTypeExprFn (Params)
 end

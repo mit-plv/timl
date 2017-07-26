@@ -13,7 +13,7 @@ fun eq_uvar_s (_, _) = false
 fun eq_uvar_mt (_, _) = false
 end
 
-structure NamefulExpr = ExprFn (type v = string
+structure NamefulExpr = IdxTypeExprFn (type v = string
                                 structure UVarI = Underscore
                                 structure UVarT = Underscore
                                 type ptrn_constr_tag = unit
@@ -63,7 +63,7 @@ structure NamefulToString = ToStringFn (type bsort = NamefulExpr.Type.bsort
                                         structure CanToString = NamefulCanToString
                                 )
                                 
-structure UnderscoredExpr = ExprFn (type v = int
+structure UnderscoredExpr = IdxTypeExprFn (type v = int
                                     structure UVarI = Underscore
                                     structure UVarT = Underscore
                                     type ptrn_constr_tag = unit

@@ -1,4 +1,4 @@
-signature EXPR_EX = sig
+signature IDX_TYPE_EXPR = sig
   structure Idx : IDX
   structure Type : TYPE
   sharing type Type.var = Idx.var

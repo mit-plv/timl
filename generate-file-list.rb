@@ -122,6 +122,7 @@ hyp.sml
 expr.sig
 base-types.sml
 expr-simp-fn.sml
+idx-type-expr.sig
 idx-type-expr-fn.sml
 expr-visitor.sml                                 
 expr-trans.sml
@@ -130,7 +131,6 @@ vc.sml
 equal.sml
 subst.sml
 long-id-subst.sml
-expr-ex.sig
 type-util.sml
 expr-util.sml
 to-string.sml

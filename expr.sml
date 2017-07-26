@@ -76,7 +76,7 @@ fun get_uvar_info x =
                        
 end
                        
-structure Expr = ExprFn (type v = int
+structure Expr = IdxTypeExprFn (type v = int
                          structure UVarI = UVar
                          structure UVarT = UVar
                          type ptrn_constr_tag = int * int

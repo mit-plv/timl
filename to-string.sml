@@ -12,7 +12,7 @@ signature CAN_TO_STRING = sig
   val str_uvar_mt : ('sort -> string) * ('kind -> string) * ('mtype -> string) -> ('sort, 'kind, 'mtype) uvar_mt -> string
 end
 
-functor ToStringFn (structure Expr : EXPR_EX where type Idx.base_sort = BaseSorts.base_sort
+functor ToStringFn (structure Expr : IDX_TYPE_EXPR where type Idx.base_sort = BaseSorts.base_sort
                                                and type Type.base_type = BaseTypes.base_type
                                                and type Idx.region = Region.region
                                                and type Idx.name = string * Region.region
