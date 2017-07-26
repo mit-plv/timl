@@ -844,7 +844,7 @@ and str_t gctx ctx b =
 
 fun decorate_var eia s = (if eia then "@" else "") ^ s
     
-structure NamefulExpr = ExprSimpFn (
+structure NamefulExpr = ExprFn (
   type var = string
   type cvar = string
   type mod_id = string

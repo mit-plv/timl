@@ -42,7 +42,7 @@ type cvar = var
               
 open Pattern
 
-structure ExprCore = ExprSimpFn (
+structure ExprCore = ExprFn (
   type var = var
   type cvar = var
   type mod_id = name

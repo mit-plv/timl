@@ -120,11 +120,11 @@ pattern-visitor.sml
 get-region.sml
 hyp.sml
 expr.sig
+expr-visitor.sml                                 
+expr-fn.sml
 base-types.sml
-expr-simp-fn.sml
 idx-type-expr.sig
 idx-type-expr-fn.sml
-expr-visitor.sml                                 
 expr-trans.sml
 simp.sml
 vc.sml

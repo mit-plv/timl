@@ -1,4 +1,4 @@
-signature EXPR_SIMP_PARAMS = sig
+signature EXPR_PARAMS = sig
   type var
   type cvar
   type mod_id
@@ -10,7 +10,7 @@ signature EXPR_SIMP_PARAMS = sig
   type kind
 end
 
-functor ExprSimpFn (Params : EXPR_SIMP_PARAMS) = struct
+functor ExprFn (Params : EXPR_PARAMS) = struct
 
 open Params
 
@@ -90,7 +90,7 @@ type prog = (name * top_bind) list
 
 end
 
-functor TestExprSimpFnSignatures (Params : EXPR_SIMP_PARAMS) = struct
-structure M : EXPR = ExprSimpFn (Params)
+functor TestExprFnSignatures (Params : EXPR_PARAMS) = struct
+structure M : EXPR = ExprFn (Params)
 end
                                                    
