@@ -155,7 +155,7 @@ fun subst_i_idx_visitor_vtable cast (visit_VarI, d, x, v) : ('this, int) idx_vis
 
 fun new_subst_i_idx_visitor params = new_idx_visitor subst_i_idx_visitor_vtable params
 
-fun subst_i_i_fn params d x v b =
+fun subst_i_i_fn params d (x : 'x) (v : 'v) b =
   let
     val visitor as (IdxVisitor vtable) = new_subst_i_idx_visitor (params, d, x, v)
   in

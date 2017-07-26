@@ -17,21 +17,33 @@ fun psubst_long_id d x get_v default y =
   case findi (curry eq_var y) (map (apply_depth d) x) of
       SOME (n, _) => get_v n
     | NONE => default
-          
-local
-  fun f d x v b =
-    case b of
-	VarI y => psubst_long_id d x (fn n => shiftx_i_i 0 d (List.nth (v, n))) b y
-      | IConst _ => b
-      | UnOpI (opr, i, r) => UnOpI (opr, f d x v i, r)
-      | BinOpI (opr, d1, d2) => BinOpI (opr, f d x v d1, f d x v d2)
-      | Ite (i1, i2, i3, r) => Ite (f d x v i1, f d x v i2, f d x v i3, r)
-      | IAbs (b, bind, r) => IAbs (b, psubst_aux_is_ibind f d x v bind, r)
-      | UVarI a => b
-in
-val psubst_aux_is_i = f 
-fun psubst_is_i x v b = f 0 x v b
-end
+
+fun visit_VarI (d, x, v) env y =
+  let
+    val d = d + env
+  in
+    psubst_long_id d x (fn n => shiftx_i_i 0 d (List.nth (v, n))) (VarI y) y
+  end
+                 
+val subst_i_params = visit_VarI
+                     
+fun psubst_aux_is_i a = IdxSubst.subst_i_i_fn subst_i_params a
+fun psubst_is_i a = psubst_aux_is_i 0 a
+                                
+(* local *)
+(*   fun f d x v b = *)
+(*     case b of *)
+(* 	VarI y => psubst_long_id d x (fn n => shiftx_i_i 0 d (List.nth (v, n))) b y *)
+(*       | IConst _ => b *)
+(*       | UnOpI (opr, i, r) => UnOpI (opr, f d x v i, r) *)
+(*       | BinOpI (opr, d1, d2) => BinOpI (opr, f d x v d1, f d x v d2) *)
+(*       | Ite (i1, i2, i3, r) => Ite (f d x v i1, f d x v i2, f d x v i3, r) *)
+(*       | IAbs (b, bind, r) => IAbs (b, psubst_aux_is_ibind f d x v bind, r) *)
+(*       | UVarI a => b *)
+(* in *)
+(* val psubst_aux_is_i = f  *)
+(* fun psubst_is_i x v b = f 0 x v b *)
+(* end *)
         
 local
   fun f d x v b =
