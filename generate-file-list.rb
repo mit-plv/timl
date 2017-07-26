@@ -122,7 +122,7 @@ hyp.sml
 expr.sig
 base-types.sml
 expr-simp-fn.sml
-expr-fn.sml
+idx-type-expr-fn.sml
 expr-visitor.sml                                 
 expr-trans.sml
 simp.sml
