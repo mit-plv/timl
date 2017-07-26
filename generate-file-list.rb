@@ -134,6 +134,7 @@ long-id-subst.sml
 type-util.sml
 expr-util.sml
 to-string.sml
+uvar.sml
 expr.sml
 underscore-exprs.sml
 elaborate.sml
