@@ -7,7 +7,6 @@ type sort
 type mtype
 type ptrn_constr_tag
 type ptrn = (cvar * ptrn_constr_tag, mtype) Pattern.ptrn
-val ptrn_names : ptrn -> string list * string list
 type ty
 type kind
 end

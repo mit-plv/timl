@@ -853,7 +853,6 @@ structure NamefulExpr = ExprSimpFn (
   type mtype = NamefulType.mtype
   type ptrn_constr_tag = ptrn_constr_tag
   type ptrn = (cvar * ptrn_constr_tag, mtype) Pattern.ptrn
-  val ptrn_names = fn _ => raise Impossible "NamefulExpr.ptrn_names"
   type ty = NamefulType.ty
   type kind = NamefulType.kind
 )

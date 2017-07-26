@@ -452,6 +452,36 @@ fun copy_anno gctx (anno as (t, d)) e =
 and copy_anno_rule gctx return bind =
     let
       val (pn, e) = Unbound.unBind bind
+      fun ptrn_names pn : string list * string list =
+        case pn of
+            ConstrP (_, inames, pn, _) =>
+            let
+              val inames = map binder2str inames
+              (* val () = println "ConstrP" *)
+              val (inames', enames) = ptrn_names pn
+            in
+              (inames' @ rev inames, enames)
+            end
+          | VarP name =>
+            let
+              (* val () = println $ sprintf "VarP: $" [name] *)
+            in
+              ([], [binder2str name])
+            end
+          | PairP (pn1, pn2) =>
+            let val (inames1, enames1) = ptrn_names pn1
+                val (inames2, enames2) = ptrn_names pn2
+            in
+              (inames2 @ inames1, enames2 @ enames1)
+            end
+          | TTP _ =>
+            ([], [])
+          | AliasP (name, pn, _) =>
+            let val (inames, enames) = ptrn_names pn
+            in
+              (inames, enames @ [binder2str name])
+            end
+          | AnnoP (pn, t) => ptrn_names pn
       val (sctx, _) = ptrn_names pn
       val offset = (length sctx, 0)
     in

@@ -8,7 +8,7 @@ signature EXPR = sig
   type mtype
   type ptrn_constr_tag
   type ptrn = (cvar * ptrn_constr_tag, mtype) Pattern.ptrn
-  val ptrn_names : ptrn -> string list * string list
+  (* val ptrn_names : ptrn -> string list * string list *)
 
   type return = mtype option * idx option
                                    
