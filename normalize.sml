@@ -246,8 +246,8 @@ fun update_sgntr sg =
     | FunctorBind ((arg_name, arg), body) =>
       FunctorBind ((arg_name, update_ctx arg), update_ctx body)
 
-fun update_gctx gctx =
-  map (mapSnd update_sgntr) gctx
+fun update_sgntr_list gctx =
+  List.map (mapSnd update_sgntr) gctx
 
 open Bind
        

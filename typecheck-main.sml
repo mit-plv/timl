@@ -1169,12 +1169,6 @@ fun str_gctx old_gctxn gctx =
 (*     lines *)
 (*   end *)
 
-structure SimpType = SimpTypeFn (structure Type = Expr
-                                 val simp_i = simp_i
-                                 val simp_s = simp_s
-                                 val subst_i_mt = subst_i_mt
-                        )
-                        
 fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, tctx : tcontext), e_all : U.expr) : expr * mtype * idx =
   let
     val get_mtype = get_mtype gctx
@@ -1479,18 +1473,51 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
             val d = update_i d
             val d = simp_i d
             (* val () = println $ str_i sctxn d *)
-            val wrong_d = Impossible "get_mtype (): U.AppConstr: d in wrong form"
-	    (* constructor application doesn't incur count *)
-            val d =
-                case d of
-                    IConst (ICTime _, r) => 
-                    if eq_i d (T1 r) then T0 r 
-                    else raise wrong_d
-                  | (BinOpI (AddI, d1, d2)) => 
-                    if eq_i d1 (T1 dummy) then d2
-                    else if eq_i d2 (T1 dummy) then d1
-                    else raise wrong_d
-                  | _ => raise wrong_d
+	    (* constructor application doesn't incur count, so we minus one from [d] *)
+            fun minus_one d =
+              let
+                fun wrong_d () = raise Impossible $ "get_mtype (): U.AppConstr: d in wrong form: " ^ str_i gctxn sctxn d
+                fun find_const i =
+                  case i of
+                      IConst (ICTime x, _) => 
+                      let
+                        open Real
+                        val x = fromString x !! wrong_d
+                      in
+                        x >= fromInt 1
+                      end
+                    | _ => false
+                fun const_minus_one i =
+                  case i of
+                      IConst (ICTime x, r) =>
+                      let
+                        open Real
+                        val x = fromString x !! wrong_d
+                        val one = fromInt 1
+                        val () = if x >= one then () else wrong_d ()
+                      in
+                        ConstIT (toString (x - one), r)
+                      end
+                    | _ => wrong_d ()
+                val is = collect_AddI d
+                val pos = index find_const is !! wrong_d
+                val is = update pos const_minus_one is
+                val d = combine_AddI_Time is
+                val d = simp_i d
+                (* val d = *)
+                (*     case d of *)
+                (*         IConst (ICTime _, r) =>  *)
+                (*         if eq_i d (T1 r) then T0 r  *)
+                (*         else wrong_d () *)
+                (*       | (BinOpI (AddI, d1, d2)) =>  *)
+                (*         if eq_i d1 (T1 dummy) then d2 *)
+                (*         else if eq_i d2 (T1 dummy) then d1 *)
+                (*         else wrong_d () *)
+                (*       | _ => wrong_d () *)
+              in
+                d
+              end
+            val d = minus_one d
             val (ts, is, e) =
                 case e of
                     EBinOp (EBApp, f, e) =>

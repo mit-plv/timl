@@ -101,6 +101,12 @@ structure Simp = SimpFn (structure Idx = Expr
                          val substx_i_p = Subst.substx_i_p
                         )
                         
+structure SimpType = SimpTypeFn (structure Type = Expr
+                                 val simp_i = Simp.simp_i
+                                 val simp_s = Simp.simp_s
+                                 val subst_i_mt = Subst.subst_i_mt
+                        )
+                        
 structure VC = VCFn (structure Idx = Expr
                      val get_region_p = Expr.get_region_p
                      val str_bs = ToString.str_bs

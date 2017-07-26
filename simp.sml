@@ -113,18 +113,30 @@ local
 	        else if eq_i i2 (T0 dummy) orelse eq_i i2 (ConstIN (0, dummy)) then
                   mark i1
 	        else
-                  let
-                    val is = collect_AddI i
-                    val (i', is) = case is of
-                                       i :: is => (i, is)
-                                     | [] => raise Impossible "passi/AddI"
-                    val i' = combine_AddI_nonempty i' is
-                  in
-		    if eq_i i' i then
-                      def ()
-                    else
-                      mark i'
-                  end
+                  (case (i1, i2) of
+                       (IConst (ICTime x1, _), IConst (ICTime x2, _)) =>
+                       let
+                         open Real
+                         infixr 0 !!
+                         val x1 = fromString x1 !! (fn () => raise Impossible "simp_i/wrong time syntax")
+                         val x2 = fromString x2 !! (fn () => raise Impossible "simp_i/wrong time syntax")
+                       in
+                         ConstIT (toString (x1 + x2), r ())
+                       end
+                     | _ =>
+                       let
+                         val is = collect_AddI i
+                         val (i', is) = case is of
+                                            i :: is => (i, is)
+                                          | [] => raise Impossible "passi/AddI"
+                         val i' = combine_AddI_nonempty i' is
+                       in
+		         if eq_i i' i then
+                           def ()
+                         else
+                           mark i'
+                       end
+                  )
 	      | MultI => 
 	        if eq_i i1 (T0 dummy) then
                   mark $ T0 $ r ()
@@ -508,7 +520,17 @@ local
       loop a
     end
 in
-val simp_i = until_unchanged passi
+
+fun simp_i i =
+  let
+    (* val () = println $ "Before simp_i: " ^ str_i [] [] i *)
+    val i = until_unchanged passi i
+    (* val () = println $ "After simp_i:  " ^ str_i [] [] i *)
+    (* val () = println "" *)
+  in
+    i
+  end
+                             
 fun simp_i_with_plugin plugin i =
   let
     fun iter i =
@@ -522,6 +544,7 @@ fun simp_i_with_plugin plugin i =
   in
     i      
   end
+    
 fun simp_p p =
   let
     (* val () = println $ "Before simp_p: " ^ str_p [] [] p *)
@@ -531,6 +554,7 @@ fun simp_p p =
   in
     p      
   end
+    
 fun simp_p_with_plugin plugin p =
   let
     fun iter p =

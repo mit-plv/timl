@@ -127,6 +127,7 @@ idx-type-expr.sig
 idx-type-expr-fn.sml
 expr-trans.sml
 simp.sml
+simp-type.sml
 vc.sml
 equal.sml
 subst.sml
@@ -154,7 +155,6 @@ uvar-forget.sml
 unify.sml
 redundant-exhaust.sml
 collect-mod.sml
-simp-type.sml
 typecheck-main.sml
 trivial-solver.sml
 post-typecheck.sml
@@ -163,6 +163,7 @@ smt2-printer.sml
 smt-solver.sml
 long-id-map.sml
 bigO-solver.sml
+simp-ctx.sml
 main.sml
 pp-util.sml
 micro-timl/micro-timl.sml

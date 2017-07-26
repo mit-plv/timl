@@ -1,5 +1,3 @@
-
-
 functor SimpTypeFn (structure Type : TYPE
                     val simp_i : Type.idx -> Type.idx
                     val simp_s : Type.sort -> Type.sort
@@ -8,7 +6,7 @@ functor SimpTypeFn (structure Type : TYPE
 
 open Type
 open SimpUtil
-       
+         
 fun simp_mt t =
   case t of
       Arrow (t1, d, t2) => Arrow (simp_mt t1, simp_i d, simp_mt t2)

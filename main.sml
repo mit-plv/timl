@@ -182,11 +182,12 @@ fun process_prog show_result filename gctx prog =
                  concatMap (print_unsat true filename) vcs
                )
       val gctxd = normalize_sgntr_list old_gctx gctxd
+      val gctxd = update_sgntr_list gctxd
+      (* val gctxd = SimpCtx.simp_sgntr_list gctxd *)
       val () = if show_result then
                  app println $ print_result false filename (gctx_names old_gctx) gctxd
                else ()
-      val admits = map (fn admit => (filename, admit)) admits
-      val gctxd = update_gctx gctxd
+      val admits = map (attach_fst filename) admits
                               (* val gctx = gctxd @ old_gctx *)
     in
       (prog, gctxd, (* gctx,  *)admits)
