@@ -63,6 +63,7 @@ set-util.sml
 map-util.sml
 unique-map.sml
 region.sml
+time.sml
 operators.sml
 }
 

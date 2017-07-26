@@ -1481,22 +1481,19 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                   case i of
                       IConst (ICTime x, _) => 
                       let
-                        open Real
-                        val x = fromString x !! wrong_d
+                        open TimeType
                       in
-                        x >= fromInt 1
+                        x >= one
                       end
                     | _ => false
                 fun const_minus_one i =
                   case i of
                       IConst (ICTime x, r) =>
                       let
-                        open Real
-                        val x = fromString x !! wrong_d
-                        val one = fromInt 1
+                        open TimeType
                         val () = if x >= one then () else wrong_d ()
                       in
-                        ConstIT (toString (x - one), r)
+                        ConstIT (x - one, r)
                       end
                     | _ => wrong_d ()
                 val is = collect_AddI d

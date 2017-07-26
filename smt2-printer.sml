@@ -40,7 +40,7 @@ fun print_i ctx i =
     | IConst (c, _) =>
       (case c of
            ICNat n => str_int n
-         | ICTime x => x
+         | ICTime x => TimeType.toString x
          | ICBool b => str_bool b
          | ICTT => "TT"
          | ICAdmit => "TT"
@@ -240,7 +240,7 @@ fun conv_base_sort b =
           UnitSort => (UnitSort, NONE)
         | BoolSort => (BoolSort, NONE)
         | Nat => (Nat, SOME (BinPred (LeP, ConstIN (0, dummy), VarI (ID (0, dummy)))))
-        | Time => (Time, SOME (BinPred (LeP, ConstIT ("0.0", dummy), VarI (ID (0, dummy)))))
+        | Time => (Time, SOME (BinPred (LeP, ConstIT (TimeType.zero, dummy), VarI (ID (0, dummy)))))
 
 fun conv_bsort bsort =
   case bsort of

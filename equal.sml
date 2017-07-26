@@ -56,12 +56,20 @@ fun eq_bs bs bs' =
       )
     | UVarBS u => (case bs' of UVarBS u' => eq_uvar_bs (u, u') | _ => false)
 
+fun eq_idx_const c c' =
+  case c of
+      ICBool b => (case c' of ICBool b' => b = b' | _ => false)
+    | ICTT => (case c' of ICTT => true | _ => false)
+    | ICAdmit => false
+    | ICNat n => (case c' of ICNat n' => n = n' | _ => false)
+    | ICTime x => (case c' of ICTime x' => TimeType.time_eq (x, x') | _ => false)
+    
 fun eq_i i i' =
   let
     fun loop i i' =
       case i of
           VarI x => (case i' of VarI x' => eq_var (x, x') | _ => false)
-        | IConst (c, _) => (case i' of IConst (c', _) => c = c' | _ => false)
+        | IConst (c, _) => (case i' of IConst (c', _) => eq_idx_const c c' | _ => false)
         | UnOpI (opr, i, _) => (case i' of UnOpI (opr', i', _) => opr = opr' andalso loop i i' | _ => false)
         | BinOpI (opr, i1, i2) => (case i' of BinOpI (opr', i1', i2') => opr = opr' andalso loop i1 i1' andalso loop i2 i2' | _ => false)
         | Ite (i1, i2, i3, _) => (case i' of Ite (i1', i2', i3', _) => loop i1 i1' andalso loop i2 i2' andalso loop i3 i3' | _ => false)

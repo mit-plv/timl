@@ -54,8 +54,13 @@ local
           )
 	| S.ConstIN n =>
 	  ConstIN n
-	| S.ConstIT x =>
-	  ConstIT x
+	| S.ConstIT (x, r) =>
+          let
+            infixr 0 !!
+            val x = TimeType.fromString x !! (fn () => raise Error (r, sprintf "Wrong time literal: $" [x]))
+          in
+	    ConstIT (x, r)
+          end
         (* | S.UnOpI (opr, i, r) => UnOpI (opr, elab_i i, r) *)
         | S.DivI (i1, n2, _) => DivI (elab_i i1, n2)
 	| S.BinOpI (opr, i1, i2, r) =>

@@ -12,13 +12,12 @@ infixr 0 $
 
 fun ConstIT (s, r) = IConst (ICTime s, r)
 fun ConstIN (d, r) = IConst (ICNat d, r)
-val T0_string = "0.0"
-fun T0 r = ConstIT (T0_string, r)
+fun T0 r = ConstIT (TimeType.zero, r)
 fun is_T0 i =
   case i of
-      IConst (ICTime s, _) => s = T0_string
+      IConst (ICTime s, _) => TimeType.time_eq (s, TimeType.zero)
     | _ => false
-fun T1 r = ConstIT ("1.0", r)
+fun T1 r = ConstIT (TimeType.one, r)
 fun N0 r = ConstIN (0, r)
 fun N1 r = ConstIN (1, r)
 fun DivI (i, (n, r)) = UnOpI (IUDiv n, i, r)

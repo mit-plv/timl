@@ -1,4 +1,5 @@
 structure Operators = struct
+
 open Util
 
 datatype idx_const =
@@ -6,7 +7,7 @@ datatype idx_const =
 	 | ICTT
          | ICAdmit
          | ICNat of int
-         | ICTime of string
+         | ICTime of TimeType.time
 
 
 datatype idx_un_op =
@@ -92,7 +93,7 @@ fun str_idx_const c =
     | ICTT => "()"
     | ICAdmit => "admit"
     | ICNat n => str_int n
-    | ICTime s => s
+    | ICTime x => TimeType.str_time x
 
 fun str_idx_un_op opr =
   case opr of

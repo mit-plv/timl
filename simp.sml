@@ -116,12 +116,9 @@ local
                   (case (i1, i2) of
                        (IConst (ICTime x1, _), IConst (ICTime x2, _)) =>
                        let
-                         open Real
-                         infixr 0 !!
-                         val x1 = fromString x1 !! (fn () => raise Impossible "simp_i/illegal const")
-                         val x2 = fromString x2 !! (fn () => raise Impossible "simp_i/illegal const")
+                         open TimeType
                        in
-                         mark $ ConstIT (toString (x1 + x2), r ())
+                         mark $ ConstIT (x1 + x2, r ())
                        end
                      | (IConst (ICNat n1, _), IConst (ICNat n2, _)) =>
                        mark $ ConstIN (n1 + n2, r ())
@@ -253,7 +250,7 @@ local
                    | BinOpI (MultI, i1, i2) =>
                      mark $ BinOpI (MultI, UnOpI (ToReal, i1, r), UnOpI (ToReal, i2, r))
                    | IConst (ICNat n, _) =>
-                     mark $ ConstIT (str_int n, r)
+                     mark $ ConstIT (TimeType.fromInt n, r)
                    | _ => default ()
                 )
               | Neg =>
