@@ -377,6 +377,17 @@ fun on_e (e : S.expr) =
            Op.ETNever => ENever (on_mt t)
          | Op.ETBuiltin => raise T2MTError "can't translate builtin expression"
       )
+    | S.ECase (e, return, rules, r) =>
+      let
+        val e = on_e e
+        val rules = map (mapPair (from_TiML_ptrn, on_e) o unBind) rules
+        val name = default (EName ("__x", dummy)) $ firstSuccess get_pn_alias $ map fst rules
+        val pns = map PnBind rules
+        val pns = map (shift_e_pn 0 1) pns
+        val e2 = to_expr (shift_i_e, shift_e_e, subst_e_e, EV) (EV 0) pns
+      in
+        ELet (e, BindSimp (name, e2))
+      end
     | S.EAbs bind =>
       let
         val (pn, e) = unBind bind
@@ -391,17 +402,18 @@ fun on_e (e : S.expr) =
       in
         EAbs $ BindAnno ((name, t), e)
       end
-    | S.ECase (e, return, rules, r) =>
-      let
-        val e = on_e e
-        val rules = map (mapPair (from_TiML_ptrn, on_e) o unBind) rules
-        val name = default (EName ("__x", dummy)) $ firstSuccess get_pn_alias $ map fst rules
-        val pns = map PnBind rules
-        val pns = map (shift_e_pn 0 1) pns
-        val e2 = to_expr (shift_i_e, shift_e_e, subst_e_e, EV) (EV 0) pns
-      in
-        ELet (e, BindSimp (name, e2))
-      end
+    (* | S.EAbs bind => *)
+    (*   (* delegate to ECase *) *)
+    (*   let *)
+    (*     val (pn, e) = unBind bind *)
+    (*     val (pn, Outer t) = case pn of S.AnnoP a => a | _ => raise Impossible "to-micro-timl/EAbs: must be AnnoP" *)
+    (*     val name = default (EName ("__x", dummy)) $ get_pn_alias $ from_TiML_ptrn pn *)
+    (*     val t = on_mt t *)
+    (*     val e = MakeSECase (SEV 0, [shift_e_rule (pn, e)]) *)
+    (*     val e = on_e e *)
+    (*   in *)
+    (*     EAbs $ BindAnno ((name, t), e) *)
+    (*   end *)
     | S.EAbsI (bind, _) =>
       let
         val ((name, s), e) = unBindAnno bind
@@ -409,6 +421,10 @@ fun on_e (e : S.expr) =
         EAbsI $ BindAnno ((name, s), on_e e)
       end
     | S.EAppConstr ((_, eia), ts, is, e, ot) =>
+      (* todo: should define functions corresponding to constructors and put those type annotations there, instead of having annotations on every constructor call-site. 
+         MicroTiMLEx should have a [ELetConstr] to put constructor definition in the constructor namespace, and a later pass will translate [ELetConstr] to [ELet]. 
+         Constructors will be special kind of functions that don't incur beta-reduction cost.
+       *)
       let
         open ToStringRaw
         open ToString
@@ -474,14 +490,142 @@ fun on_e (e : S.expr) =
       in
         e
       end
-    (* | Let (return, decs, e, r) => *)
-    (*   let *)
-    (*     val (decs, m) = f_decls x n decs *)
-    (*   in *)
-    (*     Let (return, decs, f (x + m) n e, r) *)
-    (*   end *)
+    | S.ELet (return, bind, r) => 
+	  let
+            val (decls, e) = Unbound.unBind bind
+          in
+	    on_decls (decls, e)
+	  end
     | _ => raise Unimpl ""
+                 
+and on_decls (decls, e_body) =
+    case decls of
+        TeleNil => on_e e_body
+      | TeleCons (decl, Rebind decls) =>
+        case decl of
+            (* todo: DTypeDef, DIdxDef and DAbsIdx2 should generate special kind of Let instead of inlining. DTypeDef currently needs to do inlining because the translation of [EAppConstr] needs datatype details. It will be changed in the future when constructors are translated into functions. *)
+            S.DTypeDef (name, Outer t) =>
+            let
+              val e = toLet (decls, e_body)
+              val e = SS.subst_t_e t e
+              val e = on_e e
+            in
+              e
+            end
+          | S.DIdxDef (name, _, Outer i) =>
+            let
+              val e = toLet (decls, e_body)
+              val e = SS.subst_i_e i e
+              val e = on_e e
+            in
+              e
+            end
+          | S.DAbsIdx2 (name, _, Outer i) =>
+            let
+              val e = toLet (decls, e_body)
+              val e = SS.subst_i_e i e
+              val e = on_e e
+            in
+              e
+            end
+          | S.DVal (ename, Outer bind, Outer r) =>
+            let
+              val name = unBinderName ename
+              val (tnames, e) = Unbound.unBind bind
+              val tnames = map unBinderName tnames
+              val e = on_e e
+              val e = EAbsTKindMany (tnames, e)
+              val e_body = on_decls (decls, e_body)
+            in
+              MakeELet (e, name, e_body)
+            end
+          | S.DValPtrn (pn, Outer e, Outer r) =>
+            let
+              val e_body = toLet (decls, e_body)
+            in
+              on_e $ MakeSECase (e, [(pn, e_body)])
+            end
+	  | S.DRec (name, bind, _) => 
+	    let
+              val name = unBinderName name
+              val (e, t) = on_DRec (name, bind)
+              val e_body = on_decls (decls, e_body)
+            in
+              MakeELet (e, name, e_body)
+	    end
+          | S.DAbsIdx ((iname, Outer s, Outer i), Rebind decls, Outer r) =>
+            let
+              val (iname, r1) = unBinderName iname
+              val (ename, bind, _) =
+                  case unTeles decls of
+                      [S.DRec a] => a
+                    | _ => raise Impossible "to-micro-timl/DAbsIdx: can only translate when the inner declarations are just one DRec"
+              val ename = unBinderName ename
+              val (e, t) = on_DRec (ename, bind)
+              val t = MakeTExistsI (iname, s, t)
+              val e = MakeEPackI (t, i, e)
+              val e_body = on_decls (decls, e_body)
+              val e = MakeEMatchUnpackI (e, iname, ename, e_body)
+            in
+              e
+            end
+          | S.DOpen (Outer m, octx) =>
+            let
+              val ctx as (sctx, kctx, cctx, tctx) = octx !! (fn () => raise Impossible "to-micro-timl/DOpen: octx must be SOME")
+              val e = toLet (decls, e_body)
+              val e = self_compose (length tctx) $ package0_e_e m $ e
+              val e = self_compose (length cctx) $ package0_c_e m $ e
+              val e = self_compose (length kctx) $ package0_t_e m $ e
+              val e = self_compose (length sctx) $ package0_i_e m $ e
+              val e = on_e e
+            in
+              e
+            end
+            
+and on_DRec (name, bind) =
+    let
+      val ((tnames, Rebind binds), ((t, i), e)) = Unbound.unBind $ unInner bind
+      val t = t !! (fn () => raise Impossible "to-micro-timl/DRec: t must be SOME")
+      val i = i !! (fn () => raise Impossible "to-micro-timl/DRec: i must be SOME")
+      val tnames = map unBinderName tnames
+      val binds = unTeles binds
+      fun on_bind (bind, e) =
+        case bind of
+            S.SortingST (name, Outer s) => MakeSEAbsI (name, s, e)
+          | S.TypingST pn => MakeSEAbs (pn, e)
+      val e = foldr on_bind binds e
+      val e = EAbsTKindMany (tnames, e)
+      val e = on_e e
+      fun on_bind_t (bind, t) =
+        case bind of
+            S.SortingST (name, Outer s) => MakeSUniI (s, name, t)
+          | S.TypingST pn =>
+            case pn of
+                AnnoP (_, Outer t1) => S.Arrow (t1, T0, t)
+              | _ => raise Impossible "to-micro-timl/DRec: must be AnnoP"
+      val t = 
+          case rev binds of
+              S.TypingST (AnnoP (_, Outer t1)) :: binds =>
+              foldl on_bind_t (S.Arrow (t1, i, t)) binds
+            | _ => raise Impossible "to-micro-timl/DRec: Recursion must have a annotated typing bind as the last bind"
+      val t = UniMany (tnames, t)
+      val t = on_t t
+      val e = MakeERec (t, name, e)
+    in
+      (t, e)
+    end
 
+(* todo: module-level decls will be translated by this: *)
+(* fun on_components decls = *)
+(*   let *)
+(*     val e = on_decls (decls, ETT) *)
+(*     val (es, _) = collect_ELet e *)
+(*   in *)
+(*     es *)
+(*   end *)
+
+(* todo: functor application will be translated by first fibering together actual argument and formal argument, and then doing a module translation  *)
+          
 val trans_e = on_e
 
 structure UnitTest = struct

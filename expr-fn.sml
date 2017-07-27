@@ -24,10 +24,10 @@ type ptrn = (cvar * ptrn_constr_tag, mtype) Pattern.ptrn
 type return = mtype option * idx option
                                  
 datatype stbind =
-         SortingST of iname binder * sort outer
+         SortingST of ibinder * sort outer
          | TypingST of ptrn
 
-type scoping_ctx = iname binder list * tname binder list * cname binder list * ename binder list
+type scoping_ctx = ibinder list * tbinder list * cbinder list * ebinder list
      
 datatype expr =
 	 EVar of var * bool(*explicit index arguments (EIA)*)
@@ -45,13 +45,13 @@ datatype expr =
 	 | ELet of return * (decl tele, expr) bind * region
 
      and decl =
-         DVal of ename binder * (tname binder list, expr) bind outer * region outer
+         DVal of ebinder * (tbinder list, expr) bind outer * region outer
          | DValPtrn of ptrn * expr outer * region outer
-         | DRec of ename binder * (tname binder list * stbind tele rebind, (mtype * idx) * expr) bind inner * region outer
-         | DIdxDef of iname binder * sort outer * idx outer
-         | DAbsIdx2 of iname binder * sort outer * idx outer
-         | DAbsIdx of (iname binder * sort outer * idx outer) * decl tele rebind * region outer
-         | DTypeDef of tname binder * mtype outer
+         | DRec of ebinder * (tbinder list * stbind tele rebind, (mtype * idx) * expr) bind inner * region outer
+         | DIdxDef of ibinder * sort outer * idx outer
+         | DAbsIdx2 of ibinder * sort outer * idx outer
+         | DAbsIdx of (ibinder * sort outer * idx outer) * decl tele rebind * region outer
+         | DTypeDef of tbinder * mtype outer
          | DOpen of mod_id outer * scoping_ctx option
 
 type name = string * Region.region

@@ -1634,6 +1634,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
               val t = if is_value e then 
                         let
                           val t = generalize t
+                          (* todo: record generalized type variables in result *)
                           val t = foldr (fn (nm, t) => Uni (Bind (nm, t), r)) t tnames
                         in
                           t
@@ -1655,7 +1656,8 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
             in
               (DValPtrn (pn, Outer e, Outer r), ctxd, nps, [d])
             end
-	  | U.DRec (name, bind, Outer r) => 
+	  | U.DRec (name, bind, Outer r) =>
+            (* DRec should delegate most of the work to EAbs and EAbsI *)
 	    let
               val (name, r1) = unBinderName name
               val ((tnames, Rebind binds), ((t, d), e)) = Unbound.unBind $ unInner bind
@@ -1682,6 +1684,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
                       val t = fresh_mt gctx (sctx, kctx) r
                       val skcctx = (sctx, kctx, cctx) 
                       val (pn, cover, ctxd', nps') = match_ptrn gctx (skcctx, pn, t)
+                      (* record t in pn *)
 	              val () = check_exhaustion gctx (skcctx, t, [cover], get_region_pn pn)
                       val ctxd = add_ctx ctxd' ctxd
                       val nps = nps' + nps
@@ -1708,6 +1711,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
               val () = close_n nps
               val () = close_ctx ctxd
               val te = generalize te
+              (* todo: record generalized type variables in result *)
               val te = foldr (fn (nm, t) => Uni (Bind (nm, t), r)) te tnames
               fun h bind =
                 case bind of
