@@ -408,12 +408,6 @@ fun on_e (e : S.expr) =
       in
         EAbsI $ BindAnno ((name, s), on_e e)
       end
-    (* | Let (return, decs, e, r) => *)
-    (*   let  *)
-    (*     val (decs, m) = f_decls x n decs *)
-    (*   in *)
-    (*     Let (return, decs, f (x + m) n e, r) *)
-    (*   end *)
     | S.EAppConstr ((_, eia), ts, is, e, ot) =>
       let
         open ToStringRaw
@@ -480,6 +474,12 @@ fun on_e (e : S.expr) =
       in
         e
       end
+    (* | Let (return, decs, e, r) => *)
+    (*   let *)
+    (*     val (decs, m) = f_decls x n decs *)
+    (*   in *)
+    (*     Let (return, decs, f (x + m) n e, r) *)
+    (*   end *)
     | _ => raise Unimpl ""
 
 val trans_e = on_e
