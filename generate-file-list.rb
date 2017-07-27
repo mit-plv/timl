@@ -175,6 +175,7 @@ micro-timl/micro-timl-pp.sml
 micro-timl/micro-timl-ex.sml
 micro-timl/micro-timl-ex-pp.sml
 pattern-ex.sml
+micro-timl/micro-timl-ex-util.sml
 micro-timl/timl-to-micro-timl.sml
 }
 

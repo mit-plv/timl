@@ -1,6 +1,7 @@
 structure Util = struct
 
 infixr 0 $
+         
 fun f $ x = f x
 
 fun interleave xs ys =

@@ -91,8 +91,11 @@ fun params_i (x, n) env = package_long_id (x + env) n
 fun package_i_i x n = IdxShiftVisitor.on_i_i $ params_i (x, n)
 fun package_i_s x n  = IdxShiftVisitor.on_i_s $ params_i (x, n)
 
-fun package0_i v = package_i_i 0 v
-fun package0_s v = package_i_s 0 v
+fun package0_i_i a = package_i_i 0 a
+fun package0_i_s a = package_i_s 0 a
+                               
+val package0_i = package0_i_i
+val package0_s = package0_i_s
                                
 (* fun package_t_ibind f x v (Bind (name, inner) : ('a * 'b) ibind) = *)
 (*   Bind (name, f x v inner) *)
@@ -191,6 +194,11 @@ fun package_i_t x m = TypeShiftVisitor.on_i_t (params_i_t x m)
 fun package_i_constr_core x m = TypeShiftVisitor.on_i_constr_core (params_i_t x m)
 fun package_i_c x m = TypeShiftVisitor.on_i_c (params_i_t x m)
 
+fun package0_i_mt a = package_i_mt 0 a
+fun package0_i_t a = package_i_t 0 a
+fun package0_i_constr_core a = package_i_constr_core 0 a
+fun package0_i_c a = package_i_c 0 a
+
 (* fun package_t_mt x v (b : mtype) : mtype = *)
 (*   let *)
 (*     val f = package_t_mt *)
@@ -246,9 +254,14 @@ fun package_t_t x m = TypeShiftVisitor.on_t_t $ params_t x m
 fun package_t_constr_core x m = TypeShiftVisitor.on_t_constr_core $ params_t x m
 fun package_t_c x m = TypeShiftVisitor.on_t_c $ params_t x m
 
-fun package0_mt v b = package_t_mt 0 v $ package_i_mt 0 v b
-fun package0_t v b = package_t_t 0 v $ package_i_t 0 v b
-fun package0_c v b = package_t_c 0 v $ package_i_c 0 v b
+fun package0_t_mt a = package_t_mt 0 a
+fun package0_t_t a = package_t_t 0 a
+fun package0_t_constr_core a = package_t_constr_core 0 a
+fun package0_t_c a = package_t_c 0 a
+
+fun package0_mt m = package0_t_mt m o package0_i_mt m
+fun package0_t m = package0_t_t m o package0_i_t m
+fun package0_c m = package0_t_c m o package0_i_c m
               
 (*                               
 fun package_long_id m (m', x) =

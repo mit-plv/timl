@@ -223,23 +223,9 @@ fun on_base_type t =
   case t of
       Int => TCInt
 
-fun KArrows bs k = foldr KArrow k bs
-fun KArrowTs ks k = foldr KArrowT k ks
-fun KArrowTypes n k = KArrowTs (repeat n KType) k
-                          
+open MicroTiMLExUtil
+       
 fun on_k ((n, bs) : S.kind) : bsort kind = KArrowTypes n $ KArrows bs KType
-
-val TUnit = TConst TCUnit
-val TEmpty = TConst TCEmpty
-fun TSum (t1, t2) = TBinOp (TBSum, t1, t2)
-fun TProd (t1, t2) = TBinOp (TBProd, t1, t2)
-fun TAppIs (t, is) = foldl (swap TAppI) t is
-fun TAppTs (t, ts) = foldl (swap TAppT) t ts
-      
-fun EInlInr (opr, t, e) = EUnOp (EUInj (opr, t), e)
-fun EInl (t, e) = EInlInr (InjInl, t, e)
-fun EInr (t, e) = EInlInr (InjInr, t, e)
-fun EFold (t, e) = EUnOp (EUFold t, e)
 
 fun foldr' f init xs = foldl' f init $ rev xs
 
@@ -269,11 +255,6 @@ fun PEqs pairs = combine_And $ map PEq pairs
   
 val BSUnit = Base UnitSort
 
-fun TExistsI bind = TQuanI (Exists (), bind)
-fun TExistsIMany (ctx, t) = foldl (TExistsI o BindAnno) t ctx
-fun TAbsIMany (ctx, t) = foldl (TAbsI o BindAnno) t ctx
-fun TAbsTMany (ctx, t) = foldl (TAbsT o BindAnno) t ctx
-                  
 fun on_mt (t : S.mtype) =
   case t of
       S.Arrow (t1, i, t2) => TArrow (on_mt t1, i, on_mt t2)
@@ -348,13 +329,21 @@ fun normalize_t a = normalize_t_fn (subst0_i_t, subst0_t_t) a
 fun shift_i_e a = shift_i_e_fn (shiftx_i_i, shiftx_i_s, shift_i_t) a
 fun shift_e_e a = shift_e_e_fn shift_var a
 fun subst_e_e a = subst_e_e_fn (compare_var, shift_var, shiftx_i_i, shiftx_i_s, shift_i_t, shift_t_t) a
-fun EV n = EVar (ID (n, dummy))
                 
 open PatternEx
 structure S = TiML
                 
 fun shift_e_pn a = shift_e_pn_fn shift_e_e a
-                                 
+
+fun MakeSUniI (s, name, t) = S.UniI (s, Bind.Bind (name, t), dummy)
+
+fun MakeSEAbs (pn, e) = S.EAbs $ Bind (pn, e)
+fun MakeSEAbsI (name, s, e) = S.EAbsI (BindAnno ((IName name, s), e), dummy)
+
+fun toSELet (decls, e) = S.ELet ((NONE, NONE), Bind (decls, e), dummy)
+                                      
+fun EV n = EVar (ID (n, dummy))
+
 fun on_e (e : S.expr) =
   case e of
       S.EVar (x, _) => EVar x
@@ -506,7 +495,7 @@ and on_decls (decls, e_body) =
             (* todo: DTypeDef, DIdxDef and DAbsIdx2 should generate special kind of Let instead of inlining. DTypeDef currently needs to do inlining because the translation of [EAppConstr] needs datatype details. It will be changed in the future when constructors are translated into functions. *)
             S.DTypeDef (name, Outer t) =>
             let
-              val e = toLet (decls, e_body)
+              val e = toSELet (decls, e_body)
               val e = SS.subst_t_e t e
               val e = on_e e
             in
@@ -514,7 +503,7 @@ and on_decls (decls, e_body) =
             end
           | S.DIdxDef (name, _, Outer i) =>
             let
-              val e = toLet (decls, e_body)
+              val e = toSELet (decls, e_body)
               val e = SS.subst_i_e i e
               val e = on_e e
             in
@@ -522,7 +511,7 @@ and on_decls (decls, e_body) =
             end
           | S.DAbsIdx2 (name, _, Outer i) =>
             let
-              val e = toLet (decls, e_body)
+              val e = toSELet (decls, e_body)
               val e = SS.subst_i_e i e
               val e = on_e e
             in
@@ -541,7 +530,7 @@ and on_decls (decls, e_body) =
             end
           | S.DValPtrn (pn, Outer e, Outer r) =>
             let
-              val e_body = toLet (decls, e_body)
+              val e_body = toSELet (decls, e_body)
             in
               on_e $ MakeSECase (e, [(pn, e_body)])
             end
@@ -572,7 +561,7 @@ and on_decls (decls, e_body) =
           | S.DOpen (Outer m, octx) =>
             let
               val ctx as (sctx, kctx, cctx, tctx) = octx !! (fn () => raise Impossible "to-micro-timl/DOpen: octx must be SOME")
-              val e = toLet (decls, e_body)
+              val e = toSELet (decls, e_body)
               val e = self_compose (length tctx) $ package0_e_e m $ e
               val e = self_compose (length cctx) $ package0_c_e m $ e
               val e = self_compose (length kctx) $ package0_t_e m $ e
@@ -594,7 +583,6 @@ and on_DRec (name, bind) =
             S.SortingST (name, Outer s) => MakeSEAbsI (name, s, e)
           | S.TypingST pn => MakeSEAbs (pn, e)
       val e = foldr on_bind binds e
-      val e = EAbsTKindMany (tnames, e)
       val e = on_e e
       fun on_bind_t (bind, t) =
         case bind of
@@ -608,9 +596,10 @@ and on_DRec (name, bind) =
               S.TypingST (AnnoP (_, Outer t1)) :: binds =>
               foldl on_bind_t (S.Arrow (t1, i, t)) binds
             | _ => raise Impossible "to-micro-timl/DRec: Recursion must have a annotated typing bind as the last bind"
-      val t = UniMany (tnames, t)
-      val t = on_t t
-      val e = MakeERec (t, name, e)
+      val t = on_mt t
+      val e = MakeERec (name, t, e)
+      val t = TUniKindMany (tnames, t)
+      val e = EAbsTKindMany (tnames, e)
     in
       (t, e)
     end
