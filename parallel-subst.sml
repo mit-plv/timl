@@ -27,8 +27,8 @@ fun visit_VarI (d, x, v) env y =
     
 val subst_i_params = visit_VarI
                      
-fun psubst_aux_is_i d x v = IdxSubst.subst_i_i_fn (subst_i_params (d, x, v))
-fun psubst_aux_is_s d x v = IdxSubst.subst_i_s_fn (subst_i_params (d, x, v))
+fun psubst_aux_is_i d x v = IdxSubstVisitor.subst_i_i_fn (subst_i_params (d, x, v))
+fun psubst_aux_is_s d x v = IdxSubstVisitor.subst_i_s_fn (subst_i_params (d, x, v))
                                               
 fun psubst_is_i a = psubst_aux_is_i 0 a
 fun psubst_is_s a = psubst_aux_is_s 0 a
@@ -38,7 +38,7 @@ fun visit_sort (d, x, v) env b = psubst_aux_is_s (d + env) x v b
                                       
 fun subst_i_params params = (visit_idx params, visit_sort params)
                        
-fun psubst_aux_is_mt d x v = TypeSubst.subst_i_mt_fn $ subst_i_params (d, x, v)
+fun psubst_aux_is_mt d x v = TypeSubstVisitor.subst_i_mt_fn $ subst_i_params (d, x, v)
 fun psubst_is_mt a = psubst_aux_is_mt 0 a
 
 fun visit_MtVar (d, x, v) env y =
@@ -53,7 +53,7 @@ fun visit_MtVar (d, x, v) env y =
                                     
 val subst_t_params = visit_MtVar
 
-fun psubst_aux_ts_mt d x v = TypeSubst.subst_t_mt_fn $ subst_t_params (IDepth_TDepth d, x, v)
+fun psubst_aux_ts_mt d x v = TypeSubstVisitor.subst_t_mt_fn $ subst_t_params (IDepth_TDepth d, x, v)
 fun psubst_ts_mt a = psubst_aux_ts_mt (0, 0) a
                                       
 (* fun psubst_aux_ts_t a = unuse_idepth_tdepth (subst_t_t_fn subst_t_params) a *)

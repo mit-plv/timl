@@ -1,3 +1,103 @@
+functor TypeShiftVisitorFn (Type : TYPE) = struct
+
+structure TypeVisitor = TypeVisitorFn (structure S = Type
+                                       structure T = Type)
+open TypeVisitor
+                                         
+fun on_i_type_visitor_vtable cast (visit_idx, visit_sort) : ('this, int) type_visitor_vtable =
+  let
+    fun extend_i this env _ = env + 1
+  in
+    default_type_visitor_vtable
+      cast
+      extend_i
+      extend_noop
+      visit_noop
+      visit_noop
+      (ignore_this visit_idx)
+      (ignore_this visit_sort)
+      visit_noop
+      visit_noop
+  end
+
+fun new_on_i_type_visitor a = new_type_visitor on_i_type_visitor_vtable a
+    
+fun on_i_mt params b =
+  let
+    val visitor as (TypeVisitor vtable) = new_on_i_type_visitor params
+  in
+    #visit_mtype vtable visitor 0 b
+  end
+    
+fun on_i_t params b =
+  let
+    val visitor as (TypeVisitor vtable) = new_on_i_type_visitor params
+  in
+    #visit_ty vtable visitor 0 b
+  end
+    
+fun on_i_constr_core params b =
+  let
+    val visitor as (TypeVisitor vtable) = new_on_i_type_visitor params
+  in
+    #visit_constr_core vtable visitor 0 b
+  end
+    
+fun on_i_c params b =
+  let
+    val visitor as (TypeVisitor vtable) = new_on_i_type_visitor params
+  in
+    #visit_constr_info vtable visitor 0 b
+  end
+    
+fun on_t_type_visitor_vtable cast visit_var : ('this, int) type_visitor_vtable =
+  let
+    fun extend_t this env _ = env + 1
+  in
+    default_type_visitor_vtable
+      cast
+      extend_noop
+      extend_t
+      (ignore_this visit_var)
+      visit_noop
+      visit_noop
+      visit_noop
+      visit_noop
+      visit_noop
+  end
+
+fun new_on_t_type_visitor a = new_type_visitor on_t_type_visitor_vtable a
+    
+fun on_t_mt params b =
+  let
+    val visitor as (TypeVisitor vtable) = new_on_t_type_visitor params
+  in
+    #visit_mtype vtable visitor 0 b
+  end
+    
+fun on_t_t params b =
+  let
+    val visitor as (TypeVisitor vtable) = new_on_t_type_visitor params
+  in
+    #visit_ty vtable visitor 0 b
+  end
+    
+fun on_t_constr_core params b =
+  let
+    val visitor as (TypeVisitor vtable) = new_on_t_type_visitor params
+  in
+    #visit_constr_core vtable visitor 0 b
+  end
+    
+fun on_t_c params b =
+  let
+    val visitor as (TypeVisitor vtable) = new_on_t_type_visitor params
+  in
+    #visit_constr_info vtable visitor 0 b
+  end
+    
+end
+
 signature SHIFTABLE_IDX = sig
 
   type idx
@@ -56,56 +156,6 @@ infixr 0 $
 
 (* and on_i_constr_core on_i on_s on_i_mt x n b = on_i_ibinds on_s (on_pair (on_i_mt, on_list on_i)) x n b *)
                                     
-structure TypeVisitor = TypeVisitorFn (structure S = Type
-                                       structure T = Type)
-open TypeVisitor
-                                         
-fun on_i_type_visitor_vtable cast (visit_idx, visit_sort) : ('this, int) type_visitor_vtable =
-  let
-    fun extend_i this env _ = env + 1
-  in
-    default_type_visitor_vtable
-      cast
-      extend_i
-      extend_noop
-      visit_noop
-      visit_noop
-      (ignore_this visit_idx)
-      (ignore_this visit_sort)
-      visit_noop
-      visit_noop
-  end
-
-fun new_on_i_type_visitor a = new_type_visitor on_i_type_visitor_vtable a
-    
-fun on_i_mt params b =
-  let
-    val visitor as (TypeVisitor vtable) = new_on_i_type_visitor params
-  in
-    #visit_mtype vtable visitor 0 b
-  end
-    
-fun on_i_t params b =
-  let
-    val visitor as (TypeVisitor vtable) = new_on_i_type_visitor params
-  in
-    #visit_ty vtable visitor 0 b
-  end
-    
-fun on_i_constr_core params b =
-  let
-    val visitor as (TypeVisitor vtable) = new_on_i_type_visitor params
-  in
-    #visit_constr_core vtable visitor 0 b
-  end
-    
-fun on_i_c params b =
-  let
-    val visitor as (TypeVisitor vtable) = new_on_i_type_visitor params
-  in
-    #visit_constr_info vtable visitor 0 b
-  end
-    
 (* fun on_i_t on_i_mt x n b = *)
 (*   let *)
 (*     fun f x n b = *)
@@ -148,52 +198,6 @@ fun on_i_c params b =
     
 (* and on_t_constr_core on_mt x n b = on_t_ibinds return3 (on_pair (on_mt, return3)) x n b *)
 
-fun on_t_type_visitor_vtable cast visit_var : ('this, int) type_visitor_vtable =
-  let
-    fun extend_t this env _ = env + 1
-  in
-    default_type_visitor_vtable
-      cast
-      extend_noop
-      extend_t
-      (ignore_this visit_var)
-      visit_noop
-      visit_noop
-      visit_noop
-      visit_noop
-      visit_noop
-  end
-
-fun new_on_t_type_visitor a = new_type_visitor on_t_type_visitor_vtable a
-    
-fun on_t_mt params b =
-  let
-    val visitor as (TypeVisitor vtable) = new_on_t_type_visitor params
-  in
-    #visit_mtype vtable visitor 0 b
-  end
-    
-fun on_t_t params b =
-  let
-    val visitor as (TypeVisitor vtable) = new_on_t_type_visitor params
-  in
-    #visit_ty vtable visitor 0 b
-  end
-    
-fun on_t_constr_core params b =
-  let
-    val visitor as (TypeVisitor vtable) = new_on_t_type_visitor params
-  in
-    #visit_constr_core vtable visitor 0 b
-  end
-    
-fun on_t_c params b =
-  let
-    val visitor as (TypeVisitor vtable) = new_on_t_type_visitor params
-  in
-    #visit_constr_info vtable visitor 0 b
-  end
-    
 (* fun on_t_t on_t_mt x n b = *)
 (*   let *)
 (*     fun f x n b = *)
@@ -212,7 +216,11 @@ fun on_t_c params b =
 (*   ((m, shiftx_id x n family), *)
 (*    on_t_tbinds return3 (on_t_constr_core shiftx_var) x n tbinds) *)
 
-fun shift_i_params x n = (fn env => shiftx_i_i (x + env) n, fn env => shiftx_i_s (x + env) n)
+structure TypeShiftVisitor = TypeShiftVisitorFn (Type)
+open TypeShiftVisitor
+                                         
+fun adapt f x n env = f (x + env) n
+fun shift_i_params x n = (adapt shiftx_i_i x n, adapt shiftx_i_s x n)
                      
 fun shiftx_i_mt x n = on_i_mt (shift_i_params x n)
 fun shiftx_i_t x n = on_i_t (shift_i_params x n)
@@ -244,17 +252,8 @@ fun forget_t_t x n = on_t_t (forget_t_params x n)
 
 end
 
-functor TypeSubstFn (structure Type : TYPE
-                     val visit_MtVar : (Namespaces.idepth * Namespaces.tdepth) * int * Type.mtype -> Namespaces.idepth * Namespaces.tdepth -> Type.var -> Type.mtype
-                     val substx_i_i : int -> int -> Type.idx -> Type.idx -> Type.idx
-                     val substx_i_s : int -> int -> Type.idx -> Type.sort -> Type.sort
-                    ) = struct
+functor TypeSubstVisitorFn (Type : TYPE) = struct
 
-open Type
-open Util
-       
-infixr 0 $
-         
 structure TypeVisitor = TypeVisitorFn (structure S = Type
                                        structure T = Type)
 open TypeVisitor
@@ -327,6 +326,22 @@ fun subst_t_t_fn params b =
     #visit_ty vtable visitor (IDepth 0, TDepth 0) b
   end
 
+end
+                                  
+functor TypeSubstFn (structure Type : TYPE
+                     val visit_MtVar : (Namespaces.idepth * Namespaces.tdepth) * int * Type.mtype -> Namespaces.idepth * Namespaces.tdepth -> Type.var -> Type.mtype
+                     val substx_i_i : int -> int -> Type.idx -> Type.idx -> Type.idx
+                     val substx_i_s : int -> int -> Type.idx -> Type.sort -> Type.sort
+                    ) = struct
+
+open Type
+open Util
+       
+infixr 0 $
+         
+structure TypeSubstVisitor = TypeSubstVisitorFn (Type)
+open TypeSubstVisitor
+                                         
 fun visit_idx (d, x, v) env b = substx_i_i (d + env) (x + env) v b
 fun visit_sort (d, x, v) env b = substx_i_s (d + env) (x + env) v b
                                       

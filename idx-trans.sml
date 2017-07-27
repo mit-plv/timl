@@ -1,22 +1,6 @@
-signature SHIFTABLE_VAR = sig
-  type var
-  val shiftx_var : int -> int -> var -> var
-  val forget_var : int -> int -> var -> var
-end
-                                                      
-functor IdxShiftFn (structure Idx : IDX
-                    structure ShiftableVar : SHIFTABLE_VAR
-                    sharing type Idx.var = ShiftableVar.var
-                   ) = struct
-
-open Idx
-open ShiftableVar
-open ShiftUtil
-       
-infixr 0 $
-         
 (* generic traversers for both 'shift' and 'forget' *)
-         
+functor IdxShiftVisitorFn (Idx : IDX) = struct
+
 structure IdxVisitor = IdxVisitorFn (structure S = Idx
                                      structure T = Idx)
 open IdxVisitor
@@ -58,6 +42,28 @@ fun on_i_s params b =
     #visit_sort vtable visitor 0 b
   end
     
+end
+
+signature SHIFTABLE_VAR = sig
+  type var
+  val shiftx_var : int -> int -> var -> var
+  val forget_var : int -> int -> var -> var
+end
+                                                      
+functor IdxShiftFn (structure Idx : IDX
+                    structure ShiftableVar : SHIFTABLE_VAR
+                    sharing type Idx.var = ShiftableVar.var
+                   ) = struct
+
+open Idx
+open ShiftableVar
+open ShiftUtil
+       
+infixr 0 $
+         
+structure IdxShiftVisitor = IdxShiftVisitorFn (Idx)
+open IdxShiftVisitor
+                                         
 (* fun on_i_i on_v x n b = *)
 (*   let *)
 (*     fun f x n b = *)
@@ -121,14 +127,7 @@ fun forget_i_s x n = on_i_s $ forget_params (x, n)
                               
 end
 
-functor IdxSubstFn (structure Idx : IDX
-                    val visit_VarI : int * int * Idx.idx -> int -> Idx.var -> Idx.idx
-                   ) = struct
-
-open Idx
-open Util
-       
-infixr 0 $
+functor IdxSubstVisitorFn (Idx : IDX) = struct
 
 structure IdxVisitor = IdxVisitorFn (structure S = Idx
                                      structure T = Idx)
@@ -178,6 +177,20 @@ fun subst_i_s_fn params b =
     #visit_sort vtable visitor 0 b
   end
                                
+end
+                                 
+functor IdxSubstFn (structure Idx : IDX
+                    val visit_VarI : int * int * Idx.idx -> int -> Idx.var -> Idx.idx
+                   ) = struct
+
+open Idx
+open Util
+       
+infixr 0 $
+
+structure IdxSubstVisitor = IdxSubstVisitorFn (Idx)
+open IdxSubstVisitor
+                                         
 val subst_i_params = visit_VarI
                      
 fun substx_i_i d x v = subst_i_i_fn $ subst_i_params (d, x, v)

@@ -213,12 +213,12 @@ fun collect_var_aux_long_id output x id =
 fun adapt f output x env = f output (x + env)
                             
 fun collect_var_aux_i_i output x =
-  IdxShift.on_i_i $ adapt collect_var_aux_long_id output x
+  IdxShiftVisitor.on_i_i $ adapt collect_var_aux_long_id output x
 fun collect_var_aux_i_s output x =
-  IdxShift.on_i_s $ adapt collect_var_aux_long_id output x
+  IdxShiftVisitor.on_i_s $ adapt collect_var_aux_long_id output x
              
-fun collect_var_aux_i_mt output x = TypeShift.on_i_mt (adapt collect_var_aux_i_i output x, adapt collect_var_aux_i_s output x)
-fun collect_var_aux_t_mt output x = TypeShift.on_t_mt (adapt collect_var_aux_long_id output x)
+fun collect_var_aux_i_mt output x = TypeShiftVisitor.on_i_mt (adapt collect_var_aux_i_i output x, adapt collect_var_aux_i_s output x)
+fun collect_var_aux_t_mt output x = TypeShiftVisitor.on_t_mt (adapt collect_var_aux_long_id output x)
                                        
 fun collect_var_0 f b =
   let

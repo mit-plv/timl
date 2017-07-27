@@ -88,8 +88,8 @@ fun package_long_id x m (id : long_id) =
 
 fun params_i (x, n) env = package_long_id (x + env) n
                             
-fun package_i_i x n = IdxShift.on_i_i $ params_i (x, n)
-fun package_i_s x n  = IdxShift.on_i_s $ params_i (x, n)
+fun package_i_i x n = IdxShiftVisitor.on_i_i $ params_i (x, n)
+fun package_i_s x n  = IdxShiftVisitor.on_i_s $ params_i (x, n)
 
 fun package0_i v = package_i_i 0 v
 fun package0_s v = package_i_s 0 v
@@ -183,12 +183,13 @@ fun package0_s v = package_i_s 0 v
 (*     (family, core) *)
 (*   end *)
 
-fun params_i_t x m = (fn env => package_i_i (x + env) m, fn env => package_i_s (x + env) m)
+fun adapt f x n env = f (x + env) n
+fun params_i_t x m = (adapt package_i_i x m, adapt package_i_s x m)
       
-fun package_i_mt x m = TypeShift.on_i_mt (params_i_t x m)
-fun package_i_t x m = TypeShift.on_i_t (params_i_t x m)
-fun package_i_constr_core x m = TypeShift.on_i_constr_core (params_i_t x m)
-fun package_i_c x m = TypeShift.on_i_c (params_i_t x m)
+fun package_i_mt x m = TypeShiftVisitor.on_i_mt (params_i_t x m)
+fun package_i_t x m = TypeShiftVisitor.on_i_t (params_i_t x m)
+fun package_i_constr_core x m = TypeShiftVisitor.on_i_constr_core (params_i_t x m)
+fun package_i_c x m = TypeShiftVisitor.on_i_c (params_i_t x m)
 
 (* fun package_t_mt x v (b : mtype) : mtype = *)
 (*   let *)
@@ -240,10 +241,10 @@ fun package_i_c x m = TypeShift.on_i_c (params_i_t x m)
 
 fun params_t x m env = package_long_id (x + env) m
                                      
-fun package_t_mt x m = TypeShift.on_t_mt $ params_t x m
-fun package_t_t x m = TypeShift.on_t_t $ params_t x m
-fun package_t_constr_core x m = TypeShift.on_t_constr_core $ params_t x m
-fun package_t_c x m = TypeShift.on_t_c $ params_t x m
+fun package_t_mt x m = TypeShiftVisitor.on_t_mt $ params_t x m
+fun package_t_t x m = TypeShiftVisitor.on_t_t $ params_t x m
+fun package_t_constr_core x m = TypeShiftVisitor.on_t_constr_core $ params_t x m
+fun package_t_c x m = TypeShiftVisitor.on_t_c $ params_t x m
 
 fun package0_mt v b = package_t_mt 0 v $ package_i_mt 0 v b
 fun package0_t v b = package_t_t 0 v $ package_i_t 0 v b
