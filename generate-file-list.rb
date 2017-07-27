@@ -1,5 +1,7 @@
 #!/usr/bin/env ruby
 
+require 'stringio'
+
 def usage
  puts "usage: THIS_SCRIPT [smlnj|mlton|Makefile]"  
 end
@@ -25,6 +27,10 @@ elsif target == "Makefile" then
 else
   wrong_arguments
 end
+
+captured_stdio = StringIO.new('', 'w')
+old_stdout = $stdout
+$stdout = captured_stdio
 
 if target == :smlnj then
   
@@ -176,7 +182,7 @@ micro-timl/micro-timl-ex.sml
 micro-timl/micro-timl-ex-pp.sml
 pattern-ex.sml
 micro-timl/micro-timl-ex-util.sml
-micro-timl/timl-to-micro-timl.sml
+# micro-timl/timl-to-micro-timl.sml
 }
 
 if target == :smlnj then
@@ -195,3 +201,10 @@ mlton-main.sml
 }
 
 end
+
+$stdout = old_stdout
+output = captured_stdio.string
+
+output.gsub!(/#.*/, '')
+
+print output
