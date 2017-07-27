@@ -251,11 +251,10 @@ structure TypeVisitor = TypeVisitorFn (structure S = Type
                                        structure T = Type)
 open TypeVisitor
                                          
-fun subst_i_type_visitor_vtable cast ((subst_i_i, subst_i_s), d, x, v) : ('this, int) type_visitor_vtable =
+fun subst_i_type_visitor_vtable cast ((visit_idx, visit_sort), d, x, v) : ('this, int) type_visitor_vtable =
   let
     fun extend_i this env _ = env + 1
-    fun visit_idx this env b = subst_i_i (d + env) (x + env) v b
-    fun visit_sort this env b = subst_i_s (d + env) (x + env) v b
+    fun adapt f this env b = f (d, x, v) env b
   in
     default_type_visitor_vtable
       cast
@@ -263,24 +262,24 @@ fun subst_i_type_visitor_vtable cast ((subst_i_i, subst_i_s), d, x, v) : ('this,
       extend_noop
       visit_noop
       visit_noop
-      visit_idx
-      visit_sort
+      (adapt visit_idx)
+      (adapt visit_sort)
       visit_noop
       visit_noop
   end
 
 fun new_subst_i_type_visitor params = new_type_visitor subst_i_type_visitor_vtable params
     
-fun subst_i_mt_fn substs d x v b =
+fun subst_i_mt_fn params d (x : 'x) (v : 'v) b =
   let
-    val visitor as (TypeVisitor vtable) = new_subst_i_type_visitor (substs, d, x, v)
+    val visitor as (TypeVisitor vtable) = new_subst_i_type_visitor (params, d, x, v)
   in
     #visit_mtype vtable visitor 0 b
   end
 
-fun subst_i_t_fn substs d x v b =
+fun subst_i_t_fn params d x v b =
   let
-    val visitor as (TypeVisitor vtable) = new_subst_i_type_visitor (substs, d, x, v)
+    val visitor as (TypeVisitor vtable) = new_subst_i_type_visitor (params, d, x, v)
   in
     #visit_ty vtable visitor 0 b
   end
@@ -321,7 +320,11 @@ fun subst_t_t_fn params d x v b =
     #visit_ty vtable visitor (IDepth 0, TDepth 0) b
   end
 
-val subst_i_params = (substx_i_i, substx_i_s)
+fun visit_idx (d, x, v) env b = substx_i_i (d + env) (x + env) v b
+fun visit_sort (d, x, v) env b = substx_i_s (d + env) (x + env) v b
+                                      
+val subst_i_params = (visit_idx, visit_sort)
+                       
 fun substx_i_mt a = subst_i_mt_fn subst_i_params a
 fun substx_i_t a = subst_i_t_fn subst_i_params a
 fun subst_i_mt (v : idx) (b : mtype) : mtype = substx_i_mt 0 0 v b
