@@ -74,6 +74,11 @@ fun visit_tele visit_p ctx t =
 end
 
 functor NamespacesFn (type name) = struct
+
+open Util
+       
+infixr 0 $
+         
 datatype idx_namespace = IdxNS
 datatype type_namespace = TypeNS
 datatype constr_namespace = ConstrNS
@@ -105,7 +110,8 @@ fun unTDepth (TypeNS, n) = n
 fun unEDepth (ExprNS, n) = n
                               
 fun use_idepth_tdepth f (di, dt) = f (unIDepth di, unTDepth dt)
-fun unuse_idepth_tdepth f (di, dt) = f (IDepth di, TDepth dt)
+fun IDepth_TDepth (di, dt) = (IDepth di, TDepth dt)                                      
+fun unuse_idepth_tdepth f d = f $ IDepth_TDepth d
                                      
 end
 

@@ -251,10 +251,9 @@ structure TypeVisitor = TypeVisitorFn (structure S = Type
                                        structure T = Type)
 open TypeVisitor
                                          
-fun subst_i_type_visitor_vtable cast ((visit_idx, visit_sort), d, x, v) : ('this, int) type_visitor_vtable =
+fun subst_i_type_visitor_vtable cast (visit_idx, visit_sort) : ('this, int) type_visitor_vtable =
   let
     fun extend_i this env _ = env + 1
-    fun adapt f this env b = f (d, x, v) env b
   in
     default_type_visitor_vtable
       cast
@@ -262,29 +261,29 @@ fun subst_i_type_visitor_vtable cast ((visit_idx, visit_sort), d, x, v) : ('this
       extend_noop
       visit_noop
       visit_noop
-      (adapt visit_idx)
-      (adapt visit_sort)
+      (ignore_this visit_idx)
+      (ignore_this visit_sort)
       visit_noop
       visit_noop
   end
 
 fun new_subst_i_type_visitor params = new_type_visitor subst_i_type_visitor_vtable params
     
-fun subst_i_mt_fn params d (x : 'x) (v : 'v) b =
+fun subst_i_mt_fn params b =
   let
-    val visitor as (TypeVisitor vtable) = new_subst_i_type_visitor (params, d, x, v)
+    val visitor as (TypeVisitor vtable) = new_subst_i_type_visitor params
   in
     #visit_mtype vtable visitor 0 b
   end
 
-fun subst_i_t_fn params d x v b =
+fun subst_i_t_fn params b =
   let
-    val visitor as (TypeVisitor vtable) = new_subst_i_type_visitor (params, d, x, v)
+    val visitor as (TypeVisitor vtable) = new_subst_i_type_visitor params
   in
     #visit_ty vtable visitor 0 b
   end
 
-fun subst_t_type_visitor_vtable cast (visit_MtVar, d, x, v) : ('this, idepth * tdepth) type_visitor_vtable =
+fun subst_t_type_visitor_vtable cast visit_MtVar : ('this, idepth * tdepth) type_visitor_vtable =
   let
     fun extend_i this (di, dt) _ = (idepth_inc di, dt)
     fun extend_t this (di, dt) _ = (di, tdepth_inc dt)
@@ -299,23 +298,23 @@ fun subst_t_type_visitor_vtable cast (visit_MtVar, d, x, v) : ('this, idepth * t
           visit_noop
           visit_noop
           visit_noop
-    val vtable = override_visit_MtVar vtable (ignore_this (visit_MtVar (d, x, v)))
+    val vtable = override_visit_MtVar vtable (ignore_this visit_MtVar)
   in
     vtable
   end
 
 fun new_subst_t_type_visitor params = new_type_visitor subst_t_type_visitor_vtable params
 
-fun subst_t_mt_fn params d x v b =
+fun subst_t_mt_fn params b =
   let
-    val visitor as (TypeVisitor vtable) = new_subst_t_type_visitor (params, d, x, v)
+    val visitor as (TypeVisitor vtable) = new_subst_t_type_visitor params
   in
     #visit_mtype vtable visitor (IDepth 0, TDepth 0) b
   end
                                
-fun subst_t_t_fn params d x v b =
+fun subst_t_t_fn params b =
   let
-    val visitor as (TypeVisitor vtable) = new_subst_t_type_visitor (params, d, x, v)
+    val visitor as (TypeVisitor vtable) = new_subst_t_type_visitor params
   in
     #visit_ty vtable visitor (IDepth 0, TDepth 0) b
   end
@@ -323,17 +322,18 @@ fun subst_t_t_fn params d x v b =
 fun visit_idx (d, x, v) env b = substx_i_i (d + env) (x + env) v b
 fun visit_sort (d, x, v) env b = substx_i_s (d + env) (x + env) v b
                                       
-val subst_i_params = (visit_idx, visit_sort)
+fun subst_i_params params = (visit_idx params, visit_sort params)
                        
-fun substx_i_mt a = subst_i_mt_fn subst_i_params a
-fun substx_i_t a = subst_i_t_fn subst_i_params a
+fun substx_i_mt d x v = subst_i_mt_fn $ subst_i_params (d, x, v)
+fun substx_i_t d x v = subst_i_t_fn $ subst_i_params (d, x, v)
+                                    
 fun subst_i_mt (v : idx) (b : mtype) : mtype = substx_i_mt 0 0 v b
 fun subst_i_t (v : idx) (b : ty) : ty = substx_i_t 0 0 v b
 
 val subst_t_params = visit_MtVar
 
-fun substx_t_mt a = unuse_idepth_tdepth (subst_t_mt_fn subst_t_params) a
-fun substx_t_t a = unuse_idepth_tdepth (subst_t_t_fn subst_t_params) a
+fun substx_t_mt d x v = subst_t_mt_fn $ subst_t_params (IDepth_TDepth d, x, v)
+fun substx_t_t d x v = subst_t_t_fn $ subst_t_params (IDepth_TDepth d, x, v)
 fun subst_t_mt (v : mtype) (b : mtype) : mtype = substx_t_mt (0, 0) 0 v b
 fun subst_t_t v b = substx_t_t (0, 0) 0 v b
 

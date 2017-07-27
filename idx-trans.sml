@@ -136,7 +136,7 @@ open IdxVisitor
 (* fun substx_list f d x v b = map (f d x v) b *)
 
 (* depth [d] is used for shifting value [v] *)
-fun subst_i_idx_visitor_vtable cast (visit_VarI, d, x, v) : ('this, int) idx_visitor_vtable =
+fun subst_i_idx_visitor_vtable cast visit_VarI : ('this, int) idx_visitor_vtable =
   let
     fun extend_i this d _ = d + 1
     val vtable = 
@@ -148,39 +148,39 @@ fun subst_i_idx_visitor_vtable cast (visit_VarI, d, x, v) : ('this, int) idx_vis
           visit_noop
           visit_noop
           visit_noop
-    val vtable = override_visit_VarI vtable (ignore_this (visit_VarI (d, x, v)))
+    val vtable = override_visit_VarI vtable (ignore_this visit_VarI)
   in
     vtable
   end
 
 fun new_subst_i_idx_visitor params = new_idx_visitor subst_i_idx_visitor_vtable params
 
-fun subst_i_i_fn params d (x : 'x) (v : 'v) b =
+fun subst_i_i_fn params b =
   let
-    val visitor as (IdxVisitor vtable) = new_subst_i_idx_visitor (params, d, x, v)
+    val visitor as (IdxVisitor vtable) = new_subst_i_idx_visitor params
   in
     #visit_idx vtable visitor 0 b
   end
                                
-fun subst_i_p_fn params d x v b =
+fun subst_i_p_fn params b =
   let
-    val visitor as (IdxVisitor vtable) = new_subst_i_idx_visitor (params, d, x, v)
+    val visitor as (IdxVisitor vtable) = new_subst_i_idx_visitor params
   in
     #visit_prop vtable visitor 0 b
   end
                                
-fun subst_i_s_fn params d x v b =
+fun subst_i_s_fn params b =
   let
-    val visitor as (IdxVisitor vtable) = new_subst_i_idx_visitor (params, d, x, v)
+    val visitor as (IdxVisitor vtable) = new_subst_i_idx_visitor params
   in
     #visit_sort vtable visitor 0 b
   end
                                
 val subst_i_params = visit_VarI
                      
-fun substx_i_i a = subst_i_i_fn subst_i_params a
-fun substx_i_p a = subst_i_p_fn subst_i_params a
-fun substx_i_s a = subst_i_s_fn subst_i_params a
+fun substx_i_i d x v = subst_i_i_fn $ subst_i_params (d, x, v)
+fun substx_i_p d x v = subst_i_p_fn $ subst_i_params (d, x, v)
+fun substx_i_s d x v = subst_i_s_fn $ subst_i_params (d, x, v)
       
 fun subst_i_i v b = substx_i_i 0 0 v b
 fun subst_i_p (v : idx) (b : prop) : prop = substx_i_p 0 0 v b
