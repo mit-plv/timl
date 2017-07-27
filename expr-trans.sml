@@ -1,30 +1,13 @@
-functor ShiftEEFn (structure S : EXPR
-                   structure T : EXPR
-                   sharing type S.cvar = T.cvar
-                   sharing type S.mod_id = T.mod_id
-                   sharing type S.idx = T.idx
-                   sharing type S.sort = T.sort
-                   sharing type S.mtype = T.mtype
-                   sharing type S.ptrn_constr_tag = T.ptrn_constr_tag
-                  ) = struct
+functor ExprShiftVisitorFn (Expr : EXPR) = struct
 
-structure ExprVisitor = ExprVisitorFn (structure S = S
-                                       structure T = T
+structure ExprVisitor = ExprVisitorFn (structure S = Expr
+                                       structure T = Expr
                                       )
 open ExprVisitor
 
-open Util
-       
-infixr 0 $
-         
-(***************** the "shift_e_e" visitor  **********************)    
-
-open Bind
-       
-fun on_e_expr_visitor_vtable cast (on_var, n) : ('this, int) expr_visitor_vtable =
+fun on_e_expr_visitor_vtable cast visit_var : ('this, int) expr_visitor_vtable =
   let
     fun extend_e this env _ = env + 1
-    fun visit_var this env data = on_var env n data
   in
     default_expr_visitor_vtable
       cast
@@ -32,7 +15,7 @@ fun on_e_expr_visitor_vtable cast (on_var, n) : ('this, int) expr_visitor_vtable
       extend_noop
       extend_noop
       extend_e
-      visit_var
+      (ignore_this visit_var)
       visit_noop
       visit_noop
       visit_noop
@@ -43,14 +26,43 @@ fun on_e_expr_visitor_vtable cast (on_var, n) : ('this, int) expr_visitor_vtable
 
 fun new_on_e_expr_visitor params = new_expr_visitor on_e_expr_visitor_vtable params
     
-fun on_e_e on_var x n b =
+fun on_e_e params b =
   let
-    val visitor as (ExprVisitor vtable) = new_on_e_expr_visitor (on_var, n)
+    val visitor as (ExprVisitor vtable) = new_on_e_expr_visitor params
   in
-    #visit_expr vtable visitor x b
+    #visit_expr vtable visitor 0 b
   end
     
-fun on_e_ibind f x n (Bind (name, b) : ('a * 'b) ibind) = Bind (name, f x n b)
+end
+
+functor ExprShiftFn (structure Expr : EXPR
+                     structure ShiftableVar : SHIFTABLE_VAR
+                     sharing type ShiftableVar.var = Expr.var
+                    ) = struct
+
+open ShiftableVar
+open Util
+       
+infixr 0 $
+         
+structure ExprShiftVisitor = ExprShiftVisitorFn (Expr)
+open ExprShiftVisitor
+                                         
+fun adapt f x n env = f (x + env) n
+
+fun shift_e_params a = adapt shiftx_var a
+  
+fun shiftx_e_e x n = on_e_e $ shift_e_params x n
+                            
+fun shift_e_e a = shiftx_e_e 0 1 a
+                              
+fun forget_e_params a = adapt forget_var a
+  
+fun forget_e_e x n = on_e_e $ forget_e_params x n
+
+open Bind
+       
+(* fun on_e_ibind f x n (Bind (name, b) : ('a * 'b) ibind) = Bind (name, f x n b) *)
                                                                
 (* fun on_e_e on_v = *)
 (*   let *)
@@ -171,7 +183,7 @@ fun on_e_ibind f x n (Bind (name, b) : ('a * 'b) ibind) = Bind (name, f x n b)
                               
 end
 
-functor SubstTEFn (structure S : EXPR
+functor ExprSubstFn (structure S : EXPR
                    structure T : EXPR
                    sharing type S.var = T.var
                    sharing type S.cvar = T.cvar

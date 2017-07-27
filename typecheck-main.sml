@@ -1464,8 +1464,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	    (* delegate to checking [x {is} e] *)
 	    val f = U.EVar ((ID (0, U.get_region_long_id x)), eia)
 	    val f = foldl (fn (i, e) => U.EAppI (e, i)) f is
-            fun u_shift01_e_e a = UnderscoredShiftEE.on_e_e LongIdSubst.shiftx_long_id 0 1 a
-	    val e = U.EApp (f, u_shift01_e_e e)
+	    val e = U.EApp (f, UnderscoredExprShift.shift_e_e e)
             (* val f_name = "__synthesized_constructor" *)
             val f_name = str_var #3 (gctx_names gctx) (names cctx) x
 	    val (e, t, d) = get_mtype (add_typing_skct (f_name, tc) ctx, e) 
@@ -1528,8 +1527,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                       (ts, is, e)
                     end
                   | _ => raise Impossible "get_mtype (): U.EAppConstr: e in wrong form"
-            fun forget_e_e a = ShiftEE.on_e_e LongIdSubst.forget_long_id a
-            val e = forget_e_e 0 1 e
+            val e = ExprShift.forget_e_e 0 1 e
             val siblings = get_family_siblings gctx cctx x
             val pos_in_family = index (curry eq_var x) (map fst siblings) !! (fn () => raise Impossible "get_mtype(): family_pos")
             val family = get_family $ snd $ hd siblings

@@ -105,6 +105,7 @@ structure UnderscoredSubst = SubstFn (structure IdxType = struct
 structure UnderscoredExprVisitor = ExprVisitorFn (structure S = UnderscoredExpr
                                                   structure T = UnderscoredExpr)
 
-structure UnderscoredShiftEE = ShiftEEFn (structure S = UnderscoredExpr
-                                          structure T = UnderscoredExpr)
+structure UnderscoredExprShift = ExprShiftFn (structure Expr = UnderscoredExpr
+                                              structure ShiftableVar = LongIdSubst
+                                             )
                                                  

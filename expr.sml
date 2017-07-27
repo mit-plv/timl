@@ -82,10 +82,11 @@ structure Subst = SubstFn (structure IdxType = struct
 structure ExprVisitor = ExprVisitorFn (structure S = Expr
                                        structure T = Expr)
 
-structure ShiftEE = ShiftEEFn (structure S = Expr
-                               structure T = Expr)
+structure ExprShift = ExprShiftFn (structure Expr = Expr
+                                   structure ShiftableVar = LongIdSubst
+                                  )
                                       
-structure SubstTE = SubstTEFn (structure S = Expr
+structure ExprSubst = ExprSubstFn (structure S = Expr
                                structure T = Expr)
                                       
 structure Simp = SimpFn (structure Idx = Expr

@@ -220,6 +220,7 @@ structure TypeShiftVisitor = TypeShiftVisitorFn (Type)
 open TypeShiftVisitor
                                          
 fun adapt f x n env = f (x + env) n
+                        
 fun shift_i_params x n = (adapt shiftx_i_i x n, adapt shiftx_i_s x n)
                      
 fun shiftx_i_mt x n = on_i_mt (shift_i_params x n)
