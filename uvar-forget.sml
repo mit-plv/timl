@@ -124,10 +124,6 @@ fun on_i_p' on_i b =
     #visit_prop vtable visitor 0 b
   end
 
-fun adapt f x n env = f (x + env) n
-                        
-fun forget_i_p x n b = on_i_p' (adapt forget_i_i x n) b
-                               
 fun on_i_s' on_i b =
   let
     val visitor as (IdxVisitor vtable) = new_on_i_idx_visitor' on_i
@@ -135,6 +131,8 @@ fun on_i_s' on_i b =
     #visit_sort vtable visitor 0 b
   end
     
+fun adapt f x n env = f (x + env) n
+fun forget_i_p x n b = on_i_p' (adapt forget_i_i x n) b
 fun forget_i_s x n b = on_i_s' (adapt forget_i_i x n) b
                               
 (* fun forget_i_mt x n b = on_i_mt forget_i_i forget_i_s forget_i_k x n b *)
@@ -219,24 +217,23 @@ fun forget_i_mt x n b =
     ret
   end
                                 
-fun new_on_i_type_visitor' on_mt n =
+fun new_on_i_type_visitor' visit_mtype =
   let
-    fun imposs _ _ _ = raise Impossible "on_i_t'()/imposs"
-    val (TypeVisitor vtable) = new_on_i_type_visitor ((imposs, imposs), n)
-    fun visit_mtype _ x t = on_mt x n t
-    val vtable = override_visit_mtype vtable visit_mtype
+    fun imposs _ _ = raise Impossible "on_i_t'()/imposs"
+    val (TypeVisitor vtable) = new_on_i_type_visitor (imposs, imposs)
+    val vtable = override_visit_mtype vtable $ ignore_this visit_mtype
     val visitor = TypeVisitor vtable
   in
     visitor
   end
 
-fun on_i_t' on_i x n b =
+fun on_i_t' params b =
   let
-    val visitor as (TypeVisitor vtable) = new_on_i_type_visitor' on_i n
+    val visitor as (TypeVisitor vtable) = new_on_i_type_visitor' params
   in
-    #visit_ty vtable visitor x b
+    #visit_ty vtable visitor 0 b
   end
     
-fun forget_i_t x n b = on_i_t' forget_i_mt x n b
+fun forget_i_t x n b = on_i_t' (adapt forget_i_mt x n) b
 
 end

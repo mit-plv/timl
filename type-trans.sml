@@ -60,10 +60,9 @@ structure TypeVisitor = TypeVisitorFn (structure S = Type
                                        structure T = Type)
 open TypeVisitor
                                          
-fun on_i_type_visitor_vtable cast ((on_i, on_s), n) : ('this, int) type_visitor_vtable =
+fun on_i_type_visitor_vtable cast (visit_idx, visit_sort) : ('this, int) type_visitor_vtable =
   let
     fun extend_i this env _ = env + 1
-    fun use f this env b = f env n b
   in
     default_type_visitor_vtable
       cast
@@ -71,40 +70,40 @@ fun on_i_type_visitor_vtable cast ((on_i, on_s), n) : ('this, int) type_visitor_
       extend_noop
       visit_noop
       visit_noop
-      (use on_i)
-      (use on_s)
+      (ignore_this visit_idx)
+      (ignore_this visit_sort)
       visit_noop
       visit_noop
   end
 
 fun new_on_i_type_visitor a = new_type_visitor on_i_type_visitor_vtable a
     
-fun on_i_mt params x n b =
+fun on_i_mt params b =
   let
-    val visitor as (TypeVisitor vtable) = new_on_i_type_visitor (params, n)
+    val visitor as (TypeVisitor vtable) = new_on_i_type_visitor params
   in
-    #visit_mtype vtable visitor x b
+    #visit_mtype vtable visitor 0 b
   end
     
-fun on_i_t params x n b =
+fun on_i_t params b =
   let
-    val visitor as (TypeVisitor vtable) = new_on_i_type_visitor (params, n)
+    val visitor as (TypeVisitor vtable) = new_on_i_type_visitor params
   in
-    #visit_ty vtable visitor x b
+    #visit_ty vtable visitor 0 b
   end
     
-fun on_i_constr_core params x n b =
+fun on_i_constr_core params b =
   let
-    val visitor as (TypeVisitor vtable) = new_on_i_type_visitor (params, n)
+    val visitor as (TypeVisitor vtable) = new_on_i_type_visitor params
   in
-    #visit_constr_core vtable visitor x b
+    #visit_constr_core vtable visitor 0 b
   end
     
-fun on_i_c params x n b =
+fun on_i_c params b =
   let
-    val visitor as (TypeVisitor vtable) = new_on_i_type_visitor (params, n)
+    val visitor as (TypeVisitor vtable) = new_on_i_type_visitor params
   in
-    #visit_constr_info vtable visitor x b
+    #visit_constr_info vtable visitor 0 b
   end
     
 (* fun on_i_t on_i_mt x n b = *)
@@ -149,16 +148,15 @@ fun on_i_c params x n b =
     
 (* and on_t_constr_core on_mt x n b = on_t_ibinds return3 (on_pair (on_mt, return3)) x n b *)
 
-fun on_t_type_visitor_vtable cast (on_var, n) : ('this, int) type_visitor_vtable =
+fun on_t_type_visitor_vtable cast visit_var : ('this, int) type_visitor_vtable =
   let
     fun extend_t this env _ = env + 1
-    fun visit_var this env data = on_var env n data
   in
     default_type_visitor_vtable
       cast
       extend_noop
       extend_t
-      visit_var
+      (ignore_this visit_var)
       visit_noop
       visit_noop
       visit_noop
@@ -168,32 +166,32 @@ fun on_t_type_visitor_vtable cast (on_var, n) : ('this, int) type_visitor_vtable
 
 fun new_on_t_type_visitor a = new_type_visitor on_t_type_visitor_vtable a
     
-fun on_t_mt on_var x n b =
+fun on_t_mt params b =
   let
-    val visitor as (TypeVisitor vtable) = new_on_t_type_visitor (on_var, n)
+    val visitor as (TypeVisitor vtable) = new_on_t_type_visitor params
   in
-    #visit_mtype vtable visitor x b
+    #visit_mtype vtable visitor 0 b
   end
     
-fun on_t_t on_var x n b =
+fun on_t_t params b =
   let
-    val visitor as (TypeVisitor vtable) = new_on_t_type_visitor (on_var, n)
+    val visitor as (TypeVisitor vtable) = new_on_t_type_visitor params
   in
-    #visit_ty vtable visitor x b
+    #visit_ty vtable visitor 0 b
   end
     
-fun on_t_constr_core on_var x n b =
+fun on_t_constr_core params b =
   let
-    val visitor as (TypeVisitor vtable) = new_on_t_type_visitor (on_var, n)
+    val visitor as (TypeVisitor vtable) = new_on_t_type_visitor params
   in
-    #visit_constr_core vtable visitor x b
+    #visit_constr_core vtable visitor 0 b
   end
     
-fun on_t_c on_var x n b =
+fun on_t_c params b =
   let
-    val visitor as (TypeVisitor vtable) = new_on_t_type_visitor (on_var, n)
+    val visitor as (TypeVisitor vtable) = new_on_t_type_visitor params
   in
-    #visit_constr_info vtable visitor x b
+    #visit_constr_info vtable visitor 0 b
   end
     
 (* fun on_t_t on_t_mt x n b = *)
@@ -214,25 +212,35 @@ fun on_t_c on_var x n b =
 (*   ((m, shiftx_id x n family), *)
 (*    on_t_tbinds return3 (on_t_constr_core shiftx_var) x n tbinds) *)
 
-fun shiftx_i_mt x n b = on_i_mt (shiftx_i_i, shiftx_i_s) x n b
-fun shift_i_mt b = shiftx_i_mt 0 1 b
-and shiftx_t_mt x n b = on_t_mt shiftx_var x n b
-fun shift_t_mt b = shiftx_t_mt 0 1 b
+fun shift_i_params x n = (fn env => shiftx_i_i (x + env) n, fn env => shiftx_i_s (x + env) n)
+                     
+fun shiftx_i_mt x n = on_i_mt (shift_i_params x n)
+fun shiftx_i_t x n = on_i_t (shift_i_params x n)
+fun shiftx_i_c x n = on_i_c (shift_i_params x n)
 
-fun shiftx_i_t x n b = on_i_t (shiftx_i_i, shiftx_i_s) x n b
+fun shift_t_params x n env = shiftx_var (x + env) n
+  
+and shiftx_t_mt x n = on_t_mt (shift_t_params x n)
+fun shiftx_t_t x n = on_t_t (shift_t_params x n)
+fun shiftx_t_c x n = on_t_c (shift_t_params x n)
+                              
+fun shift_i_mt b = shiftx_i_mt 0 1 b
 fun shift_i_t b = shiftx_i_t 0 1 b
-fun shiftx_t_t x n b = on_t_t shiftx_var x n b
+fun shift_t_mt b = shiftx_t_mt 0 1 b
 fun shift_t_t b = shiftx_t_t 0 1 b
 
-fun shiftx_i_c x n b = on_i_c (shiftx_i_i, shiftx_i_s) x n b
 fun shift_i_c b = shiftx_i_c 0 1 b
-fun shiftx_t_c x n b = on_t_c shiftx_var x n b
 fun shift_t_c b = shiftx_t_c 0 1 b
 
-fun forget_i_mt x n b = on_i_mt (forget_i_i, forget_i_s) x n b
-fun forget_t_mt x n b = on_t_mt forget_var x n b
-fun forget_i_t x n b = on_i_t (forget_i_i, forget_i_s) x n b
-fun forget_t_t x n b = on_t_t forget_var x n b
+fun forget_i_params x n = (fn env => forget_i_i (x + env) n, fn env => forget_i_s (x + env) n)
+                             
+fun forget_i_mt x n = on_i_mt (forget_i_params x n)
+fun forget_i_t x n = on_i_t (forget_i_params x n)
+                              
+fun forget_t_params x n env = forget_var (x + env) n
+  
+fun forget_t_mt x n = on_t_mt (forget_t_params x n)
+fun forget_t_t x n = on_t_t (forget_t_params x n)
 
 end
 

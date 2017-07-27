@@ -21,15 +21,14 @@ structure IdxVisitor = IdxVisitorFn (structure S = Idx
                                      structure T = Idx)
 open IdxVisitor
                                          
-fun on_i_idx_visitor_vtable cast on_var : ('this, int) idx_visitor_vtable =
+fun on_i_idx_visitor_vtable cast visit_var : ('this, int) idx_visitor_vtable =
   let
     fun extend_i this env _ = env + 1
-    fun visit_var this env data = on_var env data
   in
     default_idx_visitor_vtable
       cast
       extend_i
-      visit_var
+      (ignore_this visit_var)
       visit_noop
       visit_noop
       visit_noop

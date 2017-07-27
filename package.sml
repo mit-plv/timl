@@ -183,10 +183,12 @@ fun package0_s v = package_i_s 0 v
 (*     (family, core) *)
 (*   end *)
 
-fun package_i_mt a = TypeShift.on_i_mt (package_i_i, package_i_s) a
-fun package_i_t a = TypeShift.on_i_t (package_i_i, package_i_s) a
-fun package_i_constr_core a = TypeShift.on_i_constr_core (package_i_i, package_i_s) a
-fun package_i_c a = TypeShift.on_i_c (package_i_i, package_i_s) a
+fun params_i_t x m = (fn env => package_i_i (x + env) m, fn env => package_i_s (x + env) m)
+      
+fun package_i_mt x m = TypeShift.on_i_mt (params_i_t x m)
+fun package_i_t x m = TypeShift.on_i_t (params_i_t x m)
+fun package_i_constr_core x m = TypeShift.on_i_constr_core (params_i_t x m)
+fun package_i_c x m = TypeShift.on_i_c (params_i_t x m)
 
 (* fun package_t_mt x v (b : mtype) : mtype = *)
 (*   let *)
@@ -236,15 +238,16 @@ fun package_i_c a = TypeShift.on_i_c (package_i_i, package_i_s) a
 (*     (family, core) *)
 (*   end *)
 
-fun package_t_mt a = TypeShift.on_t_mt package_long_id a
-fun package_t_t a = TypeShift.on_t_t package_long_id a
-fun package_t_constr_core a = TypeShift.on_t_constr_core package_long_id a
-fun package_t_c a = TypeShift.on_t_c package_long_id a
+fun params_t x m env = package_long_id (x + env) m
+                                     
+fun package_t_mt x m = TypeShift.on_t_mt $ params_t x m
+fun package_t_t x m = TypeShift.on_t_t $ params_t x m
+fun package_t_constr_core x m = TypeShift.on_t_constr_core $ params_t x m
+fun package_t_c x m = TypeShift.on_t_c $ params_t x m
 
 fun package0_mt v b = package_t_mt 0 v $ package_i_mt 0 v b
 fun package0_t v b = package_t_t 0 v $ package_i_t 0 v b
-fun package0_c v b =
-  package_t_c 0 v $ package_i_c 0 v b
+fun package0_c v b = package_t_c 0 v $ package_i_c 0 v b
               
 (*                               
 fun package_long_id m (m', x) =

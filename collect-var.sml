@@ -195,19 +195,6 @@ infixr 0 $
 (* fun collect_var_t_mt b = f 0 [] b *)
 (* end *)
 
-fun adapt f x _ b = f x b
-                      
-fun unadapt f d b = f d 0 b
-                      
-fun collect_var_0 f b =
-  let
-    val r = ref []
-    fun output id = push_ref r id
-    val _ = f output 0 b
-  in
-    !r
-  end
-             
 fun collect_var_aux_long_id output x id =
   let
     val () = 
@@ -220,19 +207,31 @@ fun collect_var_aux_long_id output x id =
     id
   end
 
-fun params_i output x env = collect_var_aux_long_id output (x + env)
+(* fun adapt f x _ b = f x b *)
+(* fun unadapt f d b = f d 0 b *)
+                      
+fun adapt f output x env = f output (x + env)
                             
 fun collect_var_aux_i_i output x =
-  IdxShift.on_i_i $ params_i output x
+  IdxShift.on_i_i $ adapt collect_var_aux_long_id output x
 fun collect_var_aux_i_s output x =
-  IdxShift.on_i_s $ params_i output x
+  IdxShift.on_i_s $ adapt collect_var_aux_long_id output x
+             
+fun collect_var_aux_i_mt output x = TypeShift.on_i_mt (adapt collect_var_aux_i_i output x, adapt collect_var_aux_i_s output x)
+fun collect_var_aux_t_mt output x = TypeShift.on_t_mt (adapt collect_var_aux_long_id output x)
+                                       
+fun collect_var_0 f b =
+  let
+    val r = ref []
+    fun output id = push_ref r id
+    val _ = f output 0 b
+  in
+    !r
+  end
              
 fun collect_var_i_i b = collect_var_0 collect_var_aux_i_i b
 fun collect_var_i_s b = collect_var_0 collect_var_aux_i_s b
              
-fun collect_var_aux_i_mt output = unadapt $ TypeShift.on_i_mt (adapt $ collect_var_aux_i_i output, adapt $ collect_var_aux_i_s output)
-fun collect_var_aux_t_mt output = unadapt $ TypeShift.on_t_mt (adapt $ collect_var_aux_long_id output)
-                                       
 fun collect_var_i_mt b = collect_var_0 collect_var_aux_i_mt b
 fun collect_var_t_mt b = collect_var_0 collect_var_aux_t_mt b
              
