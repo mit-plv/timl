@@ -106,34 +106,36 @@ fun forget_i_i x n b =
     ret
   end
 
-fun new_on_i_idx_visitor' on_i n =
+fun new_on_i_idx_visitor' on_i =
   let
-    fun on_var _ _ _ = raise Impossible "on_i_p'()/on_var"
-    val (IdxVisitor vtable) = new_on_i_idx_visitor (on_var, n)
-    fun visit_idx _ x i = on_i x n i
+    fun on_var _ _ = raise Impossible "on_i_p'()/on_var"
+    val (IdxVisitor vtable) = new_on_i_idx_visitor on_var
+    fun visit_idx _ env i = on_i env i
     val vtable = override_visit_idx vtable visit_idx
     val visitor = IdxVisitor vtable
   in
     visitor
   end
 
-fun on_i_p' on_i x n b =
+fun on_i_p' on_i b =
   let
-    val visitor as (IdxVisitor vtable) = new_on_i_idx_visitor' on_i n
+    val visitor as (IdxVisitor vtable) = new_on_i_idx_visitor' on_i
   in
-    #visit_prop vtable visitor x b
+    #visit_prop vtable visitor 0 b
   end
-    
-fun forget_i_p x n b = on_i_p' forget_i_i x n b
+
+fun adapt f x n env = f (x + env) n
+                        
+fun forget_i_p x n b = on_i_p' (adapt forget_i_i x n) b
                                
-fun on_i_s' on_i x n b =
+fun on_i_s' on_i b =
   let
-    val visitor as (IdxVisitor vtable) = new_on_i_idx_visitor' on_i n
+    val visitor as (IdxVisitor vtable) = new_on_i_idx_visitor' on_i
   in
-    #visit_sort vtable visitor x b
+    #visit_sort vtable visitor 0 b
   end
     
-fun forget_i_s x n b = on_i_s' forget_i_i x n b
+fun forget_i_s x n b = on_i_s' (adapt forget_i_i x n) b
                               
 (* fun forget_i_mt x n b = on_i_mt forget_i_i forget_i_s forget_i_k x n b *)
 fun forget_i_mt x n b =

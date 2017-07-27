@@ -86,8 +86,10 @@ fun package_long_id x m (id : long_id) =
 (* fun package_i_s x v (b : sort) : sort = f x v b *)
 (* end *)
 
-fun package_i_i a = IdxShift.on_i_i package_long_id a
-fun package_i_s a  = IdxShift.on_i_s package_long_id a
+fun params_i (x, n) env = package_long_id (x + env) n
+                            
+fun package_i_i x n = IdxShift.on_i_i $ params_i (x, n)
+fun package_i_s x n  = IdxShift.on_i_s $ params_i (x, n)
 
 fun package0_i v = package_i_i 0 v
 fun package0_s v = package_i_s 0 v

@@ -21,10 +21,10 @@ structure IdxVisitor = IdxVisitorFn (structure S = Idx
                                      structure T = Idx)
 open IdxVisitor
                                          
-fun on_i_idx_visitor_vtable cast (on_var, n) : ('this, int) idx_visitor_vtable =
+fun on_i_idx_visitor_vtable cast on_var : ('this, int) idx_visitor_vtable =
   let
     fun extend_i this env _ = env + 1
-    fun visit_var this env data = on_var env n data
+    fun visit_var this env data = on_var env data
   in
     default_idx_visitor_vtable
       cast
@@ -38,25 +38,25 @@ fun on_i_idx_visitor_vtable cast (on_var, n) : ('this, int) idx_visitor_vtable =
 
 fun new_on_i_idx_visitor a = new_idx_visitor on_i_idx_visitor_vtable a
     
-fun on_i_i on_var x n b =
+fun on_i_i params b =
   let
-    val visitor as (IdxVisitor vtable) = new_on_i_idx_visitor (on_var, n)
+    val visitor as (IdxVisitor vtable) = new_on_i_idx_visitor params
   in
-    #visit_idx vtable visitor x b
+    #visit_idx vtable visitor 0 b
   end
     
-fun on_i_p on_var x n b =
+fun on_i_p params b =
   let
-    val visitor as (IdxVisitor vtable) = new_on_i_idx_visitor (on_var, n)
+    val visitor as (IdxVisitor vtable) = new_on_i_idx_visitor params
   in
-    #visit_prop vtable visitor x b
+    #visit_prop vtable visitor 0 b
   end
     
-fun on_i_s on_var x n b =
+fun on_i_s params b =
   let
-    val visitor as (IdxVisitor vtable) = new_on_i_idx_visitor (on_var, n)
+    val visitor as (IdxVisitor vtable) = new_on_i_idx_visitor params
   in
-    #visit_sort vtable visitor x b
+    #visit_sort vtable visitor 0 b
   end
     
 (* fun on_i_i on_v x n b = *)
@@ -101,21 +101,24 @@ fun on_i_s on_var x n b =
 (*   end *)
 
 (* shift *)
-    
-fun shiftx_i_i x n b = on_i_i shiftx_var x n b
+
+fun shift_params (x, n) env = shiftx_var (x + env) n
+                            
+fun shiftx_i_i x n = on_i_i $ shift_params (x, n)
+fun shiftx_i_p x n = on_i_p $ shift_params (x, n)
+fun shiftx_i_s x n = on_i_s $ shift_params (x, n) 
+                              
 fun shift_i_i b = shiftx_i_i 0 1 b
-
-fun shiftx_i_p x n b = on_i_p shiftx_var x n b
 fun shift_i_p b = shiftx_i_p 0 1 b
-
-fun shiftx_i_s x n b = on_i_s shiftx_var x n b
 fun shift_i_s b = shiftx_i_s 0 1 b
 
 (* forget *)
 
-fun forget_i_i x n b = on_i_i forget_var x n b
-fun forget_i_p x n b = on_i_p forget_var x n b
-fun forget_i_s x n b = on_i_s forget_var x n b
+fun forget_params (x, n) env = forget_var (x + env) n
+                            
+fun forget_i_i x n = on_i_i $ forget_params (x, n)
+fun forget_i_p x n = on_i_p $ forget_params (x, n)
+fun forget_i_s x n = on_i_s $ forget_params (x, n)
                               
 end
 
