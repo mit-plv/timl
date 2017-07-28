@@ -41,9 +41,7 @@ open LongId
 open Hyp
 open BaseSorts
        
-structure IdxUtil = IdxUtilFn (structure Idx = Idx
-                               val dummy = dummy
-                              )
+structure IdxUtil = IdxUtilFn (Idx)
 open IdxUtil
 
 infixr 0 $

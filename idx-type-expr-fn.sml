@@ -1,3 +1,5 @@
+(* This functor is just an assembly of functionalities from many other modules, a Swiss-Army-knife kind of thing. *)
+
 signature IDX_TYPE_EXPR_PARAMS = sig
   type v
   structure UVarI : UVAR_I
@@ -16,6 +18,8 @@ open LongId
 open Operators
 open Region
 open Bind
+
+infixr 0 $
 
 type id = v * region
 type name = string * region
@@ -56,11 +60,15 @@ structure ExprCore = ExprFn (
 
 open ExprCore
 
-structure IdxUtil = IdxUtilFn (structure Idx = Idx
-                               val dummy = dummy
-                              )
+structure IdxUtil = IdxUtilFn (Idx)
 open IdxUtil
 
+structure TypeUtil = TypeUtilFn (Type)
+open TypeUtil
+
+structure ExprUtil = ExprUtilFn (ExprCore)
+open ExprUtil
+       
 (* some shorthands *)
 
 val STime = Basic (Base Time, dummy)
@@ -70,26 +78,8 @@ val SUnit = Basic (Base UnitSort, dummy)
 
 val Type = (0, [])
 
-fun ETT r = EConst (ECTT, r)
-fun EConstInt (n, r) = EConst (ECInt n, r)
-fun EConstNat (n, r) = EConst (ECNat n, r)
-fun EFst (e, r) = EUnOp (EUFst, e, r)
-fun ESnd (e, r) = EUnOp (EUSnd, e, r)
-fun EApp (e1, e2) = EBinOp (EBApp, e1, e2)
-fun EPair (e1, e2) = EBinOp (EBPair, e1, e2)
-fun EAppI (e, i) = EEI (EEIAppI, e, i)
-fun EAppIs (f, args) = foldl (swap EAppI) f args
-fun EAppT (e, i) = EET (EETAppT, e, i)
-fun EAppTs (f, args) = foldl (swap EAppT) f args
-fun EAsc (e, t) = EET (EETAsc, e, t)
-fun EAscTime (e, i) = EEI (EEIAscTime, e, i)
-fun ENever (t, r) = ET (ETNever, t, r)
-fun EBuiltin (t, r) = ET (ETBuiltin, t, r)
-  
 (* notations *)
          
-infixr 0 $
-
 infix 9 %@
 infix 8 %^
 infix 7 %*
@@ -106,127 +96,6 @@ infix 1 <->
 
 open Bind
        
-fun collect_EAppI e =
-  case e of
-      EEI (opr, e, i) =>
-      (case opr of
-           EEIAppI =>
-             let 
-               val (e, is) = collect_EAppI e
-             in
-               (e, is @ [i])
-             end
-         | _ => (e, [])
-      )
-    | _ => (e, [])
-
-fun collect_EAppT e =
-  case e of
-      EET (opr, e, i) =>
-      (case opr of
-           EETAppT =>
-           let 
-             val (e, is) = collect_EAppT e
-           in
-             (e, is @ [i])
-           end
-         | _ => (e, [])
-      )
-    | _ => (e, [])
-
-fun collect_BSArrow b =
-  case b of
-      Base _ => ([], b)
-    | BSArrow (a, b) =>
-      let
-        val (args, ret) = collect_BSArrow b
-      in
-        (a :: args, ret)
-      end
-    | UVarBS u => ([], b)
-
-fun combine_BSArrow (args, b) = foldr BSArrow b args
-                    
-fun is_IApp_UVarI i =
-  let
-    val (f, args) = collect_IApp i
-  in
-    case f of
-        UVarI (x, r) => SOME ((x, r), args)
-      | _ => NONE
-  end
-    
-fun collect_SApp s =
-  case s of
-      SApp (s, i) =>
-      let 
-        val (s, is) = collect_SApp s
-      in
-        (s, is @ [i])
-      end
-    | _ => (s, [])
-             
-fun is_SApp_UVarS s =
-  let
-    val (f, args) = collect_SApp s
-  in
-    case f of
-        UVarS (x, r) => SOME ((x, r), args)
-      | _ => NONE
-  end
-    
-fun collect_MtAppI t =
-  case t of
-      MtAppI (t, i) =>
-      let 
-        val (f, args) = collect_MtAppI t
-      in
-        (f, args @ [i])
-      end
-    | _ => (t, [])
-             
-fun collect_MtApp t =
-  case t of
-      MtApp (t1, t2) =>
-      let 
-        val (f, args) = collect_MtApp t1
-      in
-        (f, args @ [t2])
-      end
-    | _ => (t, [])
-             
-fun is_MtApp_UVar t =
-  let
-    val (t, t_args) = collect_MtApp t
-    val (t, i_args) = collect_MtAppI t
-  in
-    case t of
-        UVar (x, r) => SOME ((x, r), i_args, t_args)
-      | _ => NONE
-  end
-    
-fun is_AppV t =
-  let
-    val (t, i_args) = collect_MtAppI t
-    val (t, t_args) = collect_MtApp t
-  in
-    case t of
-        MtVar x => SOME (x, t_args, i_args)
-      | _ => NONE
-  end
-    
-fun IApps f args = foldl (fn (arg, f) => BinOpI (IApp, f, arg)) f args
-fun SApps f args = foldl (fn (arg, f) => SApp (f, arg)) f args
-fun MtAppIs f args = foldl (fn (arg, f) => MtAppI (f, arg)) f args
-fun MtApps f args = foldl (fn (arg, f) => MtApp (f, arg)) f args
-fun SAbsMany (ctx, s, r) = foldl (fn ((name, s_arg), s) => SAbs (s_arg, Bind ((name, r), s), r)) s ctx
-fun IAbsMany (ctx, i, r) = foldl (fn ((name, b), i) => IAbs (b, Bind ((name, r), i), r)) i ctx
-fun MtAbsMany (ctx, t, r) = foldl (fn ((name, k), t) => MtAbs (k, Bind ((name, r), t), r)) t ctx
-fun MtAbsIMany (ctx, t, r) = foldl (fn ((name, s), t) => MtAbsI (s, Bind ((name, r), t), r)) t ctx
-                                 
-fun AppVar (x, is) = MtAppIs (MtVar x) is
-fun AppV (x, ts, is, r) = MtAppIs (MtApps (MtVar x) ts) is
-
 val VarT = MtVar
 fun constr_type (VarT : int LongId.long_id -> mtype) shiftx_long_id ((family, tbinds) : mtype constr_info) = 
   let
@@ -243,13 +112,6 @@ fun constr_type (VarT : int LongId.long_id -> mtype) shiftx_long_id ((family, tb
     t
   end
 
-fun get_constr_inames (core : mtype constr_core) =
-  let
-    val (name_sorts, _) = unfold_binds core
-  in
-    map fst $ map fst name_sorts
-  end
-                                 
 (* region calculations *)
 
 fun get_region_long_id id =
@@ -286,50 +148,6 @@ open Idx
 structure Type = TypeOfExpr
 open Type
        
-fun is_value (e : expr) : bool =
-  case e of
-      EVar _ => true
-    | EConst (c, _) =>
-      (case c of
-           ECTT => true
-         | ECNat _ => true
-         | ECInt _ => true
-      )
-    | EUnOp (opr, e, _) =>
-      (case opr of
-           EUFst => false
-         | EUSnd => false
-      )
-    | EBinOp (opr, e1, e2) =>
-      (case opr of
-           EBApp => false
-         | EBPair => is_value e1 andalso is_value e2
-         | EBNew => false
-         | EBRead => false
-         | EBAdd => false
-      )
-    | ETriOp _ => false
-    | EEI (opr, e, i) =>
-      (case opr of
-           EEIAppI => false
-         | EEIAscTime => false
-      )
-    | EET (opr, e, t) =>
-      (case opr of
-           EETAppT => false
-         | EETAsc => false
-      )
-    | ET (opr, t, _) =>
-      (case opr of
-           ETNever => true
-         | ETBuiltin => true
-      )
-    | EAbs _ => true
-    | EAbsI _ => true
-    | ELet _ => false
-    | EAppConstr (_, _, _, e, _) => is_value e
-    | ECase _ => false
-
 end
 
 (* Test that the result of [ExprFun] matches some signatures. We don't use a signature ascription because signature ascription (transparent or opaque) hides components that are not in the signature. SML should have a "signature check" kind of ascription. *)

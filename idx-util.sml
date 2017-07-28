@@ -1,10 +1,11 @@
-functor IdxUtilFn (structure Idx : IDX where type name = string * Region.region
-                   val dummy : Idx.region
+functor IdxUtilFn (Idx : IDX where type name = string * Region.region
+                                         and type region = Region.region
                   ) = struct
 
 open Idx
 open Operators
 open Util
+open Region
        
 infixr 0 $
 
@@ -118,4 +119,51 @@ fun is_time_fun b =
       opt_bind (is_time_fun b) (fn n => opt_return $ 1 + n)
     | _ => NONE
              
+fun collect_BSArrow b =
+  case b of
+      Base _ => ([], b)
+    | BSArrow (a, b) =>
+      let
+        val (args, ret) = collect_BSArrow b
+      in
+        (a :: args, ret)
+      end
+    | UVarBS u => ([], b)
+
+fun combine_BSArrow (args, b) = foldr BSArrow b args
+                    
+fun is_IApp_UVarI i =
+  let
+    val (f, args) = collect_IApp i
+  in
+    case f of
+        UVarI (x, r) => SOME ((x, r), args)
+      | _ => NONE
+  end
+    
+fun collect_SApp s =
+  case s of
+      SApp (s, i) =>
+      let 
+        val (s, is) = collect_SApp s
+      in
+        (s, is @ [i])
+      end
+    | _ => (s, [])
+             
+fun is_SApp_UVarS s =
+  let
+    val (f, args) = collect_SApp s
+  in
+    case f of
+        UVarS (x, r) => SOME ((x, r), args)
+      | _ => NONE
+  end
+    
+fun IApps f args = foldl (fn (arg, f) => BinOpI (IApp, f, arg)) f args
+fun SApps f args = foldl (fn (arg, f) => SApp (f, arg)) f args
+                         
+fun SAbsMany (ctx, s, r) = foldl (fn ((name, s_arg), s) => SAbs (s_arg, Bind ((name, r), s), r)) s ctx
+fun IAbsMany (ctx, i, r) = foldl (fn ((name, b), i) => IAbs (b, Bind ((name, r), i), r)) i ctx
+                                 
 end

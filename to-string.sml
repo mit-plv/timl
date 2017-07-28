@@ -44,13 +44,9 @@ open BaseTypes
 open Operators
 open Pattern
 open Region
-structure IdxUtil = IdxUtilFn (structure Idx = Idx
-                               val dummy = dummy
-                              )
+structure IdxUtil = IdxUtilFn (Idx)
 open IdxUtil
-structure TypeUtil = TypeUtilFn (structure Type = Type
-                               (* val dummy = Region.dummy *)
-                              )
+structure TypeUtil = TypeUtilFn (Type)
 open TypeUtil
 structure ExprUtil = ExprUtilFn (Expr)
 open ExprUtil

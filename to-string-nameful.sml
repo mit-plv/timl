@@ -2,7 +2,7 @@ functor ToStringNamefulFn (structure Expr : IDX_TYPE_EXPR
                                             where type Idx.base_sort = BaseSorts.base_sort
                                               and type Type.base_type = BaseTypes.base_type
                                               and type Idx.region = Region.region
-                                              (* and type Type.region = Region.region *)
+                                              and type Type.region = Region.region
                                               and type Idx.name = string * Region.region
                                               and type Type.name = string * Region.region
                                               and type Idx.var = string
@@ -30,9 +30,7 @@ structure Idx = Idx
 structure Type = Type
 structure Expr = Expr
 
-structure IdxUtil = IdxUtilFn (structure Idx = Idx
-                                      val dummy = dummy
-                              )
+structure IdxUtil = IdxUtilFn (Idx)
 open IdxUtil
        
 fun strn_bs s =
@@ -146,9 +144,7 @@ fun strn_tbinds binds =
     binds
   end
     
-structure TypeUtil = TypeUtilFn (structure Type = Type
-                                      val dummy = dummy
-                              )
+structure TypeUtil = TypeUtilFn (Type)
 open TypeUtil
        
 fun collect_Uni_UniI t =

@@ -117,7 +117,6 @@ idx-visitor.sml
 idx.sml
 shift-util.sml
 idx-trans.sml
-idx-util.sml
 type.sig
 type-visitor.sml
 type.sml
@@ -130,6 +129,9 @@ expr-visitor.sml
 expr-fn.sml
 get-region.sml
 base-types.sml
+idx-util.sml
+type-util.sml
+expr-util.sml
 idx-type-expr.sig
 idx-type-expr-fn.sml
 expr-trans.sml
@@ -139,8 +141,6 @@ vc.sml
 equal.sml
 subst.sml
 long-id-subst.sml
-type-util.sml
-expr-util.sml
 export.sml
 to-string-raw.sml
 to-string-nameful.sml
