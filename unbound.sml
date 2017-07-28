@@ -152,6 +152,13 @@ open BinderUtil
        
 infixr 0 $
 
+fun IBind (name, t) = BindSimp (IName name, t)
+fun TBind (name, t) = BindSimp (TName name, t)
+fun EBind (name, t) = BindSimp (EName name, t)
+fun IBindAnno ((name, anno), t) = BindAnno ((IName name, anno), t)
+fun TBindAnno ((name, anno), t) = BindAnno ((TName name, anno), t)
+fun EBindAnno ((name, anno), t) = BindAnno ((EName name, anno), t)
+                                           
 type ibinder = Namespaces.iname Unbound.binder
 type tbinder = Namespaces.tname Unbound.binder
 type cbinder = Namespaces.cname Unbound.binder

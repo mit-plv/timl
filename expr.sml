@@ -86,8 +86,8 @@ structure ExprShift = ExprShiftFn (structure Expr = Expr
                                    structure ShiftableVar = LongIdSubst
                                   )
                                       
-structure ExprSubst = ExprSubstFn (structure S = Expr
-                               structure T = Expr)
+structure ExprSubst = ExprSubstFn (structure Expr = Expr
+                                   open Subst)
                                       
 structure Simp = SimpFn (structure Idx = Expr
                          val get_region_i = Expr.get_region_i

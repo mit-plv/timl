@@ -329,7 +329,7 @@ bind_star : bind bind_star (bind @ bind_star)
 bind_plus : bind bind_star (bind @ bind_star)
 
 bind : aptrn ([Typing (aptrn)])
-     | sorting (map TBind sorting)
+     | sorting (map BindSort sorting)
      | LPAREN bind RPAREN (bind)
 
 sort_bind_star : sort_bind sort_bind_star (sort_bind @ sort_bind_star)

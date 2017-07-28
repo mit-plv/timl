@@ -83,7 +83,7 @@ fun get_region_pn pn =
 
 datatype bind =
 	 Typing of ptrn
-	 | TBind of sort_bind
+	 | BindSort of sort_bind
 
 type return = ty option * idx option
 

@@ -262,12 +262,12 @@ fun on_mt (t : S.mtype) =
     | S.TyArray (t, i) => TArr (on_mt t, i)
     | S.Unit _ => TUnit
     | S.Prod (t1, t2) => TProd (on_mt t1, on_mt t2)
-    | S.UniI (s, Bind.Bind (name, t), r) => TQuanI (Forall, BindAnno ((IName name, s), on_mt t))
+    | S.UniI (s, Bind.Bind (name, t), r) => TQuanI (Forall, IBindAnno ((name, s), on_mt t))
     | S.MtVar x => TVar x
     | S.MtApp (t1, t2) => TAppT (on_mt t1, on_mt t2)
-    | S.MtAbs (k, Bind.Bind (name, t), _) => TAbsT $ BindAnno ((TName name, on_k k), on_mt t)
+    | S.MtAbs (k, Bind.Bind (name, t), _) => TAbsT $ TBindAnno ((name, on_k k), on_mt t)
     | S.MtAppI (t, i) => TAppI (on_mt t, i)
-    | S.MtAbsI (b, Bind.Bind (name, t), _) => TAbsI $ BindAnno ((IName name, b), on_mt t)
+    | S.MtAbsI (b, Bind.Bind (name, t), _) => TAbsI $ IBindAnno ((name, b), on_mt t)
     | S.BaseType (t, r) => TConst (on_base_type t)
     | S.UVar (x, _) =>
     (* exfalso x *)
@@ -338,10 +338,13 @@ fun shift_e_pn a = shift_e_pn_fn shift_e_e a
 fun MakeSUniI (s, name, t) = S.UniI (s, Bind.Bind (name, t), dummy)
 
 fun MakeSEAbs (pn, e) = S.EAbs $ Bind (pn, e)
-fun MakeSEAbsI (name, s, e) = S.EAbsI (BindAnno ((IName name, s), e), dummy)
+fun MakeSEAbsI (name, s, e) = S.EAbsI (IBindAnno ((name, s), e), dummy)
+fun MakeSECase (e, rules) = S.ECase (e, (NONE, NONE), map Bind rules, dummy)
 
-fun toSELet (decls, e) = S.ELet ((NONE, NONE), Bind (decls, e), dummy)
-                                      
+fun MakeSELet (decls, e) = S.ELet ((NONE, NONE), Bind (decls, e), dummy)
+
+structure SS = ExprSubst
+                 
 fun EV n = EVar (ID (n, dummy))
 
 fun on_e (e : S.expr) =
@@ -485,7 +488,7 @@ fun on_e (e : S.expr) =
           in
 	    on_decls (decls, e)
 	  end
-    | _ => raise Unimpl ""
+    (* | _ => raise Unimpl "" *)
                  
 and on_decls (decls, e_body) =
     case decls of
@@ -495,7 +498,7 @@ and on_decls (decls, e_body) =
             (* todo: DTypeDef, DIdxDef and DAbsIdx2 should generate special kind of Let instead of inlining. DTypeDef currently needs to do inlining because the translation of [EAppConstr] needs datatype details. It will be changed in the future when constructors are translated into functions. *)
             S.DTypeDef (name, Outer t) =>
             let
-              val e = toSELet (decls, e_body)
+              val e = MakeSELet (decls, e_body)
               val e = SS.subst_t_e t e
               val e = on_e e
             in
@@ -503,7 +506,7 @@ and on_decls (decls, e_body) =
             end
           | S.DIdxDef (name, _, Outer i) =>
             let
-              val e = toSELet (decls, e_body)
+              val e = MakeSELet (decls, e_body)
               val e = SS.subst_i_e i e
               val e = on_e e
             in
@@ -511,7 +514,7 @@ and on_decls (decls, e_body) =
             end
           | S.DAbsIdx2 (name, _, Outer i) =>
             let
-              val e = toSELet (decls, e_body)
+              val e = MakeSELet (decls, e_body)
               val e = SS.subst_i_e i e
               val e = on_e e
             in
@@ -530,7 +533,7 @@ and on_decls (decls, e_body) =
             end
           | S.DValPtrn (pn, Outer e, Outer r) =>
             let
-              val e_body = toSELet (decls, e_body)
+              val e_body = MakeSELet (decls, e_body)
             in
               on_e $ MakeSECase (e, [(pn, e_body)])
             end
@@ -544,7 +547,7 @@ and on_decls (decls, e_body) =
 	    end
           | S.DAbsIdx ((iname, Outer s, Outer i), Rebind decls, Outer r) =>
             let
-              val (iname, r1) = unBinderName iname
+              val iname = unBinderName iname
               val (ename, bind, _) =
                   case unTeles decls of
                       [S.DRec a] => a
@@ -552,7 +555,7 @@ and on_decls (decls, e_body) =
               val ename = unBinderName ename
               val (e, t) = on_DRec (ename, bind)
               val t = MakeTExistsI (iname, s, t)
-              val e = MakeEPackI (t, i, e)
+              val e = EPackI (t, i, e)
               val e_body = on_decls (decls, e_body)
               val e = MakeEMatchUnpackI (e, iname, ename, e_body)
             in
@@ -561,11 +564,12 @@ and on_decls (decls, e_body) =
           | S.DOpen (Outer m, octx) =>
             let
               val ctx as (sctx, kctx, cctx, tctx) = octx !! (fn () => raise Impossible "to-micro-timl/DOpen: octx must be SOME")
-              val e = toSELet (decls, e_body)
-              val e = self_compose (length tctx) $ package0_e_e m $ e
-              val e = self_compose (length cctx) $ package0_c_e m $ e
-              val e = self_compose (length kctx) $ package0_t_e m $ e
-              val e = self_compose (length sctx) $ package0_i_e m $ e
+              val e = MakeSELet (decls, e_body)
+              open Package
+              val e = (self_compose (length tctx) $ package0_e_e m) $ e
+              val e = (self_compose (length cctx) $ package0_c_e m) $ e
+              val e = (self_compose (length kctx) $ package0_t_e m) $ e
+              val e = (self_compose (length sctx) $ package0_i_e m) $ e
               val e = on_e e
             in
               e
@@ -574,22 +578,22 @@ and on_decls (decls, e_body) =
 and on_DRec (name, bind) =
     let
       val ((tnames, Rebind binds), ((t, i), e)) = Unbound.unBind $ unInner bind
-      val t = t !! (fn () => raise Impossible "to-micro-timl/DRec: t must be SOME")
-      val i = i !! (fn () => raise Impossible "to-micro-timl/DRec: i must be SOME")
+      (* val t = t !! (fn () => raise Impossible "to-micro-timl/DRec: t must be SOME") *)
+      (* val i = i !! (fn () => raise Impossible "to-micro-timl/DRec: i must be SOME") *)
       val tnames = map unBinderName tnames
       val binds = unTeles binds
       fun on_bind (bind, e) =
         case bind of
-            S.SortingST (name, Outer s) => MakeSEAbsI (name, s, e)
+            S.SortingST (name, Outer s) => MakeSEAbsI (unBinderName name, s, e)
           | S.TypingST pn => MakeSEAbs (pn, e)
-      val e = foldr on_bind binds e
+      val e = foldr on_bind e binds
       val e = on_e e
       fun on_bind_t (bind, t) =
         case bind of
-            S.SortingST (name, Outer s) => MakeSUniI (s, name, t)
+            S.SortingST (name, Outer s) => MakeSUniI (s, unBinderName name, t)
           | S.TypingST pn =>
             case pn of
-                AnnoP (_, Outer t1) => S.Arrow (t1, T0, t)
+                AnnoP (_, Outer t1) => S.Arrow (t1, T0 dummy, t)
               | _ => raise Impossible "to-micro-timl/DRec: must be AnnoP"
       val t = 
           case rev binds of
@@ -601,7 +605,7 @@ and on_DRec (name, bind) =
       val t = TUniKindMany (tnames, t)
       val e = EAbsTKindMany (tnames, e)
     in
-      (t, e)
+      (e, t)
     end
 
 (* todo: module-level decls will be translated by this: *)
@@ -675,8 +679,7 @@ fun test filename =
     val () = println $ str_e empty ([], ["'a", "list"], ["Cons", "Nil"], []) e
     val () = println ""
     (* fun visit_subst_t_pn a = PatternVisitor.visit_subst_t_pn_fn (use_idepth_tdepth substx_t_mt) a *)
-    fun subst_t_e a = SubstTE.subst_t_e_fn (use_idepth_tdepth substx_t_mt) a
-    val e = subst_t_e (IDepth 0, TDepth 1) 1 t_list e
+    val e = ExprSubst.substx_t_e (0, 1) 1 t_list e
     val e = trans_e e
     fun short_to_long_id x = ID (x, dummy)
     fun visit_var (_, _, tctx) id =

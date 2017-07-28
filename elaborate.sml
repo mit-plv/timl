@@ -299,7 +299,7 @@ local
             fun f (b, e) =
 		case b of
 		    Typing pn => EAbs $ Unbound.Bind (elab_pn pn, e)
-		  | TBind (name, s, _) => EAbsI (BindAnno ((IName name, elab_s s), e), r)
+		  | BindSort (name, s, _) => EAbsI (BindAnno ((IName name, elab_s s), e), r)
             val e = elab e
             val e = case d of SOME d => EAscTime (e, elab_i d) | _ => e
             val e = case t of SOME t => EAsc (e, elab_mt t) | _ => e
@@ -358,7 +358,7 @@ local
             fun f bind =
                 case bind of
 		    Typing pn => TypingST (elab_pn pn)
-		  | TBind (nm, s, _) => SortingST (Binder $ IName nm, Outer $ elab_s s)
+		  | BindSort (nm, s, _) => SortingST (Binder $ IName nm, Outer $ elab_s s)
             val binds = map f binds
             (* if the function body is a [case] without annotations, copy the return clause from the function signature to the [case] *)
             (* val e = copy_anno (t, d) e *)

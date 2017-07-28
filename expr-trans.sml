@@ -144,29 +144,43 @@ fun forget_e_params a = adapt forget_var a
   
 fun forget_e_e x n = on_e_e $ forget_e_params x n
 
-open Bind
+(* open Bind *)
        
 end
 
-functor ExprSubstFn (structure S : EXPR
-                   structure T : EXPR
-                   sharing type S.var = T.var
-                   sharing type S.cvar = T.cvar
-                   sharing type S.mod_id = T.mod_id
-                   sharing type S.idx = T.idx
-                   sharing type S.sort = T.sort
-                   sharing type S.ptrn_constr_tag = T.ptrn_constr_tag
-                  ) = struct
+functor ExprSubstVisitorFn (Expr : EXPR) = struct
 
-structure ExprVisitor = ExprVisitorFn (structure S = S
-                                       structure T = T)
+structure ExprVisitor = ExprVisitorFn (structure S = Expr
+                                       structure T = Expr)
 open ExprVisitor
        
-open Util
-       
-infixr 0 $
-         
-(***************** the "subst_t_e" visitor  **********************)    
+fun subst_i_expr_visitor_vtable cast (visit_idx, visit_sort, visit_mtype) : ('this, int) expr_visitor_vtable =
+  let
+    fun extend_i this env _ = env + 1
+  in
+    default_expr_visitor_vtable
+      cast
+      extend_i
+      extend_noop
+      extend_noop
+      extend_noop
+      visit_noop
+      visit_noop
+      visit_noop
+      (ignore_this visit_idx)
+      (ignore_this visit_sort)
+      (ignore_this visit_mtype)
+      visit_noop
+  end
+
+fun new_subst_i_expr_visitor params = new_expr_visitor subst_i_expr_visitor_vtable params
+    
+fun subst_i_e_fn params b =
+  let
+    val visitor as (ExprVisitor vtable) = new_subst_i_expr_visitor params
+  in
+    #visit_expr vtable visitor 0 b
+  end
 
 (* fun visit_datatype this env data = *)
 (*   let *)
@@ -181,12 +195,10 @@ infixr 0 $
 (*     data *)
 (*   end *)
     
-fun subst_t_expr_visitor_vtable cast (subst_t_t, d, x, v) : ('this, idepth * tdepth) expr_visitor_vtable =
+fun subst_t_expr_visitor_vtable cast visit_mtype : ('this, idepth * tdepth) expr_visitor_vtable =
   let
     fun extend_i this env _ = mapFst idepth_inc env
     fun extend_t this env _ = mapSnd tdepth_inc env
-    fun add_depth (di, dt) (di', dt') = (idepth_add (di, di'), tdepth_add (dt, dt'))
-    fun visit_mtype this env b = subst_t_t (add_depth d env) (x + unTDepth (snd env)) v b
   in
     default_expr_visitor_vtable
       cast
@@ -199,19 +211,53 @@ fun subst_t_expr_visitor_vtable cast (subst_t_t, d, x, v) : ('this, idepth * tde
       visit_noop
       visit_noop
       visit_noop
-      visit_mtype
+      (ignore_this visit_mtype)
       visit_noop
   end
 
 fun new_subst_t_expr_visitor params = new_expr_visitor subst_t_expr_visitor_vtable params
     
-fun subst_t_e_fn substs d x v b =
+fun subst_t_e_fn params b =
   let
-    val visitor as (ExprVisitor vtable) = new_subst_t_expr_visitor (substs, d, x, v)
+    val visitor as (ExprVisitor vtable) = new_subst_t_expr_visitor params
   in
     #visit_expr vtable visitor (IDepth 0, TDepth 0) b
   end
 
+end
+                                  
+functor ExprSubstFn (structure Expr : EXPR
+                     val substx_i_i : int -> int -> Expr.idx -> Expr.idx -> Expr.idx
+                     val substx_i_s : int -> int -> Expr.idx -> Expr.sort -> Expr.sort
+                     val substx_i_mt : int -> int -> Expr.idx -> Expr.mtype -> Expr.mtype
+                     val substx_t_mt : int * int -> int -> Expr.mtype -> Expr.mtype -> Expr.mtype
+                  ) = struct
+
+open Util
+open Namespaces
+       
+infixr 0 $
+         
+structure ExprSubstVisitor = ExprSubstVisitorFn (Expr)
+open ExprSubstVisitor
+
+fun adapt f d x v env = f (d + env) (x + env) v
+
+fun substx_i_e d x v = subst_i_e_fn (adapt substx_i_i d x v, adapt substx_i_s d x v, adapt substx_i_mt d x v)
+                                              
+fun subst_i_e a = substx_i_e 0 0 a
+                             
+fun visit_mtype_t_e (d, x, v) env b =
+  let
+    fun add_depth (di, dt) (di', dt') = (idepth_add (di, di'), tdepth_add (dt, dt'))
+  in
+    use_idepth_tdepth substx_t_mt (add_depth d env) (x + unTDepth (snd env)) v b
+  end
+    
+fun substx_t_e d x v = subst_t_e_fn $ visit_mtype_t_e (IDepth_TDepth d, x, v)
+
+fun subst_t_e a = substx_t_e (0, 0) 0 a
+                                       
 end
 
                         
