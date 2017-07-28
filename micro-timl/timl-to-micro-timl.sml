@@ -380,6 +380,7 @@ fun on_e (e : S.expr) =
       in
         ELet (e, BindSimp (name, e2))
       end
+    (* todo: EAbs should delegate to ECase *)
     | S.EAbs bind =>
       let
         val (pn, e) = unBind bind
@@ -620,6 +621,7 @@ and on_DRec (name, bind) =
 (* todo: functor application will be translated by first fibering together actual argument and formal argument, and then doing a module translation  *)
           
 val trans_e = on_e
+val trans_decls = on_decls
 
 structure UnitTest = struct
 
@@ -650,6 +652,23 @@ structure U = UnderscoredExpr
 (* val cons = fold_ibinds ([("n", SNat)], (S.Prod (), [V0 %+ N1])) *)
 (* val src = TDatatype (, ()) *)
 
+fun short_to_long_id x = ID (x, dummy)
+fun visit_var (_, _, tctx) id =
+  case id of
+      ID (x, _) =>
+      short_to_long_id $ nth_error (map Name2str tctx) x !! (fn () => "__unbound_" ^ str_int x)
+    | QID _ => short_to_long_id $ "__unbound_" ^ CanToString.str_raw_var id
+fun export a = export_fn (visit_var, return2, return2, return2) a
+fun str_var x = LongId.str_raw_long_id id(*str_int*) x
+fun pp_e a = MicroTiMLExPP.pp_e_fn (
+    str_var,
+    ToStringRaw.str_raw_i,
+    (* ToStringRaw.str_raw_s, *)
+    const_fun "<sort>",
+    const_fun "<kind>",
+    const_fun "<ty>"
+  ) a
+                                 
 fun test filename =
   let
     open Parser
@@ -681,22 +700,39 @@ fun test filename =
     (* fun visit_subst_t_pn a = PatternVisitor.visit_subst_t_pn_fn (use_idepth_tdepth substx_t_mt) a *)
     val e = ExprSubst.substx_t_e (0, 1) 1 t_list e
     val e = trans_e e
-    fun short_to_long_id x = ID (x, dummy)
-    fun visit_var (_, _, tctx) id =
-      case id of
-          ID (x, _) =>
-          short_to_long_id $ nth_error (map Name2str tctx) x !! (fn () => "__unbound_" ^ str_int x)
-        | QID _ => short_to_long_id $ "__unbound_" ^ str_raw_var id
-    val export = export_fn (visit_var, return2, return2, return2)
     val e = export ([], [], []) e
-    fun str_var x = LongId.str_raw_long_id id(*str_int*) x
-    val pp_e = MicroTiMLExPP.pp_e_fn (str_var, str_raw_i, str_raw_s, const_fun "<kind>", const_fun "<ty>")
     val () = pp_e e
   in
     ((* t, e *))
   end
   (* handle NameResolve.Error (_, msg) => (println $ "NR.Error: " ^ msg; raise Impossible "End") *)
   (*      | TypeCheck.Error (_, msgs) => (app println $ "TC.Error: " :: msgs; raise Impossible "End") *)
+  (*      | T2MTError msg => (println $ "T2MT.Error: " ^ msg; raise Impossible "End") *)
+  (*      | Impossible msg => (println $ "Impossible: " ^ msg; raise Impossible "End") *)
+                          
+fun test2 filename =
+  let
+    open Parser
+    val prog = parse_file filename
+    open Elaborate
+    val prog = elaborate_prog prog
+    open NameResolve
+    val (prog, _, _) = resolve_prog empty prog
+    val decls = case hd prog of
+                    (_, TopModBind (ModComponents (decls, _))) => decls
+                  | _ => raise Impossible ""
+    open TypeCheck
+    val ((decls, _, _, _), _) = typecheck_decls empty empty_ctx decls
+    val e = MakeSELet (Teles decls, Expr.ETT dummy)
+    val e = SimpExpr.simp_e [] e
+    val e = trans_e e
+    val e = export ([], [], []) e
+    val () = pp_e e
+  in
+    ((* t, e *))
+  end
+  handle NameResolve.Error (_, msg) => (println $ "NR.Error: " ^ msg; raise Impossible "End")
+       | TypeCheck.Error (_, msgs) => (app println $ "TC.Error: " :: msgs; raise Impossible "End")
   (*      | T2MTError msg => (println $ "T2MT.Error: " ^ msg; raise Impossible "End") *)
   (*      | Impossible msg => (println $ "Impossible: " ^ msg; raise Impossible "End") *)
                           

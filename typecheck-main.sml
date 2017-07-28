@@ -1655,7 +1655,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
               (DValPtrn (pn, Outer e, Outer r), ctxd, nps, [d])
             end
 	  | U.DRec (name, bind, Outer r) =>
-            (* DRec should delegate most of the work to EAbs and EAbsI *)
+            (* todo: DRec should delegate most of the work to EAbs and EAbsI *)
 	    let
               val (name, r1) = unBinderName name
               val ((tnames, Rebind binds), ((t, d), e)) = Unbound.unBind $ unInner bind
@@ -1682,7 +1682,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
                       val t = fresh_mt gctx (sctx, kctx) r
                       val skcctx = (sctx, kctx, cctx) 
                       val (pn, cover, ctxd', nps') = match_ptrn gctx (skcctx, pn, t)
-                      (* record t in pn *)
+                      (* todo: record t in pn *)
 	              val () = check_exhaustion gctx (skcctx, t, [cover], get_region_pn pn)
                       val ctxd = add_ctx ctxd' ctxd
                       val nps = nps' + nps
