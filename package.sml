@@ -60,6 +60,14 @@ fun package0_c m = package0_t_c m o package0_i_c m
 
 open ExprShift
 
+fun package_i_e x m = ExprShiftVisitor.on_i_e (adapt package_i_i x m, adapt package_i_s x m, adapt package_i_mt x m)
+fun package_t_e x m = ExprShiftVisitor.on_t_e $ adapt package_t_mt x m
+fun package_c_e x m = ExprShiftVisitor.on_c_e $ params_var x m
 fun package_e_e x m = ExprShiftVisitor.on_e_e $ params_var x m
-       
+
+fun package0_i_e a = package_i_e 0 a
+fun package0_t_e a = package_t_e 0 a
+fun package0_c_e a = package_c_e 0 a
+fun package0_e_e a = package_e_e 0 a
+
 end
