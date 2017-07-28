@@ -501,7 +501,10 @@ fun on_i_expr_visitor_vtable cast gctx : ('this, context) EV.expr_visitor_vtable
   let
     fun extend_i this (sctx, kctx, cctx, tctx) name = (Name2str name :: sctx, kctx, cctx, tctx)
     fun extend_t this (sctx, kctx, cctx, tctx) name = (sctx, Name2str name :: kctx, cctx, tctx)
-    fun extend_c this (sctx, kctx, cctx, tctx) name = raise Impossible "import_e/extend_c"
+    val extend_c = extend_noop (* extending cctx will be performed by extend_c_data *)
+    (* fun extend_c this (sctx, kctx, cctx, tctx) name = raise Impossible $ "import_e/extend_c:" ^ Name2str name *)
+    (* fun extend_c this (sctx, kctx, cctx, tctx) name = (sctx, kctx, Name2str name :: cctx, tctx) *)
+    fun extend_c_data (sctx, kctx, cctx, tctx) a = (sctx, kctx, a :: cctx, tctx)
     fun extend_e this (sctx, kctx, cctx, tctx) name = (sctx, kctx, cctx, Name2str name :: tctx)
     fun visit_cvar this (sctx, kctx, cctx, tctx) x =
       on_long_id gctx (map fst o #3) (map fst cctx) x
@@ -675,9 +678,9 @@ fun on_i_expr_visitor_vtable cast gctx : ('this, context) EV.expr_visitor_vtable
         DRec (name, Inner $ Unbound.Bind (names, ((t, d), e)), r)
       end
     val vtable = EV.override_visit_DRec vtable visit_DRec
-    fun extend_c_data (sctx, kctx, cctx, tctx) a = (sctx, kctx, a :: cctx, tctx)
     fun visit_DTypeDef this ctx data =
       let
+        (* val () = println "new visit_DTypeDef" *)
         val super_vtable = vtable
         val d = #visit_DTypeDef super_vtable this ctx data
         val () =

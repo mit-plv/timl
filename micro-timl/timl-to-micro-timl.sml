@@ -270,7 +270,7 @@ fun on_mt (t : S.mtype) =
     | S.MtAbsI (b, Bind.Bind (name, t), _) => TAbsI $ IBindAnno ((name, b), on_mt t)
     | S.BaseType (t, r) => TConst (on_base_type t)
     | S.UVar (x, _) =>
-    (* exfalso x *)
+      (* exfalso x *)
       raise Impossible "UVar"
     | S.TDatatype (Bind.Bind (dt_name, tbinds), _) =>
       let
@@ -725,6 +725,7 @@ fun test2 filename =
     val ((decls, _, _, _), _) = typecheck_decls empty empty_ctx decls
     val e = MakeSELet (Teles decls, Expr.ETT dummy)
     val e = SimpExpr.simp_e [] e
+    val () = println $ str_e empty ([], [], [], []) e
     val e = trans_e e
     val e = export ([], [], []) e
     val () = pp_e e

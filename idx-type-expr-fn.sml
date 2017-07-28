@@ -42,6 +42,12 @@ structure TypeOfExpr = TypeFn (structure Idx = Idx
 structure Type = TypeOfExpr
 open Type
 
+structure IdxUtil = IdxUtilFn (Idx)
+open IdxUtil
+
+structure TypeUtil = TypeUtilFn (Type)
+open TypeUtil
+
 type cvar = var
               
 open Pattern
@@ -53,18 +59,13 @@ structure ExprCore = ExprFn (
   type idx = idx
   type sort = sort
   type mtype = mtype
+  val get_constr_names = get_constr_names
   type ptrn_constr_tag = ptrn_constr_tag
   type ty = ty
   type kind = kind
 )
 
 open ExprCore
-
-structure IdxUtil = IdxUtilFn (Idx)
-open IdxUtil
-
-structure TypeUtil = TypeUtilFn (Type)
-open TypeUtil
 
 structure ExprUtil = ExprUtilFn (ExprCore)
 open ExprUtil

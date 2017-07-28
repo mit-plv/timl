@@ -5,6 +5,7 @@ signature EXPR_PARAMS = sig
   type idx
   type sort
   type mtype
+  val get_constr_names : mtype -> Namespaces.name list
   type ptrn_constr_tag
   type ty
   type kind

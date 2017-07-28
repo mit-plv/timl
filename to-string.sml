@@ -83,6 +83,8 @@ structure NamefulType = TypeFn (structure Idx = NamefulIdx
                                 type base_type = base_type
                             )
 
+structure NamefulTypeUtil = TypeUtilFn (NamefulType)
+       
 structure NamefulExpr = ExprFn (
   type var = string
   type cvar = string
@@ -90,6 +92,7 @@ structure NamefulExpr = ExprFn (
   type idx = NamefulIdx.idx
   type sort = NamefulIdx.sort
   type mtype = NamefulType.mtype
+  val get_constr_names = NamefulTypeUtil.get_constr_names
   type ptrn_constr_tag = ptrn_constr_tag
   type ty = NamefulType.ty
   type kind = NamefulType.kind

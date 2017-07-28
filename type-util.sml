@@ -80,5 +80,16 @@ fun get_constr_inames (core : mtype constr_core) =
     map fst $ map fst name_sorts
   end
                                  
+fun get_constr_names t =
+  case t of
+      TDatatype (Bind.Bind (name, tbinds), _) =>
+      let
+        val (_, (_, constr_decls)) = unfold_binds tbinds
+        val cnames = map #1 constr_decls
+      in
+        cnames
+      end
+    | _ => []
+      
 end
 

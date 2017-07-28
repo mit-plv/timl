@@ -1144,10 +1144,13 @@ fun default_expr_visitor_vtable
       end
     fun visit_DTypeDef this env data =
       let
+        (* val () = println "default visit_DTypeDef" *)
         val vtable = cast this
         val (name, t) = data
         val name = visit_tbinder this env name
+        val cnames = map (Binder o CName) $ get_constr_names $ unOuter t
         val t = visit_outer (#visit_mtype vtable this) env t
+        val cnames = visit_list (visit_cbinder this) env cnames
       in
         T.DTypeDef (name, t)
       end
@@ -1169,6 +1172,7 @@ fun default_expr_visitor_vtable
       in
         T.DOpen (m, scp)
       end
+        
     fun visit_cvar_tag this env data =
       let
         val vtable = cast this
@@ -1201,6 +1205,7 @@ fun default_expr_visitor_vtable
           extend_e
           visit_cvar_tag
           visit_mtype
+          
     (* fun visit_ptrn this env data = *)
     (*   let *)
     (*     val vtable = cast this *)
@@ -1221,7 +1226,7 @@ fun default_expr_visitor_vtable
     (*   end *)
     (* fun visit_TTP this env data = *)
     (*   TTP data *)
-    (* fun visit_PairP this env data =  *)
+    (* fun visit_PairP this env data = *)
     (*   let *)
     (*     val vtable = cast this *)
     (*     val (p1, p2) = data *)
@@ -1239,7 +1244,7 @@ fun default_expr_visitor_vtable
     (*   in *)
     (*     AliasP (name, p, r) *)
     (*   end *)
-    (* fun visit_AnnoP this env data =  *)
+    (* fun visit_AnnoP this env data = *)
     (*   let *)
     (*     val vtable = cast this *)
     (*     val (p, t) = data *)
@@ -1258,6 +1263,7 @@ fun default_expr_visitor_vtable
     (*   in *)
     (*     ConstrP (x, inames, p, r) *)
     (*   end *)
+        
   in
     {
       visit_expr = visit_expr,
@@ -1291,6 +1297,7 @@ fun default_expr_visitor_vtable
       (* visit_AliasP = visit_AliasP, *)
       (* visit_AnnoP = visit_AnnoP, *)
       (* visit_ConstrP = visit_ConstrP, *)
+      
       visit_ptrn = #visit_ptrn pv_vtable,
       visit_VarP = #visit_VarP pv_vtable,
       visit_TTP = #visit_TTP pv_vtable,

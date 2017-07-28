@@ -29,6 +29,7 @@ fun BindSimp (name, t) = Bind (Binder name, t)
 fun BindAnno ((name, anno), t) = Bind ((Binder name, Outer anno), t)
 
 fun unBinder (Binder n) = n
+fun unOuter (Outer t) = t
 fun unBind (Abs (p, Rebind (Outer t))) = (p, t)
 fun unInner (Rebind (Outer t)) = t
 fun unTeles t =
@@ -78,7 +79,8 @@ functor NamespacesFn (type name) = struct
 open Util
        
 infixr 0 $
-         
+
+type name = name
 datatype idx_namespace = IdxNS
 datatype type_namespace = TypeNS
 datatype constr_namespace = ConstrNS
