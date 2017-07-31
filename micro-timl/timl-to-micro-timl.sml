@@ -271,7 +271,7 @@ fun on_mt (t : S.mtype) =
     | S.BaseType (t, r) => TConst (on_base_type t)
     | S.UVar (x, _) =>
       (* exfalso x *)
-      raise Impossible "UVar"
+      raise Impossible "to-micro-timl/on_mt/UVar"
     | S.TDatatype (Bind.Bind (dt_name, tbinds), _) =>
       let
         val (tname_kinds, (bsorts, constrs)) = unfold_binds tbinds
