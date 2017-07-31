@@ -595,6 +595,7 @@ and on_DRec (name, bind) =
           case rev binds of
               S.TypingST (AnnoP (_, Outer t1)) :: binds =>
               foldl on_bind_t (S.Arrow (t1, i, t)) binds
+            | [] => t
             | _ => raise Impossible "to-micro-timl/DRec: Recursion must have a annotated typing bind as the last bind"
       val t = on_mt t
       val e = MakeERec (name, t, e)
@@ -724,6 +725,7 @@ fun test2 dirname =
     val e = SMakeELet (Teles decls, Expr.ETT dummy)
     val e = SimpExpr.simp_e [] e
     val () = println $ str_e empty ([], [], [], []) e
+    val () = println ""
     val e = trans_e e
     val e = export ([], [], []) e
     val () = pp_e e

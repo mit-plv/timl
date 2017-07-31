@@ -1595,9 +1595,9 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
           val t = shiftx_t_mt 0 (length free_uvars) t
           val t = foldli (fn (v, uvar_ref, t) => SubstUVar.substu_t_mt uvar_ref v t) t free_uvars
           val free_uvar_names = rev $ map (attach_snd dummy) $ Range.map generalized_uvar_name (0, (length free_uvars))
-          val t = Uni_Many (rev free_uvar_names, Mono t, dummy)
+          val poly_t = Uni_Many (rev free_uvar_names, Mono t, dummy)
         in
-          (t, free_uvars, free_uvar_names)
+          (t, poly_t, free_uvars, free_uvar_names)
         end
       (* fun generalize_e free_uvars e =  *)
       (*   let *)
@@ -1615,23 +1615,23 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
               val (tnames, e) = Unbound.unBind bind
               val tnames = map unBinderName tnames
               val (e, t, d) = get_mtype (add_kindings_skct (zip ((rev o map fst) tnames, repeat (length tnames) Type)) ctx, e)
-              val (t, tnames) = if is_value e then 
+              val (poly_t, tnames) = if is_value e then 
                         let
-                          val (t, free_uvars, free_uvar_names) = generalize t
+                          val (t, poly_t, free_uvars, free_uvar_names) = generalize t
                           val e = UpdateExpr.update_e e
                           val e = ExprShift.shiftx_t_e 0 (length free_uvars) e
                           val e = foldli (fn (v, uvar_ref, e) => SubstUVar.substu_t_e uvar_ref v e) e free_uvars
-                          val t = Uni_Many (tnames, t, r)
+                          val poly_t = Uni_Many (tnames, poly_t, r)
                           val tnames = tnames @ rev free_uvar_names
                         in
-                          (t, tnames)
+                          (poly_t, tnames)
                         end
                       else if length tnames = 0 then
                         (Mono t, tnames)
                       else
                         raise Error (r, ["explicit type variable cannot be generalized because of value restriction"])
             in
-              (DVal (ename, Outer $ Unbound.Bind (map (Binder o TName) tnames, e), Outer r), ctx_from_typing (name, t), 0, [d])
+              (DVal (ename, Outer $ Unbound.Bind (map (Binder o TName) tnames, e), Outer r), ctx_from_typing (name, poly_t), 0, [d])
             end
           | U.DValPtrn (pn, Outer e, Outer r) =>
             let 
@@ -1681,7 +1681,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
 	      val te = check_kind_Type gctx ((sctx, kctx), te)
               val () = println $ sprintf "te[post] = $" [str_mt (gctx_names gctx) (sctx_names sctx, names kctx) te]
 	      val e = check_mtype_time (add_typing_skct (name, Mono te) ctx, e, te, T0 dummy)
-              val (poly_te, free_uvars, free_uvar_names) = generalize te
+              val (te, poly_te, free_uvars, free_uvar_names) = generalize te
               val e = UpdateExpr.update_e e
               val e = ExprShift.shiftx_t_e 0 (length free_uvars) e
               val e = foldli (fn (v, uvar_ref, e) => SubstUVar.substu_t_e uvar_ref v e) e free_uvars
