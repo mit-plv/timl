@@ -92,5 +92,8 @@ fun get_constr_names t =
     | _ => []
 
 fun Uni_Many (names, t, r) = foldr (fn (name, t) => (Uni (Bind (name, t), r))) t names
+
+fun MakeUniI (s, name, t, r) = UniI (s, Bind.Bind (name, t), r)
+                                   
 end
 

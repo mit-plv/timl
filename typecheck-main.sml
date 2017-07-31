@@ -1618,6 +1618,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
               val (t, tnames) = if is_value e then 
                         let
                           val (t, free_uvars, free_uvar_names) = generalize t
+                          val e = UpdateExpr.update_e e
                           val e = ExprShift.shiftx_t_e 0 (length free_uvars) e
                           val e = foldli (fn (v, uvar_ref, e) => SubstUVar.substu_t_e uvar_ref v e) e free_uvars
                           val t = Uni_Many (tnames, t, r)
@@ -1670,12 +1671,11 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
                       val t = fresh_mt gctx (sctx, kctx) r
                       val skcctx = (sctx, kctx, cctx) 
                       val (pn, cover, ctxd', nps') = match_ptrn gctx (skcctx, pn, t)
-                      (* todo: record t in pn *)
 	              val () = check_exhaustion gctx (skcctx, t, [cover], get_region_pn pn)
                       val ctxd = add_ctx ctxd' ctxd
                       val nps = nps' + nps
                     in
-                      (inr (pn, t) :: binds, ctxd, nps)
+                      (inr (MakeAnnoP (pn, t), t) :: binds, ctxd, nps)
                     end
               val (binds, ctxd, nps) = foldl f ([], empty_ctx, 0) binds
               val binds = rev binds
@@ -1697,6 +1697,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
               val () = close_n nps
               val () = close_ctx ctxd
               val (te, free_uvars, free_uvar_names) = generalize te
+              val e = UpdateExpr.update_e e
               val e = ExprShift.shiftx_t_e 0 (length free_uvars) e
               val e = foldli (fn (v, uvar_ref, e) => SubstUVar.substu_t_e uvar_ref v e) e free_uvars
               val te = Uni_Many (tnames, te, r)

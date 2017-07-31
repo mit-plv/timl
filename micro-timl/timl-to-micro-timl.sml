@@ -335,13 +335,8 @@ structure S = TiML
                 
 fun shift_e_pn a = shift_e_pn_fn shift_e_e a
 
-fun MakeSUniI (s, name, t) = S.UniI (s, Bind.Bind (name, t), dummy)
-
-fun MakeSEAbs (pn, e) = S.EAbs $ Bind (pn, e)
-fun MakeSEAbsI (name, s, e) = S.EAbsI (IBindAnno ((name, s), e), dummy)
-fun MakeSECase (e, rules) = S.ECase (e, (NONE, NONE), map Bind rules, dummy)
-
-fun MakeSELet (decls, e) = S.ELet ((NONE, NONE), Bind (decls, e), dummy)
+fun SMakeECase (e, rules) = S.ECase (e, (NONE, NONE), map Bind rules, dummy)
+fun SMakeELet (decls, e) = S.ELet ((NONE, NONE), Bind (decls, e), dummy)
 
 structure SS = ExprSubst
                  
@@ -402,7 +397,7 @@ fun on_e (e : S.expr) =
     (*     val (pn, Outer t) = case pn of S.AnnoP a => a | _ => raise Impossible "to-micro-timl/EAbs: must be AnnoP" *)
     (*     val name = default (EName ("__x", dummy)) $ get_pn_alias $ from_TiML_ptrn pn *)
     (*     val t = on_mt t *)
-    (*     val e = MakeSECase (SEV 0, [shift_e_rule (pn, e)]) *)
+    (*     val e = SMakeECase (SEV 0, [shift_e_rule (pn, e)]) *)
     (*     val e = on_e e *)
     (*   in *)
     (*     EAbs $ BindAnno ((name, t), e) *)
@@ -499,7 +494,7 @@ and on_decls (decls, e_body) =
             (* todo: DTypeDef, DIdxDef and DAbsIdx2 should generate special kind of Let instead of inlining. DTypeDef currently needs to do inlining because the translation of [EAppConstr] needs datatype details. It will be changed in the future when constructors are translated into functions. *)
             S.DTypeDef (name, Outer t) =>
             let
-              val e = MakeSELet (decls, e_body)
+              val e = SMakeELet (decls, e_body)
               val e = SS.subst_t_e t e
               val e = on_e e
             in
@@ -507,7 +502,7 @@ and on_decls (decls, e_body) =
             end
           | S.DIdxDef (name, _, Outer i) =>
             let
-              val e = MakeSELet (decls, e_body)
+              val e = SMakeELet (decls, e_body)
               val e = SS.subst_i_e i e
               val e = on_e e
             in
@@ -515,7 +510,7 @@ and on_decls (decls, e_body) =
             end
           | S.DAbsIdx2 (name, _, Outer i) =>
             let
-              val e = MakeSELet (decls, e_body)
+              val e = SMakeELet (decls, e_body)
               val e = SS.subst_i_e i e
               val e = on_e e
             in
@@ -534,9 +529,9 @@ and on_decls (decls, e_body) =
             end
           | S.DValPtrn (pn, Outer e, Outer r) =>
             let
-              val e_body = MakeSELet (decls, e_body)
+              val e_body = SMakeELet (decls, e_body)
             in
-              on_e $ MakeSECase (e, [(pn, e_body)])
+              on_e $ SMakeECase (e, [(pn, e_body)])
             end
 	  | S.DRec (name, bind, _) => 
 	    let
@@ -565,7 +560,7 @@ and on_decls (decls, e_body) =
           | S.DOpen (Outer m, octx) =>
             let
               val ctx as (sctx, kctx, cctx, tctx) = octx !! (fn () => raise Impossible "to-micro-timl/DOpen: octx must be SOME")
-              val e = MakeSELet (decls, e_body)
+              val e = SMakeELet (decls, e_body)
               open Package
               val e = (self_compose (length tctx) $ package0_e_e m) $ e
               val e = (self_compose (length cctx) $ package0_c_e m) $ e
@@ -585,13 +580,13 @@ and on_DRec (name, bind) =
       val binds = unTeles binds
       fun on_bind (bind, e) =
         case bind of
-            S.SortingST (name, Outer s) => MakeSEAbsI (unBinderName name, s, e)
-          | S.TypingST pn => MakeSEAbs (pn, e)
+            S.SortingST (name, Outer s) => S.MakeEAbsI (unBinderName name, s, e, dummy)
+          | S.TypingST pn => S.MakeEAbs (pn, e)
       val e = foldr on_bind e binds
       val e = on_e e
       fun on_bind_t (bind, t) =
         case bind of
-            S.SortingST (name, Outer s) => MakeSUniI (s, unBinderName name, t)
+            S.SortingST (name, Outer s) => S.MakeUniI (s, unBinderName name, t, dummy)
           | S.TypingST pn =>
             case pn of
                 AnnoP (_, Outer t1) => S.Arrow (t1, T0 dummy, t)
@@ -669,8 +664,9 @@ fun pp_e a = MicroTiMLExPP.pp_e_fn (
     const_fun "<ty>"
   ) a
                                  
-fun test filename =
+fun test1 dirname =
   let
+    val filename = join_dir_file (dirname, "test1.timl")
     open Parser
     val prog = parse_file filename
     open Elaborate
@@ -702,6 +698,7 @@ fun test filename =
     val e = trans_e e
     val e = export ([], [], []) e
     val () = pp_e e
+    val () = println ""
   in
     ((* t, e *))
   end
@@ -710,8 +707,9 @@ fun test filename =
   (*      | T2MTError msg => (println $ "T2MT.Error: " ^ msg; raise Impossible "End") *)
   (*      | Impossible msg => (println $ "Impossible: " ^ msg; raise Impossible "End") *)
                           
-fun test2 filename =
+fun test2 dirname =
   let
+    val filename = join_dir_file (dirname, "test2.timl")
     open Parser
     val prog = parse_file filename
     open Elaborate
@@ -723,12 +721,13 @@ fun test2 filename =
                   | _ => raise Impossible ""
     open TypeCheck
     val ((decls, _, _, _), _) = typecheck_decls empty empty_ctx decls
-    val e = MakeSELet (Teles decls, Expr.ETT dummy)
+    val e = SMakeELet (Teles decls, Expr.ETT dummy)
     val e = SimpExpr.simp_e [] e
     val () = println $ str_e empty ([], [], [], []) e
     val e = trans_e e
     val e = export ([], [], []) e
     val () = pp_e e
+    val () = println ""
   in
     ((* t, e *))
   end
@@ -736,7 +735,15 @@ fun test2 filename =
        | TypeCheck.Error (_, msgs) => (app println $ "TC.Error: " :: msgs; raise Impossible "End")
   (*      | T2MTError msg => (println $ "T2MT.Error: " ^ msg; raise Impossible "End") *)
   (*      | Impossible msg => (println $ "Impossible: " ^ msg; raise Impossible "End") *)
-                          
+
+fun test_suites dirname =
+  let
+    val suites = [test1, test2]
+    val () = app (fn f => ignore $ f dirname) suites
+  in
+    ()
+  end
+  
 end
                              
 end

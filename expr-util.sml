@@ -1,8 +1,13 @@
 functor ExprUtilFn (Expr : EXPR) = struct
 
+open Pattern
 open Expr
 open Operators
+open Util
+open Bind
 
+infixr 0 $
+         
 fun ETT r = EConst (ECTT, r)
 fun EConstInt (n, r) = EConst (ECInt n, r)
 fun EConstNat (n, r) = EConst (ECNat n, r)
@@ -97,4 +102,8 @@ fun is_value (e : expr) : bool =
     | EAppConstr (_, _, _, e, _) => is_value e
     | ECase _ => false
 
+fun MakeAnnoP (pn, t) = AnnoP (pn, Outer t)
+fun MakeEAbs (pn, e) = EAbs $ Binders.Bind (pn, e)
+fun MakeEAbsI (name, s, e, r) = EAbsI (IBindAnno ((name, s), e), r)
+      
 end

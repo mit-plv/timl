@@ -163,6 +163,7 @@ unify.sml
 redundant-exhaust.sml
 collect-mod.sml
 subst-uvar.sml
+update-expr.sml
 typecheck-main.sml
 trivial-solver.sml
 post-typecheck.sml
