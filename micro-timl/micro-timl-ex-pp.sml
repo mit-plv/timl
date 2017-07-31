@@ -465,6 +465,14 @@ fun pp_e (params as (str_var, str_i, str_s, str_k, str_t)) s e =
           str $ str_t t;
           close_box ()
         )
+      | EBuiltin t =>
+        (
+          open_hbox ();
+          str "EBuiltin";
+          space ();
+          str $ str_t t;
+          close_box ()
+        )
       | ELet (e, branch) =>
         let
           val (name, e_body) = get_bind branch

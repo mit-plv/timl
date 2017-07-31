@@ -29,6 +29,7 @@ datatype ('var, 'idx, 'sort, 'kind, 'ty) expr =
          | EAscTime of ('var, 'idx, 'sort, 'kind, 'ty) expr * 'idx (* time ascription *)
          | EAscType of ('var, 'idx, 'sort, 'kind, 'ty) expr * 'ty (* type ascription *)
          | ENever of 'ty
+         | EBuiltin of 'ty
          | ELet of ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind
          | EMatchSum of ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind list
          | EMatchPair of ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind ebind
@@ -59,6 +60,7 @@ type ('this, 'env, 'var, 'idx, 'sort, 'kind, 'ty, 'var2, 'idx2, 'sort2, 'kind2, 
        visit_EAscTime : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * 'idx (* time ascription *) -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
        visit_EAscType : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * 'ty (* type ascription *) -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
        visit_ENever : 'this -> 'env -> 'ty -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
+       visit_EBuiltin : 'this -> 'env -> 'ty -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
        visit_ELet : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
        visit_EMatchSum : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind list -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
        visit_EMatchPair : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind ebind -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
@@ -101,6 +103,7 @@ fun override_visit_EVar (record : ('this, 'env, 'var, 'idx, 'sort, 'kind, 'ty, '
     visit_EAscTime = #visit_EAscTime record,
     visit_EAscType = #visit_EAscType record,
     visit_ENever = #visit_ENever record,
+    visit_EBuiltin = #visit_EBuiltin record,
     visit_ELet = #visit_ELet record,
     visit_EMatchSum = #visit_EMatchSum record,
     visit_EMatchPair = #visit_EMatchPair record,
@@ -157,6 +160,7 @@ fun default_expr_visitor_vtable
           | EAscTime data => #visit_EAscTime vtable this env data
           | EAscType data => #visit_EAscType vtable this env data
           | ENever data => #visit_ENever vtable this env data
+          | EBuiltin data => #visit_EBuiltin vtable this env data
           | ELet data => #visit_ELet vtable this env data
           | EMatchSum data => #visit_EMatchSum vtable this env data
           | EMatchPair data => #visit_EMatchPair vtable this env data
@@ -345,6 +349,13 @@ fun default_expr_visitor_vtable
       in
         ENever data
       end
+    fun visit_EBuiltin this env data = 
+      let
+        val vtable = cast this
+        val data = #visit_ty vtable this env data
+      in
+        EBuiltin data
+      end
     fun visit_ELet this env data =
       let
         val vtable = cast this
@@ -414,6 +425,7 @@ fun default_expr_visitor_vtable
       visit_EAscTime = visit_EAscTime,
       visit_EAscType = visit_EAscType,
       visit_ENever = visit_ENever,
+      visit_EBuiltin = visit_EBuiltin,
       visit_ELet = visit_ELet,
       visit_EMatchSum = visit_EMatchSum,
       visit_EMatchPair = visit_EMatchPair,
