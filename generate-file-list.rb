@@ -162,6 +162,7 @@ uvar-forget.sml
 unify.sml
 redundant-exhaust.sml
 collect-mod.sml
+subst-uvar.sml
 typecheck-main.sml
 trivial-solver.sml
 post-typecheck.sml

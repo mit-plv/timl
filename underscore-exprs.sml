@@ -105,7 +105,15 @@ structure UnderscoredSubst = SubstFn (structure IdxType = struct
 structure UnderscoredExprVisitor = ExprVisitorFn (structure S = UnderscoredExpr
                                                   structure T = UnderscoredExpr)
 
+structure UnderscoredSubst = SubstFn (structure IdxType = struct
+                           structure Idx = UnderscoredExpr.Idx
+                           structure Type = UnderscoredExpr.Type
+                           end
+                           structure SubstableVar = LongIdSubst
+)
+                          
 structure UnderscoredExprShift = ExprShiftFn (structure Expr = UnderscoredExpr
                                               structure ShiftableVar = LongIdSubst
+                                              open UnderscoredSubst
                                              )
                                                  

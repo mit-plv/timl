@@ -93,6 +93,15 @@ fun collect_uvar_t_mt t =
     !result
   end
 
+fun collect_uvar_t_c t =
+  let
+    val visitor as (TypeVisitor vtable) = new_collect_uvar_t_type_visitor ()
+    val result = ref []
+    val t = #visit_constr_info vtable visitor result t
+  in
+    !result
+  end
+
 open Bind
        
 (* fun collect_uvar_t_mt t = *)

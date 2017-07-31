@@ -122,6 +122,7 @@ end
 functor ExprShiftFn (structure Expr : EXPR
                      structure ShiftableVar : SHIFTABLE_VAR
                      sharing type ShiftableVar.var = Expr.var
+                     val shiftx_t_mt : int -> int -> Expr.mtype -> Expr.mtype
                     ) = struct
 
 open ShiftableVar
@@ -134,6 +135,8 @@ open ExprShiftVisitor
                                          
 fun adapt f x n env = f (x + env) n
 
+fun shiftx_t_e x n = on_t_e $ adapt shiftx_t_mt x n
+                                              
 fun shift_e_params a = adapt shiftx_var a
   
 fun shiftx_e_e x n = on_e_e $ shift_e_params x n

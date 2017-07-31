@@ -291,7 +291,7 @@ fun on_mt (t : S.mtype) =
             val extra_sort_name = "__VC"
             val extra_sort = Subset ((BSUnit, dummy), Bind.Bind ((extra_sort_name, dummy), prop), dummy)
             val t = on_mt t
-            val t = TExistsIMany (map (mapFst IName) $ ((extra_sort_name, dummy), extra_sort) :: rev name_sorts, t)
+            val t = TExistsI_Many (rev $ map (mapFst IName) $ ((extra_sort_name, dummy), extra_sort) :: rev name_sorts, t)
           in
             t
           end
@@ -300,8 +300,8 @@ fun on_mt (t : S.mtype) =
         val ts = map (fn (_, c, _) => on_constr c) constrs
         val t = TSums ts
         fun attach_names namespace f ls = mapi (fn (n, b) => (namespace (f n, dummy), b)) ls
-        val t = TAbsIMany (attach_names IName (fn n => "_i" ^ str_int n) $ rev bsorts, t)
-        val t = TAbsTMany (attach_names TName (fn n => "_t" ^ str_int n) $ repeat len_tnames KType, t)
+        val t = TAbsI_Many (rev $ attach_names IName (fn n => "_i" ^ str_int n) $ rev bsorts, t)
+        val t = TAbsT_Many (rev $ attach_names TName (fn n => "_t" ^ str_int n) $ repeat len_tnames KType, t)
       in
         TRec $ BindAnno ((TName dt_name, k), t)
       end
@@ -527,7 +527,7 @@ and on_decls (decls, e_body) =
               val (tnames, e) = Unbound.unBind bind
               val tnames = map unBinderName tnames
               val e = on_e e
-              val e = EAbsTKindMany (tnames, e)
+              val e = EAbsTKind_Many (tnames, e)
               val e_body = on_decls (decls, e_body)
             in
               MakeELet (e, name, e_body)
@@ -603,8 +603,8 @@ and on_DRec (name, bind) =
             | _ => raise Impossible "to-micro-timl/DRec: Recursion must have a annotated typing bind as the last bind"
       val t = on_mt t
       val e = MakeERec (name, t, e)
-      val t = TUniKindMany (tnames, t)
-      val e = EAbsTKindMany (tnames, e)
+      val t = TUniKind_Many (tnames, t)
+      val e = EAbsTKind_Many (tnames, e)
     in
       (e, t)
     end

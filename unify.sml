@@ -171,7 +171,7 @@ fun is_sub_sort r gctxn ctxn (s : sort, s' : sort) =
         val () = if length args <= length ctx then () else raise Impossible "unify_SApp(): #args shouldn't be larger than #ctx"
         (* #args could be < #ctx because of partial application *)
         val ctx = lastn (length args) ctx
-        val s' = SAbsMany (ctx, s', r)
+        val s' = SAbs_Many (rev ctx, s', r)
         val () = refine x s'
       in
         ()
@@ -354,9 +354,9 @@ fun unify_mt r gctx ctx (t, t') =
         (* val () = println $ "#i_args=" ^ str_int (length i_args) *)
         val sctx = lastn (length i_args) sctx
         val kctx = lastn (length t_args) kctx
-        val t' = MtAbsMany (kctx, t', r)
+        val t' = MtAbs_Many (rev kctx, t', r)
         (* val () = println $ "sctx=" ^ str_ls fst sctx *)
-        val t' = MtAbsIMany (sctx, t', r)
+        val t' = MtAbsI_Many (rev sctx, t', r)
         (* val () = println $ str_mt empty ([], []) t' *)
         (* val () = println $ str_raw_mt t' *)
         (* val () = println $ sprintf "unify_MtApp(): refine ?$ to be $" [str_int uvar_name, str_mt gctxn ctxn t'] *)

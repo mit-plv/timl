@@ -77,7 +77,7 @@ fun forget_i_i x n b =
         val inner_args = remove_at_locs locs inner_args
         val ins = new_uvar
         val ins = IApps ins (map (V r) $ rev inner_args)
-        val ins = IAbsMany (ctx, ins, r)
+        val ins = IAbs_Many (rev ctx, ins, r)
         val () = refine uvar ins
       in
         ret
@@ -179,8 +179,8 @@ fun forget_i_mt x n b =
         val ins = new_uvar
         val ins = MtAppIs ins (map (V r) $ rev inner_i_args)
         val ins = MtApps ins (map (TV r) $ rev inner_t_args)
-        val ins = MtAbsMany (kctx, ins, r)
-        val ins = MtAbsIMany (sctx, ins, r)
+        val ins = MtAbs_Many (rev kctx, ins, r)
+        val ins = MtAbsI_Many (rev sctx, ins, r)
         (* val () = println $ sprintf "forget_i_mt(): refine ?$ to be $" [str_int uvar_name, str_mt empty ([], []) ins] *)
         val () = refine uvar ins
       in

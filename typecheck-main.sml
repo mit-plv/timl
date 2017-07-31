@@ -375,7 +375,7 @@ fun check_sort gctx (ctx, i : U.idx, s : sort) : idx =
         val ((x, _), _) = is_SApp_UVarS s !! (fn () => raise UnifySAppFailed)
         val (_, ctx) = get_uvar_info x !! (fn () => raise Impossible "check_sort()/unify_SApp_UVar(): x should be Fresh")
         val s = Basic (bs', r)
-        val s = SAbsMany (ctx, s, r)
+        val s = SAbs_Many (rev ctx, s, r)
         val () = refine x s
       in
         ()
@@ -1183,16 +1183,16 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
     val gctxn = gctx_names gctx
     val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
     val skctxn = (sctxn, kctxn)
+    (* val () = print $ sprintf "Typing $\n" [US.str_e gctxn ctxn e_all] *)
+    (* val () = print $ sprintf "  Typing $\n" [U.str_raw_e e_all] *)
     fun print_ctx gctx (ctx as (sctx, kctx, _, tctx)) =
       let
-        val () = println $ str_ls (fn (name, sort) => sprintf "$: $" [name, sort]) $ str_sctx gctx sctx
+        (* val () = println $ str_ls (fn (name, sort) => sprintf "$: $" [name, sort]) $ str_sctx gctx sctx *)
                          (* val () = println $ str_ls fst kctx *)
-                         (* val () = str_ls (fn (nm, t) => println $ sprintf "$: $" [nm, str_t (gctx_names gctx) (sctx_names sctx, names kctx) t]) tctx *)
+        val () = app println $ map (fn (nm, t) => sprintf "$: $" [nm, str_t (gctx_names gctx) (sctx_names sctx, names kctx) t]) tctx
       in
         ()
       end
-    (* val () = print $ sprintf "Typing $\n" [U.str_e gctxn ctxn e_all] *)
-    (* val () = print $ sprintf "  Typing $\n" [U.str_raw_e e_all] *)
     (* val () = print_ctx gctx ctx *)
     fun main () =
       case e_all of
@@ -1564,10 +1564,11 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
     | Impossible msg => raise Impossible $ join_lines $ msg :: extra_msg ()
     val t = SimpType.simp_mt $ normalize_mt gctx kctx t
     val d = simp_i $ normalize_i d
-                   (* val () = println $ str_ls id $ #4 ctxn *)
+    (* val () = println $ str_ls id $ #4 ctxn *)
     (* val () = print (sprintf " Typed $: \n        $\n" [str_e gctxn ctxn e, str_mt gctxn skctxn t]) *)
     (* val () = print (sprintf "   Time : $: \n" [str_i sctxn d]) *)
     (* val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_mt gctxn skctxn t, str_e gctxn ctxn e, str_i gctxn sctxn d]) *)
+    (* val () = print (sprintf "  type: $\n" [str_mt gctxn skctxn t]) *)
   in
     (e, t, d)
   end
@@ -1580,46 +1581,31 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
       val check_mtype_time = check_mtype_time gctx
       fun generalize t = 
         let
-          fun collect_uvar_t_ctx (_, _, _, tctx) = (concatMap collect_uvar_t_t o map snd) tctx (* cctx can't contain uvars *)
-          (* substitute uvar with var *)
-          fun substu_ibind f x v (Bind (name, b) : ('a * 'b) ibind) = Bind (name, f x v b)
-          fun substu_tbind f x v (Bind (name, b) : ('a * 'b) tbind) = Bind (name, f x (v + 1) b)
-          fun substu x v (b : mtype) : mtype =
-	    case b of
-                UVar (y, _) =>
-                if y = x then
-                  case !y of
-                      Fresh (_, (sctx, kctx)) => MtAbsIMany (sctx, MtAbsMany (kctx, TV dummy (v + length kctx), dummy), dummy)
-                    | Refined _ => raise Impossible "substu()/UVar: shouldn't be Refined"
-                else 
-                  b
-              | Unit r => Unit r
-	      | Arrow (t1, d, t2) => Arrow (substu x v t1, d, substu x v t2)
-              | TyNat (i, r) => TyNat (i, r)
-              | TyArray (t, i) => TyArray (substu x v t, i)
-	      | Prod (t1, t2) => Prod (substu x v t1, substu x v t2)
-	      | UniI (s, bind, r) => UniI (s, substu_ibind substu x v bind, r)
-              (* don't need to consult type variable's definition *)
-              | MtVar x => MtVar x
-              | MtAbs (k, bind, r) => MtAbs (k, substu_tbind substu x v bind, r)
-              | MtApp (t1, t2) => MtApp (substu x v t1, substu x v t2)
-              | MtAbsI (k, bind, r) => MtAbsI (k, substu_ibind substu x v bind, r)
-              | MtAppI (t, i) => MtAppI (substu x v t, i)
-	      | BaseType a => BaseType a
-              | TDatatype _ => raise Unimpl "check_decl()/substu()/TDatatype"
-          fun evar_name n =
+          fun collect_uvar_t_ctx (_, _, cctx, tctx) =
+            (* cctx can't contain uvars *)
+            (concatMap collect_uvar_t_c o map snd) cctx @
+            (concatMap collect_uvar_t_t o map snd) tctx 
+          fun generalized_uvar_name n =
             if n < 26 then
               "'_" ^ (str o chr) (ord #"a" + n)
             else
               "'_" ^ str_int n
           val t = update_mt t
-          val fv = dedup op= $ diff op= (map #1 $ collect_uvar_t_mt t) (map #1 $ collect_uvar_t_ctx ctx)
-          val t = shiftx_t_mt 0 (length fv) t
-          val (t, _) = foldl (fn (uvar_ref, (t, v)) => (substu uvar_ref v t, v + 1)) (t, 0) fv
-          val t = Range.for (fn (i, t) => (Uni (Bind ((evar_name i, dummy), t), dummy))) (Mono t) (0, (length fv))
+          val free_uvars = dedup op= $ diff op= (map #1 $ collect_uvar_t_mt t) (map #1 $ collect_uvar_t_ctx ctx)
+          val t = shiftx_t_mt 0 (length free_uvars) t
+          val t = foldli (fn (v, uvar_ref, t) => SubstUVar.substu_t_mt uvar_ref v t) t free_uvars
+          val free_uvar_names = rev $ map (attach_snd dummy) $ Range.map generalized_uvar_name (0, (length free_uvars))
+          val t = Uni_Many (rev free_uvar_names, Mono t, dummy)
         in
-          t
+          (t, free_uvars, free_uvar_names)
         end
+      (* fun generalize_e free_uvars e =  *)
+      (*   let *)
+      (*     val e = foldli (fn (v, uvar_ref, e) => substu_e uvar_ref v t) e free_uvars *)
+      (*     (* val e = Range.for (fn (i, t) => (EAbsT (TBind ((generalized_uvar_name i, dummy), t), dummy))) e (0, (length free_uvars)) *) *)
+      (*   in *)
+      (*     e *)
+      (*   end *)
       (* val () = println $ sprintf "Typing Decl $" [fst $ U.str_decl (gctx_names gctx) (ctx_names ctx) decl] *)
       fun main () = 
         case decl of
@@ -1629,16 +1615,18 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
               val (tnames, e) = Unbound.unBind bind
               val tnames = map unBinderName tnames
               val (e, t, d) = get_mtype (add_kindings_skct (zip ((rev o map fst) tnames, repeat (length tnames) Type)) ctx, e)
-              val t = if is_value e then 
+              val (t, tnames) = if is_value e then 
                         let
-                          val t = generalize t
-                          (* todo: record generalized type variables in result *)
-                          val t = foldr (fn (nm, t) => Uni (Bind (nm, t), r)) t tnames
+                          val (t, free_uvars, free_uvar_names) = generalize t
+                          val e = ExprShift.shiftx_t_e 0 (length free_uvars) e
+                          val e = foldli (fn (v, uvar_ref, e) => SubstUVar.substu_t_e uvar_ref v e) e free_uvars
+                          val t = Uni_Many (tnames, t, r)
+                          val tnames = tnames @ rev free_uvar_names
                         in
-                          t
+                          (t, tnames)
                         end
                       else if length tnames = 0 then
-                        Mono t
+                        (Mono t, tnames)
                       else
                         raise Error (r, ["explicit type variable cannot be generalized because of value restriction"])
             in
@@ -1708,9 +1696,11 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
 	      val e = check_mtype_time (ctx, e, t, d)
               val () = close_n nps
               val () = close_ctx ctxd
-              val te = generalize te
-              (* todo: record generalized type variables in result *)
-              val te = foldr (fn (nm, t) => Uni (Bind (nm, t), r)) te tnames
+              val (te, free_uvars, free_uvar_names) = generalize te
+              val e = ExprShift.shiftx_t_e 0 (length free_uvars) e
+              val e = foldli (fn (v, uvar_ref, e) => SubstUVar.substu_t_e uvar_ref v e) e free_uvars
+              val te = Uni_Many (tnames, te, r)
+              val tnames = tnames @ rev free_uvar_names
               fun h bind =
                 case bind of
                     inl (name, s) => SortingST (Binder $ IName name, Outer s)

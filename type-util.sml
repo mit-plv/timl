@@ -67,8 +67,8 @@ fun is_AppV t =
 fun MtAppIs f args = foldl (fn (arg, f) => MtAppI (f, arg)) f args
 fun MtApps f args = foldl (fn (arg, f) => MtApp (f, arg)) f args
                           
-fun MtAbsMany (ctx, t, r) = foldl (fn ((name, k), t) => MtAbs (k, Bind ((name, r), t), r)) t ctx
-fun MtAbsIMany (ctx, t, r) = foldl (fn ((name, s), t) => MtAbsI (s, Bind ((name, r), t), r)) t ctx
+fun MtAbs_Many (ctx, t, r) = foldr (fn ((name, k), t) => MtAbs (k, Bind ((name, r), t), r)) t ctx
+fun MtAbsI_Many (ctx, t, r) = foldr (fn ((name, s), t) => MtAbsI (s, Bind ((name, r), t), r)) t ctx
                                  
 fun AppVar (x, is) = MtAppIs (MtVar x) is
 fun AppV (x, ts, is, r) = MtAppIs (MtApps (MtVar x) ts) is
@@ -90,6 +90,7 @@ fun get_constr_names t =
         cnames
       end
     | _ => []
-      
+
+fun Uni_Many (names, t, r) = foldr (fn (name, t) => (Uni (Bind (name, t), r))) t names
 end
 

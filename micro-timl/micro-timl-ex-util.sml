@@ -11,14 +11,14 @@ fun KArrowTs ks k = foldr KArrowT k ks
 fun KArrowTypes n k = KArrowTs (repeat n KType) k
                           
 fun TExistsI bind = TQuanI (Exists (), bind)
-fun TExistsIMany (ctx, t) = foldl (TExistsI o BindAnno) t ctx
+fun TExistsI_Many (ctx, t) = foldr (TExistsI o BindAnno) t ctx
 fun MakeTExistsI (name, s, t) = TExistsI $ IBindAnno ((name, s), t)
-fun TAbsIMany (ctx, t) = foldl (TAbsI o BindAnno) t ctx
-fun TAbsTMany (ctx, t) = foldl (TAbsT o BindAnno) t ctx
+fun TAbsI_Many (ctx, t) = foldr (TAbsI o BindAnno) t ctx
+fun TAbsT_Many (ctx, t) = foldr (TAbsT o BindAnno) t ctx
 fun TUni bind = TQuan (Forall, bind)
 fun MakeTUni (name, k, t) = TUni $ TBindAnno ((name, k), t)
 fun TUniKind (name, t) = MakeTUni (name, KType, t)
-fun TUniKindMany (names, t) = foldr TUniKind t names
+fun TUniKind_Many (names, t) = foldr TUniKind t names
                   
 val TUnit = TConst TCUnit
 val TEmpty = TConst TCEmpty
@@ -30,7 +30,7 @@ fun TAppTs (t, ts) = foldl (swap TAppT) t ts
 fun MakeEAbsT (name, k, e) = EAbsT $ TBindAnno ((name, k), e)
 fun MakeERec (name, t, e) = ERec $ EBindAnno ((name, t), e)
 fun EAbsTKind (name, e) = MakeEAbsT (name, KType, e) 
-fun EAbsTKindMany (names, e) = foldr EAbsTKind e names
+fun EAbsTKind_Many (names, e) = foldr EAbsTKind e names
 fun MakeEMatchUnpackI (e1, iname, ename, e2) = EMatchUnpackI (e1, IBind (iname, EBind (ename, e2)))
 fun MakeELet (e1, name, e2) = ELet (e1, EBind (name, e2))
 

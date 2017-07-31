@@ -163,7 +163,7 @@ fun is_SApp_UVarS s =
 fun IApps f args = foldl (fn (arg, f) => BinOpI (IApp, f, arg)) f args
 fun SApps f args = foldl (fn (arg, f) => SApp (f, arg)) f args
                          
-fun SAbsMany (ctx, s, r) = foldl (fn ((name, s_arg), s) => SAbs (s_arg, Bind ((name, r), s), r)) s ctx
-fun IAbsMany (ctx, i, r) = foldl (fn ((name, b), i) => IAbs (b, Bind ((name, r), i), r)) i ctx
+fun SAbs_Many (ctx, s, r) = foldr (fn ((name, s_arg), s) => SAbs (s_arg, Bind ((name, r), s), r)) s ctx
+fun IAbs_Many (ctx, i, r) = foldr (fn ((name, b), i) => IAbs (b, Bind ((name, r), i), r)) i ctx
                                  
 end

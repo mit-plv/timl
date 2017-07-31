@@ -52,7 +52,7 @@ fun refine_UVarS_to_Basic (x, r, info, args) =
     val b = fresh_bsort ()
     val s = Basic (b, r)
     val (uvar_name, ctx) = info
-    val s = SAbsMany (ctx, s, r)
+    val s = SAbs_Many (rev ctx, s, r)
     val () = println $ sprintf "Warning: refining ?$ to $ (where $ is a base-sort) in order to get its base sort" [str_int uvar_name, str_s empty [] s, str_bs b]
     val () = refine x s
   in
@@ -117,7 +117,7 @@ fun uvar_s_ignore_args (x, info, r) =
   let
     val (_, ctx) = info
     val s = fresh_sort empty [] r
-    val s = SAbsMany (ctx, s, r)
+    val s = SAbs_Many (rev ctx, s, r)
     val () = refine x s
   in
     ()
@@ -127,7 +127,7 @@ fun uvar_i_ignore_args (x, info, r) =
   let
     val (_, ctx, b) = info
     val s = fresh_i empty [] b r
-    val s = IAbsMany (ctx, s, r)
+    val s = IAbs_Many (rev ctx, s, r)
     val () = assert (fn () => is_fresh x) "uvar_i_ignore_args(): fresh"
     val () = refine x s
   in

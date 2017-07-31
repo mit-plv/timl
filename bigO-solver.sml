@@ -521,7 +521,7 @@ fun by_master_theorem uvar (hs, p) =
           val i = master_theorem (rV 0) (a, b) main_arg_class
           val i = foldli (fn (n, cls, i) => class2term cls (rV (n + 1)) %* i) i $ rev classes
           val i = simp_i i
-          val i = IAbsMany (uvar_ctx, i, dummy)
+          val i = IAbs_Many (rev uvar_ctx, i, dummy)
         in
           raise Succeeded i
         end
@@ -566,7 +566,7 @@ fun by_master_theorem uvar (hs, p) =
           val i = class2term (c + 1, k) (rV 0)
           val i = foldli (fn (n, cls, i) => class2term cls (rV (n + 1)) %* i) i $ rev classes
           val i = simp_i i
-          val i = IAbsMany (uvar_ctx, i, dummy)
+          val i = IAbs_Many (rev uvar_ctx, i, dummy)
         in
           raise Succeeded i
         end
@@ -590,7 +590,7 @@ fun by_master_theorem uvar (hs, p) =
           val i = class2term main_arg_class (rV 0)
           val i = foldli (fn (n, cls, i) => class2term cls (rV (n + 1)) %* i) i $ rev classes
           val i = simp_i i
-          val i = IAbsMany (uvar_ctx, i, dummy)
+          val i = IAbs_Many (rev uvar_ctx, i, dummy)
         in
           raise Succeeded i
         end
@@ -952,7 +952,7 @@ fun infer_numbers vcs0 =
             fun to_real i = UnOpI (ToReal, i, r)
             val value = ConstIN (value, r)
             val value = if is_nat then value else to_real value
-            val value = IAbsMany (ctx, value, r)
+            val value = IAbs_Many (rev ctx, value, r)
           in
             x := Refined value
           end

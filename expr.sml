@@ -84,6 +84,7 @@ structure ExprVisitor = ExprVisitorFn (structure S = Expr
 
 structure ExprShift = ExprShiftFn (structure Expr = Expr
                                    structure ShiftableVar = LongIdSubst
+                                   open Subst
                                   )
                                       
 structure ExprSubst = ExprSubstFn (structure Expr = Expr
