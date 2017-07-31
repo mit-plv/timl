@@ -1651,10 +1651,6 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
               val tnames = map unBinderName tnames
               val binds = unTeles binds
               val ctx as (sctx, kctx, cctx, tctx) = add_kindings_skct (zip ((rev o map fst) tnames, repeat (length tnames) Type)) ctx
-              (* val () = case rev binds of *)
-              (*              U.TypingST _ :: _ => () *)
-              (*            | _ => raise Error (r, ["Recursion must have a typing bind as the last bind"]) *)
-              (* val e = U.EAsc (e, t) *)
               val e = U.EAscTime (e, d)
               fun attach_bind_e (bind, e) =
                 case bind of
@@ -1667,7 +1663,8 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
                   | U.AliasP (_, pn, _) => type_from_ptrn pn
                   | U.TTP _ => U.Unit r
                   | U.PairP (pn1, pn2) => U.Prod (type_from_ptrn pn1, type_from_ptrn pn2) 
-                  | _ => U.UVar ((), r)
+                  | U.VarP _ => U.UVar ((), r)
+                  | U.ConstrP _ => U.UVar ((), r)
               fun attach_bind_t (bind, t) =
                 case bind of
 	            U.SortingST (name, Outer s) => U.UniI (s, Bind (unBinderName name, t), r)
@@ -1677,9 +1674,9 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
                       U.TypingST pn :: binds =>
                       foldl attach_bind_t (U.Arrow (type_from_ptrn pn, d, t)) binds
                     | _ => raise Error (r, ["Recursion must have a typing bind as the last bind"])
-              val () = println $ sprintf "te[pre] = $" [US.str_mt (gctx_names gctx) (sctx_names sctx, names kctx) te]
+              (* val () = println $ sprintf "te[pre] = $" [US.str_mt (gctx_names gctx) (sctx_names sctx, names kctx) te] *)
 	      val te = check_kind_Type gctx ((sctx, kctx), te)
-              val () = println $ sprintf "te[post] = $" [str_mt (gctx_names gctx) (sctx_names sctx, names kctx) te]
+              (* val () = println $ sprintf "te[post] = $" [str_mt (gctx_names gctx) (sctx_names sctx, names kctx) te] *)
 	      val e = check_mtype_time (add_typing_skct (name, Mono te) ctx, e, te, T0 dummy)
               val (te, poly_te, free_uvars, free_uvar_names) = generalize te
               val e = UpdateExpr.update_e e
@@ -1688,69 +1685,9 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
               val poly_te = Uni_Many (tnames, poly_te, r)
               val tnames = tnames @ rev free_uvar_names
               val decl = DRec (Binder $ EName (name, r1), Inner $ Unbound.Bind ((map (Binder o TName) tnames, Rebind TeleNil), ((te, T0 r), e)), Outer r)
-                           
-              (* fun f (bind, (binds, ctxd, nps)) = *)
-              (*   case bind of *)
-              (*       U.SortingST (name, Outer s) => *)
-              (*       let *)
-              (*         val name = unBinderName name *)
-              (*         val ctx = add_ctx ctxd ctx *)
-              (*         val s = is_wf_sort gctx (#1 ctx, s) *)
-              (*         val ctxd' = ctx_from_sorting (fst name, s) *)
-              (*         val () = open_ctx ctxd' *)
-              (*         val ctxd = add_ctx ctxd' ctxd *)
-              (*       in *)
-              (*         (inl (name, s) :: binds, ctxd, nps) *)
-              (*       end *)
-              (*     | U.TypingST pn => *)
-              (*       let *)
-              (*         val ctx as (sctx, kctx, cctx, tctx) = add_ctx ctxd ctx *)
-              (*         val r = U.get_region_pn pn *)
-              (*         val t = fresh_mt gctx (sctx, kctx) r *)
-              (*         val skcctx = (sctx, kctx, cctx) *)
-              (*         val (pn, cover, ctxd', nps') = match_ptrn gctx (skcctx, pn, t) *)
-	      (*         val () = check_exhaustion gctx (skcctx, t, [cover], get_region_pn pn) *)
-              (*         val ctxd = add_ctx ctxd' ctxd *)
-              (*         val nps = nps' + nps *)
-              (*       in *)
-              (*         (inr (MakeAnnoP (pn, t), t) :: binds, ctxd, nps) *)
-              (*       end *)
-              (* val (binds, ctxd, nps) = foldl f ([], empty_ctx, 0) binds *)
-              (* val binds = rev binds *)
-              (* val (sctx, kctx, cctx, tctx) = add_ctx ctxd ctx *)
-	      (* val t = check_kind_Type gctx ((sctx, kctx), t) *)
-	      (* val d = check_bsort gctx (sctx, d, Base Time) *)
-              (* fun g (bind, t) = *)
-              (*   case bind of *)
-	      (*       inl (name, s) => UniI (s, Bind (name, t), get_region_mt t) *)
-	      (*     | inr (_, t1) => Arrow (t1, T0 dummy, t) *)
-              (* val te = *)
-              (*     case rev binds of *)
-              (*         inr (_, t1) :: binds => *)
-              (*         foldl g (Arrow (t1, d, t)) binds *)
-              (*       | _ => raise Error (r, ["Recursion must have a typing bind as the last bind"]) *)
-              (* val ctx = add_typing_skct (name, Mono te) ctx *)
-              (* val ctx = add_ctx ctxd ctx *)
-	      (* val e = check_mtype_time (ctx, e, t, d) *)
-              (* val () = close_n nps *)
-              (* val () = close_ctx ctxd *)
-              (* val (te, free_uvars, free_uvar_names) = generalize te *)
-              (* val e = UpdateExpr.update_e e *)
-              (* val e = ExprShift.shiftx_t_e 0 (length free_uvars) e *)
-              (* val e = foldli (fn (v, uvar_ref, e) => SubstUVar.substu_t_e uvar_ref v e) e free_uvars *)
-              (* val te = Uni_Many (tnames, te, r) *)
-              (* val tnames = tnames @ rev free_uvar_names *)
-              (* fun h bind = *)
-              (*   case bind of *)
-              (*       inl (name, s) => SortingST (Binder $ IName name, Outer s) *)
-              (*     | inr (pn, _) => TypingST pn *)
-              (* val binds = map h binds *)
-              (* val decl = DRec (Binder $ EName (name, r1), Inner $ Unbound.Bind ((map (Binder o TName) tnames, Rebind $ Teles binds), ((t, d), e)), Outer r) *)
             in
               (decl, ctx_from_typing (name, poly_te), 0, [T0 dummy])
 	    end
-
-              
 	  (* | U.DRec (name, bind, Outer r) => *)
           (*   (* todo: DRec should delegate most of the work to EAbs and EAbsI *) *)
 	  (*   let *)

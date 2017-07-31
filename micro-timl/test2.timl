@@ -10,14 +10,158 @@ val ['a] f = fn {n : Nat} (ls : list 'a {n}) return list _ {n} =>
              (* | Cons (x, xs) => xs *)
              | Cons (x, xs) => Cons (x, xs)
 
-(* fun map ['a 'b] {m n : Nat} (f : 'a -- $m --> 'b) (ls : list 'a {n}) return list 'b {n} using $(m + 3) * $n = *)
-(*     case ls of *)
-(*         Nil => Nil *)
-(*       | Cons (x, xs) => Cons (f x, map f xs) *)
-
-fun map {m n : Nat} (f : _ -- $m --> _) (ls : list _ {n}) return list _ {n} using $(m + 3) * $n =
+fun map0 ['a 'b] {m n : Nat} (f : 'a -- $m --> 'b) (ls : list 'a {n}) return list 'b {n} using $(m + 3) * $n =
     case ls of
         Nil => Nil
-      | Cons (x, xs) => Cons (f x, map f xs)
+      | Cons (x, xs) => Cons (f x, map0 f xs)
+
+fun map0 {m n : Nat} (f : _ -- $m --> _) (ls : list _ {n}) return list _ {n} using $(m + 3) * $n =
+    case ls of
+        Nil => Nil
+      | Cons (x, xs) => Cons (f x, map0 f xs)
+
+
+
+                            
+datatype bool = true | false
+
+(* indexed boolean *)                         
+datatype ibool : {Bool} =
+         True of ibool {true} 
+         | False of ibool {false} 
+
+datatype option 'a =
+         NONE
+         | SOME of 'a --> option 'a 
+
+datatype le {a b : Nat} =
+         LE {a <= b} of le {a} {b} 
+
+
+                          
+
+(* length-indexed list *)
+datatype list 'a : {Nat} =
+         Nil of list 'a {0} 
+       | Cons {n : Nat} of 'a * list 'a {n} --> list 'a {n + 1} 
+
+absidx T_map : BigO (fn m n => $m * $n) with
+fun map ['a 'b] {m n : Nat} (f : 'a -- $m --> 'b) (ls : list (* 'a *)_ {n}) return list (* 'b *)_ {n} using T_map m n =
+          case ls of
+              Nil => Nil
+            | Cons (x, xs) => Cons (f x, map f xs)
+end
+
+(* fold-left *)                   
+fun foldl ['a 'b] {m n : Nat} (f : 'a * 'b -- $m --> 'b) acc (l : list 'a {n}) return (* 'b *) using $(m + 4) * $n =
+  case l of
+      [] => acc
+    | x :: xs => foldl f (f (x, acc)) xs
+
+(* another version of [foldl] that uses big-O spec *)                     
+absidx T_foldl : BigO (fn m n => $m * $n) with
+fun foldl ['a 'b] {m n : Nat} (f : 'a * 'b -- $m --> 'b) y (xs : list 'a {n}) return (* 'b *) using T_foldl m n =
+        case xs of
+            [] => y
+          | x :: xs => foldl f (f (x, y)) xs
+end
+
+(* [hd] is a total function that requires its input list to be non-empty *)
+fun hd {n: Nat | n > 0} (ls: list _ {n}) =
+    case ls of
+        x :: _ => x
+      | _ => never
+
+(* reverse and append *)
+fun rev_append {n m : Nat} (l : list _ {n}, acc : list _ {m}) return list _ {n + m} using $n =
+    case l of
+        [] => acc
+      | hd :: tl => rev_append (tl, hd :: acc)
+
+(* another version with Big-O complexity *)
+absidx T_rev_append : BigO (fn n => $n) (* = fn n => 2.0 * $n *) with
+fun rev_append_2 {n1 n2 : Nat} (xs : list _ {n1}) (ys : list _ {n2}) return list _ {n1 + n2} using T_rev_append n1 =
+    case xs of
+        [] => ys
+      | x :: xs => rev_append_2 xs (x :: ys)
+end
+
+(* reverse *)
+absidx T_rev : BigO (fn n => $n) with
+fun rev {n : Nat} (xs : list _ {n}) return list _ {n} using T_rev n = rev_append_2 xs []
+end
+
+
+datatype cmp_result {a b : Nat} =
+         Equal {a = b} of cmp_result {a} {b} 
+       | Less {a < b} of cmp_result {a} {b}
+       | Greater {a > b} of cmp_result {a} {b} 
+
+fun cmp {x y : Nat} (x : nat {x}, y : nat {y}) return cmp_result {x} {y} using 0.0 =
+    builtin
+
+datatype le_result : {Nat} {Nat} =
+         Le {a b : Nat} {a <= b} of le_result {a} {b} 
+       | Gt {a b : Nat} {a > b} of le_result {a} {b} 
+
+fun le {x : Nat} {y : Nat} (x : nat {x}, y : nat {y}) return le_result {x} {y} using 7.0 =
+    case cmp (x, y) of
+        Equal => Le
+      | Less => Le
+      | Greater => Gt
+
+datatype min_max_result : {Nat} {Nat} =
+         MinMaxResult {a b a' b' : Nat} {(a <= b -> a' = a /\ b' = b) /\ (a > b -> a' = b /\ b' = a)} of nat {a'} * nat {b'} --> min_max_result {a} {b} 
+
+fun min_max {m : Time} {x y : Nat} (le : nat {x} * nat {y} -- m --> le_result {x} {y}) (x : nat {x}, y : nat {y}) return min_max_result {x} {y} =
+    case le (x, y) of
+        Le => MinMaxResult (x, y)
+      | Gt => MinMaxResult (y, x)
+
+datatype eq_dec {a b : Nat} =
+         Eq {a = b} of eq_dec {a} {b}
+       | Neq {a <> b} of eq_dec {a} {b}
+
+fun eq_dec {x y : Nat} (x : nat {x}, y : nat {y}) return eq_dec {x} {y} using 1.0 =
+    case cmp (x, y) of
+        Equal => Eq
+      | Less => Neq
+      | Greater => Neq
+
+datatype lt_dec {a b : Nat} =
+         Lt {a < b} of lt_dec {a} {b}
+       | Ge {a >= b} of lt_dec {a} {b}
+
+fun lt_dec {x y : Nat} (x : nat {x}, y : nat {y}) return lt_dec {x} {y} using 1.0 =
+    case cmp (x, y) of
+        Equal => Ge
+      | Less => Lt
+      | Greater => Ge
+
+val nat_1 : nat {1} = #1
+val nat_2 : nat {2} = #2
+val nat_4 : nat {4} = #4
+
+fun nat_plus {a b : Nat} (a : nat {a}, b : nat {b}) return nat {a + b} using 1.0 =
+    builtin
+
+fun nat_minus {a b : Nat} {a >= b} (a : nat {a}, b : nat {b}) return nat {a - b} using 1.0 =
+    builtin
+
+fun nat_mult {a b : Nat} (a : nat {a}, b : nat {b}) return nat {a * b} using 1.0 =
+    builtin
+
+fun nat_max {a b : Nat} (a : nat {a}, b : nat {b}) return nat {a max b} using 1.0 =
+    builtin
+
+fun floor_half {n : Nat} (n : nat {n}) return nat {floor ($n / 2)} =
+    builtin
+
+fun ceil_half {n : Nat} (n : nat {n}) return nat {ceil ($n / 2)} =
+    builtin
+
+datatype nat_less_than {m : Nat} =
+         NatLT {n : Nat} {n < m} of nat {n} --> nat_less_than {m}
+
 
 end

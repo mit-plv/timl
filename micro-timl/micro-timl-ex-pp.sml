@@ -466,20 +466,24 @@ fun pp_e (params as (str_var, str_i, str_s, str_k, str_t)) s e =
           close_box ()
         )
       | ELet (e, branch) =>
-        (
+        let
+          val (name, e_body) = get_bind branch
+        in
+	  open_vbox ();
+          space ();
           open_hbox ();
           str "ELet";
           space ();
           str "(";
-          pp_e e;
+          str name;
           comma ();
-	  open_vbox ();
-          space ();
-          pp_pair (str, pp_e) o get_bind $ branch;
+          pp_e e;
 	  close_box ();
+          comma ();
+          pp_e e_body;
           str ")";
           close_box ()
-        )
+        end
   end
 
 open WithPP

@@ -269,15 +269,15 @@ fun str_expr_bin_op opr =
     | EBRead => "read"
     | EBNatAdd => "nat_add"
 
-fun str_e str_var str_i e =
-  let
-    val str_e = str_e str_var str_i
-  in
-    case e of
-        EVar x => sprintf "EVar $" [str_var x]
-      | EAppI (e, i) => sprintf "EAppI ($, $)" [str_e e, str_i i]
-      | _ => raise Unimpl ""
-  end
+(* fun str_e str_var str_i e = *)
+(*   let *)
+(*     val str_e = str_e str_var str_i *)
+(*   in *)
+(*     case e of *)
+(*         EVar x => sprintf "EVar $" [str_var x] *)
+(*       | EAppI (e, i) => sprintf "EAppI ($, $)" [str_e e, str_i i] *)
+(*       | _ => raise Unimpl "" *)
+(*   end *)
     
 fun pp_e (params as (str_var, str_i, str_s, str_k, str_t)) s e =
   let
@@ -576,20 +576,24 @@ fun pp_e (params as (str_var, str_i, str_s, str_k, str_t)) s e =
           close_box ()
         )
       | ELet (e, branch) =>
-        (
+        let
+          val (name, e_body) = get_bind branch
+        in
           open_hbox ();
           str "ELet";
           space ();
           str "(";
-          pp_e e;
-          comma ();
 	  open_vbox ();
           space ();
-          pp_pair (str, pp_e) o get_bind $ branch;
+          str name;
+          comma ();
+          pp_e e;
+          comma ();
+          pp_e e_body;
 	  close_box ();
           str ")";
           close_box ()
-        )
+        end
   end
 
 fun pp_e_fn params e = withPP ("", 80, TextIO.stdOut) (fn s => pp_e params s e)

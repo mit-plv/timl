@@ -109,7 +109,7 @@ fun str_idx_un_op opr =
 fun str_idx_bin_op opr =
   case opr of
       AddI => "+"
-    | MultI => "*"
+    | MultI => " *"
     | MaxI => "max"
     | MinI => "min"
     | IApp => ""

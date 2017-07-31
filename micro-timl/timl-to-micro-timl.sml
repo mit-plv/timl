@@ -357,7 +357,7 @@ fun on_e (e : S.expr) =
     | S.EET (opr, e, t) =>
       (case opr of
            EETAsc => EAscType (on_e e, on_mt t)
-         | EETAppT => raise Impossible "to-micro-timl/EETAppT"
+         | EETAppT => EAppT (on_e e, on_mt t)
       )
     | S.ET (opr, t, r) =>
       (case opr of
@@ -541,11 +541,11 @@ and on_decls (decls, e_body) =
             in
               MakeELet (e, name, e_body)
 	    end
-          | S.DAbsIdx ((iname, Outer s, Outer i), Rebind decls, Outer r) =>
+          | S.DAbsIdx ((iname, Outer s, Outer i), Rebind inner_decls, Outer r) =>
             let
               val iname = unBinderName iname
               val (ename, bind, _) =
-                  case unTeles decls of
+                  case unTeles inner_decls of
                       [S.DRec a] => a
                     | _ => raise Impossible "to-micro-timl/DAbsIdx: can only translate when the inner declarations are just one DRec"
               val ename = unBinderName ename
@@ -721,6 +721,7 @@ fun test2 dirname =
                     (_, TopModBind (ModComponents (decls, _))) => decls
                   | _ => raise Impossible ""
     open TypeCheck
+    val () = TypeCheck.turn_on_builtin ()
     val ((decls, _, _, _), _) = typecheck_decls empty empty_ctx decls
     val e = SMakeELet (Teles decls, Expr.ETT dummy)
     val e = SimpExpr.simp_e [] e
