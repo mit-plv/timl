@@ -30,7 +30,7 @@ main.cm: generate-file-list.rb
 clean:
 	rm -f main
 	rm -f main-image*
-	rm main.cm
-	rm main.mlb
+	rm -f main.cm
+	rm -f main.mlb
 
 print-%  : ; @echo $* = $($*)
