@@ -338,6 +338,7 @@ fun usage () =
       val () = println "  -l <library1:library2:...>: paths to libraries, separated by ':'"
       val () = println "  --annoless: less annotations on case-of"
       val () = println "  --repeat n: repeat the whole thing for [n] times (for profiling purpose)"
+      val () = println "  --unit-test <dir-name>: do unit test under directory dir-name"
     in
       ()
     end

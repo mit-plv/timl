@@ -605,20 +605,22 @@ and on_DRec (name, bind) =
       (e, t)
     end
 
-(* todo: module-level decls will be translated by this: *)
-(* fun on_components decls = *)
-(*   let *)
-(*     val e = on_decls (decls, ETT) *)
-(*     val (es, _) = collect_ELet e *)
-(*   in *)
-(*     es *)
-(*   end *)
-
-(* todo: functor application will be translated by first fibering together actual argument and formal argument, and then doing a module translation  *)
-          
 fun trans_e e = MicroTiMLExPostProcess.post_process_e $ on_e e
 (* val trans_decls = on_decls *)
 
+(* fun on_mod m = *)
+(*   case m of *)
+(*       ModComponents (decls, _) => *)
+(*       let *)
+(*         val e = on_decls (decls, ETT) *)
+(*         val (es, _) = collect_decls e *)
+(*       in *)
+(*         es *)
+(*       end *)
+(*     | _ => raise Unimpl "on_mod" *)
+
+(* todo: functor application will be translated by first fibering together actual argument and formal argument, and then doing a module translation  *)
+          
 structure UnitTest = struct
 
 structure U = UnderscoredExpr

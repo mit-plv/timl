@@ -589,6 +589,7 @@ fun on_i_expr_visitor_vtable cast gctx : ('this, context) EV.expr_visitor_vtable
     val vtable = EV.override_visit_VarP vtable visit_VarP
     fun visit_EVar this (_, _, cctx, tctx) (x, b) =
       case find_constr gctx cctx x of
+          (* Always treat constructors as fully applied. Can't handle partially applied constructors. *)
 	  SOME (x, _) => EAppConstr ((x, b), [], [], ETT $ get_region_long_id x, NONE)
 	| NONE => EVar ((on_long_id gctx #4 tctx x), b)
     val vtable = EV.override_visit_EVar vtable visit_EVar

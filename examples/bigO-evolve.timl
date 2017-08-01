@@ -19,7 +19,7 @@ absidx g = fn m n => $(m + 3) * $n with
 fun map ['a 'b] {m n : Nat} (f : 'a -- $m --> 'b) (ls : list 'a {n}) return list 'b {n} using g m n =
     case ls of
         Nil => Nil
-      | Cons (x, xs) => Cons (f x, map f xs)
+      | List.Cons (x, xs) => Cons (f x, map f xs)
 end
 
 (* refine [g]'s sort from [Fun 2] to [{g : Fun 2 | g <== (fn m n => $m * $n)}], specifying that [g] must be of Big-O class O(m*n)  *)

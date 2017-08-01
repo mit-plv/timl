@@ -166,6 +166,7 @@ subst-uvar.sml
 update-expr.sml
 typecheck-main.sml
 trivial-solver.sml
+unpackage.sml
 post-typecheck.sml
 typecheck.sml
 smt2-printer.sml
