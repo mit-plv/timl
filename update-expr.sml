@@ -4,22 +4,19 @@ open Normalize
 open ExprVisitor
 
 fun update_expr_visitor_vtable cast (visit_idx, visit_sort, visit_mtype) : ('this, unit) expr_visitor_vtable =
-  let
-  in
-    default_expr_visitor_vtable
-      cast
-      extend_noop
-      extend_noop
-      extend_noop
-      extend_noop
-      visit_noop
-      visit_noop
-      visit_noop
-      (ignore_this_env visit_idx)
-      (ignore_this_env visit_sort)
-      (ignore_this_env visit_mtype)
-      visit_noop
-  end
+  default_expr_visitor_vtable
+    cast
+    extend_noop
+    extend_noop
+    extend_noop
+    extend_noop
+    visit_noop
+    visit_noop
+    visit_noop
+    (ignore_this_env visit_idx)
+    (ignore_this_env visit_sort)
+    (ignore_this_env visit_mtype)
+    visit_noop
 
 fun new_update_expr_visitor params = new_expr_visitor update_expr_visitor_vtable params
     

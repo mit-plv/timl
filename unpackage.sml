@@ -20,8 +20,8 @@ fun adapt f x env = f (x + env)
 
 fun params_var m = adapt $ unpackage_long_id m
                             
-fun unpackage_i m x = IdxShiftVisitor.on_i_i $ params_var m x
-fun unpackage_p m x = IdxShiftVisitor.on_i_p $ params_var m x
+fun unpackage_i_i m x = IdxShiftVisitor.on_i_i $ params_var m x
+fun unpackage_i_p m x = IdxShiftVisitor.on_i_p $ params_var m x
 
     
 (* fun unpackage_ibind f n (Bind (name, b)) = *)

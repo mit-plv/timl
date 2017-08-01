@@ -214,7 +214,7 @@ fun unpackage_f m n f =
            | FtSorting bs => ForallF2 (name, ft, unpackage_f (n + 1) f)
         )
       | BinConnF2 (opr, f1, f2) => BinConnF2 (opr, unpackage_f n f1, unpackage_f n f2)
-      | PropF2 (p, r) => PropF2 (Unpackage.unpackage_p m n p, r)
+      | PropF2 (p, r) => PropF2 (Unpackage.unpackage_i_p m n p, r)
   end
                               
 fun unpackage_f2 f =
