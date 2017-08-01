@@ -658,7 +658,8 @@ fun export a = export_fn (visit_var, return2, return2, return2) a
 fun str_var x = LongId.str_raw_long_id id(*str_int*) x
 fun pp_e a = MicroTiMLExPP.pp_e_fn (
     str_var,
-    ToStringRaw.str_raw_i,
+    (* ToStringRaw.str_raw_i, *)
+    const_fun "<idx>",
     (* ToStringRaw.str_raw_s, *)
     const_fun "<sort>",
     const_fun "<kind>",

@@ -407,19 +407,17 @@ fun pp_e (params as (str_var, str_i, str_s, str_k, str_t)) s e =
           val (name1, branch) = get_bind branch
           val (name2, branch) = get_bind branch
         in
-	  open_vbox ();
+	  open_vbox_noindent ();
           (* space (); *)
           open_hbox ();
           str "EUnpackI";
           space ();
           str "(";
-          pp_e e;
-	  close_box ();
-          comma ();
-	  open_hbox ();
           str name1;
           comma ();
           str name2;
+          comma ();
+          pp_e e;
 	  close_box ();
           comma ();
           pp_e branch;          
