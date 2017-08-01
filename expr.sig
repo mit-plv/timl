@@ -40,11 +40,12 @@ signature EXPR = sig
            DVal of Binders.ebinder * (Binders.tbinder list, expr) Unbound.bind Unbound.outer * Region.region Unbound.outer
            | DValPtrn of ptrn * expr Unbound.outer * Region.region Unbound.outer
            | DRec of Binders.ebinder * (Binders.tbinder list * stbind Unbound.tele Unbound.rebind, (mtype * idx) * expr) Unbound.bind Unbound.inner * Region.region Unbound.outer
-           | DIdxDef of Binders.ibinder * sort Unbound.outer * idx Unbound.outer
+           | DIdxDef of Binders.ibinder * sort Unbound.outer (* option *) * idx Unbound.outer
            | DAbsIdx2 of Binders.ibinder * sort Unbound.outer * idx Unbound.outer
            | DAbsIdx of (Binders.ibinder * sort Unbound.outer * idx Unbound.outer) * decl Unbound.tele Unbound.rebind * Region.region Unbound.outer
            | DTypeDef of Binders.tbinder * mtype Unbound.outer
            | DOpen of mod_id Unbound.outer * scoping_ctx option
+           (* | DBlock of decl Unbound.tele Unbound.rebind *)
 
   type name = string * Region.region
 
