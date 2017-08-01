@@ -428,13 +428,13 @@ fun on_e (e : S.expr) =
 	  end
     (* | _ => raise Unimpl "" *)
                  
-(* and add_constr_decls (dt, e) = *)
-(*     let *)
-(*       val Bind.Bind (name, tbinds) = dt *)
-(*       val (tname_kinds, (bsorts, constr_decls)) = unfold_binds tbinds *)
-(*       val constrs = mapi  *)
-(*     in *)
-(*     end *)
+and add_constr_decls (dt, e) =
+    let
+      val Bind.Bind (name, tbinds) = dt
+      val (tname_kinds, (bsorts, constr_decls)) = unfold_binds tbinds
+      val constrs = mapi (fn (pos, (_, core, _)) => get_constr_inames core) constr_decls
+    in
+    end
       
 and make_constr (pos, ts, is, e, dt) =
     let
@@ -528,9 +528,9 @@ and on_decls (decls, e_body) =
               val e = SMakeELet (decls, e_body)
               val e = SS.subst_t_e t e
               val e = on_e e
-              (* val e = case t of *)
-              (*             S.TDatatype (dt, _) => add_constr_decls (dt, e) *)
-              (*           | _ => e *)
+              val e = case t of
+                          S.TDatatype (dt, _) => add_constr_decls (dt, e)
+                        | _ => e
             in
               e
             end
