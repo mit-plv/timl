@@ -174,30 +174,6 @@ fun pp_e (params as (str_var, str_i, str_s, str_k, str_t)) s e =
           str ")";
           close_box ()
         )
-      | EMatchUnpackI (e, branch) =>
-        let
-          val (name1, branch) = get_bind branch
-          val (name2, branch) = get_bind branch
-        in
-	  open_vbox ();
-          (* space (); *)
-          open_hbox ();
-          str "EMatchUnpackI";
-          space ();
-          str "(";
-          pp_e e;
-	  close_box ();
-          comma ();
-	  open_hbox ();
-          str name1;
-          comma ();
-          str name2;
-	  close_box ();
-          comma ();
-          pp_e branch;          
-          str ")";
-          close_box ()
-        end
       | EConst c =>
         (
           open_hbox ();
@@ -426,6 +402,30 @@ fun pp_e (params as (str_var, str_i, str_s, str_k, str_t)) s e =
           str ")";
           close_box ()
         )
+      | EMatchUnpackI (e, branch) =>
+        let
+          val (name1, branch) = get_bind branch
+          val (name2, branch) = get_bind branch
+        in
+	  open_vbox ();
+          (* space (); *)
+          open_hbox ();
+          str "EMatchUnpackI";
+          space ();
+          str "(";
+          pp_e e;
+	  close_box ();
+          comma ();
+	  open_hbox ();
+          str name1;
+          comma ();
+          str name2;
+	  close_box ();
+          comma ();
+          pp_e branch;          
+          str ")";
+          close_box ()
+        end
       | EUnpackI (e, bind) =>
         let
           val (iname, bind) = get_bind bind

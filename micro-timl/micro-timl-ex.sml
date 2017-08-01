@@ -2,8 +2,9 @@
 
 structure MicroTiMLEx = struct
 
-open MicroTiML
 open Unbound
+open VisitorUtil
+open MicroTiML
        
 infixr 0 $
          
@@ -26,6 +27,7 @@ datatype ('var, 'idx, 'sort, 'kind, 'ty) expr =
          | EPackI of 'ty * 'idx * ('var, 'idx, 'sort, 'kind, 'ty) expr
          | EPackIs of 'ty * 'idx list * ('var, 'idx, 'sort, 'kind, 'ty) expr
          | EUnpackI of ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind ibind
+         | EMatchUnpackI of ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind ibind
          | EAscTime of ('var, 'idx, 'sort, 'kind, 'ty) expr * 'idx (* time ascription *)
          | EAscType of ('var, 'idx, 'sort, 'kind, 'ty) expr * 'ty (* type ascription *)
          | ENever of 'ty
@@ -34,7 +36,6 @@ datatype ('var, 'idx, 'sort, 'kind, 'ty) expr =
          | EMatchSum of ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind list
          | EMatchPair of ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind ebind
          | EMatchUnfold of ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind
-         | EMatchUnpackI of ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind ibind
 
 type ('this, 'env, 'var, 'idx, 'sort, 'kind, 'ty, 'var2, 'idx2, 'sort2, 'kind2, 'ty2) expr_visitor_vtable =
      {
@@ -159,10 +160,48 @@ fun override_visit_EMatchUnfold (record : ('this, 'env, 'var, 'idx, 'sort, 'kind
     extend_e = #extend_e record
   }
 
+fun override_visit_EMatchPair (record : ('this, 'env, 'var, 'idx, 'sort, 'kind, 'ty, 'var2, 'idx2, 'sort2, 'kind2, 'ty2) expr_visitor_vtable) new : ('this, 'env, 'var, 'idx, 'sort, 'kind, 'ty, 'var2, 'idx2, 'sort2, 'kind2, 'ty2) expr_visitor_vtable =
+  {
+    visit_expr = #visit_expr record,
+    visit_EVar = #visit_EVar record,
+    visit_EConst = #visit_EConst record,
+    visit_ELoc = #visit_ELoc record,
+    visit_EUnOp = #visit_EUnOp record,
+    visit_EBinOp = #visit_EBinOp record,
+    visit_EWrite = #visit_EWrite record,
+    visit_ECase = #visit_ECase record,
+    visit_EAbs = #visit_EAbs record,
+    visit_ERec = #visit_ERec record,
+    visit_EAbsT = #visit_EAbsT record,
+    visit_EAppT = #visit_EAppT record,
+    visit_EAbsI = #visit_EAbsI record,
+    visit_EAppI = #visit_EAppI record,
+    visit_EPack = #visit_EPack record,
+    visit_EUnpack = #visit_EUnpack record,
+    visit_EPackI = #visit_EPackI record,
+    visit_EPackIs = #visit_EPackIs record,
+    visit_EUnpackI = #visit_EUnpackI record,
+    visit_EAscTime = #visit_EAscTime record,
+    visit_EAscType = #visit_EAscType record,
+    visit_ENever = #visit_ENever record,
+    visit_EBuiltin = #visit_EBuiltin record,
+    visit_ELet = #visit_ELet record,
+    visit_EMatchSum = #visit_EMatchSum record,
+    visit_EMatchPair = new,
+    visit_EMatchUnfold = #visit_EMatchUnfold record,
+    visit_EMatchUnpackI = #visit_EMatchUnpackI record,
+    visit_var = #visit_var record,
+    visit_idx = #visit_idx record,
+    visit_sort = #visit_sort record,
+    visit_kind = #visit_kind record,
+    visit_ty = #visit_ty record,
+    extend_i = #extend_i record,
+    extend_t = #extend_t record,
+    extend_e = #extend_e record
+  }
+
 (***************** the default visitor  **********************)    
 
-open VisitorUtil
-       
 fun default_expr_visitor_vtable
       (cast : 'this -> ('this, 'env, 'var, 'idx, 'sort, 'kind, 'ty, 'var2, 'idx2, 'sort2, 'kind, 'ty2) expr_visitor_interface)
       extend_i
@@ -666,7 +705,4 @@ fun export_fn params ctx e =
     #visit_expr vtable visitor ctx e
   end
 
-(* some shortcuts *)
-fun EUnfold e = EUnOp (EUUnfold, e)
-    
 end

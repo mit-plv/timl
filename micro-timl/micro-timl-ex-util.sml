@@ -34,10 +34,13 @@ fun EAbsTKind_Many (names, e) = foldr EAbsTKind e names
 fun MakeEMatchUnpackI (e1, iname, ename, e2) = EMatchUnpackI (e1, IBind (iname, EBind (ename, e2)))
 fun MakeELet (e1, name, e2) = ELet (e1, EBind (name, e2))
 
+fun EFst e = EUnOp (EUProj ProjFst, e)
+fun ESnd e = EUnOp (EUProj ProjSnd, e)
 fun EInlInr (opr, t, e) = EUnOp (EUInj (opr, t), e)
 fun EInl (t, e) = EInlInr (InjInl, t, e)
 fun EInr (t, e) = EInlInr (InjInr, t, e)
 fun EFold (t, e) = EUnOp (EUFold t, e)
+fun EUnfold e = EUnOp (EUUnfold, e)
 
 end
                                  

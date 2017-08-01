@@ -1,9 +1,14 @@
 structure MicroTiMLExPostProcess = struct
 
-open MicroTiMLEx
+open MicroTiMLExUtil
 
-fun post_process_expr_visitor_vtable cast () : ('this, unit, 'var, 'idx, 'sort, 'kind, 'ty, 'var, 'idx, 'sort, 'kind, 'ty) expr_visitor_vtable =
+infixr 0 $
+         
+fun post_process_expr_visitor_vtable cast () =
   let
+    val shift_var = LongIdSubst.shiftx_var
+    fun shift_e_e a = shift_e_e_fn shift_var a
+    fun shift01_e_e a = shift_e_e 0 1 a
     val vtable = 
         default_expr_visitor_vtable
           cast
@@ -15,20 +20,24 @@ fun post_process_expr_visitor_vtable cast () : ('this, unit, 'var, 'idx, 'sort, 
           visit_noop
           visit_noop
     fun visit_EMatchUnfold this env (e, bind) =
-      ELet (EUnfold e, bind)
+      #visit_expr (cast this) this () $ ELet (EUnfold e, bind)
     val vtable = override_visit_EMatchUnfold vtable visit_EMatchUnfold
+    fun visit_EMatchPair this env (e, bind) =
+      let
+        val () = case e of
+                     EVar _ => ()
+                   | _ => raise Impossible "post-process: matchee must be EVar"
+        val (name1, bind) = unBind bind
+        val (name2, e_body) = unBind bind
+      in
+        #visit_expr (cast this) this () $ ELet (EFst e, Bind (name1, ELet (ESnd $ shift01_e_e e, Bind (name2, e_body))))
+      end
+    val vtable = override_visit_EMatchPair vtable visit_EMatchPair
   in
     vtable
   end
 
 fun new_post_process_expr_visitor params = new_expr_visitor post_process_expr_visitor_vtable params
-    
-fun post_process_e b =
-  let
-    val visitor as (ExprVisitor vtable) = new_post_process_expr_visitor ()
-  in
-    #visit_expr vtable visitor () b
-  end
     
 fun post_process_e b =
   let
