@@ -616,8 +616,8 @@ and on_DRec (name, bind) =
 
 (* todo: functor application will be translated by first fibering together actual argument and formal argument, and then doing a module translation  *)
           
-val trans_e = on_e
-val trans_decls = on_decls
+fun trans_e e = MicroTiMLExPostProcess.post_process_e $ on_e e
+(* val trans_decls = on_decls *)
 
 structure UnitTest = struct
 
