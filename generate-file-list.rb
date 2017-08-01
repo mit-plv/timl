@@ -173,7 +173,6 @@ smt-solver.sml
 long-id-map.sml
 bigO-solver.sml
 simp-ctx.sml
-main.sml
 pp-util.sml
 micro-timl/micro-timl.sml
 nouvar-expr.sml
@@ -186,6 +185,8 @@ pattern-ex.sml
 micro-timl/micro-timl-ex-util.sml
 micro-timl/post-process.sml
 micro-timl/timl-to-micro-timl.sml
+unit-test.sml
+main.sml
 }
 
 if target == :smlnj then

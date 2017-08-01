@@ -346,9 +346,18 @@ type options =
      {
        AnnoLess : bool ref,
        Repeat : int ref,
-       Libraries : string list ref
+       Libraries : string list ref,
+       UnitTest : string option ref
      }
 
+fun create_default_options () : options =
+  {
+    AnnoLess = ref false,
+    Repeat = ref 1,
+    Libraries = ref [],
+    UnitTest = ref NONE
+  }
+    
 fun parse_arguments (opts : options, args) =
     let
       val positionals = ref []
@@ -371,6 +380,7 @@ fun parse_arguments (opts : options, args) =
 	    | "--annoless" :: ts => (#AnnoLess opts := true; parseArgs ts)
 	    | "--repeat" :: arg :: ts => (#Repeat opts := parse_repeat arg; parseArgs ts)
 	    | "-l" :: arg :: ts => (app (push_ref (#Libraries opts)) $ parse_libraries arg; parseArgs ts)
+	    | "--unit-test" :: arg :: ts => (#UnitTest opts := SOME arg; parseArgs ts)
 	    (* | parseArgs ("-A" :: arg :: ts) = (do_A arg;       parseArgs ts) *)
 	    (* | parseArgs ("-B"        :: ts) = (do_B();         parseArgs ts) *)
 	    | s :: ts =>
@@ -385,20 +395,19 @@ fun parse_arguments (opts : options, args) =
 
 val success = OS.Process.success
 val failure = OS.Process.failure
-                
+
+fun usage_and_fail () = (usage (); exit failure)
+                          
 fun main (prog_name, args : string list) = 
     let
-      val opts : options =
-          {
-            AnnoLess = ref false,
-            Repeat = ref 1,
-            Libraries = ref []
-          }
+      val opts = create_default_options ()
       val filenames = rev $ parse_arguments (opts, args)
+      val () = case !(#UnitTest opts) of
+                   NONE => ()
+                 | SOME dirname => (UnitTest.test_suites dirname; exit success)
       val libraries = rev $ !(#Libraries opts)
       val () = if null filenames then
-                 (usage ();
-                  exit failure)
+                 usage_and_fail ()
                else ()
       val () = TypeCheck.anno_less := !(#AnnoLess opts)
       val _ = repeat_app (fn () => TiML.main libraries filenames) (!(#Repeat opts))
@@ -410,7 +419,7 @@ fun main (prog_name, args : string list) =
     | IO.Io e => (println (sprintf "IO Error doing $ on $" [#function e, #name e]); failure)
     | Impossible msg => (println ("Impossible: " ^ msg); failure)
     | Unimpl msg => (println ("Unimpl: " ^ msg); failure)
-    | ParseArgsError msg => (println msg; usage (); failure)
+    | ParseArgsError msg => (println msg; usage_and_fail ())
                                (* | _ => (println ("Internal error"); failure) *)
 
 end
