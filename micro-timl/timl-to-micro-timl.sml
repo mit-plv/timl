@@ -553,7 +553,7 @@ and on_decls (decls, e_body) =
               val t = MakeTExistsI (iname, s, t)
               val e = EPackI (t, i, e)
               val e_body = on_decls (decls, e_body)
-              val e = MakeEMatchUnpackI (e, iname, ename, e_body)
+              val e = MakeEUnpackI (e, iname, ename, e_body)
             in
               e
             end

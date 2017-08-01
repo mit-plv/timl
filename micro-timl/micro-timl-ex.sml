@@ -27,7 +27,6 @@ datatype ('var, 'idx, 'sort, 'kind, 'ty) expr =
          | EPackI of 'ty * 'idx * ('var, 'idx, 'sort, 'kind, 'ty) expr
          | EPackIs of 'ty * 'idx list * ('var, 'idx, 'sort, 'kind, 'ty) expr
          | EUnpackI of ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind ibind
-         | EMatchUnpackI of ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind ibind
          | EAscTime of ('var, 'idx, 'sort, 'kind, 'ty) expr * 'idx (* time ascription *)
          | EAscType of ('var, 'idx, 'sort, 'kind, 'ty) expr * 'ty (* type ascription *)
          | ENever of 'ty
@@ -66,7 +65,6 @@ type ('this, 'env, 'var, 'idx, 'sort, 'kind, 'ty, 'var2, 'idx2, 'sort2, 'kind2, 
        visit_EMatchSum : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind list -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
        visit_EMatchPair : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind ebind -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
        visit_EMatchUnfold : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
-       visit_EMatchUnpackI : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind ibind -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
        visit_var : 'this -> 'env -> 'var -> 'var2,
        visit_idx : 'this -> 'env -> 'idx -> 'idx2,
        visit_sort : 'this -> 'env -> 'sort -> 'sort2,
@@ -109,7 +107,6 @@ fun override_visit_EVar (record : ('this, 'env, 'var, 'idx, 'sort, 'kind, 'ty, '
     visit_EMatchSum = #visit_EMatchSum record,
     visit_EMatchPair = #visit_EMatchPair record,
     visit_EMatchUnfold = #visit_EMatchUnfold record,
-    visit_EMatchUnpackI = #visit_EMatchUnpackI record,
     visit_var = #visit_var record,
     visit_idx = #visit_idx record,
     visit_sort = #visit_sort record,
@@ -149,7 +146,6 @@ fun override_visit_EMatchUnfold (record : ('this, 'env, 'var, 'idx, 'sort, 'kind
     visit_EMatchSum = #visit_EMatchSum record,
     visit_EMatchPair = #visit_EMatchPair record,
     visit_EMatchUnfold = new,
-    visit_EMatchUnpackI = #visit_EMatchUnpackI record,
     visit_var = #visit_var record,
     visit_idx = #visit_idx record,
     visit_sort = #visit_sort record,
@@ -189,7 +185,6 @@ fun override_visit_EMatchPair (record : ('this, 'env, 'var, 'idx, 'sort, 'kind, 
     visit_EMatchSum = #visit_EMatchSum record,
     visit_EMatchPair = new,
     visit_EMatchUnfold = #visit_EMatchUnfold record,
-    visit_EMatchUnpackI = #visit_EMatchUnpackI record,
     visit_var = #visit_var record,
     visit_idx = #visit_idx record,
     visit_sort = #visit_sort record,
@@ -244,7 +239,6 @@ fun default_expr_visitor_vtable
           | EMatchSum data => #visit_EMatchSum vtable this env data
           | EMatchPair data => #visit_EMatchPair vtable this env data
           | EMatchUnfold data => #visit_EMatchUnfold vtable this env data
-          | EMatchUnpackI data => #visit_EMatchUnpackI vtable this env data
       end
     fun visit_EVar this env data =
       let
@@ -471,15 +465,6 @@ fun default_expr_visitor_vtable
       in
         EMatchUnfold (e, branch)
       end
-    fun visit_EMatchUnpackI this env data =
-      let
-        val vtable = cast this
-        val (e, branch) = data
-        val e = #visit_expr vtable this env e
-        val branch = (visit_ibind this o visit_ebind this) (#visit_expr vtable this) env branch
-      in
-        EMatchUnpackI (e, branch)
-      end
   in
     {
       visit_expr = visit_expr,
@@ -509,7 +494,6 @@ fun default_expr_visitor_vtable
       visit_EMatchSum = visit_EMatchSum,
       visit_EMatchPair = visit_EMatchPair,
       visit_EMatchUnfold = visit_EMatchUnfold,
-      visit_EMatchUnpackI = visit_EMatchUnpackI,
       visit_var = visit_var,
       visit_idx = visit_idx,
       visit_sort = visit_sort,

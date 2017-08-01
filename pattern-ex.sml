@@ -727,7 +727,7 @@ fun remove_deep_many fresh_name (params as (shift_i_e, shift_e_e, subst_e_e, EV)
                         val pns = is_all_UnpackI pns
                         val ename = lazy_default fresh_name $ get_alias pns
                       in
-                        EMatchUnpackI (matchee, BindSimp (iname, BindSimp (ename, remove_deep_many (EV 0 :: matchees) (add_column pns pks))))
+                        EUnpackI (matchee, BindSimp (iname, BindSimp (ename, remove_deep_many (EV 0 :: matchees) (add_column pns pks))))
                       end
             end
     (* val () = println $ "after " ^ str_int (length matchees) *)

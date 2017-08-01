@@ -31,7 +31,7 @@ fun MakeEAbsT (name, k, e) = EAbsT $ TBindAnno ((name, k), e)
 fun MakeERec (name, t, e) = ERec $ EBindAnno ((name, t), e)
 fun EAbsTKind (name, e) = MakeEAbsT (name, KType, e) 
 fun EAbsTKind_Many (names, e) = foldr EAbsTKind e names
-fun MakeEMatchUnpackI (e1, iname, ename, e2) = EMatchUnpackI (e1, IBind (iname, EBind (ename, e2)))
+fun MakeEUnpackI (e1, iname, ename, e2) = EUnpackI (e1, IBind (iname, EBind (ename, e2)))
 fun MakeELet (e1, name, e2) = ELet (e1, EBind (name, e2))
 
 fun EFst e = EUnOp (EUProj ProjFst, e)

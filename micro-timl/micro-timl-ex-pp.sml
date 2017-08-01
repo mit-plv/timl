@@ -61,12 +61,12 @@ fun str_e str_var str_i e =
           sprintf "EMatchPair ($, ($, $, $))" [str_e e, name1, name2, str_e branch]
         end
       | EMatchUnfold (e, branch) => sprintf "EMatchUnfold ($, $)" [str_e e, str_pair (id, str_e) $ get_bind branch]
-      | EMatchUnpackI (e, branch) =>
+      | EUnpackI (e, branch) =>
         let
           val (name1, branch) = get_bind branch
           val (name2, branch) = get_bind branch
         in
-          sprintf "EMatchUnpackI ($, ($, $, $))" [str_e e, name1, name2, str_e branch]
+          sprintf "EUnpackI ($, ($, $, $))" [str_e e, name1, name2, str_e branch]
         end
       | _ => raise Unimpl ""
   end
@@ -402,7 +402,7 @@ fun pp_e (params as (str_var, str_i, str_s, str_k, str_t)) s e =
           str ")";
           close_box ()
         )
-      | EMatchUnpackI (e, branch) =>
+      | EUnpackI (e, branch) =>
         let
           val (name1, branch) = get_bind branch
           val (name2, branch) = get_bind branch
@@ -410,7 +410,7 @@ fun pp_e (params as (str_var, str_i, str_s, str_k, str_t)) s e =
 	  open_vbox ();
           (* space (); *)
           open_hbox ();
-          str "EMatchUnpackI";
+          str "EUnpackI";
           space ();
           str "(";
           pp_e e;
@@ -423,23 +423,6 @@ fun pp_e (params as (str_var, str_i, str_s, str_k, str_t)) s e =
 	  close_box ();
           comma ();
           pp_e branch;          
-          str ")";
-          close_box ()
-        end
-      | EUnpackI (e, bind) =>
-        let
-          val (iname, bind) = get_bind bind
-          val (ename, e) = get_bind bind
-        in
-          open_hbox ();
-          str "EUnpackI";
-          space ();
-          str "(";
-          str iname;
-          comma ();
-          str ename;
-          comma ();
-          pp_e e;
           str ")";
           close_box ()
         end
