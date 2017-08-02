@@ -734,6 +734,35 @@ fun shift_e_e_fn shift_var x n b =
     #visit_expr vtable visitor x b
   end
     
+(***************** the "subst_i_e" visitor  **********************)    
+
+(* todo: combine shift_i_expr_visitor_vtable and subst_i_expr_visitor_vtable *)    
+fun subst_i_expr_visitor_vtable cast (visit_idx, visit_sort, visit_ty) =
+  let
+    fun extend_i this env _ = env + 1
+  in
+    default_expr_visitor_vtable
+      cast
+      extend_i
+      extend_noop
+      extend_noop
+      extend_noop
+      visit_noop
+      visit_noop
+      (ignore_this visit_idx)
+      (ignore_this visit_sort)
+      (ignore_this visit_ty)
+  end
+
+fun new_subst_i_expr_visitor params = new_expr_visitor subst_i_expr_visitor_vtable params
+    
+fun subst_i_e_fn params b =
+  let
+    val visitor as (ExprVisitor vtable) = new_subst_i_expr_visitor params
+  in
+    #visit_expr vtable visitor 0 b
+  end
+
 (***************** the "subst_e_e" visitor  **********************)    
 
 fun subst_e_expr_visitor_vtable cast ((compare_var, shift_var, shift_i_i, shift_i_s, shift_i_t, shift_t_t), d, x, v) : ('this, idepth * tdepth * cdepth * edepth, 'var, 'idx, 'sort, 'kind, 'ty, 'var, 'idx, 'sort, 'kind, 'ty) expr_visitor_vtable =
@@ -795,13 +824,12 @@ fun subst_e_e_fn params d x v b =
 
 (***************** the "export" visitor: convertnig de Bruijn indices to nameful terms **********************)    
 
-type naming_ctx = iname list * tname list * cname list * ename list
-fun export_expr_visitor_vtable cast (visit_var, visit_cvar, visit_idx, visit_sort, visit_ty) : ('this, naming_ctx, 'var, 'idx, 'sort, 'kind, 'ty, 'var2, 'idx2, 'sort2, 'kind, 'ty2) expr_visitor_vtable =
+fun export_expr_visitor_vtable cast (visit_var, visit_cvar, visit_idx, visit_sort, visit_ty) =
   let
-    fun extend_i this (sctx, kctx, cctx, tctx) name = (name :: sctx, kctx, cctx, tctx)
-    fun extend_t this (sctx, kctx, cctx, tctx) name = (sctx, name :: kctx, cctx, tctx)
-    fun extend_c this (sctx, kctx, cctx, tctx) name = (sctx, kctx, name :: cctx, tctx)
-    fun extend_e this (sctx, kctx, cctx, tctx) name = (sctx, kctx, cctx, name :: tctx)
+    fun extend_i this (sctx, kctx, cctx, tctx) name = (Name2str name :: sctx, kctx, cctx, tctx)
+    fun extend_t this (sctx, kctx, cctx, tctx) name = (sctx, Name2str name :: kctx, cctx, tctx)
+    fun extend_c this (sctx, kctx, cctx, tctx) name = (sctx, kctx, Name2str name :: cctx, tctx)
+    fun extend_e this (sctx, kctx, cctx, tctx) name = (sctx, kctx, cctx, Name2str name :: tctx)
     fun only_s f this (sctx, kctx, cctx, tctx) name = f sctx name
     fun only_sk f this (sctx, kctx, cctx, tctx) name = f (sctx, kctx) name
   in
@@ -820,7 +848,7 @@ fun export_expr_visitor_vtable cast (visit_var, visit_cvar, visit_idx, visit_sor
 
 fun new_export_expr_visitor params = new_expr_visitor export_expr_visitor_vtable params
     
-fun export_fn params ctx e =
+fun export_e_fn params ctx e =
   let
     val visitor as (ExprVisitor vtable) = new_export_expr_visitor params
   in

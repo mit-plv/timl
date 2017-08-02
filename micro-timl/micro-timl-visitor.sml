@@ -908,8 +908,8 @@ fun normalize_t_fn params t =
 
 fun export_ty_visitor_vtable cast (visit_var, visit_idx, visit_sort) =
   let
-    fun extend_i this (sctx, kctx) name = (name :: sctx, kctx)
-    fun extend_t this (sctx, kctx) name = (sctx, name :: kctx)
+    fun extend_i this (sctx, kctx) name = (Name2str name :: sctx, kctx)
+    fun extend_t this (sctx, kctx) name = (sctx, Name2str name :: kctx)
     fun only_s f this (sctx, kctx) name = f sctx name
   in
     default_ty_visitor_vtable

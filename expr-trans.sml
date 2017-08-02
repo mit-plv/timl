@@ -156,7 +156,8 @@ functor ExprSubstVisitorFn (Expr : EXPR) = struct
 structure ExprVisitor = ExprVisitorFn (structure S = Expr
                                        structure T = Expr)
 open ExprVisitor
-       
+
+(* todo: this is the same as on_i_expr_visitor_vtable *)       
 fun subst_i_expr_visitor_vtable cast (visit_idx, visit_sort, visit_mtype) : ('this, int) expr_visitor_vtable =
   let
     fun extend_i this env _ = env + 1

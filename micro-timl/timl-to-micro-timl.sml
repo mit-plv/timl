@@ -321,13 +321,16 @@ fun compare_var id x =
              
 fun shift_i_t a = shift_i_t_fn (shiftx_i_i, shiftx_i_s) a
 fun shift_t_t a = shift_t_t_fn shift_var a
-fun subst_t_t a = subst_t_t_fn (compare_var, shift_var, shiftx_i_i, shiftx_i_s) a
-fun subst0_t_t a = subst_t_t (IDepth 0, TDepth 0) 0 a
 fun subst_i_t a = subst_i_t_fn (substx_i_i, substx_i_s) a
 fun subst0_i_t a = subst_i_t 0 0 a
+fun subst_t_t a = subst_t_t_fn (compare_var, shift_var, shiftx_i_i, shiftx_i_s) a
+fun subst0_t_t a = subst_t_t (IDepth 0, TDepth 0) 0 a
 fun normalize_t a = normalize_t_fn (subst0_i_t, subst0_t_t) a
 fun shift_i_e a = shift_i_e_fn (shiftx_i_i, shiftx_i_s, shift_i_t) a
 fun shift_e_e a = shift_e_e_fn shift_var a
+fun adapt f d x v env = f (d + env) (x + env) v
+fun subst_i_e d x v = subst_i_e_fn (adapt substx_i_i d x v, adapt substx_i_s d x v, adapt subst_i_t d x v)
+fun subst0_i_e a = subst_i_e 0 0 a
 fun subst_e_e a = subst_e_e_fn (compare_var, shift_var, shiftx_i_i, shiftx_i_s, shift_i_t, shift_t_t) a
                 
 open PatternEx
@@ -575,7 +578,7 @@ and on_decls (decls, e_body) =
               val ename = unBinderName ename
               val (e, t) = on_DRec (ename, bind)
               val t = MakeTExistsI (iname, s, t)
-              val e = EPackI (t, i, e)
+              val e = EPackI (t, i, subst0_i_e i e)
               val e_body = on_decls (decls, e_body)
               val e = MakeEUnpackI (e, iname, ename, e_body)
             in
@@ -717,13 +720,13 @@ fun short_to_long_id x = ID (x, dummy)
 fun export_var sel ctx id =
   case id of
       ID (x, _) =>
-      short_to_long_id $ nth_error (map Name2str $ sel ctx) x !! (fn () => "__unbound_" ^ str_int x)
+      short_to_long_id $ nth_error (sel ctx) x !! (fn () => "__unbound_" ^ str_int x)
     | QID _ => short_to_long_id $ "__unbound_" ^ CanToString.str_raw_var id
 (* val export_i = return2 *)
-fun export_i env b = ToString.export_i Gctx.empty (map Name2str env) b
-fun export_s env b = ToString.export_s Gctx.empty (map Name2str env) b
-fun export_t b = export_t_fn (export_var snd, export_i, export_s) b
-fun export a = export_fn (export_var #4, export_var #3, export_i, export_s, export_t) a
+fun export_i a = ToString.export_i Gctx.empty a
+fun export_s a = ToString.export_s Gctx.empty a
+fun export_t a = export_t_fn (export_var snd, export_i, export_s) a
+fun export a = export_e_fn (export_var #4, export_var #3, export_i, export_s, export_t) a
 val str = PP.string
 fun str_var x = LongId.str_raw_long_id id(*str_int*) x
 fun str_i a =
@@ -771,12 +774,12 @@ fun test1 dirname =
     (* val () = println $ str_e empty ([], ["'a", "list"], ["Cons", "Nil"], []) e *)
     val BSNat = Base Nat
     val e = SimpExpr.simp_e [("'a", KeKind Type), ("list", KeKind (1, [BSNat]))] e
-    val () = println $ str_e empty ([], ["'a", "list"], ["Cons", "Nil"], []) e
+    val () = println $ str_e empty ([], ["'a", "list"], ["Cons", "Nil2", "Nil"], []) e
     val () = println ""
     (* fun visit_subst_t_pn a = PatternVisitor.visit_subst_t_pn_fn (use_idepth_tdepth substx_t_mt) a *)
     val e = ExprSubst.substx_t_e (0, 1) 1 t_list e
     val e = trans_e e
-    val e = export ([], [], [], []) e
+    val e = export ([], ["'a"], ["Cons", "Nil2", "Nil"], []) e
     val () = pp_e e
     val () = println ""
   in
@@ -820,7 +823,10 @@ fun test2 dirname =
 
 fun test_suites dirname =
   let
-    val suites = [test1, test2]
+    val suites = [
+      test1,
+      test2
+    ]
     val () = app (fn f => ignore $ f dirname) suites
   in
     ()
