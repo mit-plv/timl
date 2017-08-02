@@ -904,4 +904,31 @@ fun normalize_t_fn params t =
     #visit_ty vtable visitor () t
   end
     
+(***************** the "export" visitor: convertnig de Bruijn indices to nameful terms **********************)    
+
+fun export_ty_visitor_vtable cast (visit_var, visit_idx, visit_sort) =
+  let
+    fun extend_i this (sctx, kctx) name = (name :: sctx, kctx)
+    fun extend_t this (sctx, kctx) name = (sctx, name :: kctx)
+    fun only_s f this (sctx, kctx) name = f sctx name
+  in
+    default_ty_visitor_vtable
+      cast
+      extend_i
+      extend_t
+      (ignore_this visit_var)
+      visit_noop
+      (only_s visit_idx)
+      (only_s visit_sort)
+  end
+
+fun new_export_ty_visitor params = new_ty_visitor export_ty_visitor_vtable params
+    
+fun export_t_fn params ctx b =
+  let
+    val visitor as (TyVisitor vtable) = new_export_ty_visitor params
+  in
+    #visit_ty vtable visitor ctx b
+  end
+
 end

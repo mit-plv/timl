@@ -703,24 +703,34 @@ structure U = UnderscoredExpr
 (* val src = TDatatype (, ()) *)
 
 fun short_to_long_id x = ID (x, dummy)
-fun visit_var sel ctx id =
+fun export_var sel ctx id =
   case id of
       ID (x, _) =>
       short_to_long_id $ nth_error (map Name2str $ sel ctx) x !! (fn () => "__unbound_" ^ str_int x)
     | QID _ => short_to_long_id $ "__unbound_" ^ CanToString.str_raw_var id
 (* val export_i = return2 *)
 fun export_i env b = ToString.export_i Gctx.empty (map Name2str env) b
-fun export a = export_fn (visit_var #4, visit_var #3, export_i, return2, return2) a
+fun export_s env b = ToString.export_s Gctx.empty (map Name2str env) b
+fun export_t b = export_t_fn (export_var snd, export_i, export_s) b
+fun export a = export_fn (export_var #4, export_var #3, export_i, export_s, export_t) a
+val str = PP.string
 fun str_var x = LongId.str_raw_long_id id(*str_int*) x
+fun str_i a =
+  (* ToStringRaw.str_raw_i a *)
+    ToString.SN.strn_i a
+(* const_fun "<idx>" a *)
+fun str_s a =
+    (* ToStringRaw.str_raw_s a *)
+    const_fun "<sort>" a
+fun pp_t s b =
+  MicroTiMLPP.pp_t_to_fn (str_var, const_fun "<bs>", str_i, str_s, const_fun "<kind>") s b
+  (* str s "<ty>" *)
 fun pp_e a = MicroTiMLExPP.pp_e_fn (
     str_var,
-    (* ToStringRaw.str_raw_i, *)
-    ToString.SN.strn_i,
-    (* const_fun "<idx>", *)
-    (* ToStringRaw.str_raw_s, *)
-    const_fun "<sort>",
+    str_i,
+    str_s,
     const_fun "<kind>",
-    const_fun "<ty>"
+    pp_t
   ) a
                                  
 fun test1 dirname =

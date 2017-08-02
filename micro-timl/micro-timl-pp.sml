@@ -33,8 +33,8 @@ fun pp_t (params as (str_var, str_b, str_i, str_s, str_k)) s t =
     fun str v = PP.string s v
     fun comma () = (str ","; space ())
     fun open_hbox () = PP.openHBox s
-    fun open_vbox () = PP.openVBox s (PP.Abs 2)
-    (* fun open_vbox () = PP.openVBox s (PP.Rel 2) *)
+    (* fun open_vbox () = PP.openVBox s (PP.Abs 2) *)
+    fun open_vbox () = PP.openVBox s (PP.Rel 2)
     fun close_box () = PP.closeBox s
     fun pp_pair (fa, fb) (a, b) =
       (
@@ -237,6 +237,7 @@ fun pp_t (params as (str_var, str_b, str_i, str_s, str_k)) s t =
 open WithPP
        
 fun pp_t_fn params t = withPP ("", 80, TextIO.stdOut) (fn s => pp_t params s t)
+val pp_t_to_fn = pp_t
                               
 fun str_proj opr =
   case opr of

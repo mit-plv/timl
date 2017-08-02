@@ -71,9 +71,10 @@ fun str_e str_var str_i e =
       | _ => raise Unimpl ""
   end
     
-fun pp_e (params as (str_var, str_i, str_s, str_k, str_t)) s e =
+fun pp_e (params as (str_var, str_i, str_s, str_k, pp_t)) s e =
   let
     val pp_e = pp_e params s
+    val pp_t = pp_t s
     fun space () = PP.space s 1
     fun add_space a = (space (); a)
     fun str v = PP.string s v
@@ -106,6 +107,13 @@ fun pp_e (params as (str_var, str_i, str_s, str_k, str_t)) s e =
             comma ();
             pp_list f xs
           )
+    fun pp_bracket f =
+      (
+        str "[";
+        f ();
+        str "]"
+      )
+    fun pp_list_bracket f ls = pp_bracket $ (fn () => pp_list f ls)
   in
     case e of
         EVar x =>
@@ -204,7 +212,7 @@ fun pp_e (params as (str_var, str_i, str_s, str_k, str_t)) s e =
           str "EUnOp";
           space ();
           str "(";
-          str $ str_expr_un_op str_t opr;
+          str $ str_expr_un_op (const_fun "<ty>") opr;
           comma ();
           pp_e e;
           str ")";
@@ -266,7 +274,7 @@ fun pp_e (params as (str_var, str_i, str_s, str_k, str_t)) s e =
           str "(";
           str name;
           comma ();
-          str $ str_t t;
+          pp_t t;
           close_box ();
           comma ();
           pp_e e;
@@ -300,7 +308,7 @@ fun pp_e (params as (str_var, str_i, str_s, str_k, str_t)) s e =
           str "(";
           str name;
           comma ();
-          str $ str_t t;
+          pp_t t;
           close_box ();
           comma ();
           pp_e e;
@@ -333,7 +341,7 @@ fun pp_e (params as (str_var, str_i, str_s, str_k, str_t)) s e =
           str "(";
           pp_e e;
           comma ();
-          str $ str_t t;
+          pp_t t;
           str ")";
           close_box ()
         )
@@ -345,7 +353,7 @@ fun pp_e (params as (str_var, str_i, str_s, str_k, str_t)) s e =
           str "(";
           pp_e e1;
           comma ();
-          str $ str_ls str_t ts;
+          pp_list_bracket pp_t ts;
           comma ();
           str $ str_ls str_i is;
           comma ();
@@ -389,9 +397,9 @@ fun pp_e (params as (str_var, str_i, str_s, str_k, str_t)) s e =
           str "EPack";
           space ();
           str "(";
-          str $ str_t t_all;
+          pp_t t_all;
           comma ();
-          str $ str_t t;
+          pp_t t;
           comma ();
           pp_e e;
           str ")";
@@ -420,7 +428,7 @@ fun pp_e (params as (str_var, str_i, str_s, str_k, str_t)) s e =
           str "EPackI";
           space ();
           str "(";
-          str $ str_t t;
+          pp_t t;
           comma ();
           str $ str_i i;
           comma ();
@@ -434,7 +442,7 @@ fun pp_e (params as (str_var, str_i, str_s, str_k, str_t)) s e =
           str "EPackIs";
           space ();
           str "(";
-          str $ str_t t;
+          pp_t t;
           comma ();
           str "[";
           pp_list (str o str_i) is;
@@ -487,7 +495,7 @@ fun pp_e (params as (str_var, str_i, str_s, str_k, str_t)) s e =
           str "EAscType";
           space ();
           str "(";
-          str $ str_t t;
+          pp_t t;
           close_box ();
           comma ();
           pp_e e;
@@ -499,7 +507,7 @@ fun pp_e (params as (str_var, str_i, str_s, str_k, str_t)) s e =
           open_hbox ();
           str "ENever";
           space ();
-          str $ str_t t;
+          pp_t t;
           close_box ()
         )
       | EBuiltin t =>
@@ -507,7 +515,7 @@ fun pp_e (params as (str_var, str_i, str_s, str_k, str_t)) s e =
           open_hbox ();
           str "EBuiltin";
           space ();
-          str $ str_t t;
+          pp_t t;
           close_box ()
         )
       | ELet (e, branch) =>
