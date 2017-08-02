@@ -116,6 +116,14 @@ fun pp_e (params as (str_var, str_i, str_s, str_k, str_t)) s e =
           str $ str_var x;
           close_box ()
         )
+      | EVarConstr x =>
+        (
+          open_hbox ();
+          str "EVarConstr";
+          space ();
+          str $ str_var x;
+          close_box ()
+        )
       | EMatchSum (e, branches) =>
         (
 	  open_vbox ();
@@ -265,13 +273,13 @@ fun pp_e (params as (str_var, str_i, str_s, str_k, str_t)) s e =
           str ")";
           close_box ()
         end
-      | EConstrAbs bind =>
+      | EAbsConstr bind =>
         let
           val ((tnames, inames, ename), e) = unBind bind
         in
           open_vbox ();
           open_hbox ();
-          str "EConstrAbs";
+          str "EAbsConstr";
           space ();
           str "(";
           str $ sprintf "$, $, $" [str_ls binder2str tnames, str_ls binder2str inames, binder2str ename];
@@ -326,6 +334,22 @@ fun pp_e (params as (str_var, str_i, str_s, str_k, str_t)) s e =
           pp_e e;
           comma ();
           str $ str_t t;
+          str ")";
+          close_box ()
+        )
+      | EAppConstr (e1, ts, is, e2) =>
+        (
+          open_hbox ();
+          str "EAppConstr";
+          space ();
+          str "(";
+          pp_e e1;
+          comma ();
+          str $ str_ls str_t ts;
+          comma ();
+          str $ str_ls str_i is;
+          comma ();
+          pp_e e2;
           str ")";
           close_box ()
         )

@@ -20,6 +20,7 @@ fun post_process_expr_visitor_vtable cast () =
           visit_noop
           visit_noop
           visit_noop
+          visit_noop
     fun visit_EMatchUnfold this env (e, bind) =
       #visit_expr (cast this) this () $ ELet (EUnfold e, bind)
     val vtable = override_visit_EMatchUnfold vtable visit_EMatchUnfold

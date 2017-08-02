@@ -408,17 +408,23 @@ fun on_e (e : S.expr) =
       in
         EAbsI $ BindAnno ((name, s), on_e e)
       end
-    | S.EAppConstr ((_, eia), ts, is, e, ot) =>
-      (* todo: should define functions corresponding to constructors and put those type annotations there, instead of having annotations on every constructor call-site. 
-         MicroTiMLEx should have a [ELetConstr] to put constructor definition in the constructor namespace, and a later pass will translate [ELetConstr] to [ELet]. 
-         Constructors will be special kind of functions that don't incur beta-reduction cost.
-       *)
+    (* | S.EAppConstr ((x, eia), ts, is, e, ot) => *)
+    (*   let *)
+    (*     val () = if eia then () else raise Impossible "to-micro-timl/AppConstr/eia" *)
+    (*     val (pos, t) = ot !! (fn () => raise Impossible "to-micro-timl/AppConstr/ot") *)
+    (*     val dt = case t of TDatatype (dt, _) => dt | _ => raise Impossible "to-micro-timl/AppConstr/TDatatype" *)
+    (*     val e = make_constr (pos, ts, is, e, dt) *)
+    (*   in *)
+    (*     e *)
+    (*   end *)
+    | S.EAppConstr ((x, eia), ts, is, e, ot) =>
       let
-        val (pos, t) = ot !! (fn () => raise Impossible "to-micro-timl/AppConstr/ot")
-        val dt = case t of TDatatype (dt, _) => dt | _ => raise Impossible "to-micro-timl/AppConstr/TDatatype"
         val () = if eia then () else raise Impossible "to-micro-timl/AppConstr/eia"
+        val ts = map on_mt ts
+        val e = on_e e
+        val e = EAppConstr (EVarConstr x, ts, is, e)
       in
-        make_constr (pos, ts, is, e, dt)
+        e
       end
     | S.ELet (return, bind, r) => 
 	  let
@@ -454,7 +460,7 @@ and add_constr_decls (dt, e_body) =
           val dt = shiftx_i_dt 0 ilen dt
           val e = make_constr (pos, ts, is, EV 0, dt)
           val ename = ("__x", dummy)
-          val e = MakeEConstrAbs (tnames, inames, ename, e)
+          val e = MakeEAbsConstr (tnames, inames, ename, e)
         in
           (cname, e)
         end
@@ -697,14 +703,14 @@ structure U = UnderscoredExpr
 (* val src = TDatatype (, ()) *)
 
 fun short_to_long_id x = ID (x, dummy)
-fun visit_var (_, _, _, tctx) id =
+fun visit_var sel ctx id =
   case id of
       ID (x, _) =>
-      short_to_long_id $ nth_error (map Name2str tctx) x !! (fn () => "__unbound_" ^ str_int x)
+      short_to_long_id $ nth_error (map Name2str $ sel ctx) x !! (fn () => "__unbound_" ^ str_int x)
     | QID _ => short_to_long_id $ "__unbound_" ^ CanToString.str_raw_var id
 (* val export_i = return2 *)
 fun export_i env b = ToString.export_i Gctx.empty (map Name2str env) b
-fun export a = export_fn (visit_var, export_i, return2, return2) a
+fun export a = export_fn (visit_var #4, visit_var #3, export_i, return2, return2) a
 fun str_var x = LongId.str_raw_long_id id(*str_int*) x
 fun pp_e a = MicroTiMLExPP.pp_e_fn (
     str_var,

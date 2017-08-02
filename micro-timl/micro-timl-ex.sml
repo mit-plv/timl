@@ -33,7 +33,9 @@ datatype ('var, 'idx, 'sort, 'kind, 'ty) expr =
          | ELet of ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind
          (* extensions from MicroTiML *)
          | ELetConstr of ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr cbind
-         | EConstrAbs of (tbinder list * ibinder list * ebinder, ('var, 'idx, 'sort, 'kind, 'ty) expr) bind
+         | EAbsConstr of (tbinder list * ibinder list * ebinder, ('var, 'idx, 'sort, 'kind, 'ty) expr) bind
+         | EAppConstr of ('var, 'idx, 'sort, 'kind, 'ty) expr * 'ty list * 'idx list * ('var, 'idx, 'sort, 'kind, 'ty) expr
+         | EVarConstr of 'var (* todo: should be 'cvar *)
          | EPackIs of 'ty * 'idx list * ('var, 'idx, 'sort, 'kind, 'ty) expr
          | EMatchSum of ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind list
          | EMatchPair of ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind ebind
@@ -66,11 +68,14 @@ type ('this, 'env, 'var, 'idx, 'sort, 'kind, 'ty, 'var2, 'idx2, 'sort2, 'kind2, 
        visit_EBuiltin : 'this -> 'env -> 'ty -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
        visit_ELet : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
        visit_ELetConstr : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr cbind -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
-       visit_EConstrAbs : 'this -> 'env -> (tbinder list * ibinder list * ebinder, ('var, 'idx, 'sort, 'kind, 'ty) expr) bind -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
+       visit_EAbsConstr : 'this -> 'env -> (tbinder list * ibinder list * ebinder, ('var, 'idx, 'sort, 'kind, 'ty) expr) bind -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
+         visit_EAppConstr : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * 'ty list * 'idx list * ('var, 'idx, 'sort, 'kind, 'ty) expr -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
+         visit_EVarConstr : 'this -> 'env -> 'var -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
        visit_EMatchSum : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind list -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
        visit_EMatchPair : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind ebind -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
        visit_EMatchUnfold : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
        visit_var : 'this -> 'env -> 'var -> 'var2,
+       visit_cvar : 'this -> 'env -> 'var -> 'var2,
        visit_idx : 'this -> 'env -> 'idx -> 'idx2,
        visit_sort : 'this -> 'env -> 'sort -> 'sort2,
        visit_kind : 'this -> 'env -> 'kind -> 'kind2,
@@ -111,11 +116,14 @@ fun override_visit_EVar (record : ('this, 'env, 'var, 'idx, 'sort, 'kind, 'ty, '
     visit_EBuiltin = #visit_EBuiltin record,
     visit_ELet = #visit_ELet record,
     visit_ELetConstr = #visit_ELetConstr record,
-    visit_EConstrAbs = #visit_EConstrAbs record,
+    visit_EAbsConstr = #visit_EAbsConstr record,
+    visit_EAppConstr = #visit_EAppConstr record,
+    visit_EVarConstr = #visit_EVarConstr record,
     visit_EMatchSum = #visit_EMatchSum record,
     visit_EMatchPair = #visit_EMatchPair record,
     visit_EMatchUnfold = #visit_EMatchUnfold record,
     visit_var = #visit_var record,
+    visit_cvar = #visit_cvar record,
     visit_idx = #visit_idx record,
     visit_sort = #visit_sort record,
     visit_kind = #visit_kind record,
@@ -153,11 +161,14 @@ fun override_visit_EMatchUnfold (record : ('this, 'env, 'var, 'idx, 'sort, 'kind
     visit_EBuiltin = #visit_EBuiltin record,
     visit_ELet = #visit_ELet record,
     visit_ELetConstr = #visit_ELetConstr record,
-    visit_EConstrAbs = #visit_EConstrAbs record,
+    visit_EAbsConstr = #visit_EAbsConstr record,
+    visit_EAppConstr = #visit_EAppConstr record,
+    visit_EVarConstr = #visit_EVarConstr record,
     visit_EMatchSum = #visit_EMatchSum record,
     visit_EMatchPair = #visit_EMatchPair record,
     visit_EMatchUnfold = new,
     visit_var = #visit_var record,
+    visit_cvar = #visit_cvar record,
     visit_idx = #visit_idx record,
     visit_sort = #visit_sort record,
     visit_kind = #visit_kind record,
@@ -195,11 +206,14 @@ fun override_visit_EMatchPair (record : ('this, 'env, 'var, 'idx, 'sort, 'kind, 
     visit_EBuiltin = #visit_EBuiltin record,
     visit_ELet = #visit_ELet record,
     visit_ELetConstr = #visit_ELetConstr record,
-    visit_EConstrAbs = #visit_EConstrAbs record,
+    visit_EAbsConstr = #visit_EAbsConstr record,
+    visit_EAppConstr = #visit_EAppConstr record,
+    visit_EVarConstr = #visit_EVarConstr record,
     visit_EMatchSum = #visit_EMatchSum record,
     visit_EMatchPair = new,
     visit_EMatchUnfold = #visit_EMatchUnfold record,
     visit_var = #visit_var record,
+    visit_cvar = #visit_cvar record,
     visit_idx = #visit_idx record,
     visit_sort = #visit_sort record,
     visit_kind = #visit_kind record,
@@ -219,6 +233,7 @@ fun default_expr_visitor_vtable
       extend_c
       extend_e
       visit_var
+      visit_cvar
       visit_idx
       visit_sort
       visit_ty
@@ -253,7 +268,9 @@ fun default_expr_visitor_vtable
           | EBuiltin data => #visit_EBuiltin vtable this env data
           | ELet data => #visit_ELet vtable this env data
           | ELetConstr data => #visit_ELetConstr vtable this env data
-          | EConstrAbs data => #visit_EConstrAbs vtable this env data
+          | EAbsConstr data => #visit_EAbsConstr vtable this env data
+          | EAppConstr data => #visit_EAppConstr vtable this env data
+          | EVarConstr data => #visit_EVarConstr vtable this env data
           | EMatchSum data => #visit_EMatchSum vtable this env data
           | EMatchPair data => #visit_EMatchPair vtable this env data
           | EMatchUnfold data => #visit_EMatchUnfold vtable this env data
@@ -263,6 +280,12 @@ fun default_expr_visitor_vtable
         val vtable = cast this
       in
         EVar $ #visit_var vtable this env data
+      end
+    fun visit_EVarConstr this env data =
+      let
+        val vtable = cast this
+      in
+        EVarConstr $ #visit_cvar vtable this env data
       end
     fun visit_EConst this env data = EConst data
     fun visit_ELoc this env data = ELoc data
@@ -333,12 +356,12 @@ fun default_expr_visitor_vtable
       in
         EAbs data
       end
-    fun visit_EConstrAbs this env data =
+    fun visit_EAbsConstr this env data =
       let
         val vtable = cast this
         val data = visit_bind (visit_triple (visit_list $ visit_tbinder this) (visit_list $ visit_ibinder this) (visit_ebinder this)) (#visit_expr vtable this) env data
       in
-        EConstrAbs data
+        EAbsConstr data
       end
     fun visit_ERec this env data =
       let
@@ -362,6 +385,17 @@ fun default_expr_visitor_vtable
         val t = #visit_ty vtable this env t
       in
         EAppT (e, t)
+      end
+    fun visit_EAppConstr this env data = 
+      let
+        val vtable = cast this
+        val (e1, ts, is, e2) = data
+        val e1 = #visit_expr vtable this env e1
+        val ts = visit_list (#visit_ty vtable this) env ts
+        val is = visit_list (#visit_idx vtable this) env is
+        val e2 = #visit_expr vtable this env e2
+      in
+        EAppConstr (e1, ts, is, e2)
       end
     fun visit_EAbsI this env data =
       let
@@ -531,11 +565,14 @@ fun default_expr_visitor_vtable
       visit_EBuiltin = visit_EBuiltin,
       visit_ELet = visit_ELet,
       visit_ELetConstr = visit_ELetConstr,
-      visit_EConstrAbs = visit_EConstrAbs,
+      visit_EAbsConstr = visit_EAbsConstr,
+      visit_EAppConstr = visit_EAppConstr,
+      visit_EVarConstr = visit_EVarConstr,
       visit_EMatchSum = visit_EMatchSum,
       visit_EMatchPair = visit_EMatchPair,
       visit_EMatchUnfold = visit_EMatchUnfold,
       visit_var = visit_var,
+      visit_cvar = visit_cvar,
       visit_idx = visit_idx,
       visit_sort = visit_sort,
       visit_kind = visit_noop,
@@ -579,6 +616,7 @@ fun shift_i_expr_visitor_vtable cast ((shift_i, shift_s, shift_t), n) : ('this, 
       extend_noop
       extend_noop
       visit_noop
+      visit_noop
       (do_shift shift_i)
       (do_shift shift_s)
       (do_shift shift_t)
@@ -609,6 +647,7 @@ fun shift_t_expr_visitor_vtable cast (shift_t, n) : ('this, int, 'var, 'idx, 'so
       visit_noop
       visit_noop
       visit_noop
+      visit_noop
       (do_shift shift_t)
   end
 
@@ -626,7 +665,7 @@ fun shift_t_e_fn shift_t x n b =
 fun shift_c_expr_visitor_vtable cast (shift_var, n) : ('this, int, 'var, 'idx, 'sort, 'kind, 'ty, 'var, 'idx, 'sort, 'kind, 'ty) expr_visitor_vtable =
   let
     fun extend_c this env _ = env + 1
-    fun visit_var this env data = shift_var env n data
+    fun visit_cvar this env data = shift_var env n data
   in
     default_expr_visitor_vtable
       cast
@@ -635,6 +674,7 @@ fun shift_c_expr_visitor_vtable cast (shift_var, n) : ('this, int, 'var, 'idx, '
       extend_c
       extend_noop
       visit_noop
+      visit_cvar
       visit_noop
       visit_noop
       visit_noop
@@ -651,7 +691,7 @@ fun shift_c_e_fn shift_var x n b =
     
 (***************** the "shift_e_e" visitor  **********************)    
     
-fun shift_e_expr_visitor_vtable cast (shift_var, n) : ('this, int, 'var, 'idx, 'sort, 'kind, 'ty, 'var2, 'idx, 'sort, 'kind, 'ty) expr_visitor_vtable =
+fun shift_e_expr_visitor_vtable cast (shift_var, n) : ('this, int, 'var, 'idx, 'sort, 'kind, 'ty, 'var, 'idx, 'sort, 'kind, 'ty) expr_visitor_vtable =
   let
     fun extend_e this env _ = env + 1
     fun visit_var this env data = shift_var env n data
@@ -663,6 +703,7 @@ fun shift_e_expr_visitor_vtable cast (shift_var, n) : ('this, int, 'var, 'idx, '
       extend_noop
       extend_e
       visit_var
+      visit_noop
       visit_noop
       visit_noop
       visit_noop
@@ -721,6 +762,7 @@ fun subst_e_expr_visitor_vtable cast ((compare_var, shift_var, shift_i_i, shift_
           visit_noop
           visit_noop
           visit_noop
+          visit_noop
     val vtable = override_visit_EVar vtable visit_EVar
   in
     vtable
@@ -738,7 +780,7 @@ fun subst_e_e_fn params d x v b =
 (***************** the "export" visitor: convertnig de Bruijn indices to nameful terms **********************)    
 
 type naming_ctx = iname list * tname list * cname list * ename list
-fun export_expr_visitor_vtable cast (visit_var, visit_idx, visit_sort, visit_ty) : ('this, naming_ctx, 'var, 'idx, 'sort, 'kind, 'ty, 'var2, 'idx2, 'sort2, 'kind, 'ty2) expr_visitor_vtable =
+fun export_expr_visitor_vtable cast (visit_var, visit_cvar, visit_idx, visit_sort, visit_ty) : ('this, naming_ctx, 'var, 'idx, 'sort, 'kind, 'ty, 'var2, 'idx2, 'sort2, 'kind, 'ty2) expr_visitor_vtable =
   let
     fun extend_i this (sctx, kctx, cctx, tctx) name = (name :: sctx, kctx, cctx, tctx)
     fun extend_t this (sctx, kctx, cctx, tctx) name = (sctx, name :: kctx, cctx, tctx)
@@ -754,6 +796,7 @@ fun export_expr_visitor_vtable cast (visit_var, visit_idx, visit_sort, visit_ty)
       extend_c
       extend_e
       (ignore_this visit_var)
+      (ignore_this visit_cvar)
       (only_s visit_idx)
       (only_s visit_sort)
       (only_sk visit_ty)
