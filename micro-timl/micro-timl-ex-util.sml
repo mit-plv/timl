@@ -41,6 +41,7 @@ fun EAbsTKind (name, e) = MakeEAbsT (name, KType, e)
 fun EAbsTKind_Many (names, e) = foldr EAbsTKind e names
 fun MakeEUnpackI (e1, iname, ename, e2) = EUnpackI (e1, IBind (iname, EBind (ename, e2)))
 fun MakeELet (e1, name, e2) = ELet (e1, EBind (name, e2))
+fun MakeELetType (t, name, e) = ELetType (t, TBind (name, e))
 fun MakeELetConstr (e1, name, e2) = ELetConstr (e1, CBind (name, e2))
 fun MakeEAbsConstr (tnames, inames, ename, e) = EAbsConstr $ Bind ((map TBinder tnames, map IBinder inames, EBinder ename), e)
 

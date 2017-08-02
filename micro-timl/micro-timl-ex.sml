@@ -32,6 +32,7 @@ datatype ('var, 'idx, 'sort, 'kind, 'ty) expr =
          | EBuiltin of 'ty
          | ELet of ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind
          (* extensions from MicroTiML *)
+         | ELetType of 'ty * ('var, 'idx, 'sort, 'kind, 'ty) expr tbind
          | ELetConstr of ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr cbind
          | EAbsConstr of (tbinder list * ibinder list * ebinder, ('var, 'idx, 'sort, 'kind, 'ty) expr) bind
          | EAppConstr of ('var, 'idx, 'sort, 'kind, 'ty) expr * 'ty list * 'idx list * ('var, 'idx, 'sort, 'kind, 'ty) expr
@@ -67,6 +68,7 @@ type ('this, 'env, 'var, 'idx, 'sort, 'kind, 'ty, 'var2, 'idx2, 'sort2, 'kind2, 
        visit_ENever : 'this -> 'env -> 'ty -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
        visit_EBuiltin : 'this -> 'env -> 'ty -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
        visit_ELet : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr ebind -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
+       visit_ELetType : 'this -> 'env -> 'ty * ('var, 'idx, 'sort, 'kind, 'ty) expr tbind -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
        visit_ELetConstr : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * ('var, 'idx, 'sort, 'kind, 'ty) expr cbind -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
        visit_EAbsConstr : 'this -> 'env -> (tbinder list * ibinder list * ebinder, ('var, 'idx, 'sort, 'kind, 'ty) expr) bind -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
          visit_EAppConstr : 'this -> 'env -> ('var, 'idx, 'sort, 'kind, 'ty) expr * 'ty list * 'idx list * ('var, 'idx, 'sort, 'kind, 'ty) expr -> ('var2, 'idx2, 'sort2, 'kind2, 'ty2) expr,
@@ -119,6 +121,7 @@ fun override_visit_EVar (record : ('this, 'env, 'var, 'idx, 'sort, 'kind, 'ty, '
     visit_EAbsConstr = #visit_EAbsConstr record,
     visit_EAppConstr = #visit_EAppConstr record,
     visit_EVarConstr = #visit_EVarConstr record,
+    visit_ELetType = #visit_ELetType record,
     visit_EMatchSum = #visit_EMatchSum record,
     visit_EMatchPair = #visit_EMatchPair record,
     visit_EMatchUnfold = #visit_EMatchUnfold record,
@@ -164,6 +167,7 @@ fun override_visit_EMatchUnfold (record : ('this, 'env, 'var, 'idx, 'sort, 'kind
     visit_EAbsConstr = #visit_EAbsConstr record,
     visit_EAppConstr = #visit_EAppConstr record,
     visit_EVarConstr = #visit_EVarConstr record,
+    visit_ELetType = #visit_ELetType record,
     visit_EMatchSum = #visit_EMatchSum record,
     visit_EMatchPair = #visit_EMatchPair record,
     visit_EMatchUnfold = new,
@@ -209,6 +213,7 @@ fun override_visit_EMatchPair (record : ('this, 'env, 'var, 'idx, 'sort, 'kind, 
     visit_EAbsConstr = #visit_EAbsConstr record,
     visit_EAppConstr = #visit_EAppConstr record,
     visit_EVarConstr = #visit_EVarConstr record,
+    visit_ELetType = #visit_ELetType record,
     visit_EMatchSum = #visit_EMatchSum record,
     visit_EMatchPair = new,
     visit_EMatchUnfold = #visit_EMatchUnfold record,
@@ -267,6 +272,7 @@ fun default_expr_visitor_vtable
           | ENever data => #visit_ENever vtable this env data
           | EBuiltin data => #visit_EBuiltin vtable this env data
           | ELet data => #visit_ELet vtable this env data
+          | ELetType data => #visit_ELetType vtable this env data
           | ELetConstr data => #visit_ELetConstr vtable this env data
           | EAbsConstr data => #visit_EAbsConstr vtable this env data
           | EAppConstr data => #visit_EAppConstr vtable this env data
@@ -502,6 +508,15 @@ fun default_expr_visitor_vtable
       in
         ELet (e, bind)
       end
+    fun visit_ELetType this env data =
+      let
+        val vtable = cast this
+        val (t, bind) = data
+        val t = #visit_ty vtable this env t
+        val bind = visit_tbind this (#visit_expr vtable this) env bind
+      in
+        ELetType (t, bind)
+      end
     fun visit_ELetConstr this env data =
       let
         val vtable = cast this
@@ -564,6 +579,7 @@ fun default_expr_visitor_vtable
       visit_ENever = visit_ENever,
       visit_EBuiltin = visit_EBuiltin,
       visit_ELet = visit_ELet,
+      visit_ELetType = visit_ELetType,
       visit_ELetConstr = visit_ELetConstr,
       visit_EAbsConstr = visit_EAbsConstr,
       visit_EAppConstr = visit_EAppConstr,

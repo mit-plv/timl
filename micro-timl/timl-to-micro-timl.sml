@@ -540,35 +540,7 @@ and on_decls (decls, e_body) =
         TeleNil => on_e e_body
       | TeleCons (decl, Rebind decls) =>
         case decl of
-            (* todo: DTypeDef, DIdxDef and DAbsIdx2 should generate special kind of Let instead of inlining. DTypeDef currently needs to do inlining because the translation of [EAppConstr] needs datatype details. It will be changed in the future when constructors are translated into functions. *)
-            S.DIdxDef (name, _, Outer i) =>
-            let
-              val e = SMakeELet (decls, e_body)
-              val e = SS.subst_i_e i e
-              val e = on_e e
-            in
-              e
-            end
-          | S.DAbsIdx2 (name, _, Outer i) =>
-            let
-              val e = SMakeELet (decls, e_body)
-              val e = SS.subst_i_e i e
-              val e = on_e e
-            in
-              e
-            end
-          | S.DTypeDef (name, Outer t) =>
-            let
-              val e = SMakeELet (decls, e_body)
-              val e = SS.subst_t_e t e
-              val e = on_e e
-              val e = case t of
-                          S.TDatatype (dt, _) => add_constr_decls (dt, e)
-                        | _ => e
-            in
-              e
-            end
-          | S.DVal (ename, Outer bind, Outer r) =>
+            S.DVal (ename, Outer bind, Outer r) =>
             let
               val name = unBinderName ename
               val (tnames, e) = Unbound.unBind bind
@@ -619,6 +591,45 @@ and on_decls (decls, e_body) =
               val e = (self_compose (length kctx) $ package0_t_e m) $ e
               val e = (self_compose (length sctx) $ package0_i_e m) $ e
               val e = on_e e
+            in
+              e
+            end
+            (* todo: DTypeDef, DIdxDef and DAbsIdx2 should generate special kind of Let instead of inlining. DTypeDef currently needs to do inlining because the translation of [EAppConstr] needs datatype details. It will be changed in the future when constructors are translated into functions. *)
+          | S.DIdxDef (name, _, Outer i) =>
+            let
+              val e = SMakeELet (decls, e_body)
+              val e = SS.subst_i_e i e
+              val e = on_e e
+            in
+              e
+            end
+          | S.DAbsIdx2 (name, _, Outer i) =>
+            let
+              val e = SMakeELet (decls, e_body)
+              val e = SS.subst_i_e i e
+              val e = on_e e
+            in
+              e
+            end
+          (* | S.DTypeDef (name, Outer t) => *)
+          (*   let *)
+          (*     val e = SMakeELet (decls, e_body) *)
+          (*     val e = SS.subst_t_e t e *)
+          (*     val e = on_e e *)
+          (*     val e = case t of *)
+          (*                 S.TDatatype (dt, _) => add_constr_decls (dt, e) *)
+          (*               | _ => e *)
+          (*   in *)
+          (*     e *)
+          (*   end *)
+          | S.DTypeDef (name, Outer mt) =>
+            let
+              val e = on_decls (decls, e_body)
+              val t = on_mt mt
+              val e = MakeELetType (t, unBinderName name, e)
+              val e = case mt of
+                          S.TDatatype (dt, _) => add_constr_decls (dt, e)
+                        | _ => e
             in
               e
             end
