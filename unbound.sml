@@ -97,18 +97,23 @@ val unName = Util.snd
                    
 type idepth = idx_namespace * int
 type tdepth = type_namespace * int
+type cdepth = constr_namespace * int
 type edepth = expr_namespace * int
 fun IDepth n = (IdxNS, n)
 fun TDepth n = (TypeNS, n)
+fun CDepth n = (ConstrNS, n)
 fun EDepth n = (ExprNS, n)
 fun idepth_inc (IdxNS, n) = (IdxNS, n + 1)
 fun tdepth_inc (TypeNS, n) = (TypeNS, n + 1)
+fun cdepth_inc (ConstrNS, n) = (ConstrNS, n + 1)
 fun edepth_inc (ExprNS, n) = (ExprNS, n + 1)
 fun idepth_add ((IdxNS, a), (IdxNS, b)) = (IdxNS, a + b)
 fun tdepth_add ((TypeNS, a), (TypeNS, b)) = (TypeNS, a + b)
+fun cdepth_add ((ConstrNS, a), (ConstrNS, b)) = (ConstrNS, a + b)
 fun edepth_add ((ExprNS, a), (ExprNS, b)) = (ExprNS, a + b)
 fun unIDepth (IdxNS, n) = n
 fun unTDepth (TypeNS, n) = n
+fun unCDepth (ConstrNS, n) = n
 fun unEDepth (ExprNS, n) = n
                               
 fun use_idepth_tdepth f (di, dt) = f (unIDepth di, unTDepth dt)
@@ -133,9 +138,11 @@ functor BinderUtilFn (structure Binders : BINDERS
 open Names
 type 't ibind = (iname, 't) Binders.bind_simp
 type 't tbind = (tname, 't) Binders.bind_simp
+type 't cbind = (cname, 't) Binders.bind_simp
 type 't ebind = (ename, 't) Binders.bind_simp
 type ('anno, 't) ibind_anno = (iname, 'anno, 't) Binders.bind_anno
 type ('anno, 't) tbind_anno = (tname, 'anno, 't) Binders.bind_anno
+type ('anno, 't) cbind_anno = (cname, 'anno, 't) Binders.bind_anno
 type ('anno, 't) ebind_anno = (ename, 'anno, 't) Binders.bind_anno
 end
 
@@ -156,15 +163,20 @@ infixr 0 $
 
 fun IBind (name, t) = BindSimp (IName name, t)
 fun TBind (name, t) = BindSimp (TName name, t)
+fun CBind (name, t) = BindSimp (CName name, t)
 fun EBind (name, t) = BindSimp (EName name, t)
 fun IBindAnno ((name, anno), t) = BindAnno ((IName name, anno), t)
 fun TBindAnno ((name, anno), t) = BindAnno ((TName name, anno), t)
+fun CBindAnno ((name, anno), t) = BindAnno ((CName name, anno), t)
 fun EBindAnno ((name, anno), t) = BindAnno ((EName name, anno), t)
                                            
 type ibinder = Namespaces.iname Unbound.binder
 type tbinder = Namespaces.tname Unbound.binder
 type cbinder = Namespaces.cname Unbound.binder
 type ebinder = Namespaces.ename Unbound.binder
+fun IBinder a = Binder $ IName a
+fun TBinder a = Binder $ TName a
+fun EBinder a = Binder $ EName a
                      
 fun Name2str n = fst $ unName n
 fun unBinderName n = (unName o unBinder) n

@@ -15,6 +15,7 @@ fun post_process_expr_visitor_vtable cast () =
           extend_noop
           extend_noop
           extend_noop
+          extend_noop
           visit_noop
           visit_noop
           visit_noop

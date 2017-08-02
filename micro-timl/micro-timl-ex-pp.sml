@@ -265,6 +265,22 @@ fun pp_e (params as (str_var, str_i, str_s, str_k, str_t)) s e =
           str ")";
           close_box ()
         end
+      | EConstrAbs bind =>
+        let
+          val ((tnames, inames, ename), e) = unBind bind
+        in
+          open_vbox ();
+          open_hbox ();
+          str "EConstrAbs";
+          space ();
+          str "(";
+          str $ sprintf "$, $, $" [str_ls binder2str tnames, str_ls binder2str inames, binder2str ename];
+          close_box ();
+          comma ();
+          pp_e e;
+          str ")";
+          close_box ()
+        end
       | ERec bind =>
         let
           val (name, t, e) = get_bind_anno bind
@@ -396,7 +412,9 @@ fun pp_e (params as (str_var, str_i, str_s, str_k, str_t)) s e =
           str "(";
           str $ str_t t;
           comma ();
+          str "[";
           pp_list (str o str_i) is;
+          str "]";
           comma ();
           pp_e e;
           str ")";
@@ -476,6 +494,25 @@ fun pp_e (params as (str_var, str_i, str_s, str_k, str_t)) s e =
           (* space (); *)
           open_hbox ();
           str "ELet";
+          space ();
+          str "(";
+          str name;
+          comma ();
+          pp_e e;
+	  close_box ();
+          comma ();
+          pp_e e_body;
+          str ")";
+          close_box ()
+        end
+      | ELetConstr (e, branch) =>
+        let
+          val (name, e_body) = get_bind branch
+        in
+	  open_vbox_noindent ();
+          (* space (); *)
+          open_hbox ();
+          str "ELetConstr";
           space ();
           str "(";
           str name;

@@ -412,14 +412,14 @@ fun shift_e_pn_fn shift_e x n b =
     
 (***************** the "subst_e_pn" visitor  **********************)    
 
-fun subst_e_ptrn_visitor_vtable cast (subst_e, d, x, v) : ('this, idepth * tdepth * edepth, 'mtype, 'expr, 'mtype, 'expr2) ptrn_visitor_vtable =
+fun subst_e_ptrn_visitor_vtable cast (subst_e, d, x, v) : ('this, idepth * tdepth * cdepth * edepth, 'mtype, 'expr, 'mtype, 'expr2) ptrn_visitor_vtable =
   let
-    fun extend_i this (di, dt, de) _ = (idepth_inc di, dt, de)
-    fun extend_e this (di, dt, de) _ = (di, dt, edepth_inc de)
-    fun add_depth (di, dt, de) (di', dt', de') = (idepth_add (di, di'), tdepth_add (dt, dt'), edepth_add (de, de'))
-    fun get_di (di, dt, de) = di
-    fun get_dt (di, dt, de) = dt
-    fun get_de (di, dt, de) = de
+    fun extend_i this (di, dt, dc, de) _ = (idepth_inc di, dt, dc, de)
+    fun extend_e this (di, dt, dc, de) _ = (di, dt, dc, edepth_inc de)
+    fun add_depth (di, dt, dc, de) (di', dt', dc', de') = (idepth_add (di, di'), tdepth_add (dt, dt'), cdepth_add (dc, dc'), edepth_add (de, de'))
+    (* fun get_di (di, dt, dc, de) = di *)
+    (* fun get_dt (di, dt, dc, de) = dt *)
+    fun get_de (di, dt, dc, de) = de
     fun visit_expr this env b = subst_e (add_depth d env) (x + unEDepth (get_de env)) v b
   in
     default_ptrn_visitor_vtable
@@ -439,8 +439,8 @@ fun visit_subst_e_pn_fn subst_e env d x v b =
     #visit_ptrn vtable visitor env b
   end
 
-fun subst_e_pn_fn subst_e = visit_subst_e_pn_fn subst_e (env2ctx (IDepth 0, TDepth 0, EDepth 0))
-fun substx_e_pn_fn subst_e = subst_e_pn_fn subst_e (IDepth 0, TDepth 0, EDepth 0) 
+fun subst_e_pn_fn subst_e = visit_subst_e_pn_fn subst_e (env2ctx (IDepth 0, TDepth 0, CDepth 0, EDepth 0))
+fun substx_e_pn_fn subst_e = subst_e_pn_fn subst_e (IDepth 0, TDepth 0, CDepth 0, EDepth 0) 
 fun subst0_e_pn_fn subst_e = substx_e_pn_fn subst_e 0
 
 (***************** the "remove_anno" visitor  **********************)    

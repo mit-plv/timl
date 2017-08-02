@@ -428,12 +428,40 @@ fun on_e (e : S.expr) =
 	  end
     (* | _ => raise Unimpl "" *)
                  
-and add_constr_decls (dt, e) =
+and add_constr_decls (dt, e_body) =
     let
       val Bind.Bind (name, tbinds) = dt
       val (tname_kinds, (bsorts, constr_decls)) = unfold_binds tbinds
-      val constrs = mapi (fn (pos, (_, core, _)) => get_constr_inames core) constr_decls
+      val tnames = map fst tname_kinds
+      val tlen = length tname_kinds
+      fun make_constr_bind (pos, (cname, core, _)) =
+        let
+          val (name_sorts, _) = unfold_binds core
+          val inames = map fst name_sorts
+          val ilen = length name_sorts
+          fun IV n = S.VarI $ ID (n, dummy)
+          fun TV n = S.MtVar $ ID (n, dummy)
+          fun EV n = S.EVar (ID (n, dummy), true)
+          val ts = rev $ Range.map TV (0, tlen)
+          val is = rev $ Range.map IV (0, ilen)
+          fun shift_dt f x n dt =
+            case f x n $ S.TDatatype (dt, dummy) of
+                S.TDatatype (dt, _) => dt
+              | _ => raise Impossible "shift_dt"
+          fun shiftx_i_dt a = shift_dt shiftx_i_mt a
+          fun shiftx_t_dt a = shift_dt shiftx_t_mt a
+          val dt = shiftx_t_dt 0 tlen dt
+          val dt = shiftx_i_dt 0 ilen dt
+          val e = make_constr (pos, ts, is, EV 0, dt)
+          val ename = ("__x", dummy)
+          val e = MakeEConstrAbs (tnames, inames, ename, e)
+        in
+          (cname, e)
+        end
+      val constrs = mapi make_constr_bind constr_decls
+      val e_body = foldr (fn ((name, e), e_body) => MakeELetConstr (e, name, e_body)) e_body constrs
     in
+      e_body
     end
       
 and make_constr (pos, ts, is, e, dt) =
@@ -669,7 +697,7 @@ structure U = UnderscoredExpr
 (* val src = TDatatype (, ()) *)
 
 fun short_to_long_id x = ID (x, dummy)
-fun visit_var (_, _, tctx) id =
+fun visit_var (_, _, _, tctx) id =
   case id of
       ID (x, _) =>
       short_to_long_id $ nth_error (map Name2str tctx) x !! (fn () => "__unbound_" ^ str_int x)
@@ -721,7 +749,7 @@ fun test1 dirname =
     (* fun visit_subst_t_pn a = PatternVisitor.visit_subst_t_pn_fn (use_idepth_tdepth substx_t_mt) a *)
     val e = ExprSubst.substx_t_e (0, 1) 1 t_list e
     val e = trans_e e
-    val e = export ([], [], []) e
+    val e = export ([], [], [], []) e
     val () = pp_e e
     val () = println ""
   in
@@ -752,7 +780,7 @@ fun test2 dirname =
     val () = println $ str_e empty ([], [], [], []) e
     val () = println ""
     val e = trans_e e
-    val e = export ([], [], []) e
+    val e = export ([], [], [], []) e
     val () = pp_e e
     val () = println ""
   in

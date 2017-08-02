@@ -27,13 +27,6 @@ fun TProd (t1, t2) = TBinOp (TBProd, t1, t2)
 fun TAppIs (t, is) = foldl (swap TAppI) t is
 fun TAppTs (t, ts) = foldl (swap TAppT) t ts
          
-fun MakeEAbsT (name, k, e) = EAbsT $ TBindAnno ((name, k), e)
-fun MakeERec (name, t, e) = ERec $ EBindAnno ((name, t), e)
-fun EAbsTKind (name, e) = MakeEAbsT (name, KType, e) 
-fun EAbsTKind_Many (names, e) = foldr EAbsTKind e names
-fun MakeEUnpackI (e1, iname, ename, e2) = EUnpackI (e1, IBind (iname, EBind (ename, e2)))
-fun MakeELet (e1, name, e2) = ELet (e1, EBind (name, e2))
-
 fun EFst e = EUnOp (EUProj ProjFst, e)
 fun ESnd e = EUnOp (EUProj ProjSnd, e)
 fun EInlInr (opr, t, e) = EUnOp (EUInj (opr, t), e)
@@ -41,6 +34,15 @@ fun EInl (t, e) = EInlInr (InjInl, t, e)
 fun EInr (t, e) = EInlInr (InjInr, t, e)
 fun EFold (t, e) = EUnOp (EUFold t, e)
 fun EUnfold e = EUnOp (EUUnfold, e)
+
+fun MakeEAbsT (name, k, e) = EAbsT $ TBindAnno ((name, k), e)
+fun MakeERec (name, t, e) = ERec $ EBindAnno ((name, t), e)
+fun EAbsTKind (name, e) = MakeEAbsT (name, KType, e) 
+fun EAbsTKind_Many (names, e) = foldr EAbsTKind e names
+fun MakeEUnpackI (e1, iname, ename, e2) = EUnpackI (e1, IBind (iname, EBind (ename, e2)))
+fun MakeELet (e1, name, e2) = ELet (e1, EBind (name, e2))
+fun MakeELetConstr (e1, name, e2) = ELetConstr (e1, CBind (name, e2))
+fun MakeEConstrAbs (tnames, inames, ename, e) = EConstrAbs $ Bind ((map TBinder tnames, map IBinder inames, EBinder ename), e)
 
 end
                                  

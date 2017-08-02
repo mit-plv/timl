@@ -13,7 +13,6 @@ main: main.mlb $(FILES)
 	mllex parser/timl.lex
 	mlyacc sexp/sexp.grm
 	mllex sexp/sexp.lex
-	# mlton $(MLTON_FLAGS) -default-ann 'nonexhaustiveMatch error' main.mlb
 	mlton $(MLTON_FLAGS) -default-ann 'nonexhaustiveMatch error' -default-ann 'redundantMatch error' main.mlb
 
 main.mlb: generate-file-list.rb
