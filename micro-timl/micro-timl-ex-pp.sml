@@ -537,6 +537,25 @@ fun pp_e (params as (str_var, str_i, str_s, str_k, pp_t)) s e =
           str ")";
           close_box ()
         end
+      | ELetIdx (i, branch) =>
+        let
+          val (name, e_body) = get_bind branch
+        in
+	  open_vbox_noindent ();
+          (* space (); *)
+          open_hbox ();
+          str "ELetIdx";
+          space ();
+          str "(";
+          str name;
+          comma ();
+          str $ str_i i;
+	  close_box ();
+          comma ();
+          pp_e e_body;
+          str ")";
+          close_box ()
+        end
       | ELetType (t, branch) =>
         let
           val (name, e_body) = get_bind branch

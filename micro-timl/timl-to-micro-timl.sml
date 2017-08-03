@@ -578,7 +578,7 @@ and on_decls (decls, e_body) =
               val ename = unBinderName ename
               val (e, t) = on_DRec (ename, bind)
               val t = MakeTExistsI (iname, s, t)
-              val e = EPackI (t, i, subst0_i_e i e)
+              val e = EPackI (t, i, MakeELetIdx (i, iname, e))
               val e_body = on_decls (decls, e_body)
               val e = MakeEUnpackI (e, iname, ename, e_body)
             in
@@ -598,22 +598,6 @@ and on_decls (decls, e_body) =
               e
             end
             (* todo: DTypeDef, DIdxDef and DAbsIdx2 should generate special kind of Let instead of inlining. DTypeDef currently needs to do inlining because the translation of [EAppConstr] needs datatype details. It will be changed in the future when constructors are translated into functions. *)
-          | S.DIdxDef (name, _, Outer i) =>
-            let
-              val e = SMakeELet (decls, e_body)
-              val e = SS.subst_i_e i e
-              val e = on_e e
-            in
-              e
-            end
-          | S.DAbsIdx2 (name, _, Outer i) =>
-            let
-              val e = SMakeELet (decls, e_body)
-              val e = SS.subst_i_e i e
-              val e = on_e e
-            in
-              e
-            end
           (* | S.DTypeDef (name, Outer t) => *)
           (*   let *)
           (*     val e = SMakeELet (decls, e_body) *)
@@ -633,6 +617,36 @@ and on_decls (decls, e_body) =
               val e = case mt of
                           S.TDatatype (dt, _) => add_constr_decls (dt, e)
                         | _ => e
+            in
+              e
+            end
+          (* | S.DIdxDef (name, _, Outer i) => *)
+          (*   let *)
+          (*     val e = SMakeELet (decls, e_body) *)
+          (*     val e = SS.subst_i_e i e *)
+          (*     val e = on_e e *)
+          (*   in *)
+          (*     e *)
+          (*   end *)
+          (* | S.DAbsIdx2 (name, _, Outer i) => *)
+          (*   let *)
+          (*     val e = SMakeELet (decls, e_body) *)
+          (*     val e = SS.subst_i_e i e *)
+          (*     val e = on_e e *)
+          (*   in *)
+          (*     e *)
+          (*   end *)
+          | S.DIdxDef (name, _, Outer i) =>
+            let
+              val e = on_decls (decls, e_body)
+              val e = MakeELetIdx (i, unBinderName name, e)
+            in
+              e
+            end
+          | S.DAbsIdx2 (name, _, Outer i) =>
+            let
+              val e = on_decls (decls, e_body)
+              val e = MakeELetIdx (i, unBinderName name, e)
             in
               e
             end
