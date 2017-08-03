@@ -32,15 +32,27 @@ type ('this, 'env) expr_visitor_vtable =
        visit_EAppConstr : 'this -> 'env -> (cvar * bool) * mtype list * idx list * expr * (int * mtype) option -> T.expr,
        visit_ECase : 'this -> 'env -> expr * return * (ptrn, expr) bind list * region -> T.expr,
        visit_ELet : 'this -> 'env -> return * (decl tele, expr) bind * region -> T.expr,
-       visit_decl : 'this -> 'env ctx -> decl -> T.decl,
-       visit_DVal : 'this -> 'env ctx -> ename binder * (tname binder list, expr) bind outer * region outer -> T.decl,
-       visit_DValPtrn : 'this -> 'env ctx -> ptrn * expr outer * region outer -> T.decl,
-       visit_DRec : 'this -> 'env ctx -> ename binder * (tname binder list * stbind tele rebind, (mtype * idx) * expr) bind inner * region outer -> T.decl,
-       visit_DIdxDef : 'this -> 'env ctx -> iname binder * sort outer * idx outer -> T.decl,
-       visit_DAbsIdx2 : 'this -> 'env ctx -> iname binder * sort outer * idx outer -> T.decl,
-       visit_DAbsIdx : 'this -> 'env ctx -> (iname binder * sort outer * idx outer) * decl tele rebind * region outer -> T.decl,
-       visit_DTypeDef : 'this -> 'env ctx -> tname binder * mtype outer -> T.decl,
-       visit_DOpen : 'this -> 'env ctx -> mod_id outer * scoping_ctx option -> T.decl,
+       
+       (* visit_decl : 'this -> 'env ctx -> decl -> T.decl, *)
+       (* visit_DVal : 'this -> 'env ctx -> ename binder * (tname binder list, expr) bind outer * region outer -> T.decl, *)
+       (* visit_DValPtrn : 'this -> 'env ctx -> ptrn * expr outer * region outer -> T.decl, *)
+       (* visit_DRec : 'this -> 'env ctx -> ename binder * (tname binder list * stbind tele rebind, (mtype * idx) * expr) bind inner * region outer -> T.decl, *)
+       (* visit_DIdxDef : 'this -> 'env ctx -> iname binder * sort outer * idx outer -> T.decl, *)
+       (* visit_DAbsIdx2 : 'this -> 'env ctx -> iname binder * sort outer * idx outer -> T.decl, *)
+       (* visit_DAbsIdx : 'this -> 'env ctx -> (iname binder * sort outer * idx outer) * decl tele rebind * region outer -> T.decl, *)
+       (* visit_DTypeDef : 'this -> 'env ctx -> tname binder * mtype outer -> T.decl, *)
+       (* visit_DOpen : 'this -> 'env ctx -> mod_id outer * scoping_ctx option -> T.decl, *)
+       
+       visit_decl : 'this -> 'env ctx -> decl -> T.decl list,
+       visit_DVal : 'this -> 'env ctx -> ename binder * (tname binder list, expr) bind outer * region outer -> T.decl list,
+       visit_DValPtrn : 'this -> 'env ctx -> ptrn * expr outer * region outer -> T.decl list,
+       visit_DRec : 'this -> 'env ctx -> ename binder * (tname binder list * stbind tele rebind, (mtype * idx) * expr) bind inner * region outer -> T.decl list,
+       visit_DIdxDef : 'this -> 'env ctx -> iname binder * sort outer * idx outer -> T.decl list,
+       visit_DAbsIdx2 : 'this -> 'env ctx -> iname binder * sort outer * idx outer -> T.decl list,
+       visit_DAbsIdx : 'this -> 'env ctx -> (iname binder * sort outer * idx outer) * decl tele rebind * region outer -> T.decl list,
+       visit_DTypeDef : 'this -> 'env ctx -> tname binder * mtype outer -> T.decl list,
+       visit_DOpen : 'this -> 'env ctx -> mod_id outer * scoping_ctx option -> T.decl list,
+       
        visit_ptrn : 'this -> 'env ctx -> ptrn -> T.ptrn,
        visit_VarP : 'this -> 'env ctx -> ename binder -> T.ptrn,
        visit_TTP : 'this -> 'env ctx -> region outer -> T.ptrn,
@@ -785,6 +797,12 @@ open VisitorUtil
 
 structure PV = PatternVisitor
        
+fun visit_decls visit_decl ctx decls =
+  let
+  in
+    Teles $ List.concat $ unTeles $ visit_tele visit_decl ctx decls
+  end
+    
 fun default_expr_visitor_vtable
       (cast : 'this -> ('this, 'env) expr_visitor_interface)
       extend_i
@@ -1024,7 +1042,7 @@ fun default_expr_visitor_vtable
         val vtable = cast this
         val (return, bind, r) = data
         val return = visit_return this env return
-        val bind = visit_bind (visit_tele (#visit_decl vtable this)) (#visit_expr vtable this) env bind
+        val bind = visit_bind (visit_decls (#visit_decl vtable this)) (#visit_expr vtable this) env bind
       in
         T.ELet (return, bind, r)
       end
@@ -1070,6 +1088,110 @@ fun default_expr_visitor_vtable
       in
         name
       end
+        
+    (* fun visit_DVal this env data = *)
+    (*   let *)
+    (*     val vtable = cast this *)
+    (*     val (name, bind, r) = data *)
+    (*     val name = visit_ebinder this env name *)
+    (*     val bind = visit_outer (visit_bind (visit_list (visit_tbinder this)) (#visit_expr vtable this)) env bind *)
+    (*   in *)
+    (*     T.DVal (name, bind, r) *)
+    (*   end *)
+    (* fun visit_DValPtrn this env data = *)
+    (*   let *)
+    (*     val vtable = cast this *)
+    (*     val (pn, e, r) = data *)
+    (*     val pn = #visit_ptrn vtable this env pn *)
+    (*     val e = visit_outer (#visit_expr vtable this) env e *)
+    (*   in *)
+    (*     T.DValPtrn (pn, e, r) *)
+    (*   end *)
+    (* fun visit_stbind this env data = *)
+    (*   let *)
+    (*     val vtable = cast this *)
+    (*   in *)
+    (*     case data of *)
+    (*         SortingST data => T.SortingST $ visit_pair (visit_ibinder this) (visit_outer (#visit_sort vtable this)) env data *)
+    (*       | TypingST pn => T.TypingST $ #visit_ptrn vtable this env pn *)
+    (*   end *)
+    (* fun visit_DRec this env data = *)
+    (*   let *)
+    (*     val vtable = cast this *)
+    (*     val (name, bind, r) = data *)
+    (*     val name = visit_ebinder this env name *)
+    (*     val bind = *)
+    (*         visit_inner ( *)
+    (*           visit_bind (visit_pair (visit_list (visit_tbinder this)) *)
+    (*                                  (visit_rebind (visit_tele (visit_stbind this)))) *)
+    (*                      (visit_pair (visit_pair (#visit_mtype vtable this) *)
+    (*                                              (#visit_idx vtable this)) *)
+    (*                                  (#visit_expr vtable this))) env bind *)
+    (*   in *)
+    (*     T.DRec (name, bind, r) *)
+    (*   end *)
+    (* fun visit_DIdxDef this env data = *)
+    (*   let *)
+    (*     val vtable = cast this *)
+    (*     val (name, s, i) = data *)
+    (*     val name = visit_ibinder this env name *)
+    (*     val s = visit_outer (#visit_sort vtable this) env s *)
+    (*     val i = visit_outer (#visit_idx vtable this) env i *)
+    (*   in *)
+    (*     T.DIdxDef (name, s, i) *)
+    (*   end *)
+    (* fun visit_DAbsIdx2 this env data = *)
+    (*   let *)
+    (*     val vtable = cast this *)
+    (*     val (name, s, i) = data *)
+    (*     val name = visit_ibinder this env name *)
+    (*     val s = visit_outer (#visit_sort vtable this) env s *)
+    (*     val i = visit_outer (#visit_idx vtable this) env i *)
+    (*   in *)
+    (*     T.DAbsIdx2 (name, s, i) *)
+    (*   end *)
+    (* fun visit_DAbsIdx this env data = *)
+    (*   let *)
+    (*     val vtable = cast this *)
+    (*     val ((name, s, i), decls, r) = data *)
+    (*     val name = visit_ibinder this env name *)
+    (*     val s = visit_outer (#visit_sort vtable this) env s *)
+    (*     val i = visit_outer (#visit_idx vtable this) env i *)
+    (*     val decls = visit_rebind (visit_decls (#visit_decl vtable this)) env decls *)
+    (*   in *)
+    (*     T.DAbsIdx ((name, s, i), decls, r) *)
+    (*   end *)
+    (* fun visit_DTypeDef this env data = *)
+    (*   let *)
+    (*     (* val () = println "default visit_DTypeDef" *) *)
+    (*     val vtable = cast this *)
+    (*     val (name, t) = data *)
+    (*     val name = visit_tbinder this env name *)
+    (*     val cnames = map (Binder o CName) $ get_constr_names $ unOuter t *)
+    (*     val t = visit_outer (#visit_mtype vtable this) env t *)
+    (*     val cnames = visit_list (visit_cbinder this) env cnames *)
+    (*   in *)
+    (*     T.DTypeDef (name, t) *)
+    (*   end *)
+    (* fun visit_scoping_ctx this env (sctx, kctx, cctx, tctx) = *)
+    (*   let *)
+    (*     val _ = visit_list (visit_ibinder this) env $ rev sctx *)
+    (*     val _ = visit_list (visit_tbinder this) env $ rev kctx *)
+    (*     val _ = visit_list (visit_cbinder this) env $ rev cctx *)
+    (*     val _ = visit_list (visit_ebinder this) env $ rev tctx *)
+    (*   in *)
+    (*     (sctx, kctx, cctx, tctx) *)
+    (*   end *)
+    (* fun visit_DOpen this env data = *)
+    (*   let *)
+    (*     val vtable = cast this *)
+    (*     val (m, scp) = data *)
+    (*     val m = visit_outer (#visit_mod_id vtable this) env m *)
+    (*     val scp = Option.map (visit_scoping_ctx this env) scp *)
+    (*   in *)
+    (*     T.DOpen (m, scp) *)
+    (*   end *)
+        
     fun visit_DVal this env data =
       let
         val vtable = cast this
@@ -1077,7 +1199,7 @@ fun default_expr_visitor_vtable
         val name = visit_ebinder this env name
         val bind = visit_outer (visit_bind (visit_list (visit_tbinder this)) (#visit_expr vtable this)) env bind
       in
-        T.DVal (name, bind, r)
+        [T.DVal (name, bind, r)]
       end
     fun visit_DValPtrn this env data =
       let
@@ -1086,7 +1208,7 @@ fun default_expr_visitor_vtable
         val pn = #visit_ptrn vtable this env pn
         val e = visit_outer (#visit_expr vtable this) env e
       in
-        T.DValPtrn (pn, e, r)
+        [T.DValPtrn (pn, e, r)]
       end
     fun visit_stbind this env data =
       let
@@ -1109,7 +1231,7 @@ fun default_expr_visitor_vtable
                                                  (#visit_idx vtable this))
                                      (#visit_expr vtable this))) env bind
       in
-        T.DRec (name, bind, r)
+        [T.DRec (name, bind, r)]
       end
     fun visit_DIdxDef this env data =
       let
@@ -1119,7 +1241,7 @@ fun default_expr_visitor_vtable
         val s = visit_outer (#visit_sort vtable this) env s
         val i = visit_outer (#visit_idx vtable this) env i
       in
-        T.DIdxDef (name, s, i)
+        [T.DIdxDef (name, s, i)]
       end
     fun visit_DAbsIdx2 this env data =
       let
@@ -1129,7 +1251,7 @@ fun default_expr_visitor_vtable
         val s = visit_outer (#visit_sort vtable this) env s
         val i = visit_outer (#visit_idx vtable this) env i
       in
-        T.DAbsIdx2 (name, s, i)
+        [T.DAbsIdx2 (name, s, i)]
       end
     fun visit_DAbsIdx this env data =
       let
@@ -1138,9 +1260,9 @@ fun default_expr_visitor_vtable
         val name = visit_ibinder this env name
         val s = visit_outer (#visit_sort vtable this) env s
         val i = visit_outer (#visit_idx vtable this) env i
-        val decls = visit_rebind (visit_tele (#visit_decl vtable this)) env decls
+        val decls = visit_rebind (visit_decls (#visit_decl vtable this)) env decls
       in
-        T.DAbsIdx ((name, s, i), decls, r)
+        [T.DAbsIdx ((name, s, i), decls, r)]
       end
     fun visit_DTypeDef this env data =
       let
@@ -1152,7 +1274,7 @@ fun default_expr_visitor_vtable
         val t = visit_outer (#visit_mtype vtable this) env t
         val cnames = visit_list (visit_cbinder this) env cnames
       in
-        T.DTypeDef (name, t)
+        [T.DTypeDef (name, t)]
       end
     fun visit_scoping_ctx this env (sctx, kctx, cctx, tctx) =
       let
@@ -1170,7 +1292,7 @@ fun default_expr_visitor_vtable
         val m = visit_outer (#visit_mod_id vtable this) env m
         val scp = Option.map (visit_scoping_ctx this env) scp
       in
-        T.DOpen (m, scp)
+        [T.DOpen (m, scp)]
       end
         
     fun visit_cvar_tag this env data =
@@ -1347,10 +1469,20 @@ fun new_expr_visitor vtable params =
     ExprVisitor vtable
   end
     
-fun visit_decls visitor ctx decls =
+fun visit_decl_acc visitor (b, env) =
   let
     val ExprVisitor vtable = visitor
-    val decls = unTeles $ visit_tele (#visit_decl vtable visitor) ctx $ Teles decls
+    val ctx = env2ctx env
+    val b = #visit_decl vtable visitor ctx b
+    val env = !(#current ctx)
+  in
+    (hd b, env)
+  end
+
+fun visit_decls_list visitor ctx decls =
+  let
+    val ExprVisitor vtable = visitor
+    val decls = unTeles $ visit_decls (#visit_decl vtable visitor) ctx $ Teles decls
   in
     decls
   end
@@ -1358,7 +1490,7 @@ fun visit_decls visitor ctx decls =
 fun visit_decls_acc visitor (b, env) =
   let
     val ctx = env2ctx env
-    val b = visit_decls visitor ctx b
+    val b = visit_decls_list visitor ctx b
     val env = !(#current ctx)
   in
     (b, env)

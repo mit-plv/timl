@@ -214,12 +214,9 @@ fun export_e gctx ctx b =
 
 fun export_decl gctx env b =
   let
-    val visitor as (EV.ExprVisitor vtable) = new_export_expr_visitor gctx
-    val ctx = env2ctx env
-    val b = #visit_decl vtable visitor ctx b
-    val env = !(#current ctx)
+    val visitor = new_export_expr_visitor gctx
   in
-    (b, env)
+    EV.visit_decl_acc visitor (b, env)
   end
 
 fun export_decls gctx env b =

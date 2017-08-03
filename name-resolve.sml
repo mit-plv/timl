@@ -671,12 +671,12 @@ fun on_i_expr_visitor_vtable cast gctx : ('this, context) EV.expr_visitor_vtable
         val d = #visit_DRec super_vtable this ctx data
         val (name, bind, r) =
             case d of
-                DRec data => data
+                [DRec data] => data
               | _ => raise Impossible "import_e/visit_DRec"
         val (names, ((t, d), e)) = Unbound.unBind $ unInner bind
         val e = copy_anno (gctx_names gctx) (SOME t, SOME d) e
       in
-        DRec (name, Inner $ Unbound.Bind (names, ((t, d), e)), r)
+        [DRec (name, Inner $ Unbound.Bind (names, ((t, d), e)), r)]
       end
     val vtable = EV.override_visit_DRec vtable visit_DRec
     fun visit_DTypeDef this ctx data =
@@ -686,7 +686,7 @@ fun on_i_expr_visitor_vtable cast gctx : ('this, context) EV.expr_visitor_vtable
         val d = #visit_DTypeDef super_vtable this ctx data
         val () =
           case d of
-               DTypeDef (_, Outer (TDatatype (dt, r))) =>
+               [DTypeDef (_, Outer (TDatatype (dt, r)))] =>
                let
                  val (_, cnames) = get_datatype_names dt
                  val _ = visit_list (visit_binder extend_c_data) ctx $ map Binder cnames
@@ -727,7 +727,7 @@ fun on_i_expr_visitor_vtable cast gctx : ('this, context) EV.expr_visitor_vtable
                                  tctx
                                 )
       in
-        DOpen (Outer (m, r), SOME ctxd)
+        [DOpen (Outer (m, r), SOME ctxd)]
       end
     val vtable = EV.override_visit_DOpen vtable visit_DOpen
   in
@@ -746,11 +746,8 @@ fun on_expr gctx ctx b =
 fun on_decls gctx env decls =
   let
     val visitor as (EV.ExprVisitor vtable) = new_on_i_expr_visitor gctx
-    val ctx = env2ctx env
-    val decls = EV.visit_decls visitor ctx decls
-    val env = !(#current ctx)
   in
-    (decls, env)
+    EV.visit_decls_acc visitor (decls, env)
   end
     
 (* fun on_ptrn gctx (ctx as (sctx, kctx, cctx)) pn = *)
