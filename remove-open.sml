@@ -39,7 +39,7 @@ fun remove_DOpen_expr_visitor_vtable cast () : ('this, unit) expr_visitor_vtable
 
 fun new_remove_DOpen_expr_visitor params = new_expr_visitor remove_DOpen_expr_visitor_vtable params
     
-fun remove_DOpen_e e =
+fun do_remove_DOpen_e e =
   let
     val visitor as (ExprVisitor vtable) = new_remove_DOpen_expr_visitor ()
   in
@@ -89,6 +89,6 @@ fun remove_DBlock_e e =
     #visit_expr vtable visitor () e
   end
 
-fun remove_DOpen_DBlock a = remove_DBlock $ remove_DOpen a
+fun remove_DOpen_e a = remove_DBlock_e $ do_remove_DOpen_e a
 
 end

@@ -1355,4 +1355,13 @@ fun visit_decls visitor ctx decls =
     decls
   end
     
+fun visit_decls_acc visitor (b, env) =
+  let
+    val ctx = env2ctx env
+    val b = visit_decls visitor ctx b
+    val env = !(#current ctx)
+  in
+    (b, env)
+  end
+
 end

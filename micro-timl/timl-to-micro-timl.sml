@@ -308,40 +308,20 @@ fun on_mt (t : S.mtype) =
 
 val trans_mt = on_mt
                  
-val shift_var = LongIdSubst.shiftx_var
-    
-fun compare_var id x =
-  case id of
-      QID _ => CmpOther
-    | ID (y, r) =>
-      if y = x then CmpEq
-      else if y > x then
-        CmpGreater $ ID (y - 1, r)
-      else CmpOther
-             
-fun shift_i_t a = shift_i_t_fn (shiftx_i_i, shiftx_i_s) a
-fun shift_t_t a = shift_t_t_fn shift_var a
-fun subst_i_t a = subst_i_t_fn (substx_i_i, substx_i_s) a
-fun subst0_i_t a = subst_i_t 0 0 a
-fun subst_t_t a = subst_t_t_fn (compare_var, shift_var, shiftx_i_i, shiftx_i_s) a
-fun subst0_t_t a = subst_t_t (IDepth 0, TDepth 0) 0 a
-fun normalize_t a = normalize_t_fn (subst0_i_t, subst0_t_t) a
-fun shift_i_e a = shift_i_e_fn (shiftx_i_i, shiftx_i_s, shift_i_t) a
-fun shift_e_e a = shift_e_e_fn shift_var a
-fun adapt f d x v env = f (d + env) (x + env) v
-fun subst_i_e d x v = subst_i_e_fn (adapt substx_i_i d x v, adapt substx_i_s d x v, adapt subst_i_t d x v)
-fun subst0_i_e a = subst_i_e 0 0 a
-fun subst_e_e a = subst_e_e_fn (compare_var, shift_var, shiftx_i_i, shiftx_i_s, shift_i_t, shift_t_t) a
-                
+open MicroTiMLExLongId
 open PatternEx
 structure S = TiML
                 
 fun shift_e_pn a = shift_e_pn_fn shift_e_e a
 
+fun SEV n = S.EVar (ID (n, dummy), true)
 fun SMakeECase (e, rules) = S.ECase (e, (NONE, NONE), map Bind rules, dummy)
 fun SMakeELet (decls, e) = S.ELet ((NONE, NONE), Bind (decls, e), dummy)
 
-structure SS = ExprSubst
+structure SS = struct
+open ExprShift
+open ExprSubst
+end
                  
 fun EV n = EVar (ID (n, dummy))
 
@@ -379,32 +359,33 @@ fun on_e (e : S.expr) =
         ELet (e, BindSimp (name, e2))
       end
     (* todo: EAbs should delegate to ECase *)
-    | S.EAbs bind =>
-      let
-        val (pn, e) = unBind bind
-        val (pn, Outer t) = case pn of S.AnnoP a => a | _ => raise Impossible "must be AnnoP"
-        val t = on_mt t
-        val e = on_e e
-        val pn = from_TiML_ptrn pn
-        val name = default (EName ("__x", dummy)) $ get_pn_alias pn
-        val pn = PnBind (pn, e)
-        val pn = shift_e_pn 0 1 pn
-        val e = to_expr (shift_i_e, shift_e_e, subst_e_e, EV) (EV 0) [pn]
-      in
-        EAbs $ BindAnno ((name, t), e)
-      end
     (* | S.EAbs bind => *)
-    (*   (* delegate to ECase *) *)
     (*   let *)
     (*     val (pn, e) = unBind bind *)
-    (*     val (pn, Outer t) = case pn of S.AnnoP a => a | _ => raise Impossible "to-micro-timl/EAbs: must be AnnoP" *)
-    (*     val name = default (EName ("__x", dummy)) $ get_pn_alias $ from_TiML_ptrn pn *)
+    (*     val (pn, Outer t) = case pn of S.AnnoP a => a | _ => raise Impossible "must be AnnoP" *)
     (*     val t = on_mt t *)
-    (*     val e = SMakeECase (SEV 0, [shift_e_rule (pn, e)]) *)
     (*     val e = on_e e *)
+    (*     val pn = from_TiML_ptrn pn *)
+    (*     val name = default (EName ("__x", dummy)) $ get_pn_alias pn *)
+    (*     val pn = PnBind (pn, e) *)
+    (*     val pn = shift_e_pn 0 1 pn *)
+    (*     val e = to_expr (shift_i_e, shift_e_e, subst_e_e, EV) (EV 0) [pn] *)
     (*   in *)
     (*     EAbs $ BindAnno ((name, t), e) *)
     (*   end *)
+    | S.EAbs bind =>
+      (* delegate to ECase *)
+      let
+        val (pn, e) = unBind bind
+        val (pn, Outer t) = case pn of S.AnnoP a => a | _ => raise Impossible "to-micro-timl/EAbs: must be AnnoP"
+        val name = default (EName ("__x", dummy)) $ get_pn_alias $ from_TiML_ptrn pn
+        val t = on_mt t
+        fun shift_e_rule a = DerivedTrans.for_rule SS.shift_e_e a
+        val e = SMakeECase (SEV 0, [shift_e_rule (pn, e)])
+        val e = on_e e
+      in
+        EAbs $ BindAnno ((name, t), e)
+      end
     | S.EAbsI (bind, _) =>
       let
         val ((name, s), e) = unBindAnno bind
@@ -450,18 +431,13 @@ and add_constr_decls (dt, e_body) =
           val ilen = length name_sorts
           fun IV n = S.VarI $ ID (n, dummy)
           fun TV n = S.MtVar $ ID (n, dummy)
-          fun EV n = S.EVar (ID (n, dummy), true)
           val ts = rev $ Range.map TV (0, tlen)
           val is = rev $ Range.map IV (0, ilen)
-          fun shift_dt f x n dt =
-            case f x n $ S.TDatatype (dt, dummy) of
-                S.TDatatype (dt, _) => dt
-              | _ => raise Impossible "shift_dt"
-          fun shiftx_i_dt a = shift_dt shiftx_i_mt a
-          fun shiftx_t_dt a = shift_dt shiftx_t_mt a
+          fun shiftx_i_dt x n = DerivedTrans.for_dt $ shiftx_i_mt x n
+          fun shiftx_t_dt x n = DerivedTrans.for_dt $ shiftx_t_mt x n
           val dt = shiftx_t_dt 0 tlen dt
           val dt = shiftx_i_dt 0 ilen dt
-          val e = make_constr (pos, ts, is, EV 0, dt)
+          val e = make_constr (pos, ts, is, SEV 0, dt)
           val ename = ("__x", dummy)
           val e = MakeEAbsConstr (tnames, inames, ename, e)
         in
@@ -597,7 +573,6 @@ and on_decls (decls, e_body) =
             in
               e
             end
-            (* todo: DTypeDef, DIdxDef and DAbsIdx2 should generate special kind of Let instead of inlining. DTypeDef currently needs to do inlining because the translation of [EAppConstr] needs datatype details. It will be changed in the future when constructors are translated into functions. *)
           (* | S.DTypeDef (name, Outer t) => *)
           (*   let *)
           (*     val e = SMakeELet (decls, e_body) *)

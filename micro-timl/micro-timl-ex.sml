@@ -140,6 +140,53 @@ fun override_visit_EVar (record : ('this, 'env, 'var, 'idx, 'sort, 'kind, 'ty, '
     extend_e = #extend_e record
   }
 
+fun override_visit_ELet (record : ('this, 'env, 'var, 'idx, 'sort, 'kind, 'ty, 'var2, 'idx2, 'sort2, 'kind2, 'ty2) expr_visitor_vtable) new : ('this, 'env, 'var, 'idx, 'sort, 'kind, 'ty, 'var2, 'idx2, 'sort2, 'kind2, 'ty2) expr_visitor_vtable =
+  {
+    visit_expr = #visit_expr record,
+    visit_EVar = #visit_EVar record,
+    visit_EConst = #visit_EConst record,
+    visit_ELoc = #visit_ELoc record,
+    visit_EUnOp = #visit_EUnOp record,
+    visit_EBinOp = #visit_EBinOp record,
+    visit_EWrite = #visit_EWrite record,
+    visit_ECase = #visit_ECase record,
+    visit_EAbs = #visit_EAbs record,
+    visit_ERec = #visit_ERec record,
+    visit_EAbsT = #visit_EAbsT record,
+    visit_EAppT = #visit_EAppT record,
+    visit_EAbsI = #visit_EAbsI record,
+    visit_EAppI = #visit_EAppI record,
+    visit_EPack = #visit_EPack record,
+    visit_EUnpack = #visit_EUnpack record,
+    visit_EPackI = #visit_EPackI record,
+    visit_EPackIs = #visit_EPackIs record,
+    visit_EUnpackI = #visit_EUnpackI record,
+    visit_EAscTime = #visit_EAscTime record,
+    visit_EAscType = #visit_EAscType record,
+    visit_ENever = #visit_ENever record,
+    visit_EBuiltin = #visit_EBuiltin record,
+    visit_ELet = new,
+    visit_ELetConstr = #visit_ELetConstr record,
+    visit_EAbsConstr = #visit_EAbsConstr record,
+    visit_EAppConstr = #visit_EAppConstr record,
+    visit_EVarConstr = #visit_EVarConstr record,
+    visit_ELetType = #visit_ELetType record,
+    visit_ELetIdx = #visit_ELetIdx record,
+    visit_EMatchSum = #visit_EMatchSum record,
+    visit_EMatchPair = #visit_EMatchPair record,
+    visit_EMatchUnfold = #visit_EMatchUnfold record,
+    visit_var = #visit_var record,
+    visit_cvar = #visit_cvar record,
+    visit_idx = #visit_idx record,
+    visit_sort = #visit_sort record,
+    visit_kind = #visit_kind record,
+    visit_ty = #visit_ty record,
+    extend_i = #extend_i record,
+    extend_t = #extend_t record,
+    extend_c = #extend_c record,
+    extend_e = #extend_e record
+  }
+
 fun override_visit_EMatchUnfold (record : ('this, 'env, 'var, 'idx, 'sort, 'kind, 'ty, 'var2, 'idx2, 'sort2, 'kind2, 'ty2) expr_visitor_vtable) new : ('this, 'env, 'var, 'idx, 'sort, 'kind, 'ty, 'var2, 'idx2, 'sort2, 'kind2, 'ty2) expr_visitor_vtable =
   {
     visit_expr = #visit_expr record,

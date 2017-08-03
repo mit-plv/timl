@@ -166,6 +166,7 @@ subst-uvar.sml
 update-expr.sml
 typecheck-main.sml
 trivial-solver.sml
+derived-trans.sml
 unpackage.sml
 post-typecheck.sml
 typecheck.sml
@@ -182,8 +183,9 @@ micro-timl/micro-timl-visitor.sml
 micro-timl/micro-timl-pp.sml
 micro-timl/micro-timl-ex.sml
 micro-timl/micro-timl-ex-pp.sml
-pattern-ex.sml
+micro-timl/pattern-ex.sml
 micro-timl/micro-timl-ex-util.sml
+micro-timl/micro-timl-ex-long-id.sml
 micro-timl/post-process.sml
 micro-timl/timl-to-micro-timl.sml
 unit-test.sml
