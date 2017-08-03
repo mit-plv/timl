@@ -421,6 +421,12 @@ and strn_decl decl =
         in
           sprintf "idx $$ = $" [name, default "" $ Option.map (prefix " : " o strn_s) s, strn_i i]
         end
+      | DConstrDef (name, Outer x) =>
+        let
+          val name = binder2str name
+        in
+          sprintf "constr $ = $" [name, x]
+        end
       | DAbsIdx2 (name, Outer s, Outer i) =>
         let
           val name = binder2str name

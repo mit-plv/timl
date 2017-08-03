@@ -1,6 +1,11 @@
 structure MergeModules = struct
 
-fun merge_module (mid, m(* , ctx as (sctx, kctx, cctx, tctx) *)) acc =
+open Expr
+open Unpackage
+
+infixr 0 $
+       
+fun merge_module ((mid, m(* , ctx as (sctx, kctx, cctx, tctx) *)), acc) =
   case m of
       ModComponents (decls, _) =>
       let
@@ -21,14 +26,14 @@ fun remove_Top_DAbsIdx2 m =
       let
         fun on_decl d =
           case d of
-              DAbsIdx2 a =>
+              DAbsIdx2 (name, Outer s, Outer i) =>
               let
                 val () = println "Warning: can't translate module-level [absidx] yet. They will be converted to [idx]"
               in
-                DAbsIdx a
+                DIdxDef (name, Outer $ SOME s, Outer i)
               end
             | _ => d
-        val decls = app on_decl decls
+        val decls = map on_decl decls
       in
         ModComponents (decls, r)
       end

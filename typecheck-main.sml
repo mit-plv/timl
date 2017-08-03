@@ -1851,6 +1851,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
             in
               (DOpen (Outer (m, r), octx), ctxd, 0, [])
             end
+          | U.DConstrDef _ => raise Impossible "typecheck/DConstrDef"
       fun extra_msg () = ["when type-checking declaration "] @ indent [fst $ US.str_decl (gctx_names gctx) (ctx_names ctx) decl]
       val ret as (decl, ctxd, nps, ds) =
           main ()

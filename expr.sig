@@ -47,6 +47,8 @@ signature EXPR = sig
            | DAbsIdx of (Binders.ibinder * sort Unbound.outer * idx Unbound.outer) * decl Unbound.tele Unbound.rebind * Region.region Unbound.outer
            | DTypeDef of Binders.tbinder * mtype Unbound.outer
            | DOpen of mod_id Unbound.outer * scoping_ctx option
+  (* these constructs won't show up in source program *)
+           | DConstrDef of Binders.cbinder * cvar Unbound.outer
            (* | DBlock of decl Unbound.tele Unbound.rebind *)
 
   type name = string * Region.region

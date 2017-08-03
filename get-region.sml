@@ -147,6 +147,7 @@ fun get_region_dec dec =
     | DAbsIdx2 (name, _, Outer i) => combine_region (get_region_binder name) (get_region_i i)
     | DAbsIdx (_, _, Outer r) => r
     | DTypeDef (name, Outer t) => combine_region (get_region_binder name) (get_region_mt t)
+    | DConstrDef (name, Outer x) => combine_region (get_region_binder name) (get_region_cvar x)
     | DOpen (Outer (_, r), _) => r
 
 fun get_region_sig (_, r) = r

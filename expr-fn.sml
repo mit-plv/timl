@@ -54,6 +54,7 @@ datatype expr =
          | DAbsIdx of (ibinder * sort outer * idx outer) * decl tele rebind * region outer
          | DTypeDef of tbinder * mtype outer
          | DOpen of mod_id outer * scoping_ctx option
+         | DConstrDef of cbinder * cvar outer
 
 type name = string * Region.region
 

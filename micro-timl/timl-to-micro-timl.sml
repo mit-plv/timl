@@ -618,6 +618,13 @@ and on_decls (decls, e_body) =
             in
               e
             end
+          | S.DConstrDef (name, Outer x) =>
+            let
+              val e = on_decls (decls, e_body)
+              val e = MakeELetConstr (EVarConstr x, unBinderName name, e)
+            in
+              e
+            end
           | S.DAbsIdx2 (name, _, Outer i) =>
             let
               val e = on_decls (decls, e_body)

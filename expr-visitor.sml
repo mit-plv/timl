@@ -51,6 +51,7 @@ type ('this, 'env) expr_visitor_vtable =
        visit_DAbsIdx2 : 'this -> 'env ctx -> iname binder * sort outer * idx outer -> T.decl list,
        visit_DAbsIdx : 'this -> 'env ctx -> (iname binder * sort outer * idx outer) * decl tele rebind * region outer -> T.decl list,
        visit_DTypeDef : 'this -> 'env ctx -> tname binder * mtype outer -> T.decl list,
+       visit_DConstrDef : 'this -> 'env ctx -> cbinder * cvar outer -> T.decl list,
        visit_DOpen : 'this -> 'env ctx -> mod_id outer * scoping_ctx option -> T.decl list,
        
        visit_ptrn : 'this -> 'env ctx -> ptrn -> T.ptrn,
@@ -109,6 +110,7 @@ fun override_visit_ConstrP (record : ('this, 'env) expr_visitor_vtable) new : ('
     visit_DAbsIdx = #visit_DAbsIdx record,
     visit_DTypeDef = #visit_DTypeDef record,
     visit_DOpen = #visit_DOpen record,
+    visit_DConstrDef = #visit_DConstrDef record,
     visit_ptrn = #visit_ptrn record,
     visit_VarP = #visit_VarP record,
     visit_TTP = #visit_TTP record,
@@ -163,6 +165,7 @@ fun override_visit_VarP (record : ('this, 'env) expr_visitor_vtable) new : ('thi
     visit_DAbsIdx = #visit_DAbsIdx record,
     visit_DTypeDef = #visit_DTypeDef record,
     visit_DOpen = #visit_DOpen record,
+    visit_DConstrDef = #visit_DConstrDef record,
     visit_ptrn = #visit_ptrn record,
     visit_VarP = new,
     visit_TTP = #visit_TTP record,
@@ -217,6 +220,7 @@ fun override_visit_EVar (record : ('this, 'env) expr_visitor_vtable) new : ('thi
     visit_DAbsIdx = #visit_DAbsIdx record,
     visit_DTypeDef = #visit_DTypeDef record,
     visit_DOpen = #visit_DOpen record,
+    visit_DConstrDef = #visit_DConstrDef record,
     visit_ptrn = #visit_ptrn record,
     visit_VarP = #visit_VarP record,
     visit_TTP = #visit_TTP record,
@@ -271,6 +275,7 @@ fun override_visit_EBinOp (record : ('this, 'env) expr_visitor_vtable) new : ('t
     visit_DAbsIdx = #visit_DAbsIdx record,
     visit_DTypeDef = #visit_DTypeDef record,
     visit_DOpen = #visit_DOpen record,
+    visit_DConstrDef = #visit_DConstrDef record,
     visit_ptrn = #visit_ptrn record,
     visit_VarP = #visit_VarP record,
     visit_TTP = #visit_TTP record,
@@ -325,6 +330,7 @@ fun override_visit_EApp (record : ('this, 'env) expr_visitor_vtable) new : ('thi
     visit_DAbsIdx = #visit_DAbsIdx record,
     visit_DTypeDef = #visit_DTypeDef record,
     visit_DOpen = #visit_DOpen record,
+    visit_DConstrDef = #visit_DConstrDef record,
     visit_ptrn = #visit_ptrn record,
     visit_VarP = #visit_VarP record,
     visit_TTP = #visit_TTP record,
@@ -379,6 +385,7 @@ fun override_visit_EEI (record : ('this, 'env) expr_visitor_vtable) new : ('this
     visit_DAbsIdx = #visit_DAbsIdx record,
     visit_DTypeDef = #visit_DTypeDef record,
     visit_DOpen = #visit_DOpen record,
+    visit_DConstrDef = #visit_DConstrDef record,
     visit_ptrn = #visit_ptrn record,
     visit_VarP = #visit_VarP record,
     visit_TTP = #visit_TTP record,
@@ -433,6 +440,7 @@ fun override_visit_EAppI (record : ('this, 'env) expr_visitor_vtable) new : ('th
     visit_DAbsIdx = #visit_DAbsIdx record,
     visit_DTypeDef = #visit_DTypeDef record,
     visit_DOpen = #visit_DOpen record,
+    visit_DConstrDef = #visit_DConstrDef record,
     visit_ptrn = #visit_ptrn record,
     visit_VarP = #visit_VarP record,
     visit_TTP = #visit_TTP record,
@@ -487,6 +495,7 @@ fun override_visit_EAscTime (record : ('this, 'env) expr_visitor_vtable) new : (
     visit_DAbsIdx = #visit_DAbsIdx record,
     visit_DTypeDef = #visit_DTypeDef record,
     visit_DOpen = #visit_DOpen record,
+    visit_DConstrDef = #visit_DConstrDef record,
     visit_ptrn = #visit_ptrn record,
     visit_VarP = #visit_VarP record,
     visit_TTP = #visit_TTP record,
@@ -541,6 +550,7 @@ fun override_visit_EAsc (record : ('this, 'env) expr_visitor_vtable) new : ('thi
     visit_DAbsIdx = #visit_DAbsIdx record,
     visit_DTypeDef = #visit_DTypeDef record,
     visit_DOpen = #visit_DOpen record,
+    visit_DConstrDef = #visit_DConstrDef record,
     visit_ptrn = #visit_ptrn record,
     visit_VarP = #visit_VarP record,
     visit_TTP = #visit_TTP record,
@@ -595,6 +605,7 @@ fun override_visit_ECase (record : ('this, 'env) expr_visitor_vtable) new : ('th
     visit_DAbsIdx = #visit_DAbsIdx record,
     visit_DTypeDef = #visit_DTypeDef record,
     visit_DOpen = #visit_DOpen record,
+    visit_DConstrDef = #visit_DConstrDef record,
     visit_ptrn = #visit_ptrn record,
     visit_VarP = #visit_VarP record,
     visit_TTP = #visit_TTP record,
@@ -649,6 +660,7 @@ fun override_visit_DRec (record : ('this, 'env) expr_visitor_vtable) new : ('thi
     visit_DAbsIdx = #visit_DAbsIdx record,
     visit_DTypeDef = #visit_DTypeDef record,
     visit_DOpen = #visit_DOpen record,
+    visit_DConstrDef = #visit_DConstrDef record,
     visit_ptrn = #visit_ptrn record,
     visit_VarP = #visit_VarP record,
     visit_TTP = #visit_TTP record,
@@ -703,6 +715,7 @@ fun override_visit_DTypeDef (record : ('this, 'env) expr_visitor_vtable) new : (
     visit_DAbsIdx = #visit_DAbsIdx record,
     visit_DTypeDef = new,
     visit_DOpen = #visit_DOpen record,
+    visit_DConstrDef = #visit_DConstrDef record,
     visit_ptrn = #visit_ptrn record,
     visit_VarP = #visit_VarP record,
     visit_TTP = #visit_TTP record,
@@ -757,6 +770,7 @@ fun override_visit_DOpen (record : ('this, 'env) expr_visitor_vtable) new : ('th
     visit_DAbsIdx = #visit_DAbsIdx record,
     visit_DTypeDef = #visit_DTypeDef record,
     visit_DOpen = new,
+    visit_DConstrDef = #visit_DConstrDef record,
     visit_ptrn = #visit_ptrn record,
     visit_VarP = #visit_VarP record,
     visit_TTP = #visit_TTP record,
@@ -1058,6 +1072,7 @@ fun default_expr_visitor_vtable
           | DAbsIdx2 data => #visit_DAbsIdx2 vtable this env data
           | DAbsIdx data => #visit_DAbsIdx vtable this env data
           | DTypeDef data => #visit_DTypeDef vtable this env data
+          | DConstrDef data => #visit_DConstrDef vtable this env data
           | DOpen data => #visit_DOpen vtable this env data
       end
     fun visit_ibinder this env name =
@@ -1276,6 +1291,16 @@ fun default_expr_visitor_vtable
       in
         [T.DTypeDef (name, t)]
       end
+    fun visit_DConstrDef this env data =
+      let
+        (* val () = println "default visit_DTypeDef" *)
+        val vtable = cast this
+        val (name, x) = data
+        val name = visit_cbinder this env name
+        val x = visit_outer (#visit_cvar vtable this) env x
+      in
+        [T.DConstrDef (name, x)]
+      end
     fun visit_scoping_ctx this env (sctx, kctx, cctx, tctx) =
       let
         val _ = visit_list (visit_ibinder this) env $ rev sctx
@@ -1410,6 +1435,7 @@ fun default_expr_visitor_vtable
       visit_DAbsIdx2 = visit_DAbsIdx2,
       visit_DAbsIdx = visit_DAbsIdx,
       visit_DTypeDef = visit_DTypeDef,
+      visit_DConstrDef = visit_DConstrDef,
       visit_DOpen = visit_DOpen,
       
       (* visit_ptrn = visit_ptrn, *)

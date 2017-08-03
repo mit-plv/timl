@@ -358,6 +358,12 @@ local
           in
             acc
           end
+        | DConstrDef (name, Outer x) =>
+          let 
+            val acc = on_var acc x
+          in
+            acc
+          end
         | DAbsIdx2 (name, Outer s, Outer i) =>
           let 
             val acc = on_s acc s
