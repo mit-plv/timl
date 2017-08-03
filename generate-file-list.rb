@@ -190,6 +190,8 @@ micro-timl/post-process.sml
 micro-timl/timl-to-micro-timl.sml
 unit-test.sml
 main.sml
+# remove-open.sml
+# merge-modules.sml
 }
 
 if target == :smlnj then

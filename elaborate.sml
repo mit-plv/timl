@@ -372,7 +372,7 @@ local
           let
             val s = default (UVarS ((), r)) $ Option.map elab_s s
           in
-            DIdxDef (Binder $ IName (name, r), Outer s, Outer $ elab_i i)
+            DIdxDef (Binder $ IName (name, r), Outer $ SOME s, Outer $ elab_i i)
           end
         | S.AbsIdx2 ((name, r), s, i) =>
           let

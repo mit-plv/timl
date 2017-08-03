@@ -1759,6 +1759,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
           | U.DIdxDef (name, Outer s, Outer i) =>
             let
               val (name, r) = unBinderName name
+              val s = s !! (fn () => raise Impossible "typecheck/DIdxDef: s must be SOME")
               val s = is_wf_sort gctx (sctx, s)
               val i = check_sort gctx (sctx, i, s)
               val s = sort_add_idx_eq r s i
@@ -1767,7 +1768,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
                                 (* val ps = [BinPred (EqP, VarI (NONE, (0, r)), shift_ctx_i ctxd i)] *)
                                 (* val () = open_premises ps *)
             in
-              (DIdxDef (Binder $ IName (name, r), Outer s, Outer i), ctxd, 0, [])
+              (DIdxDef (Binder $ IName (name, r), Outer $ SOME s, Outer i), ctxd, 0, [])
             end
           | U.DAbsIdx2 (name, Outer s, Outer i) =>
             let

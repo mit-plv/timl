@@ -419,7 +419,7 @@ and strn_decl decl =
         let
           val name = binder2str name
         in
-          sprintf "idx $ : $ = $" [name, strn_s s, strn_i i]
+          sprintf "idx $$ = $" [name, default "" $ Option.map (prefix " : " o strn_s) s, strn_i i]
         end
       | DAbsIdx2 (name, Outer s, Outer i) =>
         let

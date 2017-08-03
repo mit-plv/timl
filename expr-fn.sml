@@ -44,14 +44,12 @@ datatype expr =
 	 | EAppConstr of (cvar * bool) * mtype list * idx list * expr * (int * mtype) option
 	 | ECase of expr * return * (ptrn, expr) bind list * region
 	 | ELet of return * (decl tele, expr) bind * region
-         (* these constructs won't show up in source program *)
-	 (* | EAbsT of (sort, expr) tbind_anno * region *)
 
      and decl =
          DVal of ebinder * (tbinder list, expr) bind outer * region outer
          | DValPtrn of ptrn * expr outer * region outer
          | DRec of ebinder * (tbinder list * stbind tele rebind, (mtype * idx) * expr) bind inner * region outer
-         | DIdxDef of ibinder * sort outer * idx outer
+         | DIdxDef of ibinder * sort option outer * idx outer
          | DAbsIdx2 of ibinder * sort outer * idx outer
          | DAbsIdx of (ibinder * sort outer * idx outer) * decl tele rebind * region outer
          | DTypeDef of tbinder * mtype outer

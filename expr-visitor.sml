@@ -47,7 +47,7 @@ type ('this, 'env) expr_visitor_vtable =
        visit_DVal : 'this -> 'env ctx -> ename binder * (tname binder list, expr) bind outer * region outer -> T.decl list,
        visit_DValPtrn : 'this -> 'env ctx -> ptrn * expr outer * region outer -> T.decl list,
        visit_DRec : 'this -> 'env ctx -> ename binder * (tname binder list * stbind tele rebind, (mtype * idx) * expr) bind inner * region outer -> T.decl list,
-       visit_DIdxDef : 'this -> 'env ctx -> iname binder * sort outer * idx outer -> T.decl list,
+       visit_DIdxDef : 'this -> 'env ctx -> iname binder * sort option outer * idx outer -> T.decl list,
        visit_DAbsIdx2 : 'this -> 'env ctx -> iname binder * sort outer * idx outer -> T.decl list,
        visit_DAbsIdx : 'this -> 'env ctx -> (iname binder * sort outer * idx outer) * decl tele rebind * region outer -> T.decl list,
        visit_DTypeDef : 'this -> 'env ctx -> tname binder * mtype outer -> T.decl list,
@@ -1238,7 +1238,7 @@ fun default_expr_visitor_vtable
         val vtable = cast this
         val (name, s, i) = data
         val name = visit_ibinder this env name
-        val s = visit_outer (#visit_sort vtable this) env s
+        val s = visit_outer (visit_option (#visit_sort vtable this)) env s
         val i = visit_outer (#visit_idx vtable this) env i
       in
         [T.DIdxDef (name, s, i)]

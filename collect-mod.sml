@@ -353,7 +353,7 @@ local
           end
         | DIdxDef (name, Outer s, Outer i) =>
           let 
-            val acc = on_s acc s
+            val acc = on_option on_s acc s
             val acc = on_i acc i
           in
             acc
