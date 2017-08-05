@@ -518,121 +518,125 @@ and on_decls (decls, e_body) =
     case decls of
         TeleNil => on_e e_body
       | TeleCons (decl, Rebind decls) =>
-        case decl of
-            S.DVal (ename, Outer bind, Outer r) =>
-            let
-              val name = unBinderName ename
-              val (tnames, e) = Unbound.unBind bind
-              val tnames = map unBinderName tnames
-              val e = on_e e
-              val e = EAbsTKind_Many (tnames, e)
-              val e_body = on_decls (decls, e_body)
-            in
-              MakeELet (e, name, e_body)
-            end
-          | S.DValPtrn (pn, Outer e, Outer r) =>
-            let
-              val e_body = SMakeELet (decls, e_body)
-            in
-              on_e $ SMakeECase (e, [(pn, e_body)])
-            end
-	  | S.DRec (name, bind, _) => 
-	    let
-              val name = unBinderName name
-              val (e, t) = on_DRec (name, bind)
-              val e_body = on_decls (decls, e_body)
-            in
-              MakeELet (e, name, e_body)
-	    end
-          | S.DAbsIdx ((iname, Outer s, Outer i), Rebind inner_decls, Outer r) =>
-            let
-              val iname = unBinderName iname
-              val (ename, bind, _) =
-                  case unTeles inner_decls of
-                      [S.DRec a] => a
-                    | _ => raise Impossible "to-micro-timl/DAbsIdx: can only translate when the inner declarations are just one DRec"
-              val ename = unBinderName ename
-              val (e, t) = on_DRec (ename, bind)
-              val t = MakeTExistsI (iname, s, t)
-              val e = EPackI (t, i, MakeELetIdx (i, iname, e))
-              val e_body = on_decls (decls, e_body)
-              val e = MakeEUnpackI (e, iname, ename, e_body)
-            in
-              e
-            end
-          | S.DOpen (Outer m, octx) =>
-            let
-              val ctx as (sctx, kctx, cctx, tctx) = octx !! (fn () => raise Impossible "to-micro-timl/DOpen: octx must be SOME")
-              val e = SMakeELet (decls, e_body)
-              open Package
-              val e = (self_compose (length tctx) $ package0_e_e m) $ e
-              val e = (self_compose (length cctx) $ package0_c_e m) $ e
-              val e = (self_compose (length kctx) $ package0_t_e m) $ e
-              val e = (self_compose (length sctx) $ package0_i_e m) $ e
-              val e = on_e e
-            in
-              e
-            end
-          (* | S.DTypeDef (name, Outer t) => *)
-          (*   let *)
-          (*     val e = SMakeELet (decls, e_body) *)
-          (*     val e = SS.subst_t_e t e *)
-          (*     val e = on_e e *)
-          (*     val e = case t of *)
-          (*                 S.TDatatype (dt, _) => add_constr_decls (dt, e) *)
-          (*               | _ => e *)
-          (*   in *)
-          (*     e *)
-          (*   end *)
-          | S.DTypeDef (name, Outer mt) =>
-            let
-              val e = on_decls (decls, e_body)
-              val t = on_mt mt
-              val e = MakeELetType (t, unBinderName name, e)
-              val e = case mt of
-                          S.TDatatype (dt, _) => add_constr_decls (dt, e)
-                        | _ => e
-            in
-              e
-            end
-          (* | S.DIdxDef (name, _, Outer i) => *)
-          (*   let *)
-          (*     val e = SMakeELet (decls, e_body) *)
-          (*     val e = SS.subst_i_e i e *)
-          (*     val e = on_e e *)
-          (*   in *)
-          (*     e *)
-          (*   end *)
-          (* | S.DAbsIdx2 (name, _, Outer i) => *)
-          (*   let *)
-          (*     val e = SMakeELet (decls, e_body) *)
-          (*     val e = SS.subst_i_e i e *)
-          (*     val e = on_e e *)
-          (*   in *)
-          (*     e *)
-          (*   end *)
-          | S.DIdxDef (name, _, Outer i) =>
-            let
-              val e = on_decls (decls, e_body)
-              val e = MakeELetIdx (i, unBinderName name, e)
-            in
-              e
-            end
-          | S.DConstrDef (name, Outer x) =>
-            let
-              val e = on_decls (decls, e_body)
-              val e = MakeELetConstr (EVarConstr x, unBinderName name, e)
-            in
-              e
-            end
-          | S.DAbsIdx2 (name, _, Outer i) =>
-            let
-              val e = on_decls (decls, e_body)
-              val e = MakeELetIdx (i, unBinderName name, e)
-            in
-              e
-            end
-            
+        let
+          val () = println $ sprintf "translating: $" [fst $ ToString.str_decl Gctx.empty ToStringUtil.empty_ctx decl]
+        in
+          case decl of
+              S.DVal (ename, Outer bind, Outer r) =>
+              let
+                val name = unBinderName ename
+                val (tnames, e) = Unbound.unBind bind
+                val tnames = map unBinderName tnames
+                val e = on_e e
+                val e = EAbsTKind_Many (tnames, e)
+                val e_body = on_decls (decls, e_body)
+              in
+                MakeELet (e, name, e_body)
+              end
+            | S.DValPtrn (pn, Outer e, Outer r) =>
+              let
+                val e_body = SMakeELet (decls, e_body)
+              in
+                on_e $ SMakeECase (e, [(pn, e_body)])
+              end
+	    | S.DRec (name, bind, _) => 
+	      let
+                val name = unBinderName name
+                val (e, t) = on_DRec (name, bind)
+                val e_body = on_decls (decls, e_body)
+              in
+                MakeELet (e, name, e_body)
+	      end
+            | S.DAbsIdx ((iname, Outer s, Outer i), Rebind inner_decls, Outer r) =>
+              let
+                val iname = unBinderName iname
+                val (ename, bind, _) =
+                    case unTeles inner_decls of
+                        [S.DRec a] => a
+                      | _ => raise Impossible "to-micro-timl/DAbsIdx: can only translate when the inner declarations are just one DRec"
+                val ename = unBinderName ename
+                val (e, t) = on_DRec (ename, bind)
+                val t = MakeTExistsI (iname, s, t)
+                val e = EPackI (t, i, MakeELetIdx (i, iname, e))
+                val e_body = on_decls (decls, e_body)
+                val e = MakeEUnpackI (e, iname, ename, e_body)
+              in
+                e
+              end
+            | S.DOpen (Outer m, octx) =>
+              let
+                val ctx as (sctx, kctx, cctx, tctx) = octx !! (fn () => raise Impossible "to-micro-timl/DOpen: octx must be SOME")
+                val e = SMakeELet (decls, e_body)
+                open Package
+                val e = (self_compose (length tctx) $ package0_e_e m) $ e
+                val e = (self_compose (length cctx) $ package0_c_e m) $ e
+                val e = (self_compose (length kctx) $ package0_t_e m) $ e
+                val e = (self_compose (length sctx) $ package0_i_e m) $ e
+                val e = on_e e
+              in
+                e
+              end
+            (* | S.DTypeDef (name, Outer t) => *)
+            (*   let *)
+            (*     val e = SMakeELet (decls, e_body) *)
+            (*     val e = SS.subst_t_e t e *)
+            (*     val e = on_e e *)
+            (*     val e = case t of *)
+            (*                 S.TDatatype (dt, _) => add_constr_decls (dt, e) *)
+            (*               | _ => e *)
+            (*   in *)
+            (*     e *)
+            (*   end *)
+            | S.DTypeDef (name, Outer mt) =>
+              let
+                val e = on_decls (decls, e_body)
+                val t = on_mt mt
+                val e = MakeELetType (t, unBinderName name, e)
+                val e = case mt of
+                            S.TDatatype (dt, _) => add_constr_decls (dt, e)
+                          | _ => e
+              in
+                e
+              end
+            (* | S.DIdxDef (name, _, Outer i) => *)
+            (*   let *)
+            (*     val e = SMakeELet (decls, e_body) *)
+            (*     val e = SS.subst_i_e i e *)
+            (*     val e = on_e e *)
+            (*   in *)
+            (*     e *)
+            (*   end *)
+            (* | S.DAbsIdx2 (name, _, Outer i) => *)
+            (*   let *)
+            (*     val e = SMakeELet (decls, e_body) *)
+            (*     val e = SS.subst_i_e i e *)
+            (*     val e = on_e e *)
+            (*   in *)
+            (*     e *)
+            (*   end *)
+            | S.DIdxDef (name, _, Outer i) =>
+              let
+                val e = on_decls (decls, e_body)
+                val e = MakeELetIdx (i, unBinderName name, e)
+              in
+                e
+              end
+            | S.DConstrDef (name, Outer x) =>
+              let
+                val e = on_decls (decls, e_body)
+                val e = MakeELetConstr (EVarConstr x, unBinderName name, e)
+              in
+                e
+              end
+            | S.DAbsIdx2 (name, _, Outer i) =>
+              let
+                val e = on_decls (decls, e_body)
+                val e = MakeELetIdx (i, unBinderName name, e)
+              in
+                e
+              end
+        end
+          
 and on_DRec (name, bind) =
     let
       val ((tnames, Rebind binds), ((t, i), e)) = Unbound.unBind $ unInner bind
@@ -803,10 +807,10 @@ fun test2 dirname =
     val ((decls, _, _, _), _) = typecheck_decls empty empty_ctx decls
     val e = SMakeELet (Teles decls, Expr.ETT dummy)
     val e = SimpExpr.simp_e [] e
-    val () = println $ str_e empty ([], [], [], []) e
+    val () = println $ str_e empty ToStringUtil.empty_ctx e
     val () = println ""
     val e = trans_e e
-    val e = export ([], [], [], []) e
+    val e = export ToStringUtil.empty_ctx e
     val () = pp_e e
     val () = println ""
   in
@@ -833,10 +837,10 @@ fun test3 dirname =
     val decls = merge_prog prog []
     val e = SMakeELet (Teles decls, Expr.ETT dummy)
     val e = SimpExpr.simp_e [] e
-    val () = println $ str_e empty ([], [], [], []) e
+    val () = println $ str_e empty ToStringUtil.empty_ctx e
     val () = println ""
     val e = trans_e e
-    val e = export ([], [], [], []) e
+    val e = export ToStringUtil.empty_ctx e
     val () = pp_e e
     val () = println ""
   in
@@ -864,10 +868,10 @@ fun test4 dirname =
     val decls = merge_prog prog []
     val e = SMakeELet (Teles decls, Expr.ETT dummy)
     val e = SimpExpr.simp_e [] e
-    (* val () = println $ str_e empty ([], [], [], []) e *)
+    (* val () = println $ str_e empty ToStringUtil.empty_ctx e *)
     (* val () = println "" *)
     val e = trans_e e
-    val e = export ([], [], [], []) e
+    val e = export ToStringUtil.empty_ctx e
     val () = pp_e e
     val () = println ""
   in

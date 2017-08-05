@@ -431,7 +431,7 @@ and strn_decl decl =
         let
           val name = binder2str name
         in
-          sprintf "absidx $ : $ = $" [name, strn_s s, strn_i i]
+          sprintf "absidx2 $ : $ = $" [name, strn_s s, strn_i i]
         end
       | DAbsIdx ((name, Outer s, Outer i), Rebind decls, _) =>
         let

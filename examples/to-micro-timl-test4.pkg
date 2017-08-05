@@ -1,17 +1,17 @@
 stdlib.pkg
 
-perversive-list.timl
-trivial.timl
-(* bigO-evolve.timl *)
-(* fold-evolve.timl *)
-(* single-var.timl *)
-bug.timl
-pldi-2017-review-example.timl
-braun-tree-sortedness.timl
-rbt-sortedness.timl
+(* perversive-list.timl *)
+(* trivial.timl *)
+(* (* bigO-evolve.timl *) *)
+(* (* fold-evolve.timl *) *)
+(* (* single-var.timl *) *)
+(* bug.timl *)
+(* pldi-2017-review-example.timl *)
+(* braun-tree-sortedness.timl *)
+(* rbt-sortedness.timl *)
 
-ragged-matrix.timl
-tree.timl
+(* ragged-matrix.timl *)
+(* tree.timl *)
 msort.timl
 (* insertion-sort.timl *)
 (* braun-tree.timl *)

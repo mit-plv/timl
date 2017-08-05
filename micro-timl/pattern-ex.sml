@@ -665,7 +665,7 @@ fun remove_deep_many fresh_name (params as (shift_i_e, shift_e_e, subst_e_e, EV)
             [] =>
             (case pks of
                  [PnExpr (Rebind (Outer e))] => e
-               | _ => raise Impossible $ sprintf "remove_deep_many(): $" [str_int $ length pks]
+               | _ => raise Impossible $ sprintf "remove_deep_many(): $" [str_ls str_pn pks]
             )
           | matchee :: matchees =>
             let
