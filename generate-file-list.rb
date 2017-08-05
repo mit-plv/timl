@@ -187,11 +187,11 @@ micro-timl/pattern-ex.sml
 micro-timl/micro-timl-ex-util.sml
 micro-timl/micro-timl-ex-long-id.sml
 micro-timl/post-process.sml
+remove-open.sml
+merge-modules.sml
 micro-timl/timl-to-micro-timl.sml
 unit-test.sml
 main.sml
-remove-open.sml
-merge-modules.sml
 }
 
 if target == :smlnj then

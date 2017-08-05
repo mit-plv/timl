@@ -31,7 +31,7 @@ fun remove_DOpen_expr_visitor_vtable cast () : ('this, unit) expr_visitor_vtable
         val decls = mapi (fn (i, name) => DIdxDef (name, Outer NONE, Outer $ VarI $ V i)) sctx @ decls
         val decls = mapi (fn (i, name) => DTypeDef (name, Outer $ MtVar $ V i)) kctx @ decls
         val decls = mapi (fn (i, name) => DConstrDef (name, Outer $ V i)) cctx @ decls
-        val decls = mapi (fn (i, name) => MakeDVal (unBinderName name, [], EVar (V i, false), dummy)) tctx @ decls
+        val decls = mapi (fn (i, name) => MakeDVal (unBinderName name, [], EVar (V i, true), dummy)) tctx @ decls
         val decls = rev decls
       in
         decls
@@ -56,5 +56,12 @@ fun remove_DOpen_m m =
   case m of
       ModComponents (decls, r) => ModComponents (remove_DOpen_decls decls, r)
     | _ => raise Unimpl "remove_DOpen_m"
+
+fun remove_DOpen_top_bind b =
+  case b of
+      TopModBind m => TopModBind $ remove_DOpen_m m
+    | _ => raise Unimpl "remove_DOpen_top_bind"
+                 
+fun remove_DOpen_prog p = map (mapSnd remove_DOpen_top_bind) p
   
 end

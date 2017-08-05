@@ -817,11 +817,42 @@ fun test2 dirname =
   (*      | T2MTError msg => (println $ "T2MT.Error: " ^ msg; raise Impossible "End") *)
   (*      | Impossible msg => (println $ "Impossible: " ^ msg; raise Impossible "End") *)
 
+fun test3 dirname =
+  let
+    val filename = join_dir_file (dirname, "test3.timl")
+    open Parser
+    val prog = parse_file filename
+    open Elaborate
+    val prog = elaborate_prog prog
+    open NameResolve
+    val (prog, _, _) = resolve_prog empty prog
+    open TypeCheck
+    val () = TypeCheck.turn_on_builtin ()
+    val ((prog, _, _), _) = typecheck_prog empty prog
+    open MergeModules
+    val decls = merge_prog prog []
+    val e = SMakeELet (Teles decls, Expr.ETT dummy)
+    val e = SimpExpr.simp_e [] e
+    val () = println $ str_e empty ([], [], [], []) e
+    val () = println ""
+    val e = trans_e e
+    val e = export ([], [], [], []) e
+    val () = pp_e e
+    val () = println ""
+  in
+    ((* t, e *))
+  end
+  handle NameResolve.Error (_, msg) => (println $ "NR.Error: " ^ msg; raise Impossible "End")
+       | TypeCheck.Error (_, msgs) => (app println $ "TC.Error: " :: msgs; raise Impossible "End")
+  (*      | T2MTError msg => (println $ "T2MT.Error: " ^ msg; raise Impossible "End") *)
+  (*      | Impossible msg => (println $ "Impossible: " ^ msg; raise Impossible "End") *)
+
 fun test_suites dirname =
   let
     val suites = [
-      test1,
-      test2
+      (* test1, *)
+      (* test2, *)
+      test3
     ]
     val () = app (fn f => ignore $ f dirname) suites
   in

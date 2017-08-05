@@ -1169,6 +1169,54 @@ fun str_gctx old_gctxn gctx =
 (*     lines *)
 (*   end *)
 
+fun is_value (e : U.expr) : bool =
+  let
+    open U
+  in
+    case e of
+        EVar _ => true
+      | EConst (c, _) =>
+        (case c of
+             ECTT => true
+           | ECNat _ => true
+           | ECInt _ => true
+        )
+      | EUnOp (opr, e, _) =>
+        (case opr of
+             EUFst => false
+           | EUSnd => false
+        )
+      | EBinOp (opr, e1, e2) =>
+        (case opr of
+             EBApp => false
+           | EBPair => is_value e1 andalso is_value e2
+           | EBNew => false
+           | EBRead => false
+           | EBAdd => false
+        )
+      | ETriOp _ => false
+      | EEI (opr, e, i) =>
+        (case opr of
+             EEIAppI => false
+           | EEIAscTime => false
+        )
+      | EET (opr, e, t) =>
+        (case opr of
+             EETAppT => false
+           | EETAsc => false
+        )
+      | ET (opr, t, _) =>
+        (case opr of
+             ETNever => true
+           | ETBuiltin => true
+        )
+      | EAbs _ => true
+      | EAbsI _ => true
+      | ELet _ => false
+      | EAppConstr (_, _, _, e, _) => is_value e
+      | ECase _ => false
+  end
+    
 fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, tctx : tcontext), e_all : U.expr) : expr * mtype * idx =
   let
     val get_mtype = get_mtype gctx
@@ -1445,7 +1493,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	  let 
             val ((iname, s), e) = unBindAnno bind
             val (name, r) = unName iname
-	    val () = if U.is_value e then ()
+	    val () = if is_value e then ()
 		     else raise Error (U.get_region_e e, ["The body of a universal abstraction must be a value"])
             val s = is_wf_sort gctx (sctx, s)
             val ctxd = ctx_from_sorting (name, s)
@@ -1612,26 +1660,28 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
             U.DVal (ename, Outer bind, Outer r) =>
             let
               val name = binder2str ename
+              (* val () = println $ "DVal " ^ name *)
               val (tnames, e) = Unbound.unBind bind
               val tnames = map unBinderName tnames
+              val is_value = is_value e
               val (e, t, d) = get_mtype (add_kindings_skct (zip ((rev o map fst) tnames, repeat (length tnames) Type)) ctx, e)
-              val (poly_t, tnames) = if is_value e then 
-                        let
-                          val (t, poly_t, free_uvars, free_uvar_names) = generalize t
-                          val e = UpdateExpr.update_e e
-                          val e = ExprShift.shiftx_t_e 0 (length free_uvars) e
-                          val e = foldli (fn (v, uvar_ref, e) => SubstUVar.substu_t_e uvar_ref v e) e free_uvars
-                          val poly_t = Uni_Many (tnames, poly_t, r)
-                          val tnames = tnames @ rev free_uvar_names
-                        in
-                          (poly_t, tnames)
-                        end
-                      else if length tnames = 0 then
-                        (Mono t, tnames)
-                      else
-                        raise Error (r, ["explicit type variable cannot be generalized because of value restriction"])
             in
-              (DVal (ename, Outer $ Unbound.Bind (map (Binder o TName) tnames, e), Outer r), ctx_from_typing (name, poly_t), 0, [d])
+              if is_value then 
+                let
+                  val (t, poly_t, free_uvars, free_uvar_names) = generalize t
+                  (* val () = println $ str_ls fst free_uvar_names *)
+                  val e = UpdateExpr.update_e e
+                  val e = ExprShift.shiftx_t_e 0 (length free_uvars) e
+                  val e = foldli (fn (v, uvar_ref, e) => SubstUVar.substu_t_e uvar_ref v e) e free_uvars
+                  val poly_t = Uni_Many (tnames, poly_t, r)
+                  val tnames = tnames @ rev free_uvar_names
+                in
+                  (DVal (ename, Outer $ Unbound.Bind (map (Binder o TName) tnames, e), Outer r), ctx_from_typing (name, poly_t), 0, [d])
+                end
+              else if length tnames = 0 then
+                (DVal (ename, Outer $ Unbound.Bind (map (Binder o TName) tnames, e), Outer r), ctx_from_typing (name, Mono t), 0, [d])
+              else
+                raise Error (r, ["explicit type variable cannot be generalized because of value restriction"])
             end
           | U.DValPtrn (pn, Outer e, Outer r) =>
             let 
@@ -2106,7 +2156,7 @@ fun is_sub_sig r gctx ctx ctx' =
     ()
   end
     
-fun is_wf_sig gctx (comps, r) =
+fun is_wf_sig gctx (specs, r) =
   let
     fun is_wf_spec (ctx as (sctx, kctx, _, _)) spec =
       case spec of
@@ -2149,10 +2199,11 @@ fun is_wf_sig gctx (comps, r) =
       in
         (spec :: specs, ctx)
       end
-    val ctxd = snd $ foldl iter ([], empty_ctx) comps
+    val (specs, ctxd) = foldl iter ([], empty_ctx) specs
+    val specs = rev specs
     val () = close_ctx ctxd
   in
-    ctxd
+    ((specs, r), ctxd)
   end
 (* | U.SigVar (x, r) => *)
 (*   (case lookup_sig gctx x of *)
@@ -2165,32 +2216,32 @@ fun is_wf_sig gctx (comps, r) =
 (*     val k =  *)
 (*   in *)
 (*   end *)
-        
-fun get_sig gctx m : context =
+
+fun get_sig gctx m =
   case m of
-      U.ModComponents (comps, r) =>
+      U.ModComponents (decls, r) =>
       let
-        val (_, ctxd, nps, ds, _) = check_decls gctx (empty_ctx, comps)
+        val (decls, ctxd, nps, ds, _) = check_decls gctx (empty_ctx, decls)
         val () = close_n nps
         val () = close_ctx ctxd
       in
-        ctxd
+        (ModComponents (decls, r), ctxd)
       end
-    | U.ModSeal (m, sg) =>
+    | U.ModSeal (m, sgn) =>
       let
-        val sg = is_wf_sig gctx sg
-        val sg' = get_sig gctx m
-        val () = is_sub_sig (U.get_region_m m) gctx sg' sg
+        val (sgn, sg) = is_wf_sig gctx sgn
+        val (m, sg') = get_sig gctx m
+        val () = is_sub_sig (get_region_m m) gctx sg' sg
       in
-        sg
+        (ModSeal (m, sgn), sg)
       end
-    | U.ModTransparentAsc (m, sg) =>
+    | U.ModTransparentAsc (m, sgn) =>
       let
-        val sg = is_wf_sig gctx sg
-        val sg' = get_sig gctx m
-        val () = is_sub_sig (U.get_region_m m) gctx sg' sg
+        val (sgn, sg) = is_wf_sig gctx sgn
+        val (m, sg') = get_sig gctx m
+        val () = is_sub_sig (get_region_m m) gctx sg' sg
       in
-        sg'
+        (ModTransparentAsc (m, sgn), sg')
       end
 
 fun check_top_bind gctx (name, bind) =
@@ -2199,20 +2250,21 @@ fun check_top_bind gctx (name, bind) =
         case bind of
             U.TopModBind m =>
             let
-              val sg = get_sig gctx m
+              val (m, sg) = get_sig gctx m
             in
-              [(name, Sig sg)]
+              (TopModBind m, [(name, Sig sg)])
             end
-          | U.TopFunctorBind (((arg_name, _), arg), m) =>
+          | U.TopFunctorBind (((arg_name, r), arg_sg), m) =>
             (* functor applications will be implemented fiberedly instead of parametrizedly *)
             let
-              val arg = is_wf_sig gctx arg
+              val (arg_sg, arg) = is_wf_sig gctx arg_sg
               val gctx = add_sigging (arg_name, arg) gctx
               val () = open_module (arg_name, arg)
-              val sg = get_sig gctx m
+              val (m, sg) = get_sig gctx m
               val () = close_n 1
             in
-              [(name, FunctorBind ((arg_name, arg), sg))]
+              (TopFunctorBind (((arg_name, r), arg_sg), m),
+               [(name, FunctorBind ((arg_name, arg), sg))])
             end
           | U.TopFunctorApp (f, m) =>
             let
@@ -2225,7 +2277,7 @@ fun check_top_bind gctx (name, bind) =
               val ((formal_arg_name, formal_arg), body) = fetch_functor gctx f
               val formal_arg = link_sig (snd m) gctx m formal_arg
             in
-              [(name, Sig body), (formal_arg_name, Sig formal_arg)]
+              (TopFunctorApp (f, m), [(name, Sig body), (formal_arg_name, Sig formal_arg)])
             end
     (* val () = println $ sprintf "Typechecked program:" [] *)
     (* val () = app println $ map fst gctxd *)
@@ -2307,18 +2359,19 @@ fun check_prog gctx (binds : U.prog) =
         end
       fun close_gctx gctx =
         close_n $ Gctx.length $ filter_module gctx
-      fun iter (((name, r), bind), (acc, gctx)) =
+      fun iter (((name, r), bind), (binds, acc, gctx)) =
         let
           val () = open_gctx gctx
-          val gctxd = check_top_bind gctx (name, bind)
+          val (bind, gctxd) = check_top_bind gctx (name, bind)
           val () = close_gctx gctx
         in
-          (gctxd @ acc, addList (gctx, gctxd))
+          (((name, r), bind) :: binds, gctxd @ acc, addList (gctx, gctxd))
         end
-      val ret as (gctxd, gctx) = foldl iter ([], gctx) binds
-                                       (* val () = println "End check_prog()" *)
+      val (binds, gctxd, gctx) = foldl iter ([], [], gctx) binds
+      val binds = rev binds
+                      (* val () = println "End check_prog()" *)
     in
-      ret
+      (binds, gctxd, gctx)
     end
 
 end

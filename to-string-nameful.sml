@@ -330,7 +330,7 @@ fun strn_e e =
       )
     | EET (opr, e, t) =>
       (case opr of
-           EETAppT => sprintf "($ {$})" [strn_e e, strn_mt t]
+           EETAppT => sprintf "($ [$])" [strn_e e, strn_mt t]
          | EETAsc => sprintf "($ : $)" [strn_e e, strn_mt t]
       )
     | ET (opr, t, _) =>

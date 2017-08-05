@@ -1,0 +1,50 @@
+structure List2 = struct
+
+datatype list 'a : {Nat} =
+         Nil of list 'a {0} 
+       | Cons {n : Nat} of 'a * list 'a {n} --> list 'a {n + 1} 
+
+val ['a] f = fn {n : Nat} (ls : list 'a {n}) return list _ {n} =>
+           case ls of
+               Nil => ls
+             | Cons (x, xs) => Cons (x, xs)
+
+fun map ['a 'b] {m n : Nat} (f : 'a -- $m --> 'b) (ls : list 'a {n}) return list 'b {n} using $(m + 3) * $n =
+    case ls of
+        Nil => Nil
+      | Cons (x, xs) => Cons (f x, map f xs)
+                            
+(* fun map {m n : Nat} (f : _ -- $m --> _) (ls : list _ {n}) return list _ {n} using $(m + 3) * $n = *)
+(*     case ls of *)
+(*         Nil => Nil *)
+(*       | Cons (x, xs) => Cons (f x, map f xs) *)
+
+val map2 = @map
+                 
+end
+
+structure Basic = struct
+
+datatype bool = true | false
+
+(* indexed boolean *)
+datatype ibool : {Bool} =
+         True of ibool {true}
+         | False of ibool {false}
+
+datatype option 'a =
+         NONE
+         | SOME of 'a --> option 'a
+
+datatype le {a b : Nat} =
+         LE {a <= b} of le {a} {b}
+
+open List2
+
+type bool_list = list bool {10}
+type bool_list2 = List2.list bool {10}
+val bool_map = @map
+val bool_map2 = @List2.map
+                      
+end
+                    

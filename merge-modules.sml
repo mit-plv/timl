@@ -20,7 +20,7 @@ fun merge_module ((mid, m(* , ctx as (sctx, kctx, cctx, tctx) *)), acc) =
         
 fun do_merge_modules ms decls = foldr merge_module decls ms
 
-fun remove_Top_DAbsIdx2 m =
+fun remove_Top_DAbsIdx2_m m =
   case m of
       ModComponents (decls, r) =>
       let
@@ -46,9 +46,14 @@ fun merge_modules ms decls =
   let
     val decls = remove_DOpen_decls decls
     val ms = map (mapSnd remove_DOpen_m) ms
-    val ms = map (mapSnd remove_Top_DAbsIdx2) ms
+    val ms = map (mapSnd remove_Top_DAbsIdx2_m) ms
   in
     do_merge_modules ms decls
   end
-    
+
+fun prog2modules p = map (curry mapPair fst (fn TopModBind m => m
+                                      | _ => raise Impossible "prog2modules")) p
+                         
+fun merge_prog p = merge_modules $ prog2modules p
+
 end
