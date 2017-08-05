@@ -194,89 +194,106 @@ fun process_prog show_result filename gctx prog =
       (prog, gctxd, (* gctx,  *)admits)
     end
 
-fun typecheck_file show_result gctx filename =
-    let
-      val () = if show_result then println $ sprintf "Typechecking file $ ..." [filename] else ()
-      val prog = parse_file filename
-      val prog = elaborate_prog prog
-      (* val () = (app println o map (suffix "\n") o fst o E.str_decls ctxn) decls *)
-      (* val () = (app println o map (suffix "\n") o fst o UnderscoredExpr.str_decls ctxn) decls *)
-      (* apply solvers after each top bind *)
-      (* fun iter (bind, (prog, gctx, admits_acc)) = *)
-      (*     let *)
-      (*       (* val mod_names = mod_names_top_bind bind *) *)
-      (*       (* val (gctx', mapping) = select_modules gctx mod_names *) *)
-      (*       val gctx' = gctx *)
-      (*       val (progd, gctxd, admits) = process_prog show_result filename gctx' [bind] *)
-      (*       (* val gctxd = remap_modules gctxd mapping *) *)
-      (*       val gctx = addList (gctx, gctxd) *)
-      (*     in *)
-      (*       (progd @ prog, gctx, admits_acc @ admits) *)
-      (*     end *)
-      (* val (prog, gctx, admits) = foldl iter ([], gctx, []) prog *)
-      val (prog, gctxd, admits) = process_prog show_result filename gctx prog
-      val gctx = addList (gctx, gctxd)
-    in
-      (prog, gctx, admits)
-    end
-    handle
-    Elaborate.Error (r, msg) => raise Error $ str_error "Error" filename r ["Elaborate error: " ^ msg]
-    | NameResolve.Error (r, msg) => raise Error $ str_error "Error" filename r ["Resolve error: " ^ msg]
-    | TypeCheck.Error (r, msg) => raise Error $ str_error "Error" filename r ((* "Type error: " :: *) msg)
-    | BigOSolver.MasterTheoremCheckFail (r, msg) => raise Error $ str_error "Error" filename r ((* "Type error: " :: *) msg)
-    | Parser.Error => raise Error "Unknown parse error"
-    | SMTError msg => raise Error $ "SMT error: " ^ msg
-    | IO.Io e => raise Error $ sprintf "IO error in function $ on file $" [#function e, #name e]
-    | OS.SysErr (msg, err) => raise Error $ sprintf "System error$: $" [(default "" o Option.map (prefix " " o OS.errorName)) err, msg]
-    | Gctx.KeyAlreadyExists (name, gctx) => raise Error $ sprintf "module name '$' already exists in module context $" [name, str_ls id gctx]
+fun do_process_file is_library gctx filename =
+  let
+    val show_result = not is_library
+    val () = if show_result then println $ sprintf "Typechecking file $ ..." [filename] else ()
+    val () = if is_library then
+               TypeCheck.turn_on_builtin ()
+             else ()
+    val prog = parse_file filename
+    val prog = elaborate_prog prog
+    (* val () = (app println o map (suffix "\n") o fst o E.str_decls ctxn) decls *)
+    (* val () = (app println o map (suffix "\n") o fst o UnderscoredExpr.str_decls ctxn) decls *)
+    (* apply solvers after each top bind *)
+    (* fun iter (bind, (prog, gctx, admits_acc)) = *)
+    (*     let *)
+    (*       (* val mod_names = mod_names_top_bind bind *) *)
+    (*       (* val (gctx', mapping) = select_modules gctx mod_names *) *)
+    (*       val gctx' = gctx *)
+    (*       val (progd, gctxd, admits) = process_prog show_result filename gctx' [bind] *)
+    (*       (* val gctxd = remap_modules gctxd mapping *) *)
+    (*       val gctx = addList (gctx, gctxd) *)
+    (*     in *)
+    (*       (progd @ prog, gctx, admits_acc @ admits) *)
+    (*     end *)
+    (* val (prog, gctx, admits) = foldl iter ([], gctx, []) prog *)
+    val (prog, gctxd, admits) = process_prog show_result filename gctx prog
+    val gctx = addList (gctx, gctxd)
+    val () = TypeCheck.turn_off_builtin ()
+  in
+    (prog, gctx, admits)
+  end
+  handle
+  Elaborate.Error (r, msg) => raise Error $ str_error "Error" filename r ["Elaborate error: " ^ msg]
+  | NameResolve.Error (r, msg) => raise Error $ str_error "Error" filename r ["Resolve error: " ^ msg]
+  | TypeCheck.Error (r, msg) => raise Error $ str_error "Error" filename r ((* "Type error: " :: *) msg)
+  | BigOSolver.MasterTheoremCheckFail (r, msg) => raise Error $ str_error "Error" filename r ((* "Type error: " :: *) msg)
+  | Parser.Error => raise Error "Unknown parse error"
+  | SMTError msg => raise Error $ "SMT error: " ^ msg
+  | IO.Io e => raise Error $ sprintf "IO error in function $ on file $" [#function e, #name e]
+  | OS.SysErr (msg, err) => raise Error $ sprintf "System error$: $" [(default "" o Option.map (prefix " " o OS.errorName)) err, msg]
+  | Gctx.KeyAlreadyExists (name, gctx) => raise Error $ sprintf "module name '$' already exists in module context $" [name, str_ls id gctx]
 
-fun process_file is_library filename gctx =
-    let
-      val (dir, base, ext) = split_dir_file_ext filename
-      val gctx =
-          if ext = SOME "pkg" then
-            let
-              val () = if is_library then
-                         TypeCheck.turn_on_builtin ()
-                       else ()
-              (* val split_lines = String.tokens (fn c => c = #"\n") *)
-              (* val read_lines = split_lines o read_file *)
-              val filenames = read_lines filename
-              val filenames = map trim filenames
-              (* val () = app println filenames *)
-              val filenames = List.filter (fn s => not (String.isPrefix "(*" s andalso String.isSuffix "*)" s)) filenames
-              (* val () = app println filenames *)
-              val filenames = List.filter (fn s => s <> "") filenames
-              val filenames = map (curry join_dir_file dir) filenames
-              val gctx = process_files is_library gctx filenames
-              val () = TypeCheck.turn_off_builtin ()
-            in
-              gctx
-            end
-          else if ext = SOME "timl" then
-            typecheck_file (not is_library) gctx filename
-          else raise Error $ sprintf "Unknown filename extension $ of $" [default "<EMPTY>" ext, filename]
-    in
-      gctx
-    end
+(* fun process_file is_library filename gctx = *)
+(*     let *)
+(*       val (dir, base, ext) = split_dir_file_ext filename *)
+(*       val gctx = *)
+(*           if ext = SOME "pkg" then *)
+(*             let *)
+(*               (* val split_lines = String.tokens (fn c => c = #"\n") *) *)
+(*               (* val read_lines = split_lines o read_file *) *)
+(*               val filenames = read_lines filename *)
+(*               val filenames = map trim filenames *)
+(*               (* val () = app println filenames *) *)
+(*               val filenames = List.filter (fn s => not (String.isPrefix "(*" s andalso String.isSuffix "*)" s)) filenames *)
+(*               (* val () = app println filenames *) *)
+(*               val filenames = List.filter (fn s => s <> "") filenames *)
+(*               val filenames = map (curry join_dir_file dir) filenames *)
+(*               val gctx = process_files is_library gctx filenames *)
+(*             in *)
+(*               gctx *)
+(*             end *)
+(*           else if ext = SOME "timl" then *)
+(*             do_process_file is_library gctx filename *)
+(*           else raise Error $ sprintf "Unknown filename extension $ of $" [default "<EMPTY>" ext, filename] *)
+(*     in *)
+(*       gctx *)
+(*     end *)
       
-and process_files is_library gctx filenames =
-    let
-      fun iter (filename, (prog, gctx, acc)) =
-          let
-            val (progd, gctx, admits) = process_file is_library filename gctx
-          in
-            (progd @ prog, gctx, acc @ admits)
-          end
-    in
-      foldl iter ([], gctx, []) filenames
-    end
-      
+(* and process_files is_library gctx filenames = *)
+(*     let *)
+(*       fun iter (filename, (prog, gctx, acc)) = *)
+(*           let *)
+(*             val (progd, gctx, admits) = process_file is_library filename gctx *)
+(*           in *)
+(*             (progd @ prog, gctx, acc @ admits) *)
+(*           end *)
+(*     in *)
+(*       foldl iter ([], gctx, []) filenames *)
+(*     end *)
+
+fun process_file_and_accumulate is_library r filename =
+  let
+    val (prog, gctx, acc) = !r
+    val (progd, gctx, admits) = do_process_file is_library gctx filename
+  in
+    r := (progd @ prog, gctx, acc @ admits)                                            
+  end
+                                                
+fun process_files_and_accumulate is_library gctx filenames =
+  let
+    val r = ref ([], gctx, [])
+    val () = ParseFilename.parse_filenames (process_file_and_accumulate is_library r, fn msg => raise Error msg) filenames
+  in
+    !r
+  end
+    
 fun main libraries filenames =
     let
       (* val () = app println $ ["Input file(s):"] @ indent filenames *)
-      val (_, gctx, _) = process_files true empty libraries
-      val (prog, gctx, admits) = process_files false gctx filenames
+      val (_, gctx, _) = process_files_and_accumulate true empty libraries
+      val (prog, gctx, admits) = process_files_and_accumulate false gctx filenames
       fun str_admit show_region (filename, p) =
           let
             open Expr

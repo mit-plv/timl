@@ -727,14 +727,14 @@ val str = PP.string
 fun str_var x = LongId.str_raw_long_id id(*str_int*) x
 fun str_i a =
   (* ToStringRaw.str_raw_i a *)
-    ToString.SN.strn_i a
-(* const_fun "<idx>" a *)
+    (* ToString.SN.strn_i a *)
+  const_fun "<idx>" a
 fun str_s a =
     (* ToStringRaw.str_raw_s a *)
-    const_fun "<sort>" a
+  const_fun "<sort>" a
 fun pp_t s b =
-  MicroTiMLPP.pp_t_to_fn (str_var, const_fun "<bs>", str_i, str_s, const_fun "<kind>") s b
-  (* str s "<ty>" *)
+  (* MicroTiMLPP.pp_t_to_fn (str_var, const_fun "<bs>", str_i, str_s, const_fun "<kind>") s b *)
+  str s "<ty>"
 fun pp_e a = MicroTiMLExPP.pp_e_fn (
     str_var,
     str_i,
@@ -847,12 +847,44 @@ fun test3 dirname =
   (*      | T2MTError msg => (println $ "T2MT.Error: " ^ msg; raise Impossible "End") *)
   (*      | Impossible msg => (println $ "Impossible: " ^ msg; raise Impossible "End") *)
 
+fun test4 dirname =
+  let
+    val filename = join_dir_file (dirname, "to-micro-timl-test4.pkg")
+    val filenames = ParseFilename.expand_pkg (fn msg => raise Impossible msg) filename
+    open Parser
+    val prog = concatMap parse_file filenames
+    open Elaborate
+    val prog = elaborate_prog prog
+    open NameResolve
+    val (prog, _, _) = resolve_prog empty prog
+    open TypeCheck
+    val () = TypeCheck.turn_on_builtin ()
+    val ((prog, _, _), _) = typecheck_prog empty prog
+    open MergeModules
+    val decls = merge_prog prog []
+    val e = SMakeELet (Teles decls, Expr.ETT dummy)
+    val e = SimpExpr.simp_e [] e
+    (* val () = println $ str_e empty ([], [], [], []) e *)
+    (* val () = println "" *)
+    val e = trans_e e
+    val e = export ([], [], [], []) e
+    val () = pp_e e
+    val () = println ""
+  in
+    ((* t, e *))
+  end
+  handle NameResolve.Error (_, msg) => (println $ "NR.Error: " ^ msg; raise Impossible "End")
+       | TypeCheck.Error (_, msgs) => (app println $ "TC.Error: " :: msgs; raise Impossible "End")
+  (*      | T2MTError msg => (println $ "T2MT.Error: " ^ msg; raise Impossible "End") *)
+  (*      | Impossible msg => (println $ "Impossible: " ^ msg; raise Impossible "End") *)
+
 fun test_suites dirname =
   let
     val suites = [
       (* test1, *)
       (* test2, *)
-      test3
+      (* test3, *)
+      test4
     ]
     val () = app (fn f => ignore $ f dirname) suites
   in

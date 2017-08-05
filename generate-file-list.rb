@@ -179,6 +179,7 @@ pp-util.sml
 micro-timl/micro-timl.sml
 nouvar-expr.sml
 visitor.sml                                 
+parse-filename.sml
 micro-timl/micro-timl-visitor.sml
 micro-timl/micro-timl-pp.sml
 micro-timl/micro-timl-ex.sml

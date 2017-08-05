@@ -51,8 +51,10 @@ fun merge_modules ms decls =
     do_merge_modules ms decls
   end
 
-fun prog2modules p = map (curry mapPair fst (fn TopModBind m => m
-                                      | _ => raise Impossible "prog2modules")) p
+fun prog2modules p = map ((fn (name, TopModBind m) => (fst name, m)
+                          | (name, TopFunctorBind ((arg_name, _), _)) => raise Unimpl $ sprintf "prog2modules: $ = TopFunctorBind ($ : ...)" [fst name, fst arg_name]
+                          | (name, TopFunctorApp (name1, name2)) => raise Unimpl $ sprintf "prog2modules: $ = TopFunctorApp ($, $)" [fst name, fst name1, fst name2]
+                         )) p
                          
 fun merge_prog p = merge_modules $ prog2modules p
 
