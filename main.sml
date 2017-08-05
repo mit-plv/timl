@@ -61,6 +61,7 @@ fun process_prog show_result filename gctx prog =
             | FunctorBind ((name, arg), body) => NR.FunctorBind ((name, TCctx2NRctx arg), TCctx2NRctx body)
       (* typechecking global context to name-resolving global context *)      
       fun TCgctx2NRgctx gctx = Gctx.map TCsgntr2NRsgntr gctx
+      (* trim [gctx] to retain only those that are relevant in typechecking [prog] *)
       fun trim_gctx prog gctx =
         let
           open SU.Set
