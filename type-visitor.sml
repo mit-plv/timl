@@ -46,7 +46,7 @@ type ('this, 'env) type_visitor_vtable =
        visit_idx : 'this -> 'env -> idx -> T.idx,
        visit_sort : 'this -> 'env -> sort -> T.sort,
        visit_kind : 'this -> 'env -> kind -> T.kind,
-       visit_uvar : 'this -> 'env -> (bsort, kind, mtype) uvar_mt -> (T.bsort, T.kind, T.mtype) T.uvar_mt,
+       visit_uvar : 'this -> 'env -> (bsort, kind, mtype) uvar_mt * region -> (T.bsort, T.kind, T.mtype) T.uvar_mt * region,
        extend_i : 'this -> 'env -> name -> 'env,
        extend_t_anno : 'this -> 'env -> name * T.kind -> 'env,
        extend_t : 'this -> 'env -> name -> 'env
@@ -446,10 +446,9 @@ fun default_type_visitor_vtable
     fun visit_UVar this env data =
       let
         val vtable = cast this
-        val (x, r) = data
-        val x = #visit_uvar vtable this env x
+        val data = #visit_uvar vtable this env data
       in
-        T.UVar (x, r)
+        T.UVar data
       end
     fun visit_ty this env data =
       let

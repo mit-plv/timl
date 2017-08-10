@@ -46,8 +46,8 @@ type ('this, 'env) idx_visitor_vtable =
        visit_SApp : 'this -> 'env -> sort * idx -> T.sort,
        visit_var : 'this -> 'env -> var -> T.var,
        visit_uvar_bs : 'this -> 'env -> bsort uvar_bs -> T.bsort T.uvar_bs,
-       visit_uvar_i : 'this -> 'env -> (bsort, idx) uvar_i -> (T.bsort, T.idx) T.uvar_i,
-       visit_uvar_s : 'this -> 'env -> (bsort, sort) uvar_s -> (T.bsort, T.sort) T.uvar_s,
+       visit_uvar_i : 'this -> 'env -> (bsort, idx) uvar_i * region -> (T.bsort, T.idx) T.uvar_i * region,
+       visit_uvar_s : 'this -> 'env -> (bsort, sort) uvar_s * region -> (T.bsort, T.sort) T.uvar_s * region,
        visit_quan : 'this -> 'env -> idx exists_anno quan -> T.idx T.exists_anno quan,
        extend : 'this -> 'env -> name -> 'env
      }
@@ -453,10 +453,9 @@ fun default_idx_visitor_vtable
     fun visit_UVarI this env data =
       let
         val vtable = cast this
-        val (u, r) = data
-        val u = #visit_uvar_i vtable this env u
+        val data = #visit_uvar_i vtable this env data
       in
-        T.UVarI (u, r)
+        T.UVarI data
       end
     fun visit_prop this env data =
       let
@@ -538,10 +537,9 @@ fun default_idx_visitor_vtable
     fun visit_UVarS this env data =
       let
         val vtable = cast this
-        val (u, r) = data
-        val u = #visit_uvar_s vtable this env u
+        val data = #visit_uvar_s vtable this env data
       in
-        T.UVarS (u, r)
+        T.UVarS data
       end
     fun visit_SAbs this env data =
       let

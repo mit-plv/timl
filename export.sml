@@ -32,17 +32,19 @@ fun export_idx_visitor_vtable cast gctx (* : ((* 'this *)string list IV.idx_visi
       in
         map_uvar_bs (#visit_bsort vtable this []) u
       end
-    fun visit_uvar_i this ctx u =
+    fun visit_uvar_i this ctx (u, r) =
       let
         val vtable = cast this
+        val u = map_uvar_i (#visit_bsort vtable this [], #visit_idx vtable this []) u
       in
-        map_uvar_i (#visit_bsort vtable this [], #visit_idx vtable this []) u
+        (u, r)
       end
-    fun visit_uvar_s this ctx u =
+    fun visit_uvar_s this ctx (u, r) =
       let
         val vtable = cast this
+        val u = map_uvar_s (#visit_bsort vtable this [], #visit_sort vtable this []) u
       in
-        map_uvar_s (#visit_bsort vtable this [], #visit_sort vtable this []) u
+        (u, r)       
       end
   in
     IV.default_idx_visitor_vtable
@@ -113,12 +115,14 @@ fun export_type_visitor_vtable cast gctx (* : ((string list * string list) TV.ty
     fun visit_var this (sctx, kctx) x =
       str_var #2 gctx kctx x
     fun for_idx f this (sctx, kctx) data = f gctx sctx data
-    fun visit_uvar_mt this ctx u =
+    fun visit_uvar_mt this ctx (u, r) =
       let
         val vtable = cast this
         val empty_ctx = ([], [])
+        val u = 
+            map_uvar_mt (#visit_bsort vtable this empty_ctx, #visit_kind vtable this empty_ctx, #visit_mtype vtable this empty_ctx) u
       in
-        map_uvar_mt (#visit_bsort vtable this empty_ctx, #visit_kind vtable this empty_ctx, #visit_mtype vtable this empty_ctx) u
+        (u, r)
       end
   in
     TV.default_type_visitor_vtable
