@@ -164,6 +164,14 @@ datatype nat_less_than {m : Nat} =
          NatLT {n : Nat} {n < m} of nat {n} --> nat_less_than {m}
 
 
+absidx T_merge: BigO (fn m n => $m * $n) = _ with
+fun merge ['a] {m n1 n2: Nat} (le: 'a*'a --$m--> bool) (xs: list 'a {n1}, ys: list 'a {n2}) return list 'a {n1 + n2} using T_merge m (n1 + n2) =
+    case (xs, ys) of
+        ([], _) => ys
+      | (_, []) => xs
+      | (x :: xs', y :: ys') =>
+        if le (x, y) then x :: merge le (xs', ys)
+        else y :: merge le (xs, ys')
+end
 
-                                      
 end

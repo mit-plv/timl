@@ -885,10 +885,10 @@ fun test4 dirname =
 fun test_suites dirname =
   let
     val suites = [
-      (* test1, *)
-      (* test2, *)
+      (* test1 *)
+      test2
       (* test3, *)
-      test4
+      (* test4 *)
     ]
     val () = app (fn f => ignore $ f dirname) suites
   in

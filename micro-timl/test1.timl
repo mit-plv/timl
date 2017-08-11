@@ -11,4 +11,5 @@ val ['a] f = fn {n : Nat} (ls : list 'a {n}) return list _ {n-1} =>
              | Nil2 => Nil2
              (* | Cons (x, xs) => xs *)
              | Cons (x, xs) => Cons (x, xs)
+             (* | _ => Nil2 *)
 end

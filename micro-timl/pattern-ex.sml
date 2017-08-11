@@ -660,11 +660,13 @@ fun remove_deep_many fresh_name (params as (shift_i_e, shift_e_e, subst_e_e, EV)
     fun split_first_column ps = unzip $ map (fn p => case p of PnPair p => p | _ => raise Impossible "split_first_column()") ps
     fun add_column ps pks = map PnPair $ zip (ps, pks)
     (* val () = println $ "before " ^ str_int (length matchees) *)
+    val () = println $ str_ls str_pn pks
     val result =
         case matchees of
             [] =>
             (case pks of
-                 [PnExpr (Rebind (Outer e))] => e
+                 (* There could be multiple candidates (due to wildcard expansion). We just need to choose the first one. *)
+                 PnExpr (Rebind (Outer e)) :: _ => e
                | _ => raise Impossible $ sprintf "remove_deep_many(): $" [str_ls str_pn pks]
             )
           | matchee :: matchees =>
