@@ -519,7 +519,8 @@ and on_decls (decls, e_body) =
         TeleNil => on_e e_body
       | TeleCons (decl, Rebind decls) =>
         let
-          val () = println $ sprintf "translating: $" [fst $ ToString.str_decl Gctx.empty ToStringUtil.empty_ctx decl]
+          val () = println "translating decl"
+          (* val () = println $ sprintf "translating: $" [fst $ ToString.str_decl Gctx.empty ToStringUtil.empty_ctx decl] *)
         in
           case decl of
               S.DVal (ename, Outer bind, Outer r) =>
@@ -886,9 +887,9 @@ fun test_suites dirname =
   let
     val suites = [
       (* test1 *)
-      test2
+      (* test2 *)
       (* test3, *)
-      (* test4 *)
+      test4
     ]
     val () = app (fn f => ignore $ f dirname) suites
   in

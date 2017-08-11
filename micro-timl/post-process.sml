@@ -48,6 +48,7 @@ fun post_process_expr_visitor_vtable cast () =
             #visit_ELet super_vtable this env data
           end
     val vtable = override_visit_ELet vtable visit_ELet
+                                     (* todo: add a simplification for ECase where if the two branches are identical and don't mention the local variable, combine them and remove ECase *)
   in
     vtable
   end
