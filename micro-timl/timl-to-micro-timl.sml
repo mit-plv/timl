@@ -551,18 +551,21 @@ and on_decls (decls, e_body) =
             | S.DAbsIdx ((iname, Outer s, Outer i), Rebind inner_decls, Outer r) =>
               let
                 val iname = unBinderName iname
-                val (ename, bind, _) =
-                    case unTeles inner_decls of
-                        [S.DRec a] => a
-                      | _ => raise Impossible "to-micro-timl/DAbsIdx: can only translate when the inner declarations are just one DRec"
-                val ename = unBinderName ename
-                val (e, t) = on_DRec (ename, bind)
-                val t = MakeTExistsI (iname, s, t)
-                val e = EPackI (t, i, MakeELetIdx (i, iname, e))
-                val e_body = on_decls (decls, e_body)
-                val e = MakeEUnpackI (e, iname, ename, e_body)
               in
-                e
+                case unTeles inner_decls of
+                    [S.DRec (ename, bind, _)] => 
+                    let
+                      val ename = unBinderName ename
+                      val (e, t) = on_DRec (ename, bind)
+                      val t = MakeTExistsI (iname, s, t)
+                      val e = EPackI (t, i, MakeELetIdx (i, iname, e))
+                      val e_body = on_decls (decls, e_body)
+                      val e = MakeEUnpackI (e, iname, ename, e_body)
+                    in
+                      e
+                    end
+                  (* | [S.DVal (ename, bind, _)] =>  *)
+                  | _ => raise Impossible $ "to-micro-timl/DAbsIdx: can only translate when the inner declarations are just one DRec" (* ^ " or one DVal" *)
               end
             | S.DOpen (Outer m, octx) =>
               let
