@@ -1092,11 +1092,6 @@ fun on_sig gctx (comps, r) =
     ((comps, r), ctx)
   end
     
-fun is_FunctorBind s =
-  case s of
-      FunctorBind a => SOME a
-    | _ => NONE
-
 fun on_module gctx m =
     case m of
         S.ModComponents (comps, r) =>
@@ -1119,6 +1114,11 @@ fun on_module gctx m =
         in
           (ModTransparentAsc (m, sg), ctx)
         end
+
+fun is_FunctorBind s =
+  case s of
+      FunctorBind a => SOME a
+    | _ => NONE
 
 fun on_top_bind gctx (name, bind) = 
     case bind of

@@ -5,7 +5,7 @@ structure ExprVisitor = ExprVisitorFn (structure S = Expr
                                       )
 open ExprVisitor
 
-fun on_i_expr_visitor_vtable cast (visit_idx, visit_sort, visit_mtype) : ('this, int) expr_visitor_vtable =
+fun on_i_expr_visitor_vtable cast (visit_idx, visit_sort, visit_mtype, visit_ty, visit_kind) : ('this, int) expr_visitor_vtable =
   let
     fun extend_one this env _ = env + 1
   in
@@ -21,6 +21,8 @@ fun on_i_expr_visitor_vtable cast (visit_idx, visit_sort, visit_mtype) : ('this,
       (ignore_this visit_idx)
       (ignore_this visit_sort)
       (ignore_this visit_mtype)
+      (ignore_this visit_ty)
+      (ignore_this visit_kind)
       visit_noop
   end
 
@@ -33,7 +35,7 @@ fun on_i_e params b =
     #visit_expr vtable visitor 0 b
   end
     
-fun on_t_expr_visitor_vtable cast visit_mtype : ('this, int) expr_visitor_vtable =
+fun on_t_expr_visitor_vtable cast (visit_mtype, visit_ty) : ('this, int) expr_visitor_vtable =
   let
     fun extend_one this env _ = env + 1
   in
@@ -49,6 +51,8 @@ fun on_t_expr_visitor_vtable cast visit_mtype : ('this, int) expr_visitor_vtable
       visit_noop
       visit_noop
       (ignore_this visit_mtype)
+      (ignore_this visit_ty)
+      visit_noop
       visit_noop
   end
 
@@ -73,6 +77,8 @@ fun on_c_expr_visitor_vtable cast visit_cvar : ('this, int) expr_visitor_vtable 
       extend_noop
       visit_noop
       (ignore_this visit_cvar)
+      visit_noop
+      visit_noop
       visit_noop
       visit_noop
       visit_noop
@@ -106,6 +112,8 @@ fun on_e_expr_visitor_vtable cast visit_var : ('this, int) expr_visitor_vtable =
       visit_noop
       visit_noop
       visit_noop
+      visit_noop
+      visit_noop
   end
 
 fun new_on_e_expr_visitor params = new_expr_visitor on_e_expr_visitor_vtable params
@@ -123,6 +131,7 @@ functor ExprShiftFn (structure Expr : EXPR
                      structure ShiftableVar : SHIFTABLE_VAR
                      sharing type ShiftableVar.var = Expr.var
                      val shiftx_t_mt : int -> int -> Expr.mtype -> Expr.mtype
+                     val shiftx_t_t : int -> int -> Expr.ty -> Expr.ty
                     ) = struct
 
 open ShiftableVar
@@ -135,7 +144,9 @@ open ExprShiftVisitor
                                          
 fun adapt f x n env = f (x + env) n
 
-fun shiftx_t_e x n = on_t_e $ adapt shiftx_t_mt x n
+fun shift_t_params x n = (adapt shiftx_t_mt x n, adapt shiftx_t_t x n)
+                           
+fun shiftx_t_e x n = on_t_e $ shift_t_params x n
                                               
 fun shift_e_params a = adapt shiftx_var a
   
@@ -158,7 +169,7 @@ structure ExprVisitor = ExprVisitorFn (structure S = Expr
 open ExprVisitor
 
 (* todo: this is the same as on_i_expr_visitor_vtable *)       
-fun subst_i_expr_visitor_vtable cast (visit_idx, visit_sort, visit_mtype) : ('this, int) expr_visitor_vtable =
+fun subst_i_expr_visitor_vtable cast (visit_idx, visit_sort, visit_mtype, visit_ty, visit_kind) : ('this, int) expr_visitor_vtable =
   let
     fun extend_i this env _ = env + 1
   in
@@ -174,6 +185,8 @@ fun subst_i_expr_visitor_vtable cast (visit_idx, visit_sort, visit_mtype) : ('th
       (ignore_this visit_idx)
       (ignore_this visit_sort)
       (ignore_this visit_mtype)
+      (ignore_this visit_ty)
+      (ignore_this visit_kind)
       visit_noop
   end
 
@@ -199,7 +212,7 @@ fun subst_i_e_fn params b =
 (*     data *)
 (*   end *)
     
-fun subst_t_expr_visitor_vtable cast visit_mtype : ('this, idepth * tdepth) expr_visitor_vtable =
+fun subst_t_expr_visitor_vtable cast (visit_mtype, visit_ty) : ('this, idepth * tdepth) expr_visitor_vtable =
   let
     fun extend_i this env _ = mapFst idepth_inc env
     fun extend_t this env _ = mapSnd tdepth_inc env
@@ -216,6 +229,8 @@ fun subst_t_expr_visitor_vtable cast visit_mtype : ('this, idepth * tdepth) expr
       visit_noop
       visit_noop
       (ignore_this visit_mtype)
+      (ignore_this visit_ty)
+      visit_noop
       visit_noop
   end
 
@@ -234,7 +249,10 @@ functor ExprSubstFn (structure Expr : EXPR
                      val substx_i_i : int -> int -> Expr.idx -> Expr.idx -> Expr.idx
                      val substx_i_s : int -> int -> Expr.idx -> Expr.sort -> Expr.sort
                      val substx_i_mt : int -> int -> Expr.idx -> Expr.mtype -> Expr.mtype
+                     val substx_i_t : int -> int -> Expr.idx -> Expr.ty -> Expr.ty
+                     val substx_i_k : int -> int -> Expr.idx -> Expr.kind -> Expr.kind
                      val substx_t_mt : int * int -> int -> Expr.mtype -> Expr.mtype -> Expr.mtype
+                     val substx_t_t : int * int -> int -> Expr.mtype -> Expr.ty -> Expr.ty
                   ) = struct
 
 open Util
@@ -247,7 +265,7 @@ open ExprSubstVisitor
 
 fun adapt f d x v env = f (d + env) (x + env) v
 
-fun substx_i_e d x v = subst_i_e_fn (adapt substx_i_i d x v, adapt substx_i_s d x v, adapt substx_i_mt d x v)
+fun substx_i_e d x v = subst_i_e_fn (adapt substx_i_i d x v, adapt substx_i_s d x v, adapt substx_i_mt d x v, adapt substx_i_t d x v, adapt substx_i_k d x v)
                                               
 fun subst_i_e a = substx_i_e 0 0 a
                              
