@@ -800,7 +800,7 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
           val inames = map binder2str inames
           val c as (family, tbinds) = snd $ fetch_constr gctx (cctx, cx)
           val siblings = map fst $ get_family_siblings gctx cctx cx
-          val pos_in_family = index (curry eq_var cx) siblings !! (fn () => raise Impossible "family_pos")
+          val pos_in_family = indexOf (curry eq_var cx) siblings !! (fn () => raise Impossible "family_pos")
           val (tname_kinds, ibinds) = unfold_binds tbinds
           val tnames = map fst tname_kinds
           val (name_sorts, (t1, is')) = unfold_binds ibinds
@@ -1544,7 +1544,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                       end
                     | _ => wrong_d ()
                 val is = collect_AddI d
-                val pos = index find_const is !! wrong_d
+                val pos = indexOf find_const is !! wrong_d
                 val is = update pos const_minus_one is
                 val d = combine_AddI_Time is
                 val d = simp_i d
@@ -1577,7 +1577,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                   | _ => raise Impossible "get_mtype (): U.EAppConstr: e in wrong form"
             val e = ExprShift.forget_e_e 0 1 e
             val siblings = get_family_siblings gctx cctx x
-            val pos_in_family = index (curry eq_var x) (map fst siblings) !! (fn () => raise Impossible "get_mtype(): family_pos")
+            val pos_in_family = indexOf (curry eq_var x) (map fst siblings) !! (fn () => raise Impossible "get_mtype(): family_pos")
             val family = get_family $ snd $ hd siblings
             val family_type = MtVar family
             val e = EAppConstr ((x, true), ts, is, e, SOME (pos_in_family, family_type))

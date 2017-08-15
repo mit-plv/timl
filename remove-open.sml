@@ -55,9 +55,11 @@ fun remove_DOpen_e e =
 fun remove_DOpen_decls a = DerivedTrans.for_decls remove_DOpen_e a
 
 fun remove_DOpen_m m =
-  case m of
-      ModComponents (decls, r) => ModComponents (remove_DOpen_decls decls, r)
-    | _ => raise Unimpl "remove_DOpen_m"
+  let
+    val visitor = new_remove_DOpen_expr_visitor ()
+  in
+    fst $ visit_mod_acc visitor (m, ())
+  end
 
 fun remove_DOpen_top_bind b =
   case b of

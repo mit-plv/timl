@@ -735,8 +735,8 @@ val str = PP.string
 fun str_var x = LongId.str_raw_long_id id(*str_int*) x
 fun str_i a =
   (* ToStringRaw.str_raw_i a *)
-    (* ToString.SN.strn_i a *)
-  const_fun "<idx>" a
+  ToString.SN.strn_i a
+  (* const_fun "<idx>" a *)
 fun str_s a =
     (* ToStringRaw.str_raw_s a *)
   const_fun "<sort>" a

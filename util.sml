@@ -113,9 +113,6 @@ fun findWithIdx f xs =
       loop 0 xs
     end
       
-fun findi f xs = findWithIdx (fn (_, x) => f x) xs
-fun index f = Option.map fst o findi f
-                             
 fun findOptionWithIdx f xs =
     let
       fun loop base xs =
@@ -131,6 +128,9 @@ fun findOptionWithIdx f xs =
       loop 0 xs
     end
       
+fun findi f xs = findWithIdx (fn (_, x) => f x) xs
+fun indexOf f = Option.map fst o findi f
+                             
 fun mapPartialWithIdx f xs =
     let
       fun iter (x, (n, acc)) =
