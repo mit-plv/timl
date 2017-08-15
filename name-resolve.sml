@@ -500,7 +500,8 @@ fun on_expr_visitor_vtable cast gctx : ('this, context) EV.expr_visitor_vtable =
   let
     fun extend_i this (sctx, kctx, cctx, tctx) name = (Name2str name :: sctx, kctx, cctx, tctx)
     fun extend_t this (sctx, kctx, cctx, tctx) name = (sctx, Name2str name :: kctx, cctx, tctx)
-    val extend_c = extend_noop (* extending cctx will be performed by extend_c_data *)
+    (* Extending cctx will be performed by extend_c_data. We still need extend_c (can't just throw Impossible) because the default visit_DTypeDef and visit_SpecTypeDef use extend_c. *)
+    val extend_c = extend_noop 
     (* fun extend_c this (sctx, kctx, cctx, tctx) name = raise Impossible $ "import_e/extend_c:" ^ Name2str name *)
     (* fun extend_c this (sctx, kctx, cctx, tctx) name = (sctx, kctx, Name2str name :: cctx, tctx) *)
     fun extend_c_data (sctx, kctx, cctx, tctx) a = (sctx, kctx, a :: cctx, tctx)

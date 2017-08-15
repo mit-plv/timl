@@ -584,15 +584,14 @@ fun default_expr_visitor_vtable
         val vtable = cast this
         val (name, t) = data
         val name = visit_tbinder this env name
-        val cnames = map (Binder o CName) $ get_constr_names $ unOuter t
         val t = visit_outer (#visit_mtype vtable this) env t
+        val cnames = map (Binder o CName) $ T.get_constr_names $ unOuter t
         val cnames = visit_list (visit_cbinder this) env cnames
       in
         [T.DTypeDef (name, t)]
       end
     fun visit_DConstrDef this env data =
       let
-        (* val () = println "default visit_DTypeDef" *)
         val vtable = cast this
         val (name, x) = data
         val name = visit_cbinder this env name
@@ -762,6 +761,8 @@ fun default_expr_visitor_vtable
         val (tname, t) = data
         val tname = unBinderName $ visit_tbinder this env $ TBinder tname
         val t = unOuter $ visit_outer (#visit_mtype vtable this) env $ Outer t
+        val cnames = map (Binder o CName) $ T.get_constr_names t
+        val cnames = visit_list (visit_cbinder this) env cnames
       in
         T.SpecTypeDef (tname, t)
       end
