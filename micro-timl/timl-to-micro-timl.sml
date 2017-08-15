@@ -349,6 +349,7 @@ fun on_e (e : S.expr) =
       )
     | S.ECase (e, return, rules, r) =>
       let
+        (* todo: use information in [return] *)
         val e = on_e e
         val rules = map (mapPair (from_TiML_ptrn, on_e) o unBind) rules
         val name = default (EName ("__x", dummy)) $ firstSuccess get_pn_alias $ map fst rules
@@ -411,11 +412,12 @@ fun on_e (e : S.expr) =
         e
       end
     | S.ELet (return, bind, r) => 
-	  let
-            val (decls, e) = Unbound.unBind bind
-          in
-	    on_decls (decls, e)
-	  end
+      let
+        (* todo: use information in [return] *)
+        val (decls, e) = Unbound.unBind bind
+      in
+	on_decls (decls, e)
+      end
     (* | _ => raise Unimpl "" *)
                  
 and add_constr_decls (dt, e_body) =

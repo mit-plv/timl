@@ -128,7 +128,7 @@ fun findOptionWithIdx f xs =
       loop 0 xs
     end
       
-fun findi f xs = findWithIdx (fn (_, x) => f x) xs
+fun findi f xs = findWithIdx (f o snd) xs
 fun indexOf f = Option.map fst o findi f
                              
 fun mapPartialWithIdx f xs =

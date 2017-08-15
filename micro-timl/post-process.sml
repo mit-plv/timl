@@ -33,21 +33,22 @@ fun post_process_expr_visitor_vtable cast () =
         #visit_expr (cast this) this env $ ELet (EFst e, Bind (name1, ELet (ESnd $ shift01_e_e e, Bind (name2, e_body))))
       end
     val vtable = override_visit_EMatchPair vtable visit_EMatchPair
-    fun visit_ELet this env (data as (e, bind)) =
-      case e of
-          EVar _ =>
-          let
-            val (_, e_body) = unBind bind
-          in
-            #visit_expr (cast this) this env $ subst0_e_e e e_body
-          end
-        | _ =>
-          let
-            val super_vtable = vtable
-          in
-            #visit_ELet super_vtable this env data
-          end
-    val vtable = override_visit_ELet vtable visit_ELet
+    (* fun visit_ELet this env (data as (e, bind)) = *)
+    (*   case e of *)
+    (*       EVar _ => *)
+    (*       let *)
+    (*         val (_, e_body) = unBind bind *)
+    (*       in *)
+    (*         #visit_expr (cast this) this env $ subst0_e_e e e_body *)
+    (*       end *)
+    (*     | _ => *)
+    (*       let *)
+    (*         val super_vtable = vtable *)
+    (*       in *)
+    (*         #visit_ELet super_vtable this env data *)
+    (*       end *)
+                                           (* val vtable = override_visit_ELet vtable visit_ELet *)
+                                           
                                      (* todo: add a simplification for ECase where if the two branches are identical and don't mention the local variable, combine them and remove ECase *)
   in
     vtable

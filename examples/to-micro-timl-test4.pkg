@@ -1,8 +1,8 @@
 stdlib.pkg
 
-perversive-list.timl
-trivial.timl
-bigO-evolve.timl
+(* perversive-list.timl *)
+(* trivial.timl *)
+(* bigO-evolve.timl *)
 (* fold-evolve.timl *)
 (* single-var.timl *)
 (* bug.timl *)
@@ -14,8 +14,8 @@ bigO-evolve.timl
 (* tree.timl *)
 (* msort.timl *)
 (* insertion-sort.timl *)
-(* (* braun-tree.timl *) *)
-(* (* rbt.timl *) *)
+(* braun-tree.timl *)
+rbt.timl
 (* (* dynamic-table.timl *) *)
 (* functional-queue.timl *)
 (* array-bsearch.timl *)

@@ -83,7 +83,14 @@ fun decorate_top_decl mid decl =
       | DConstrDef (name, c) => DConstrDef (decorate name, c)
       | DOpen _ => raise Impossible "decorate_top_decl/DOpen"
   end
-      
+
+fun sgn2mod (mid, names) (specs, _) =
+  let
+    val decls = map (spec2decl mid names) specs
+  in
+    ModComponents (decls, dummy)
+  end
+    
 fun merge_module ((mid, m), acc) =
   case m of
       ModComponents (decls, _) =>
@@ -97,12 +104,11 @@ fun merge_module ((mid, m), acc) =
         decls @ acc
       end
     | ModTransparentAsc (m, _) => merge_module ((mid, m), acc)
-    | ModSeal (m, (specs, _)) =>
+    | ModSeal (m, sg) =>
       let
-        val names = collect_names_mod m
         val mid' = prefix "__" mid
-        val decls = map (spec2decl mid' names) specs
-        val acc = merge_module ((mid, ModComponents (decls, dummy)), acc)
+        val names = collect_names_mod m
+        val acc = merge_module ((mid, sgn2mod (mid', names) sg), acc)
         val acc = merge_module ((mid', m), acc)
       in
         acc
@@ -142,11 +148,44 @@ fun merge_modules ms decls =
     do_merge_modules ms decls
   end
 
-fun prog2modules p = map ((fn (name, TopModBind m) => (fst name, m)
-                          | (name, TopFunctorBind ((arg_name, _), _)) => raise Unimpl $ sprintf "prog2modules: $ = TopFunctorBind ($ : ...)" [fst name, fst arg_name]
-                          | (name, TopFunctorApp (name1, name2)) => raise Unimpl $ sprintf "prog2modules: $ = TopFunctorApp ($, $)" [fst name, fst name1, fst name2]
-                         )) p
-                         
+fun lookup_top_bind rev_p name =
+  Option.map (snd o snd) $ findi (fn (name', _) => fst name' = fst name) rev_p
+  
+fun collect_names_top_name rev_p name =
+  let
+    val bind = lookup_top_bind rev_p name !! (fn () => raise Impossible "collect_names_top_name")
+  in
+    case bind of
+        TopModBind m => collect_names_mod m
+      | TopFunctorBind (_, body) => collect_names_mod body
+      | TopFunctorApp (name1, name2) => collect_names_top_name rev_p name1
+  end
+
+fun top_bind_to_mod rev_p (name, bind) =
+  case bind of
+      TopModBind m => [(fst name, m)]
+    | TopFunctorBind _ => []
+    | TopFunctorApp (name1, name2) =>
+      let
+        val bind1 = lookup_top_bind rev_p name1 !! (fn () => raise Impossible "top_bind_to_mod/lookup")
+        val ((arg_name, arg_sig), body) =
+            case bind1 of
+                TopFunctorBind data => data
+              | _ => raise Impossible "top_bind_to_mod/bind1"
+        val names = collect_names_top_name rev_p name2
+        val m1 = (fst arg_name, sgn2mod (fst name2, names) arg_sig)
+        val m2 = (fst name, body)
+      in
+        [m2, m1]
+      end
+
+fun prog2modules' p =
+  case p of
+      [] => []
+    | bind :: p => top_bind_to_mod p bind @ prog2modules' p
+
+fun prog2modules p = rev $ prog2modules' $ rev p
+  
 fun merge_prog p = merge_modules $ prog2modules p
 
 end
