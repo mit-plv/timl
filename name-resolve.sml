@@ -225,17 +225,16 @@ fun on_i_type_visitor_vtable cast gctx : ('this, scontext * kcontext) TV.type_vi
     fun visit_var this (sctx, kctx) x =
       on_long_id gctx #2 kctx x
     fun for_idx f this (sctx, kctx) b = f gctx sctx b
-    fun for_bsort f _ _ b = f b
     val vtable = 
         TV.default_type_visitor_vtable
           cast
           extend_i
           extend_t
           visit_var
-          (for_bsort on_bsort)
+          (ignore_this_env on_bsort)
           (for_idx on_idx)
           (for_idx on_sort)
-          (for_bsort on_kind)
+          (ignore_this_env on_kind)
           visit_noop
     fun visit_MtAppI this ctx (data as (t1, i)) =
       let
@@ -523,6 +522,8 @@ fun on_i_expr_visitor_vtable cast gctx : ('this, context) EV.expr_visitor_vtable
           (for_idx on_idx)
           (for_idx on_sort)
           (for_type on_mtype)
+          (for_type on_type)
+          (ignore_this_env on_kind)
           (visit_imposs "import_e/visit_ptrn_constr_tag")
     fun visit_ibinder this env name =
       let

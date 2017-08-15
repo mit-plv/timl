@@ -166,7 +166,9 @@ functor ExportExprFn (
   val lookup_module : ToStringUtil.global_context -> string -> string * ToStringUtil.context
   val export_i : ToStringUtil.global_context -> string list -> Params.S.idx -> Params.T.idx
   val export_s : ToStringUtil.global_context -> string list -> Params.S.sort -> Params.T.sort
+  val export_k : Params.S.kind -> Params.T.kind
   val export_mt : ToStringUtil.global_context -> string list * string list -> Params.S.mtype -> Params.T.mtype
+  val export_t : ToStringUtil.global_context -> string list * string list -> Params.S.ty -> Params.T.ty
 ) = struct
 
 open Binders
@@ -204,6 +206,8 @@ fun export_expr_visitor_vtable cast gctx =
       (for_idx export_i)
       (for_idx export_s)
       (for_type export_mt)
+      (for_type export_t)
+      (ignore_this_env export_k)
       visit_noop
   end
 

@@ -7,7 +7,7 @@ open ExprVisitor
 
 (***************** the "simp" visitor  **********************)
 
-fun simp_expr_visitor_vtable cast (visit_idx, visit_sort, visit_mtype) : ('this, kcontext) expr_visitor_vtable =
+fun simp_expr_visitor_vtable cast (visit_idx, visit_sort, visit_mtype, visit_ty, visit_kind) : ('this, kcontext) expr_visitor_vtable =
   let
     fun extend_t this env name = (Name2str name, KeKind Type) :: env
   in
@@ -23,6 +23,8 @@ fun simp_expr_visitor_vtable cast (visit_idx, visit_sort, visit_mtype) : ('this,
       (ignore_this_env visit_idx)
       (ignore_this_env visit_sort)
       (ignore_this visit_mtype)
+      (ignore_this visit_ty)
+      (ignore_this_env visit_kind)
       visit_noop
   end
 
@@ -35,7 +37,7 @@ fun simp_e_fn params kctx e =
     #visit_expr vtable visitor kctx e
   end
 
-fun simp_e a = simp_e_fn (simp_i o normalize_i, normalize_s, normalize_mt empty) a
+fun simp_e a = simp_e_fn (simp_i o normalize_i, normalize_s, normalize_mt empty, normalize_t empty, normalize_k) a
                          
 end
                        

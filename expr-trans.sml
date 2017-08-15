@@ -5,7 +5,7 @@ structure ExprVisitor = ExprVisitorFn (structure S = Expr
                                       )
 open ExprVisitor
 
-fun on_i_expr_visitor_vtable cast (visit_idx, visit_sort, visit_mtype, visit_ty, visit_kind) : ('this, int) expr_visitor_vtable =
+fun on_i_expr_visitor_vtable cast (visit_idx, visit_sort, visit_mtype, visit_ty) : ('this, int) expr_visitor_vtable =
   let
     fun extend_one this env _ = env + 1
   in
@@ -22,7 +22,7 @@ fun on_i_expr_visitor_vtable cast (visit_idx, visit_sort, visit_mtype, visit_ty,
       (ignore_this visit_sort)
       (ignore_this visit_mtype)
       (ignore_this visit_ty)
-      (ignore_this visit_kind)
+      visit_noop
       visit_noop
   end
 
@@ -169,7 +169,7 @@ structure ExprVisitor = ExprVisitorFn (structure S = Expr
 open ExprVisitor
 
 (* todo: this is the same as on_i_expr_visitor_vtable *)       
-fun subst_i_expr_visitor_vtable cast (visit_idx, visit_sort, visit_mtype, visit_ty, visit_kind) : ('this, int) expr_visitor_vtable =
+fun subst_i_expr_visitor_vtable cast (visit_idx, visit_sort, visit_mtype, visit_ty) : ('this, int) expr_visitor_vtable =
   let
     fun extend_i this env _ = env + 1
   in
@@ -186,7 +186,7 @@ fun subst_i_expr_visitor_vtable cast (visit_idx, visit_sort, visit_mtype, visit_
       (ignore_this visit_sort)
       (ignore_this visit_mtype)
       (ignore_this visit_ty)
-      (ignore_this visit_kind)
+      visit_noop
       visit_noop
   end
 
@@ -250,7 +250,6 @@ functor ExprSubstFn (structure Expr : EXPR
                      val substx_i_s : int -> int -> Expr.idx -> Expr.sort -> Expr.sort
                      val substx_i_mt : int -> int -> Expr.idx -> Expr.mtype -> Expr.mtype
                      val substx_i_t : int -> int -> Expr.idx -> Expr.ty -> Expr.ty
-                     val substx_i_k : int -> int -> Expr.idx -> Expr.kind -> Expr.kind
                      val substx_t_mt : int * int -> int -> Expr.mtype -> Expr.mtype -> Expr.mtype
                      val substx_t_t : int * int -> int -> Expr.mtype -> Expr.ty -> Expr.ty
                   ) = struct
@@ -265,18 +264,19 @@ open ExprSubstVisitor
 
 fun adapt f d x v env = f (d + env) (x + env) v
 
-fun substx_i_e d x v = subst_i_e_fn (adapt substx_i_i d x v, adapt substx_i_s d x v, adapt substx_i_mt d x v, adapt substx_i_t d x v, adapt substx_i_k d x v)
+fun substx_i_e d x v = subst_i_e_fn (adapt substx_i_i d x v, adapt substx_i_s d x v, adapt substx_i_mt d x v, adapt substx_i_t d x v)
                                               
 fun subst_i_e a = substx_i_e 0 0 a
                              
-fun visit_mtype_t_e (d, x, v) env b =
+fun adapt f d x v env b =
   let
     fun add_depth (di, dt) (di', dt') = (idepth_add (di, di'), tdepth_add (dt, dt'))
+    val d = IDepth_TDepth d
   in
-    use_idepth_tdepth substx_t_mt (add_depth d env) (x + unTDepth (snd env)) v b
+    use_idepth_tdepth f (add_depth d env) (x + unTDepth (snd env)) v b
   end
     
-fun substx_t_e d x v = subst_t_e_fn $ visit_mtype_t_e (IDepth_TDepth d, x, v)
+fun substx_t_e d x v = subst_t_e_fn (adapt substx_t_mt d x v, adapt substx_t_t d x v)
 
 fun subst_t_e a = substx_t_e (0, 0) 0 a
                                        

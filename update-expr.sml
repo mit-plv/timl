@@ -3,7 +3,7 @@ structure UpdateExpr = struct
 open Normalize
 open ExprVisitor
 
-fun update_expr_visitor_vtable cast (visit_idx, visit_sort, visit_mtype) : ('this, unit) expr_visitor_vtable =
+fun update_expr_visitor_vtable cast (visit_idx, visit_sort, visit_mtype, visit_ty, visit_kind) : ('this, unit) expr_visitor_vtable =
   default_expr_visitor_vtable
     cast
     extend_noop
@@ -16,6 +16,8 @@ fun update_expr_visitor_vtable cast (visit_idx, visit_sort, visit_mtype) : ('thi
     (ignore_this_env visit_idx)
     (ignore_this_env visit_sort)
     (ignore_this_env visit_mtype)
+    (ignore_this_env visit_ty)
+    (ignore_this_env visit_kind)
     visit_noop
 
 fun new_update_expr_visitor params = new_expr_visitor update_expr_visitor_vtable params
@@ -27,7 +29,7 @@ fun update_e_fn params e =
     #visit_expr vtable visitor () e
   end
 
-fun update_e a = update_e_fn (update_i, update_s, update_mt) a
+fun update_e a = update_e_fn (update_i, update_s, update_mt, update_t, update_k) a
                          
 end
                        

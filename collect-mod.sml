@@ -348,6 +348,8 @@ fun collect_mod_expr_visitor_vtable cast () =
       (ignore_this visit_i)
       (ignore_this visit_s)
       (ignore_this visit_mt)
+      (ignore_this visit_t)
+      visit_noop
       visit_noop
   end
 

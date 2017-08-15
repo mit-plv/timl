@@ -42,13 +42,21 @@ fun on_t_mt' params b =
     #visit_mtype vtable visitor 0 b
   end
 
+fun on_t_t' params b =
+  let
+    val visitor as (TypeVisitor vtable) = new_on_t_type_visitor' params
+  in
+    #visit_ty vtable visitor 0 b
+  end
+
 val params = visit_UVar
                
 fun substu_t_mt x v = on_t_mt' $ params x v
+fun substu_t_t x v = on_t_t' $ params x v
 
 fun adapt f x env = f (x + env)
 
-fun substu_t_e x v = ExprShiftVisitor.on_t_e $ adapt (substu_t_mt x) v
+fun substu_t_e x v = ExprShiftVisitor.on_t_e (adapt (substu_t_mt x) v, adapt (substu_t_t x) v)
                              
 (* fun substu_ibind f x v (Bind (name, b) : ('a * 'b) ibind) = Bind (name, f x v b) *)
 (* fun substu_tbind f x v (Bind (name, b) : ('a * 'b) tbind) = Bind (name, f x (v + 1) b) *)

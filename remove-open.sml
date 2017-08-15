@@ -23,6 +23,8 @@ fun remove_DOpen_expr_visitor_vtable cast () : ('this, unit) expr_visitor_vtable
           visit_noop
           visit_noop
           visit_noop
+          visit_noop
+          visit_noop
     fun visit_DOpen this env (Outer m, octx) =
       let
         val (sctx, kctx, cctx, tctx) = octx !! (fn () => raise Impossible "remove_DOpen: octx must be SOME")

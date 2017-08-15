@@ -26,10 +26,12 @@ fun unpackage_i_p m x = IdxShiftVisitor.on_i_p $ params_var m x
 fun unpackage_i_s m x = IdxShiftVisitor.on_i_s $ params_var m x
 
 fun unpackage_i_mt m x = TypeShiftVisitor.on_i_mt (adapt (unpackage_i_i m) x, adapt (unpackage_i_s m) x)
+fun unpackage_i_t m x = TypeShiftVisitor.on_i_t (adapt (unpackage_i_i m) x, adapt (unpackage_i_s m) x)
 fun unpackage_t_mt m x = TypeShiftVisitor.on_t_mt $ params_var m x
+fun unpackage_t_t m x = TypeShiftVisitor.on_t_t $ params_var m x
                                                   
-fun unpackage_i_e m x = ExprShiftVisitor.on_i_e (adapt (unpackage_i_i m) x, adapt (unpackage_i_s m) x, adapt (unpackage_i_mt m) x)
-fun unpackage_t_e m x = ExprShiftVisitor.on_t_e $ adapt (unpackage_t_mt m) x
+fun unpackage_i_e m x = ExprShiftVisitor.on_i_e (adapt (unpackage_i_i m) x, adapt (unpackage_i_s m) x, adapt (unpackage_i_mt m) x, adapt (unpackage_i_t m) x)
+fun unpackage_t_e m x = ExprShiftVisitor.on_t_e (adapt (unpackage_t_mt m) x, adapt (unpackage_t_t m) x)
 fun unpackage_c_e m x = ExprShiftVisitor.on_c_e $ params_var m x
 fun unpackage_e_e m x = ExprShiftVisitor.on_e_e $ params_var m x
 
