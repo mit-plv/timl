@@ -900,16 +900,6 @@ fun new_expr_visitor vtable params =
     ExprVisitor vtable
   end
     
-fun visit_decl_acc visitor (b, env) =
-  let
-    val ExprVisitor vtable = visitor
-    val ctx = env2ctx env
-    val b = #visit_decl vtable visitor ctx b
-    val env = !(#current ctx)
-  in
-    (hd b, env)
-  end
-
 fun visit_decls_list visitor ctx decls =
   let
     val ExprVisitor vtable = visitor
@@ -918,14 +908,30 @@ fun visit_decls_list visitor ctx decls =
     decls
   end
     
-fun visit_decls_acc visitor (b, env) =
+fun visit_with_acc f visitor (b, env) =
   let
     val ctx = env2ctx env
-    val b = visit_decls_list visitor ctx b
+    val b = f visitor ctx b
     val env = !(#current ctx)
   in
     (b, env)
   end
+
+fun visit_decl_acc visitor (b, env) =
+  let
+    val ExprVisitor vtable = visitor
+    val (b, env) = visit_with_acc (#visit_decl vtable) visitor (b, env)
+  in
+    (hd b, env)
+  end
+
+fun visit_decls_acc a = visit_with_acc visit_decls_list a
+
+fun unExprVisitor (ExprVisitor vtable) = vtable
+val get_vtable = unExprVisitor
+                   
+fun visit_sgn_acc visitor = visit_with_acc (#visit_sgn $ get_vtable visitor) visitor
+fun visit_mod_acc visitor = visit_with_acc (#visit_mod $ get_vtable visitor) visitor
 
 (*********** from here to the end: boring record overrides *****************)
     
@@ -1774,6 +1780,73 @@ fun override_visit_DOpen (record : ('this, 'env) expr_visitor_vtable) new : ('th
     visit_SpecIdx = #visit_SpecIdx record,
     visit_SpecType = #visit_SpecType record,
     visit_SpecTypeDef = #visit_SpecTypeDef record,
+    visit_mod = #visit_mod record,
+    visit_ModComponents = #visit_ModComponents record,
+    visit_ModSeal = #visit_ModSeal record,
+    visit_ModTransparentAsc = #visit_ModTransparentAsc record,
+    visit_ty = #visit_ty record,
+    visit_kind = #visit_kind record,
+    visit_EApp = #visit_EApp record,
+    visit_EPair = #visit_EPair record,
+    visit_EAdd = #visit_EAdd record,
+    visit_ENew = #visit_ENew record,
+    visit_ERead = #visit_ERead record,
+    visit_EAppI = #visit_EAppI record,
+    visit_EAscTime = #visit_EAscTime record,
+    visit_var = #visit_var record,
+    visit_cvar = #visit_cvar record,
+    visit_mod_id = #visit_mod_id record,
+    visit_idx = #visit_idx record,
+    visit_sort = #visit_sort record,
+    visit_mtype = #visit_mtype record,
+    visit_ptrn_constr_tag = #visit_ptrn_constr_tag record,
+    extend_i = #extend_i record,
+    extend_t = #extend_t record,
+    extend_c = #extend_c record,
+    extend_e = #extend_e record
+  }
+
+fun override_visit_SpecTypeDef (record : ('this, 'env) expr_visitor_vtable) new : ('this, 'env) expr_visitor_vtable =
+  {
+    visit_expr = #visit_expr record,
+    visit_EVar = #visit_EVar record,
+    visit_EConst = #visit_EConst record,
+    visit_EUnOp = #visit_EUnOp record,
+    visit_EBinOp = #visit_EBinOp record,
+    visit_ETriOp = #visit_ETriOp record,
+    visit_EEI = #visit_EEI record,
+    visit_EET = #visit_EET record,
+    visit_ET = #visit_ET record,
+    visit_EAbs = #visit_EAbs record,
+    visit_EAbsI = #visit_EAbsI record,
+    visit_EAppConstr = #visit_EAppConstr record,
+    visit_ECase = #visit_ECase record,
+    visit_ELet = #visit_ELet record,
+    visit_EAppT = #visit_EAppT record,
+    visit_EAsc = #visit_EAsc record,
+    visit_decl = #visit_decl record,
+    visit_DVal = #visit_DVal record,
+    visit_DValPtrn = #visit_DValPtrn record,
+    visit_DRec = #visit_DRec record,
+    visit_DIdxDef = #visit_DIdxDef record,
+    visit_DAbsIdx2 = #visit_DAbsIdx2 record,
+    visit_DAbsIdx = #visit_DAbsIdx record,
+    visit_DTypeDef = #visit_DTypeDef record,
+    visit_DOpen = #visit_DOpen record,
+    visit_DConstrDef = #visit_DConstrDef record,
+    visit_ptrn = #visit_ptrn record,
+    visit_VarP = #visit_VarP record,
+    visit_TTP = #visit_TTP record,
+    visit_PairP = #visit_PairP record,
+    visit_AliasP = #visit_AliasP record,
+    visit_ConstrP = #visit_ConstrP record,
+    visit_AnnoP = #visit_AnnoP record,
+    visit_sgn = #visit_sgn record,
+    visit_spec = #visit_spec record,
+    visit_SpecVal = #visit_SpecVal record,
+    visit_SpecIdx = #visit_SpecIdx record,
+    visit_SpecType = #visit_SpecType record,
+    visit_SpecTypeDef = new,
     visit_mod = #visit_mod record,
     visit_ModComponents = #visit_ModComponents record,
     visit_ModSeal = #visit_ModSeal record,
