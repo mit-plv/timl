@@ -65,7 +65,24 @@ fun spec2decl mid (sctx, kctx, cctx, tctx) spec =
         (* we don't allow [datatype] in signature for now, so no special treatment of [TDatatype] *)
         MakeDTypeDef (tname, t)
   end
-      
+
+fun decorate_top_decl mid decl =
+  let
+    fun decorate (Binder (ns, (name, r))) = Binder (ns, (mid ^ "_" ^ name, r))
+    (* todo: implement *)
+    fun decorate_ptrn mid pn = pn
+  in
+    case decl of
+        DVal (name, bind, r) => DVal (decorate name, bind, r)
+      | DValPtrn (pn, e, r) => DValPtrn (decorate_ptrn mid pn, e, r)
+      | DRec (name, bind, r) => DRec (decorate name, bind, r)
+      | DIdxDef (name, s, i) => DIdxDef (decorate name, s, i)
+      | DAbsIdx2 (name, s, i) => DAbsIdx2 (decorate name, s, i)
+      | DAbsIdx ((name, s, i), Rebind decls, r) => DAbsIdx ((decorate name, s, i), Rebind $ Teles $ map (decorate_top_decl mid) $ unTeles decls, r)
+      | DTypeDef (name, t) => DTypeDef (decorate name, t)
+      | DConstrDef (name, c) => DConstrDef (decorate name, c)
+      | DOpen _ => raise Impossible "decorate_top_decl/DOpen"
+  end
       
 fun merge_module ((mid, m), acc) =
   case m of
@@ -75,6 +92,7 @@ fun merge_module ((mid, m), acc) =
         val acc = unpackage_c_decls mid 0 acc
         val acc = unpackage_t_decls mid 0 acc
         val acc = unpackage_i_decls mid 0 acc
+        val decls = map (decorate_top_decl mid) decls
       in
         decls @ acc
       end
