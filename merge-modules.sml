@@ -84,9 +84,10 @@ fun merge_module ((mid, m), acc) =
         val names = collect_names_mod m
         val mid' = prefix "__" mid
         val decls = map (spec2decl mid' names) specs
-        val acc = decls @ acc
+        val acc = merge_module ((mid, ModComponents (decls, dummy)), acc)
+        val acc = merge_module ((mid', m), acc)
       in
-        merge_module ((mid', m), acc)
+        acc
       end
         
 fun do_merge_modules ms decls = foldr merge_module decls ms
