@@ -724,10 +724,15 @@ structure U = UnderscoredExpr
 
 fun short_to_long_id x = ID (x, dummy)
 fun export_var sel ctx id =
-  case id of
-      ID (x, _) =>
-      short_to_long_id $ nth_error (sel ctx) x !! (fn () => "__unbound_" ^ str_int x)
-    | QID _ => short_to_long_id $ "__unbound_" ^ CanToString.str_raw_var id
+  let
+    (* fun unbound s = "__unbound_" ^ s *)
+    fun unbound s = raise Impossible $ "Unbound identifier: " ^ s
+  in
+    case id of
+        ID (x, _) =>
+        short_to_long_id $ nth_error (sel ctx) x !! (fn () => unbound $ str_int x)
+      | QID _ => short_to_long_id $ unbound $ CanToString.str_raw_var id
+  end
 (* val export_i = return2 *)
 fun export_i a = ToString.export_i Gctx.empty a
 fun export_s a = ToString.export_s Gctx.empty a
@@ -741,10 +746,11 @@ fun str_i a =
   (* const_fun "<idx>" a *)
 fun str_s a =
     (* ToStringRaw.str_raw_s a *)
-  const_fun "<sort>" a
+  ToString.SN.strn_s a
+  (* const_fun "<sort>" a *)
 fun pp_t s b =
-  (* MicroTiMLPP.pp_t_to_fn (str_var, const_fun "<bs>", str_i, str_s, const_fun "<kind>") s b *)
-  str s "<ty>"
+  MicroTiMLPP.pp_t_to_fn (str_var, const_fun "<bs>", str_i, str_s, const_fun "<kind>") s b
+  (* str s "<ty>" *)
 fun pp_e a = MicroTiMLExPP.pp_e_fn (
     str_var,
     str_i,
@@ -869,14 +875,20 @@ fun test4 dirname =
     val (prog, _, _) = resolve_prog empty prog
     open TypeCheck
     val () = TypeCheck.turn_on_builtin ()
+    val () = println "Started typechecking ..."
     val ((prog, _, _), _) = typecheck_prog empty prog
+    val () = println "Finished typechecking"
     open MergeModules
     val decls = merge_prog prog []
     val e = SMakeELet (Teles decls, Expr.ETT dummy)
+    val () = println "Simplifying ..."
     val e = SimpExpr.simp_e [] e
+    val () = println "Finished simplifying"
     (* val () = println $ str_e empty ToStringUtil.empty_ctx e *)
     (* val () = println "" *)
+    val () = println "Started translating ..."
     val e = trans_e e
+    val () = println "Finished translating"
     val e = export ToStringUtil.empty_ctx e
     val () = pp_e e
     val () = println ""
