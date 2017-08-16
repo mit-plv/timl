@@ -1665,6 +1665,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
               val tnames = map unBinderName tnames
               val is_value = is_value e
               val (e, t, d) = get_mtype (add_kindings_skct (zip ((rev o map fst) tnames, repeat (length tnames) Type)) ctx, e)
+              fun ty2mtype t = snd $ collect_Uni t
             in
               if is_value then 
                 let
@@ -1676,10 +1677,10 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
                   val poly_t = Uni_Many (tnames, poly_t, r)
                   val tnames = tnames @ rev free_uvar_names
                 in
-                  (DVal (ename, Outer $ Unbound.Bind (map (Binder o TName) tnames, e), Outer r), ctx_from_typing (name, poly_t), 0, [d])
+                  (DVal (ename, Outer $ Unbound.Bind (map (Binder o TName) tnames, EAsc (e, ty2mtype poly_t)), Outer r), ctx_from_typing (name, poly_t), 0, [d])
                 end
               else if length tnames = 0 then
-                (DVal (ename, Outer $ Unbound.Bind (map (Binder o TName) tnames, e), Outer r), ctx_from_typing (name, Mono t), 0, [d])
+                (DVal (ename, Outer $ Unbound.Bind (map (Binder o TName) tnames, EAsc (e, t)), Outer r), ctx_from_typing (name, Mono t), 0, [d])
               else
                 raise Error (r, ["explicit type variable cannot be generalized because of value restriction"])
             end

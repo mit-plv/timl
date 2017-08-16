@@ -164,6 +164,11 @@ fun str_expr_ET opr =
       EETAppT => "EETAppT"
     | EETAsc => "EETAsc"
 
+fun str_expr_T opr =
+  case opr of
+      ETNever => "ETNever"
+    | ETBuiltin => "ETBuiltin"
+                  
 fun str_expr_const c =
   case c of
       ECTT => "()"

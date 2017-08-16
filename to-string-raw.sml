@@ -69,9 +69,18 @@ fun str_raw_t (t : ty) : string =
 
 fun str_raw_e e =
   case e of
-      EAppConstr _ => "AppConstr (...)"
-    | EBinOp _ => "BinOp (...)"
+      EAppConstr _ => "EAppConstr (...)"
+    | EVar _ => "EVar (...)"
+    | EConst _ => "EConst (...)"
+    | EUnOp _ => "EUnOp (...)"
+    | EBinOp _ => "EBinOp (...)"
+    | ETriOp _ => "ETriOp (...)"
     | EEI (opr, e, i) => sprintf "EEI ($, $, $)" [str_expr_EI opr, str_raw_e e, str_raw_i i]
-    | _ => "<exp>"
+    | EET (opr, e, t) => sprintf "EET ($, $, $)" [str_expr_ET opr, str_raw_e e, str_raw_mt t]
+    | ET (opr, t, r) => sprintf "ET ($, $)" [str_expr_T opr, str_raw_mt t]
+    | EAbs _ => "EAbs (...)"
+    | EAbsI _ => "EAbsI (...)"
+    | ECase _ => "ECase (...)"
+    | ELet _ => "ELet (...)"
 
 end

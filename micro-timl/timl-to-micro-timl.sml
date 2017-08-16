@@ -525,13 +525,10 @@ and on_decls (decls, e_body) =
           (* val () = println $ sprintf "translating: $" [fst $ ToString.str_decl Gctx.empty ToStringUtil.empty_ctx decl] *)
         in
           case decl of
-              S.DVal (ename, Outer bind, Outer r) =>
+              S.DVal data =>
               let
-                val name = unBinderName ename
-                val (tnames, e) = Unbound.unBind bind
-                val tnames = map unBinderName tnames
-                val e = on_e e
-                val e = EAbsTKind_Many (tnames, e)
+                val name = unBinderName $ #1 data
+                val (e, _) = on_DVal data
                 val e_body = on_decls (decls, e_body)
               in
                 MakeELet (e, name, e_body)
@@ -542,10 +539,10 @@ and on_decls (decls, e_body) =
               in
                 on_e $ SMakeECase (e, [(pn, e_body)])
               end
-	    | S.DRec (name, bind, _) => 
+	    | S.DRec data => 
 	      let
-                val name = unBinderName name
-                val (e, t) = on_DRec (name, bind)
+                val name = unBinderName $ #1 data
+                val (e, t) = on_DRec data
                 val e_body = on_decls (decls, e_body)
               in
                 MakeELet (e, name, e_body)
@@ -553,21 +550,34 @@ and on_decls (decls, e_body) =
             | S.DAbsIdx ((iname, Outer s, Outer i), Rebind inner_decls, Outer r) =>
               let
                 val iname = unBinderName iname
+                fun make_Unpack_Pack ename (e, t) =
+                  let
+                    val ename = unBinderName $ ename
+                    val t = MakeTExistsI (iname, s, t)
+                    val e = EPackI (t, i, MakeELetIdx (i, iname, e))
+                    val e_body = on_decls (decls, e_body)
+                    val e = MakeEUnpackI (e, iname, ename, e_body)
+                  in
+                    e
+                  end
               in
                 case unTeles inner_decls of
-                    [S.DRec (ename, bind, _)] => 
+                    [S.DRec data] => 
                     let
-                      val ename = unBinderName ename
-                      val (e, t) = on_DRec (ename, bind)
-                      val t = MakeTExistsI (iname, s, t)
-                      val e = EPackI (t, i, MakeELetIdx (i, iname, e))
-                      val e_body = on_decls (decls, e_body)
-                      val e = MakeEUnpackI (e, iname, ename, e_body)
+                      val (e, t) = on_DRec data
+                      val e = make_Unpack_Pack (#1 data) (e, t)
                     in
                       e
                     end
-                  (* | [S.DVal (ename, bind, _)] =>  *)
-                  | _ => raise Impossible $ "to-micro-timl/DAbsIdx: can only translate when the inner declarations are just one DRec" (* ^ " or one DVal" *)
+                  | [S.DVal data] =>
+                    let
+                      val (e, t) = on_DVal data
+                      val t = t !! (fn () => raise Impossible $ "RHS of DVal inside DAbsIdx must be EAsc:" ^ (fst $ ToString.str_decl Gctx.empty ToStringUtil.empty_ctx decl))
+                      val e = make_Unpack_Pack (#1 data) (e, t)
+                    in
+                      e
+                    end
+                  | _ => raise Impossible $ "to-micro-timl/DAbsIdx: can only translate when the inner declarations are just one DRec" ^ " or one DVal"
               end
             | S.DOpen (Outer m, octx) =>
               let
@@ -643,8 +653,24 @@ and on_decls (decls, e_body) =
               end
         end
           
-and on_DRec (name, bind) =
+and on_DVal (ename, Outer bind, Outer r) =
     let
+      val name = unBinderName ename
+      val (tnames, e) = Unbound.unBind bind
+      val tnames = map unBinderName tnames
+      val (e, t) = case e of
+                       S.EET (EETAsc, e, t) => (e, SOME t)
+                     | _ => (e, NONE)
+      val e = on_e e
+      val e = EAbsTKind_Many (tnames, e)
+      val t = Option.map (curry TUniKind_Many tnames o on_mt) t
+    in
+      (e, t)
+    end
+      
+and on_DRec (name, bind, _) =
+    let
+      val name = unBinderName name
       val ((tnames, Rebind binds), ((t, i), e)) = Unbound.unBind $ unInner bind
       (* val t = t !! (fn () => raise Impossible "to-micro-timl/DRec: t must be SOME") *)
       (* val i = i !! (fn () => raise Impossible "to-micro-timl/DRec: i must be SOME") *)
@@ -742,15 +768,15 @@ val str = PP.string
 fun str_var x = LongId.str_raw_long_id id(*str_int*) x
 fun str_i a =
   (* ToStringRaw.str_raw_i a *)
-  ToString.SN.strn_i a
-  (* const_fun "<idx>" a *)
+  (* ToString.SN.strn_i a *)
+  const_fun "<idx>" a
 fun str_s a =
-    (* ToStringRaw.str_raw_s a *)
-  ToString.SN.strn_s a
-  (* const_fun "<sort>" a *)
+  (* ToStringRaw.str_raw_s a *)
+  (* ToString.SN.strn_s a *)
+  const_fun "<sort>" a
 fun pp_t s b =
-  MicroTiMLPP.pp_t_to_fn (str_var, const_fun "<bs>", str_i, str_s, const_fun "<kind>") s b
-  (* str s "<ty>" *)
+  (* MicroTiMLPP.pp_t_to_fn (str_var, const_fun "<bs>", str_i, str_s, const_fun "<kind>") s b *)
+  str s "<ty>"
 fun pp_e a = MicroTiMLExPP.pp_e_fn (
     str_var,
     str_i,
